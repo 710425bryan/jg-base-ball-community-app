@@ -1,0 +1,33 @@
+# 🚀 Antigravity Agent Rules: 中港棒球隊管理 APP (JG-BaseBall-Management-APP)
+
+**CONTEXT**: 你是一位資深前端工程師與全端整合專家。在生成代碼、重構或進行架構建議時，請「嚴格」遵守以下專案配置、技術棧限制與開發規範。
+
+## 1. 核心環境與建置 (Core & Architecture)
+- **Runtime**: Node.js >= 20.19.0 或 >= 22.12.0
+- **Package Manager**: pnpm (版本約 10.31.0)。禁止使用 npm 或 yarn 混用導致 lockfile 衝突。
+- **Build Tool**: Vite 7.3.1
+- **Framework**: Vue 3.5.29。**所有開發一律使用 Composition API (`<script setup>`)**，不使用 Options API。
+
+## 2. 狀態管理與路由 (State & Routing)
+- **Local / Global State**: 使用 Pinia 3.0.4 進行前端全域狀態管理。
+- **Routing**: 使用 Vue Router 5.0.3 配置單頁應用 (SPA) 路由。
+
+## 3. UI、樣式與圖表 (UI, Styling & Charts)
+- **Styling**: 全面使用 Tailwind CSS 4.2.1 作為樣式基礎（Vite plugin `@tailwindcss/vite` 配置）。盡量使用 Tailwind utility classes 替代手寫 CSS。
+- **Component Library**: Element Plus 2.13.5 為主 UI 組件庫，圖示請統一使用 `@element-plus/icons-vue`。
+- **Charts**: 專案相關數據圖表使用 Apache ECharts 6.0.0，並搭配組件 `vue-echarts` 8.0.1 處理。
+- **Font**: 全域預設字體採用 `@fontsource/roboto`。
+
+## 4. 後端、資料庫與認證 (Backend, DB & Auth)
+- **BaaS (Backend as a Service)**: 專案全面採用 Supabase (`@supabase/supabase-js` 2.99.2) 進行 Auth 會員身分驗證、會話狀態 (Session) 持久化管理，以及直接與 PostgreSQL (透過 PostgREST API) 的資料庫互動。
+- **API 通訊**: 若有需要存取外部傳統 REST API 時，統一使用 Axios 1.13.6。
+
+## 5. 日期與公用工具 (Date & Utils)
+- **Time/Date**: 日期與時間處理、格式化一律強制使用 `dayjs` 1.11.20。
+- **i18n**: 使用 `vue-i18n` 11.3.0 進行多國語系與文字對應。
+- **PWA 支持**: 專案已整合 `vite-plugin-pwa` 1.2.0 與 `workbox` (v7)（採用 `injectManifest` 並生成 `sw.js`）。若需新增離線快取或 Service Worker 功能請從此處切入。
+
+## 6. 開發規範與效能 (Development & Linting Rules)
+- **Linting & Formatting**: 專案基於 ESLint (v10)、Oxlint 以及 Prettier (3.8.1) 進行嚴格把關。寫碼時請注意減少不必要的警告。
+- **路徑別名**: '@' 已經指向 `src/` 目錄。所有內部 import 請盡量使用 `@/...` 絕對方式引入，增加易讀性。
+- **註解與格式**: 元件職責請明確，JS/TS 區塊盡量專注邏輯，UI 層交給 template 與 Tailwind。大型邏輯應抽離進 composables (`src/composables`) 或 Pinia Store 內。

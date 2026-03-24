@@ -1,0 +1,49 @@
+{
+  "name": "web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "vue": "3.5.30",
+    "vue-router": "5.0.3",
+    "pinia": "3.0.4",
+    "@tanstack/vue-query": "5.92.9",
+    "zod": "4.3.6",
+    "axios": "1.13.6",
+    "element-plus": "2.13.5",
+    "@element-plus/icons-vue": "latest",
+    "echarts": "6.0.0",
+    "vue-echarts": "8.0.1",
+    "@fontsource/roboto": "latest",
+    "@supabase/supabase-js": "2.99.2",
+    "dayjs": "1.11.20",
+    "vue-i18n": "11.3.0",
+    "@sentry/vue": "10.42.0",
+    "decimal.js": "10.6.0",
+    "@vueuse/core": "14.2.1",
+    "@microsoft/signalr": "10.0.0"
+  },
+  "devDependencies": {
+    "vite": "7.3.1",
+    "@vitejs/plugin-vue": "^5.0.0",
+    "@vitejs/plugin-legacy": "7.2.1",
+    "core-js": "3.48.0",
+    "vite-plugin-pwa": "1.2.0",
+    "workbox-window": "^7.0.0",
+    "typescript": "5.9.3",
+    "vue-tsc": "3.2.5",
+    "tailwindcss": "3.4.19",
+    "autoprefixer": "10.4.27",
+    "postcss": "^8.4.31",
+    "postcss-preset-env": "11.2.0",
+    "vitest": "4.0.18",
+    "@vue/test-utils": "2.4.6",
+    "@playwright/test": "1.58.2",
+    "msw": "2.12.10"
+  }
+}

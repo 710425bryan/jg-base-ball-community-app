@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-body: 'PingFang TC', 'Heiti TC', 'Microsoft JhengHei', sans-serif;
+  --color-primary: #ea580c; /* Tailwind Orange-600, deeper clay orange */
+  --color-primary-hover: #c2410c; /* Orange-700 */
+  --color-secondary: #facc15; /* Yellow-400 */
+  --color-secondary-hover: #eab308; /* Yellow-500 */
+  --color-background: #f3f4f6; /* Gray-100 for global app background */
+  --color-surface: #ffffff; /* White for cards/panels */
+  --color-text: #1f2937; /* Gray-800 */
+  --color-text-muted: #6b7280; /* Gray-500 */
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--color-background);
+  color: var(--color-text);
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Fallbacks and Mobile Optimizations */
+.safe-area-padding {
+  padding-top: env(safe-area-inset-top);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+}
+
+.min-h-screen {
+  min-height: 100vh;
+  /* iOS vh fix */
+  min-height: -webkit-fill-available;
+}
+
+html {
+  height: -webkit-fill-available;
+}
