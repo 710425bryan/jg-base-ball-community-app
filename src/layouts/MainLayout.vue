@@ -10,7 +10,7 @@
             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" fill="white"/>
             <path d="M7.5 12c0-1.5.5-2.8 1.3-3.9M16.5 12c0-1.5-.5-2.8-1.3-3.9" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
           </svg>
-          棒球社區
+          中港熊戰棒球隊
         </div>
 
         <!-- Center: Desktop Menu -->
@@ -58,7 +58,7 @@
     </div>
 
     <!-- Main Content Area -->
-    <main class="flex-1 overflow-y-auto pb-20 md:pb-6 p-4 relative">
+    <main class="flex-1 overflow-y-auto pb-20 md:pb-6 p-4 relative flex flex-col">
       <router-view />
     </main>
 
@@ -99,9 +99,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, watch, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import { supabase } from '@/services/supabase';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -112,6 +113,56 @@ const handleSignOut = async () => {
   await authStore.signOut();
   router.push('/login');
 };
+
+// --- 推播通知機制 (Web Notification + Supabase Realtime) ---
+let realtimeChannel: any = null;
+
+const startListening = () => {
+  if (realtimeChannel) return;
+
+  realtimeChannel = supabase
+    .channel('leave-requests-inserts')
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'leave_requests' },
+      async (payload) => {
+        if (Notification.permission === 'granted') {
+          // 如果是自己送的假單，不必通知自己
+          if (payload.new.user_id === authStore.user?.id) return;
+
+          const { data } = await supabase.from('profiles').select('name').eq('id', payload.new.user_id).single();
+          new Notification('收到新的請假單', {
+            body: `${data?.name || '未知成員'} 送出了「${payload.new.leave_type}」`,
+            icon: '/pwa-192x192.png'
+          });
+        }
+      }
+    )
+    .subscribe();
+};
+
+const stopListening = () => {
+  if (realtimeChannel) {
+    supabase.removeChannel(realtimeChannel);
+    realtimeChannel = null;
+  }
+};
+
+// 監聽權限變化，只有教練以上級別才會收到通知
+watch(() => authStore.profile?.role, (newRole) => {
+  if (newRole === 'ADMIN' || newRole === 'MANAGER' || newRole === 'HEAD_COACH') {
+    if (Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+    startListening();
+  } else {
+    stopListening();
+  }
+}, { immediate: true });
+
+onUnmounted(() => {
+  stopListening();
+});
 </script>
 
 <style scoped>

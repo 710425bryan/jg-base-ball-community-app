@@ -6,7 +6,13 @@ import type { User, Session } from '@supabase/supabase-js'
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const session = ref<Session | null>(null)
+  const profile = ref<any | null>(null)
   const isInitializing = ref(true)
+
+  const fetchProfile = async (userId: string) => {
+    const { data } = await supabase.from('profiles').select('*').eq('id', userId).single()
+    profile.value = data || null
+  }
 
   const initializeAuth = async () => {
     isInitializing.value = true
@@ -14,10 +20,16 @@ export const useAuthStore = defineStore('auth', () => {
       const { data: { session: existingSession } } = await supabase.auth.getSession()
       session.value = existingSession
       user.value = existingSession?.user ?? null
+      if (user.value) await fetchProfile(user.value.id)
 
-      supabase.auth.onAuthStateChange((_event, newSession) => {
+      supabase.auth.onAuthStateChange(async (_event, newSession) => {
         session.value = newSession
         user.value = newSession?.user ?? null
+        if (user.value) {
+          await fetchProfile(user.value.id)
+        } else {
+          profile.value = null
+        }
       })
     } catch (error) {
       console.error('Failed to initialize auth', error)
@@ -36,6 +48,16 @@ export const useAuthStore = defineStore('auth', () => {
     if (error) throw error
   }
 
+  const verifyOtpCode = async (email: string, token: string) => {
+    const { data, error } = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type: 'email'
+    })
+    if (error) throw error
+    return data
+  }
+
   const signOut = async () => {
     await supabase.auth.signOut()
     user.value = null
@@ -45,9 +67,11 @@ export const useAuthStore = defineStore('auth', () => {
   return {
     user,
     session,
+    profile,
     isInitializing,
     initializeAuth,
     sendMagicLink,
+    verifyOtpCode,
     signOut
   }
 })

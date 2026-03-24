@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  --font-body: 'PingFang TC', 'Heiti TC', 'Microsoft JhengHei', sans-serif;
+  --font-body: 'Roboto', 'PingFang TC', 'Microsoft JhengHei', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   --color-primary: #ea580c; /* Tailwind Orange-600, deeper clay orange */
   --color-primary-hover: #c2410c; /* Orange-700 */
   --color-secondary: #facc15; /* Yellow-400 */
