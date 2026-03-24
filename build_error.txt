@@ -1,0 +1,67 @@
+
+> web@0.0.0 build C:\Users\BryanChen\.gemini\antigravity\scratch\jg-base-ball-community-app
+> vue-tsc && vite build
+
+[36mvite v7.3.1 [32mbuilding client environment for production...[36m[39m
+transforming...
+[32m✓[39m 1719 modules transformed.
+rendering chunks...
+computing gzip size...
+[2mdist/[22m[32mregisterSW.js                                [39m[1m[2m    0.13 kB[22m[1m[22m
+[2mdist/[22m[32mmanifest.webmanifest                         [39m[1m[2m    0.19 kB[22m[1m[22m
+[2mdist/[22m[36massets/LeaveRequestsView-legacy-SkwCxAVZ.js  [39m[1m[2m    1.76 kB[22m[1m[22m[2m │ gzip:   0.96 kB[22m
+[2mdist/[22m[36massets/PlayersView-legacy-C_xAH0Eb.js        [39m[1m[2m    1.84 kB[22m[1m[22m[2m │ gzip:   1.06 kB[22m
+[2mdist/[22m[36massets/UsersView-legacy-Dq9i_woS.js          [39m[1m[2m    1.87 kB[22m[1m[22m[2m │ gzip:   1.07 kB[22m
+[2mdist/[22m[36massets/CalendarView-legacy-DRXPpFGJ.js       [39m[1m[2m    1.99 kB[22m[1m[22m[2m │ gzip:   1.01 kB[22m
+[2mdist/[22m[36massets/HomeView-legacy-fqDVrCXg.js           [39m[1m[2m    3.13 kB[22m[1m[22m[2m │ gzip:   1.38 kB[22m
+[2mdist/[22m[36massets/LoginView-legacy-DZt-lk8s.js          [39m[1m[2m    4.77 kB[22m[1m[22m[2m │ gzip:   2.55 kB[22m
+[2mdist/[22m[36massets/polyfills-legacy-0fQOyWNx.js          [39m[1m[2m   67.46 kB[22m[1m[22m[2m │ gzip:  24.67 kB[22m
+[2mdist/[22m[36massets/index-legacy-zX5GOw7k.js              [39m[1m[33m1,592.11 kB[39m[22m[2m │ gzip: 420.60 kB[22m
+[33m
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+[2mdist/[22m[32mregisterSW.js                          [39m[1m[2m    0.13 kB[22m[1m[22m
+[2mdist/[22m[32mmanifest.webmanifest                   [39m[1m[2m    0.19 kB[22m[1m[22m
+[2mdist/[22m[32mindex.html                             [39m[1m[2m    1.89 kB[22m[1m[22m[2m │ gzip:   0.89 kB[22m
+[2mdist/[22m[35massets/HomeView-BC-j2SIL.css           [39m[1m[2m    0.18 kB[22m[1m[22m[2m │ gzip:   0.14 kB[22m
+[2mdist/[22m[35massets/CalendarView-Bmy-66tu.css       [39m[1m[2m    0.18 kB[22m[1m[22m[2m │ gzip:   0.14 kB[22m
+[2mdist/[22m[35massets/LeaveRequestsView-Df9MrxS7.css  [39m[1m[2m    0.18 kB[22m[1m[22m[2m │ gzip:   0.14 kB[22m
+[2mdist/[22m[35massets/PlayersView-vOQMzDmz.css        [39m[1m[2m    0.18 kB[22m[1m[22m[2m │ gzip:   0.14 kB[22m
+[2mdist/[22m[35massets/UsersView-DK9IMreb.css          [39m[1m[2m    0.18 kB[22m[1m[22m[2m │ gzip:   0.14 kB[22m
+[2mdist/[22m[35massets/LoginView-DYrU1CYv.css          [39m[1m[2m    0.21 kB[22m[1m[22m[2m │ gzip:   0.17 kB[22m
+[2mdist/[22m[35massets/index-DMqUC5BG.css              [39m[1m[2m  402.27 kB[22m[1m[22m[2m │ gzip:  55.21 kB[22m
+[2mdist/[22m[36massets/LeaveRequestsView-BNVmk71-.js   [39m[1m[2m    1.41 kB[22m[1m[22m[2m │ gzip:   0.78 kB[22m
+[2mdist/[22m[36massets/PlayersView-CZMJlnrl.js         [39m[1m[2m    1.48 kB[22m[1m[22m[2m │ gzip:   0.86 kB[22m
+[2mdist/[22m[36massets/UsersView-TUcVVC69.js           [39m[1m[2m    1.51 kB[22m[1m[22m[2m │ gzip:   0.88 kB[22m
+[2mdist/[22m[36massets/CalendarView-S565IjjY.js        [39m[1m[2m    1.64 kB[22m[1m[22m[2m │ gzip:   0.82 kB[22m
+[2mdist/[22m[36massets/HomeView-DPIEDkzj.js            [39m[1m[2m    2.78 kB[22m[1m[22m[2m │ gzip:   1.19 kB[22m
+[2mdist/[22m[36massets/LoginView-CRX5pKs2.js           [39m[1m[2m    4.40 kB[22m[1m[22m[2m │ gzip:   2.34 kB[22m
+[2mdist/[22m[36massets/index-CMR6lTdw.js               [39m[1m[33m1,243.79 kB[39m[22m[2m │ gzip: 393.52 kB[22m
+[33m
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+[32m✓ built in 12.30s[39m
+
+PWA v1.2.0
+Building src/sw.js service worker ("es" format)...
+[36mvite v7.3.1 [32mbuilding client environment for production...[36m[39m
+transforming...
+[32m✓[39m 1 modules transformed.
+[31m✗[39m Build failed in 2ms
+[31merror during build:
+[31m[vite]: Rollup failed to resolve import "workbox-precaching" from "C:/Users/BryanChen/.gemini/antigravity/scratch/jg-base-ball-community-app/src/sw.js".
+This is most likely unintended because it can break your application at runtime.
+If you do want to externalize this module explicitly add it to
+`build.rollupOptions.external`[31m
+    at viteLog (file:///C:/Users/BryanChen/.gemini/antigravity/scratch/jg-base-ball-community-app/node_modules/.pnpm/vite@7.3.1_@types+node@25.5_da7e752c944a2fddadb60a2891abf6db/node_modules/vite/dist/node/chunks/config.js:33635:57)
+    at onRollupLog (file:///C:/Users/BryanChen/.gemini/antigravity/scratch/jg-base-ball-community-app/node_modules/.pnpm/vite@7.3.1_@types+node@25.5_da7e752c944a2fddadb60a2891abf6db/node_modules/vite/dist/node/chunks/config.js:33665:7)
+    at onLog (file:///C:/Users/BryanChen/.gemini/antigravity/scratch/jg-base-ball-community-app/node_modules/.pnpm/vite@7.3.1_@types+node@25.5_da7e752c944a2fddadb60a2891abf6db/node_modules/vite/dist/node/chunks/config.js:33467:4)
+    at file:///C:/Users/BryanChen/.gemini/antigravity/scratch/jg-base-ball-community-app/node_modules/.pnpm/rollup@4.60.0/node_modules/rollup/dist/es/shared/node-entry.js:21028:32
+    at Object.logger [as onLog] (file:///C:/Users/BryanChen/.gemini/antigravity/scratch/jg-base-ball-community-app/node_modules/.pnpm/rollup@4.60.0/node_modules/rollup/dist/es/shared/node-entry.js:23023:9)
+    at ModuleLoader.handleInvalidResolvedId (file:///C:/Users/BryanChen/.gemini/antigravity/scratch/jg-base-ball-community-app/node_modules/.pnpm/rollup@4.60.0/node_modules/rollup/dist/es/shared/node-entry.js:21767:26)
+    at file:///C:/Users/BryanChen/.gemini/antigravity/scratch/jg-base-ball-community-app/node_modules/.pnpm/rollup@4.60.0/node_modules/rollup/dist/es/shared/node-entry.js:21725:26[39m
+ ELIFECYCLE  Command failed with exit code 1.

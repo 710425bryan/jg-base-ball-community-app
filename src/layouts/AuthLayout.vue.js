@@ -5,14 +5,18 @@ let __VLS_components;
 let __VLS_intrinsics;
 let __VLS_directives;
 __VLS_asFunctionalElement1(__VLS_intrinsics.div, __VLS_intrinsics.div)({
-    ...{ class: "min-h-screen text-text flex items-center justify-center" },
+    ...{ class: "fixed inset-0 w-full h-full text-text flex items-center justify-center overflow-y-auto" },
     ...{ style: {} },
 });
-/** @type {__VLS_StyleScopedClasses['min-h-screen']} */ ;
+/** @type {__VLS_StyleScopedClasses['fixed']} */ ;
+/** @type {__VLS_StyleScopedClasses['inset-0']} */ ;
+/** @type {__VLS_StyleScopedClasses['w-full']} */ ;
+/** @type {__VLS_StyleScopedClasses['h-full']} */ ;
 /** @type {__VLS_StyleScopedClasses['text-text']} */ ;
 /** @type {__VLS_StyleScopedClasses['flex']} */ ;
 /** @type {__VLS_StyleScopedClasses['items-center']} */ ;
 /** @type {__VLS_StyleScopedClasses['justify-center']} */ ;
+/** @type {__VLS_StyleScopedClasses['overflow-y-auto']} */ ;
 let __VLS_0;
 /** @ts-ignore @type {typeof __VLS_components.routerView | typeof __VLS_components.RouterView} */
 routerView;

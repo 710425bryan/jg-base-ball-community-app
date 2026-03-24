@@ -12,10 +12,8 @@ export default defineConfig({
       targets: ['defaults', 'not IE 11']
     }),
     VitePWA({
+      registerType: 'autoUpdate',
       injectRegister: 'auto',
-      strategies: 'injectManifest',
-      srcDir: 'src',
-      filename: 'sw.js',
       manifest: {
         name: 'JG BaseBall Community App',
         short_name: 'JG BaseBall',
