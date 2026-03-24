@@ -4,14 +4,14 @@
 
 :root {
   --font-body: 'Roboto', 'PingFang TC', 'Microsoft JhengHei', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-  --color-primary: #ea580c; /* Tailwind Orange-600, deeper clay orange */
-  --color-primary-hover: #c2410c; /* Orange-700 */
+  --color-primary: #D88F22; /* Primary Brand Color */
+  --color-primary-hover: #c07e1a; /* Hover */
   --color-secondary: #facc15; /* Yellow-400 */
   --color-secondary-hover: #eab308; /* Yellow-500 */
-  --color-background: #f3f4f6; /* Gray-100 for global app background */
+  --color-background: #f8fafc; /* Light slate 50 for global app background */
   --color-surface: #ffffff; /* White for cards/panels */
-  --color-text: #1f2937; /* Gray-800 */
-  --color-text-muted: #6b7280; /* Gray-500 */
+  --color-text: #1e293b; /* Slate 800 */
+  --color-text-muted: #64748b; /* Slate 500 */
 }
 
 body {

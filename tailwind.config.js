@@ -7,9 +7,22 @@ export default {
   theme: {
     extend: {
       colors: {
+        orange: {
+          50: '#FDF7EE',
+          100: '#F9ECD6',
+          200: '#F2D3A1',
+          300: '#EBB96C',
+          400: '#E5A037',
+          500: '#D88F22', // The exact #D88F22 color string
+          600: '#C27C1C',
+          700: '#A16216',
+          800: '#824F15',
+          900: '#6E4314',
+          950: '#3D2207',
+        },
         primary: {
-          DEFAULT: 'var(--color-primary)',
-          hover: 'var(--color-primary-hover)',
+          DEFAULT: '#D88F22',
+          hover: '#C27C1C',
         },
         secondary: {
           DEFAULT: 'var(--color-secondary)',

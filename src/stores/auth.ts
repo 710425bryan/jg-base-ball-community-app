@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { supabase } from '@/services/supabase'
 import type { User, Session } from '@supabase/supabase-js'
 
@@ -8,6 +8,8 @@ export const useAuthStore = defineStore('auth', () => {
   const session = ref<Session | null>(null)
   const profile = ref<any | null>(null)
   const isInitializing = ref(true)
+
+  const isAuthenticated = computed(() => !!user.value)
 
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).single()
@@ -69,6 +71,7 @@ export const useAuthStore = defineStore('auth', () => {
     session,
     profile,
     isInitializing,
+    isAuthenticated,
     initializeAuth,
     sendMagicLink,
     verifyOtpCode,

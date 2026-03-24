@@ -1,24 +1,32 @@
 <template>
-  <div class="h-full flex flex-col relative animate-fade-in p-2 md:p-6 pb-20 md:pb-6">
+  <div class="h-full flex flex-col relative animate-fade-in p-2 md:p-6 pb-20 md:pb-6 bg-background text-text overflow-hidden">
     <!-- 頂部標題與操作區 -->
     <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-6 gap-4 shrink-0">
-      <div>
-        <h2 class="text-3xl font-extrabold text-gray-800 tracking-tight flex items-center gap-2">
-          隊職員名冊
-        </h2>
-        <p class="text-gray-500 font-medium text-sm mt-1">管理各級球員、教練與管理群的詳細資料。</p>
+      <div class="flex items-center gap-4">
+        <!-- 黑熊 Logo -->
+        <div class="w-12 h-12 bg-white rounded-xl border-2 border-primary flex items-center justify-center shadow-sm">
+          <span class="text-2xl">🐻</span>
+        </div>
+        <div>
+          <h2 class="text-3xl font-black text-slate-800 tracking-wider flex items-center gap-2">
+            TAIWAN <span class="text-primary italic">BEARS</span>
+          </h2>
+          <p class="text-secondary font-bold text-sm mt-1 uppercase tracking-[0.2em] flex items-center gap-2">
+            Team Roster<span class="w-10 h-0.5 bg-secondary inline-block"></span>
+          </p>
+        </div>
       </div>
       <div class="flex items-center gap-3" v-if="isAdmin">
-        <button @click="openCreateModal()" class="bg-primary hover:bg-primary/90 active:scale-95 text-white px-5 py-2.5 rounded-xl shadow-[0_8px_20px_rgb(from_var(--color-primary)_r_g_b_/0.25)] text-sm font-bold transition-all flex items-center gap-2">
+        <button @click="openCreateModal()" class="bg-primary hover:bg-primary-hover active:scale-95 text-white px-5 py-2.5 rounded-lg shadow-md text-sm font-bold transition-all flex items-center gap-2 uppercase tracking-wide">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
-          新增成員
+          Add Player
         </button>
       </div>
     </div>
 
     <!-- 頁籤與過濾區 -->
     <div class="mb-4 shrink-0">
-      <el-tabs v-model="activeTab" class="w-full custom-tabs">
+      <el-tabs v-model="activeTab" class="w-full light-tabs">
         <el-tab-pane label="全體人員" name="全部" />
         <el-tab-pane label="球員列表" name="球員" />
         <el-tab-pane label="教練團隊" name="教練" />
@@ -28,31 +36,49 @@
     </div>
 
     <!-- 內容展示區 -->
-    <div class="flex-1 overflow-y-auto min-h-0 pb-4 relative" v-loading="isLoading">
-      <div v-if="filteredMembers.length === 0 && !isLoading" class="flex flex-col justify-center items-center h-full text-gray-400">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-        <span class="font-bold text-gray-400 text-lg">目前沒有符合條件的隊職員</span>
+    <div class="flex-1 overflow-y-auto min-h-0 pb-4 relative custom-scrollbar pr-2" v-loading="isLoading" element-loading-background="rgba(255, 255, 255, 0.8)">
+      <div v-if="filteredMembers.length === 0 && !isLoading" class="flex flex-col justify-center items-center h-full text-slate-500">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+        <span class="font-bold text-lg tracking-widest">NO DATA</span>
       </div>
       
-      <div v-else class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-5">
-        <div v-for="member in filteredMembers" :key="member.id" class="bg-white rounded-2xl p-4 text-center shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-gray-100/80 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:-translate-y-1 transition-all duration-300 relative group cursor-pointer" @click="openEditModal(member)">
+      <div v-else class="flex flex-col gap-3">
+        <div v-for="member in filteredMembers" :key="member.id" 
+             class="bg-white rounded-xl p-3 md:p-4 border border-gray-200 hover:border-primary/50 hover:shadow-md transition-all duration-300 relative group cursor-pointer flex items-center justify-between shadow-sm"
+             @click="openEditModal(member)">
           
-          <!-- 大頭貼 -->
-          <div class="w-20 h-20 bg-gradient-to-tr from-gray-100 to-gray-200 rounded-full mx-auto mb-3 border-[3px] border-white shadow-md flex items-center justify-center text-gray-400 overflow-hidden relative">
-            <img v-if="member.avatar_url" :src="member.avatar_url" class="w-full h-full object-cover" />
-            <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" /></svg>
-            <div v-if="isAdmin" class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+          <div class="flex items-center gap-4">
+            <div class="w-14 h-14 md:w-16 md:h-16 rounded-full border-2 border-gray-100 group-hover:border-primary flex items-center justify-center text-gray-400 overflow-hidden relative shrink-0 transition-colors bg-gray-50">
+              <img v-if="member.avatar_url" :src="member.avatar_url" class="w-full h-full object-cover" />
+              <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" /></svg>
+            </div>
+            
+            <div class="flex flex-col gap-1 text-left">
+              <div class="font-black text-slate-800 md:text-xl tracking-wide flex items-center gap-2">
+                {{ member.name }}
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="text-xs md:text-sm font-bold px-2 py-0.5 rounded border uppercase tracking-wider" :class="getRoleClass(member.role)">[{{ member.role }}]</span>
+                <span v-if="member.throwing_hand && member.batting_hand" class="text-xs md:text-sm font-mono font-bold text-gray-500 px-2 py-0.5 rounded bg-gray-100 border border-gray-200">
+                  {{ member.throwing_hand.slice(0,1) }}/{{ member.batting_hand.slice(0,1) }}
+                </span>
+                <span v-if="member.national_id" class="text-xs md:text-sm font-mono text-gray-400 hidden sm:inline-block">
+                  ID: {{ member.national_id.slice(0, 4) }}***
+                </span>
+              </div>
             </div>
           </div>
           
-          <div class="font-extrabold text-gray-800 text-lg truncate">{{ member.name }}</div>
-          
-          <div class="flex items-center justify-center gap-1.5 mt-1">
-            <span class="text-[10px] font-bold px-2 py-0.5 rounded-md" :class="getRoleClass(member.role)">{{ member.role }}</span>
-            <span v-if="member.throwing_hand && member.batting_hand" class="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md truncate max-w-[80px]">
-              {{ member.throwing_hand.slice(0,1) }}投{{ member.batting_hand.slice(0,1) }}打
-            </span>
+          <div class="flex items-center gap-4">
+            <div class="hidden md:flex flex-col text-right">
+              <span class="text-xs uppercase font-bold tracking-widest text-gray-400">Status</span>
+              <span class="text-sm font-black text-green-500">ACTIVE</span>
+            </div>
+            <div class="flex items-center gap-2" v-if="isAdmin">
+              <button class="w-10 h-10 rounded-full bg-gray-50 hover:bg-primary/10 text-gray-400 hover:text-primary border border-gray-200 hover:border-primary/30 transition-all flex items-center justify-center p-0 m-0" @click.stop="openEditModal(member)">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+              </button>
+            </div>
           </div>
 
         </div>
@@ -86,7 +112,7 @@
 
         <!-- 區塊1: 基本資料 -->
         <div class="bg-gray-50/50 p-4 rounded-xl border border-gray-100 relative">
-          <div class="absolute -top-3 left-4 bg-white px-2 text-xs font-bold text-gray-500 uppercase tracking-wider">個人資料</div>
+          <div class="absolute -top-3 left-4 bg-white px-2 text-sm font-bold text-gray-500 uppercase tracking-wider">個人資料</div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
             <el-form-item label="姓名" prop="name" class="font-bold mb-0">
               <el-input v-model="form.name" placeholder="隊職員姓名" />
@@ -105,8 +131,10 @@
             <el-form-item label="身分證字號" prop="national_id" class="font-bold mb-0">
               <el-input v-model="form.national_id" placeholder="身分證字號" />
             </el-form-item>
-            <el-form-item label="提早入學" prop="is_early_enrollment" class="font-bold mb-0 flex items-center h-[52px]">
-              <div slot="label" class="inline-flex items-center gap-1 leading-none mr-3">提早入學 <el-tooltip content="9/2以後出生，但提前就讀" placement="top"><el-icon class="text-gray-400 cursor-help"><InfoFilled /></el-icon></el-tooltip></div>
+            <el-form-item prop="is_early_enrollment" class="font-bold mb-0 flex items-center h-[52px]">
+              <template #label>
+                <div class="inline-flex items-center gap-1 leading-none mr-3">提早入學 <el-tooltip content="9/2以後出生，但提前就讀" placement="top"><el-icon class="text-gray-400 cursor-help"><InfoFilled /></el-icon></el-tooltip></div>
+              </template>
               <el-switch v-model="form.is_early_enrollment" active-text="有" inactive-text="無" />
             </el-form-item>
           </div>
@@ -114,7 +142,7 @@
 
         <!-- 區塊2: 棒球屬性 -->
         <div class="bg-gray-50/50 p-4 rounded-xl border border-gray-100 relative" v-if="form.role === '球員' || form.role === '教練'">
-          <div class="absolute -top-3 left-4 bg-white px-2 text-xs font-bold text-gray-500 uppercase tracking-wider">棒球屬性</div>
+          <div class="absolute -top-3 left-4 bg-white px-2 text-sm font-bold text-gray-500 uppercase tracking-wider">棒球屬性</div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
             <el-form-item label="投球慣用手" prop="throwing_hand" class="font-bold mb-0">
               <el-select v-model="form.throwing_hand" class="w-full" clearable>
@@ -135,7 +163,7 @@
 
         <!-- 區塊3: 聯絡資訊 -->
         <div class="bg-gray-50/50 p-4 rounded-xl border border-gray-100 relative">
-          <div class="absolute -top-3 left-4 bg-white px-2 text-xs font-bold text-gray-500 uppercase tracking-wider">聯絡資訊</div>
+          <div class="absolute -top-3 left-4 bg-white px-2 text-sm font-bold text-gray-500 uppercase tracking-wider">聯絡資訊</div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
             <el-form-item label="主要聯絡人 LINE ID" prop="contact_line_id" class="font-bold mb-0">
               <el-input v-model="form.contact_line_id" placeholder="LINE ID" />
@@ -161,14 +189,14 @@
 
         <!-- 區塊4: 條款與備註 -->
         <div class="bg-blue-50/30 p-4 rounded-xl border border-blue-100 relative">
-          <div class="absolute -top-3 left-4 bg-white px-2 text-xs font-bold text-blue-500 uppercase tracking-wider">條款與其他</div>
+          <div class="absolute -top-3 left-4 bg-white px-2 text-sm font-bold text-blue-500 uppercase tracking-wider">條款與其他</div>
           <div class="mt-4">
             <el-form-item prop="portrait_auth" class="mb-4">
               <div class="flex items-start gap-3 w-full bg-white p-4 rounded-xl border border-blue-50 shadow-sm">
                 <el-checkbox v-model="form.portrait_auth" size="large" class="mt-1" />
                 <div>
                   <div class="font-bold text-gray-800 text-sm mb-1 leading-tight">同意肖像授權</div>
-                  <div class="text-[11px] leading-relaxed text-gray-500 p-0 text-balance text-left" style="white-space: normal;">
+                  <div class="text-sm leading-relaxed text-gray-500 p-0 text-balance text-left" style="white-space: normal;">
                     中港熊戰棒球隊為紀錄隊職員成長過程及參賽紀錄等，需進行活動影音紀錄，因此隊職員的肖像（包含活動照片及影片）可能會出現在臉書之公開粉絲專頁、臉書之私密社團、其他網路公開社群或學校活動海報。
                   </div>
                 </div>
@@ -252,10 +280,27 @@ const initialForm = {
 
 const form = reactive({ ...initialForm })
 
-const rules = {
+const rules = computed(() => ({
   name: [{ required: true, message: '請填寫姓名', trigger: 'blur' }],
-  role: [{ required: true, message: '請選擇身分', trigger: 'change' }]
-}
+  role: [{ required: true, message: '請選擇身分', trigger: 'change' }],
+  birth_date: [{ required: true, message: '請選擇生日', trigger: 'change' }],
+  national_id: [{ required: true, message: '請填寫身分證字號', trigger: 'blur' }],
+  throwing_hand: [{ required: form.role === '球員' || form.role === '教練', message: '請選擇投球慣用手', trigger: 'change' }],
+  batting_hand: [{ required: form.role === '球員' || form.role === '教練', message: '請選擇打擊慣用方向', trigger: 'change' }],
+  contact_line_id: [{ required: true, message: '請填寫主要聯絡人 LINE ID', trigger: 'blur' }],
+  contact_relation: [{ required: true, message: '請選擇主要聯絡人關係', trigger: 'change' }],
+  guardian_name: [{ required: true, message: '請填寫法定代理人姓名', trigger: 'blur' }],
+  guardian_phone: [{ required: true, message: '請填寫法定代理人手機', trigger: 'blur' }],
+  portrait_auth: [{
+    required: true,
+    message: '請同意肖像授權',
+    trigger: 'change',
+    validator: (rule: any, value: boolean, callback: any) => {
+      if (!value) callback(new Error('請同意肖像授權'))
+      else callback()
+    }
+  }]
+}))
 
 // --- 讀取資料 ---
 const fetchData = async () => {
@@ -325,44 +370,53 @@ const uploadAvatar = async (file: File): Promise<string> => {
 // --- 表單送出 ---
 const submitForm = async () => {
   if (!formRef.value) return
-  await formRef.value.validate(async (valid: boolean) => {
+  
+  try {
+    const valid = await formRef.value.validate()
     if (!valid) return
-    isSubmitting.value = true
-    try {
-      // 1. 若有選擇新頭像，先上傳
-      if (selectedFile) {
-        form.avatar_url = await uploadAvatar(selectedFile)
-      }
-
-      // 2. 構建 payload (拔除不需要的空 ID，且過濾空字串為 null 以免日期欄位報錯)
-      const payload: any = { ...form }
-      if (!isEditing.value) delete payload.id // 新增不需要傳入 id
-      
-      for (const key in payload) {
-        if (payload[key] === '') {
-          payload[key] = null
-        }
-      }
-
-      // 3. 執行 UPSERT 或 INSERT
-      if (isEditing.value) {
-        const { error } = await supabase.from('team_members').update(payload).eq('id', form.id)
-        if (error) throw error
-        ElMessage.success('更新資料成功！')
-      } else {
-        const { error } = await supabase.from('team_members').insert(payload)
-        if (error) throw error
-        ElMessage.success('新增隊員成功！')
-      }
-
-      isModalOpen.value = false
-      fetchData()
-    } catch (error: any) {
-      ElMessage.error(error.message)
-    } finally {
-      isSubmitting.value = false
+  } catch (err) {
+    // validation failed
+    return
+  }
+  
+  isSubmitting.value = true
+  try {
+    // 1. 若有選擇新頭像，先上傳
+    if (selectedFile) {
+      form.avatar_url = await uploadAvatar(selectedFile)
     }
-  })
+
+    // 2. 構建 payload (拔除不需要的空 ID，且過濾空字串為 null 以免日期欄位報錯)
+    const payload: any = { ...form }
+    if (!isEditing.value) delete payload.id // 新增不需要傳入 id
+    
+    for (const key in payload) {
+      if (payload[key] === '') {
+        payload[key] = null
+      }
+    }
+    
+    console.log("Submitting payload to team_members:", payload)
+
+    // 3. 執行 UPSERT 或 INSERT
+    if (isEditing.value) {
+      const { error } = await supabase.from('team_members').update(payload).eq('id', form.id)
+      if (error) throw error
+      ElMessage.success('更新資料成功！')
+    } else {
+      const { error } = await supabase.from('team_members').insert(payload)
+      if (error) throw error
+      ElMessage.success('新增隊員成功！')
+    }
+
+    isModalOpen.value = false
+    fetchData()
+  } catch (error: any) {
+    console.error("Submit Error:", error)
+    ElMessage.error(error.message || '發生錯誤')
+  } finally {
+    isSubmitting.value = false
+  }
 }
 
 // --- 刪除資料 ---
@@ -389,10 +443,10 @@ const confirmDelete = async () => {
 // --- 介面輔助 ---
 const getRoleClass = (role: string) => {
   switch (role) {
-    case '球員': return 'bg-orange-50 text-orange-600'
-    case '教練': return 'bg-blue-50 text-blue-600'
-    case '管理群': return 'bg-purple-50 text-purple-600'
-    default: return 'bg-gray-100 text-gray-600'
+    case '球員': return 'border-primary text-primary bg-primary/10'
+    case '教練': return 'border-secondary text-[#ca8a04] bg-secondary/10'
+    case '管理群': return 'border-slate-800 text-slate-800 bg-slate-100'
+    default: return 'border-gray-500 text-gray-500 bg-gray-50'
   }
 }
 
@@ -402,36 +456,47 @@ onMounted(() => {
 </script>
 
 <style>
-/* 覆蓋部分預設元件樣式以配合無痛整合 */
-.custom-tabs .el-tabs__item {
+/* Light Theme Custom Tabs */
+.light-tabs .el-tabs__item {
   font-size: 1rem;
-  font-weight: 700;
-  color: #9ca3af;
+  font-weight: 800;
+  color: #64748b;
 }
-.custom-tabs .el-tabs__item.is-active {
+.light-tabs .el-tabs__item.is-active {
   color: var(--color-primary);
 }
-.custom-tabs .el-tabs__active-bar {
+.light-tabs .el-tabs__active-bar {
   background-color: var(--color-primary);
   height: 3px;
 }
-.custom-tabs .el-tabs__nav-wrap::after {
+.light-tabs .el-tabs__nav-wrap::after {
   height: 2px;
-  background-color: #f3f4f6;
+  background-color: #e2e8f0;
+}
+
+/* Modal Styling */
+.custom-dialog.el-dialog {
+  border-radius: 16px !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
 }
 .custom-dialog .el-dialog__header {
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 2px solid var(--color-primary);
   margin-right: 0;
   padding: 24px;
 }
 .custom-dialog .el-dialog__title {
-  font-weight: 800;
-  color: #1f2937;
+  color: #1e293b !important; 
+  font-weight: 900;
   font-size: 1.25rem;
 }
 .custom-dialog .el-dialog__body {
   padding: 16px 24px 0px 24px;
 }
+.custom-dialog .el-form-item__label {
+  color: #475569 !important;
+}
+
+/* Scrollbar */
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
 }
@@ -439,7 +504,37 @@ onMounted(() => {
   background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: #e5e7eb;
+  background-color: #cbd5e1;
   border-radius: 10px;
+}
+
+/* 行動裝置滿版設定 (含 iOS 瀏海 / 安全區域調整) */
+@media (max-width: 639px) {
+  .custom-dialog {
+    --el-dialog-width: 100% !important;
+    --el-dialog-margin-top: 0 !important;
+    margin: 0 !important;
+    height: 100dvh;
+    border-radius: 0 !important;
+    display: flex;
+    flex-direction: column;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .custom-dialog .el-dialog__header {
+    padding-top: max(24px, env(safe-area-inset-top)) !important;
+  }
+  .custom-dialog .el-dialog__body {
+    flex: 1;
+    overflow-y: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: 16px !important;
+  }
+  .custom-dialog .el-form {
+    max-height: none !important;
+    flex: 1;
+    overflow-y: auto;
+  }
 }
 </style>

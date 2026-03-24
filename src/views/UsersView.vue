@@ -3,16 +3,16 @@
     <!-- Header Section -->
     <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4 shrink-0">
       <div>
-        <h2 class="text-3xl font-extrabold text-gray-800 tracking-tight flex items-center gap-2">
+        <h2 class="text-3xl font-extrabold text-primary tracking-tight flex items-center gap-2">
           使用者名單
-          <span class="text-sm font-medium bg-orange-100 text-orange-600 px-3 py-1 rounded-full align-middle">
+          <span class="text-sm font-medium bg-orange-50 text-primary px-3 py-1 rounded-full align-middle">
             {{ users.length }} 名成員
           </span>
         </h2>
         <p class="text-gray-500 font-medium text-sm mt-1">管理社區內的教練、經理與球員權限</p>
       </div>
       
-      <button @click="openCreateModal" class="bg-orange-600 hover:bg-orange-700 active:scale-95 text-white px-5 py-2.5 rounded-xl shadow-[0_8px_20px_rgb(234,88,12,0.25)] text-sm font-bold transition-all flex items-center gap-2 min-w-max self-start md:self-auto">
+      <button @click="openCreateModal" class="bg-primary hover:bg-primary-hover active:scale-95 text-white px-5 py-2.5 rounded-xl shadow-[0_8px_20px_rgba(216,143,34,0.25)] text-sm font-bold transition-all flex items-center gap-2 min-w-max self-start md:self-auto">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
         新增使用者
       </button>
@@ -41,7 +41,7 @@
               <div class="flex flex-col">
                 <span class="font-extrabold text-gray-800 text-base flex items-center gap-2">
                   {{ row.name }}
-                  <span v-if="row.nickname" class="text-xs font-bold text-gray-400">({{ row.nickname }})</span>
+                  <span v-if="row.nickname" class="text-sm font-bold text-gray-400">({{ row.nickname }})</span>
                 </span>
                 <span class="text-gray-500 text-sm truncate font-medium mt-0.5">{{ row.email }}</span>
               </div>
@@ -51,7 +51,7 @@
 
         <el-table-column prop="role" label="權限角色" width="160">
           <template #default="{ row }">
-            <span :class="getRoleTagClass(row.role)" class="px-3 py-1.5 rounded-lg text-xs font-bold border flex items-center w-max gap-1">
+            <span :class="getRoleTagClass(row.role)" class="px-3 py-1.5 rounded-lg text-sm font-bold border flex items-center w-max gap-1">
               <span class="w-1.5 h-1.5 rounded-full" :class="getRoleDotClass(row.role)"></span>
               {{ getRoleName(row.role) }}
             </span>
@@ -67,7 +67,7 @@
         <el-table-column label="操作" width="140" align="right" fixed="right">
           <template #default="{ row }">
             <div class="flex gap-2 justify-end">
-              <button @click="openEditModal(row)" class="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-xl transition-all" title="編輯">
+              <button @click="openEditModal(row)" class="p-2 text-gray-400 hover:text-primary hover:bg-orange-50 rounded-xl transition-all" title="編輯">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
               </button>
               <button @click="confirmDelete(row)" class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all" title="刪除">
@@ -96,7 +96,7 @@
             <img v-if="form.avatar_url || avatarPreview" :src="avatarPreview || form.avatar_url" class="w-full h-full object-cover absolute inset-0 z-10" />
             <div class="z-0 flex flex-col items-center justify-center text-gray-400" :class="{ 'opacity-0': form.avatar_url || avatarPreview }">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mb-1 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-              <span class="text-[10px] font-bold">上傳大頭貼</span>
+              <span class="text-sm font-bold">上傳大頭貼</span>
             </div>
             <input type="file" ref="fileInput" class="hidden" accept="image/*" @change="handleFileSelect" />
           </div>
@@ -104,7 +104,7 @@
 
         <el-form-item label="登入信箱 (Email)" prop="email" class="font-bold">
           <el-input v-model="form.email" placeholder="輸入常用 Email" :disabled="isEditing" size="large" />
-          <p v-if="isEditing" class="text-xs text-gray-400 font-normal mt-1 w-full">信箱建立後不可直接修改，如需變更請由使用者本人自行更改。</p>
+          <p v-if="isEditing" class="text-sm text-gray-400 font-normal mt-1 w-full">信箱建立後不可直接修改，如需變更請由使用者本人自行更改。</p>
         </el-form-item>
 
         <el-form-item v-if="!isEditing" label="初始登入密碼" prop="password" class="font-bold">
@@ -189,14 +189,14 @@ const getRoleName = (role: string) => {
 const getRoleTagClass = (role: string) => {
   if (role === 'ADMIN') return 'bg-red-50 border-red-200 text-red-700'
   if (role === 'MANAGER') return 'bg-purple-50 border-purple-200 text-purple-700'
-  if (role === 'HEAD_COACH') return 'bg-orange-50 border-orange-200 text-orange-700'
+  if (role === 'HEAD_COACH') return 'bg-orange-50 border-orange-200 text-primary'
   return 'bg-blue-50 border-blue-200 text-blue-700'
 }
 
 const getRoleDotClass = (role: string) => {
   if (role === 'ADMIN') return 'bg-red-500'
   if (role === 'MANAGER') return 'bg-purple-500'
-  if (role === 'HEAD_COACH') return 'bg-orange-500'
+  if (role === 'HEAD_COACH') return 'bg-primary'
   return 'bg-blue-500'
 }
 

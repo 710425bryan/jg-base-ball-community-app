@@ -3,19 +3,19 @@
     <!-- 頂部標題區 -->
     <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4 shrink-0">
       <div>
-        <h2 class="text-3xl font-extrabold text-gray-800 tracking-tight flex items-center gap-2">
+        <h2 class="text-3xl font-extrabold text-primary tracking-tight flex items-center gap-2">
           出缺勤管理
         </h2>
         <p class="text-gray-500 font-medium text-sm mt-1">管理各級球員與教練的請假紀錄、統計與月曆，請假將自動生效。</p>
       </div>
 
       <div class="flex items-center gap-3">
-        <!-- 齒輪按鈕 (預留設定推播用) -->
-        <button class="bg-white border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50 p-2.5 rounded-xl shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-gray-200">
+        <!-- 齒輪按鈕 (推播設定用) -->
+        <button v-if="isAdminOrManager" @click="openSettingsModal" class="bg-white border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50 p-2.5 rounded-xl shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-gray-200" title="通知推播設定">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" /></svg>
         </button>
 
-        <button @click="openCreateModal" class="bg-orange-600 hover:bg-orange-700 active:scale-95 text-white px-5 py-2.5 rounded-xl shadow-[0_8px_20px_rgb(234,88,12,0.25)] text-sm font-bold transition-all flex items-center gap-2">
+        <button @click="openCreateModal" class="bg-primary hover:bg-primary-hover active:scale-95 text-white px-5 py-2.5 rounded-xl shadow-[0_8px_20px_rgba(216,143,34,0.25)] text-sm font-bold transition-all flex items-center gap-2">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
           新增假單
         </button>
@@ -25,30 +25,7 @@
     <!-- 頁籤與內容區塊 -->
     <div class="flex-1 flex flex-col min-h-0 custom-tabs-container">
       <el-tabs v-model="activeTab" class="w-full h-full flex flex-col">
-        <!-- 1. 月曆視圖 -->
-        <el-tab-pane name="calendar" class="h-full flex flex-col">
-          <template #label><div class="flex items-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" /></svg>月曆視圖</div></template>
-          <div class="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/80 p-2 sm:p-4 flex-1 flex flex-col min-h-0 overflow-y-auto">
-            <el-calendar v-model="calendarDate" class="custom-calendar">
-              <template #date-cell="{ data }">
-                <div class="w-full h-full flex flex-col p-1">
-                  <span class="text-sm font-bold w-6 h-6 flex items-center justify-center rounded-full mb-1" :class="data.isSelected ? 'bg-orange-500 text-white' : 'text-gray-700'">{{ data.day.split('-').slice(2).join('') }}</span>
-                  <div class="flex flex-col gap-1 flex-1 overflow-y-auto custom-scrollbar relative z-10">
-                    <template v-for="leave in getLeavesForDate(data.day)" :key="leave.id">
-                      <div class="text-[10px] sm:text-xs leading-tight px-1 py-0.5 rounded sm:rounded-md shadow-sm border truncate font-bold flex items-center justify-between gap-0.5"
-                           :class="getLeaveBadgeClass(leave.leave_type)">
-                        <span class="truncate">{{ leave.profiles?.name || '未知' }}</span>
-                        <span class="opacity-75 shrink-0 scale-75 sm:scale-100 origin-right">({{ leave.leave_type.slice(0,1) }})</span>
-                      </div>
-                    </template>
-                  </div>
-                </div>
-              </template>
-            </el-calendar>
-          </div>
-        </el-tab-pane>
-
-        <!-- 2. 詳細列表 -->
+        <!-- 1. 詳細列表 -->
         <el-tab-pane name="list" class="h-full flex flex-col">
           <template #label><div class="flex items-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd" /></svg>詳細列表</div></template>
           <div class="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/80 flex flex-col min-h-0">
@@ -88,14 +65,13 @@
                 <template #default="{ row }">
                   <div class="flex items-center gap-3 py-1">
                     <div class="w-8 h-8 rounded-full overflow-hidden bg-gray-100 shrink-0">
-                      <img v-if="row.profiles?.avatar_url" :src="row.profiles.avatar_url" class="w-full h-full object-cover" />
-                      <div v-else class="w-full h-full flex items-center justify-center text-gray-400 font-bold text-xs">
-                        {{ row.profiles?.name?.charAt(0) || '?' }}
+                      <img v-if="row.team_members?.avatar_url" :src="row.team_members.avatar_url" class="w-full h-full object-cover" />
+                      <div v-else class="w-full h-full flex items-center justify-center text-gray-400 font-bold text-sm">
+                        {{ row.team_members?.name?.charAt(0) || '?' }}
                       </div>
                     </div>
                     <div class="flex flex-col">
-                      <span class="font-bold text-gray-800">{{ row.profiles?.name || '未知使用者' }}</span>
-                      <span v-if="row.profiles?.nickname" class="text-xs text-gray-400">{{ row.profiles.nickname }}</span>
+                      <span class="font-bold text-gray-800">{{ row.team_members?.name || '未知人員' }}</span>
                     </div>
                   </div>
                 </template>
@@ -103,7 +79,7 @@
 
               <el-table-column label="假別" width="80">
                 <template #default="{ row }">
-                  <span class="bg-orange-50 text-orange-600 px-2.5 py-1 rounded-md text-xs font-bold border border-orange-100">
+                  <span class="bg-orange-50 text-primary px-2.5 py-1 rounded-md text-sm font-bold border border-orange-100">
                     {{ row.leave_type }}
                   </span>
                 </template>
@@ -127,6 +103,29 @@
           </div>
         </el-tab-pane>
 
+        <!-- 2. 月曆視圖 -->
+        <el-tab-pane name="calendar" class="h-full flex flex-col">
+          <template #label><div class="flex items-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" /></svg>月曆視圖</div></template>
+          <div class="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/80 p-2 sm:p-4 flex-1 flex flex-col min-h-0 overflow-y-auto">
+            <el-calendar v-model="calendarDate" class="custom-calendar">
+              <template #date-cell="{ data }">
+                <div class="w-full h-full flex flex-col p-1">
+                  <span class="text-sm font-bold w-6 h-6 flex items-center justify-center rounded-full mb-1" :class="data.isSelected ? 'bg-primary text-white' : 'text-gray-700'">{{ data.day.split('-').slice(2).join('') }}</span>
+                  <div class="flex flex-col gap-1 flex-1 overflow-y-auto custom-scrollbar relative z-10">
+                    <template v-for="leave in getLeavesForDate(data.day)" :key="leave.id">
+                      <div class="text-sm sm:text-sm leading-tight px-1 py-0.5 rounded sm:rounded-md shadow-sm border truncate font-bold flex items-center justify-between gap-0.5"
+                           :class="getLeaveBadgeClass(leave.leave_type)">
+                        <span class="truncate">{{ leave.team_members?.name || '未知' }}</span>
+                        <span class="opacity-75 shrink-0 scale-75 sm:scale-100 origin-right">({{ leave.leave_type.slice(0,1) }})</span>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+              </template>
+            </el-calendar>
+          </div>
+        </el-tab-pane>
+
         <!-- 3. 統計報表 -->
         <el-tab-pane name="stats" class="h-full flex flex-col">
           <template #label><div class="flex items-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 0l-2 2a1 1 0 101.414 1.414L8 10.414l1.293 1.293a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>統計報表</div></template>
@@ -136,7 +135,7 @@
             <div class="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 p-4 shrink-0 flex flex-col sm:flex-row items-center justify-between gap-4">
               <div>
                 <span class="font-extrabold text-gray-800 block">統計區間</span>
-                <span class="text-xs text-gray-400">選擇日期範圍來統計球員請假次數</span>
+                <span class="text-sm text-gray-400">選擇日期範圍來統計球員請假次數</span>
               </div>
               <el-date-picker
                 v-model="dateRange"
@@ -159,7 +158,7 @@
               </div>
               <div class="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 p-4 flex flex-col items-center justify-center">
                 <span class="text-gray-500 font-bold text-sm mb-1">事假</span>
-                <span class="text-3xl font-extrabold text-orange-500">{{ statsByType.事假 }}</span>
+                <span class="text-3xl font-extrabold text-primary">{{ statsByType.事假 }}</span>
               </div>
               <div class="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 p-4 flex flex-col items-center justify-center">
                 <span class="text-gray-500 font-bold text-sm mb-1">病假</span>
@@ -185,16 +184,16 @@
                 style="width: 100%; height: 100%" 
                 height="100%"
                 row-class-name="transition-colors hover:bg-gray-50/50"
-                header-cell-class-name="bg-white text-gray-400 font-medium text-xs"
+                header-cell-class-name="bg-white text-gray-400 font-medium text-sm"
               >
                 <el-table-column label="球員" min-width="200">
                   <template #default="{ row }">
                     <div class="flex items-center gap-3">
                       <div class="w-8 h-8 rounded-full overflow-hidden bg-gray-100 shrink-0">
                         <img v-if="row.avatar_url" :src="row.avatar_url" class="w-full h-full object-cover" />
-                        <div v-else class="w-full h-full flex items-center justify-center text-gray-400 font-bold text-xs">{{ row.name.charAt(0) }}</div>
+                        <div v-else class="w-full h-full flex items-center justify-center text-gray-400 font-bold text-sm">{{ row.name.charAt(0) }}</div>
                       </div>
-                      <span class="font-bold text-gray-700">{{ row.name }} <span v-if="row.nickname" class="text-xs text-gray-400 font-normal">({{ row.nickname }})</span></span>
+                      <span class="font-bold text-gray-700">{{ row.name }}</span>
                     </div>
                   </template>
                 </el-table-column>
@@ -206,10 +205,10 @@
                 <el-table-column label="假別分佈" min-width="300">
                   <template #default="{ row }">
                     <div class="flex flex-wrap gap-2">
-                       <span v-if="row.types.事假 > 0" class="bg-orange-50 text-orange-600 px-2 py-0.5 rounded text-xs font-bold border border-orange-100">事假: {{ row.types.事假 }}</span>
-                       <span v-if="row.types.病假 > 0" class="bg-red-50 text-red-600 px-2 py-0.5 rounded text-xs font-bold border border-red-100">病假: {{ row.types.病假 }}</span>
-                       <span v-if="row.types.公假 > 0" class="bg-blue-50 text-blue-600 px-2 py-0.5 rounded text-xs font-bold border border-blue-100">公假: {{ row.types.公假 }}</span>
-                       <span v-if="row.types.其他 > 0" class="bg-gray-100 text-gray-600 px-2 py-0.5 rounded text-xs font-bold border border-gray-200">其他: {{ row.types.其他 }}</span>
+                       <span v-if="row.types.事假 > 0" class="bg-orange-50 text-primary px-2 py-0.5 rounded text-sm font-bold border border-orange-100">事假: {{ row.types.事假 }}</span>
+                       <span v-if="row.types.病假 > 0" class="bg-red-50 text-red-600 px-2 py-0.5 rounded text-sm font-bold border border-red-100">病假: {{ row.types.病假 }}</span>
+                       <span v-if="row.types.公假 > 0" class="bg-blue-50 text-blue-600 px-2 py-0.5 rounded text-sm font-bold border border-blue-100">公假: {{ row.types.公假 }}</span>
+                       <span v-if="row.types.其他 > 0" class="bg-gray-100 text-gray-600 px-2 py-0.5 rounded text-sm font-bold border border-gray-200">其他: {{ row.types.其他 }}</span>
                     </div>
                   </template>
                 </el-table-column>
@@ -232,14 +231,14 @@
       <el-form :model="form" :rules="rules" ref="formRef" label-position="top" class="mt-4 space-y-4">
         
         <!-- 當是管理員代為請假時，可選擇球員 -->
-        <el-form-item v-if="isAdminOrManager" label="請假球員 (代填)" prop="user_id" class="font-bold">
+        <el-form-item v-if="isAdminOrManager" label="選擇請假球員" prop="user_id" class="font-bold">
           <el-select v-model="form.user_id" placeholder="請選擇要請假的人員" size="large" class="w-full" filterable>
-            <el-option v-for="p in profiles" :key="p.id" :label="`${p.name} ${p.nickname ? '('+p.nickname+')' : ''}`" :value="p.id" />
+            <el-option v-for="p in team_members_list" :key="p.id" :label="`${p.name} (${p.role})`" :value="p.id" />
           </el-select>
         </el-form-item>
 
         <div class="flex gap-4 w-full flex-col sm:flex-row">
-          <el-form-item label="請假類別" prop="leave_type" class="font-bold flex-1">
+          <el-form-item label="請假類別" prop="leave_type" class="font-bold flex-1 mb-0 sm:mb-4">
             <el-select v-model="form.leave_type" size="large" class="w-full">
               <el-option label="事假" value="事假" />
               <el-option label="病假" value="病假" />
@@ -249,23 +248,95 @@
           </el-form-item>
         </div>
 
-        <el-form-item label="請假日期區間" prop="date_range" class="font-bold">
-          <el-date-picker
-            v-model="form.date_range"
-            type="daterange"
-            range-separator="至"
-            start-placeholder="開始日期"
-            end-placeholder="結束日期"
-            format="YYYY-MM-DD"
-            value-format="YYYY-MM-DD"
-            size="large"
-            class="!w-full"
-          />
+        <el-form-item label="請假模式" prop="leave_mode" class="font-bold mb-5">
+          <el-radio-group v-model="form.leave_mode" class="w-full flex custom-segmented">
+            <el-radio-button label="單日請假" class="flex-1" />
+            <el-radio-button label="連續多日" class="flex-1" />
+            <el-radio-button label="固定週期" class="flex-1" />
+          </el-radio-group>
+        </el-form-item>
+
+        <!-- 單日請假 -->
+        <template v-if="form.leave_mode === '單日請假'">
+          <el-form-item label="請假日期" prop="date_single" class="font-bold">
+            <el-date-picker
+              v-model="form.date_single"
+              type="date"
+              placeholder="選擇日期"
+              format="YYYY-MM-DD"
+              value-format="YYYY-MM-DD"
+              size="large"
+              class="!w-full"
+            />
+          </el-form-item>
+        </template>
+
+        <!-- 連續多日 -->
+        <template v-else-if="form.leave_mode === '連續多日'">
+          <el-form-item label="請假日期區間" prop="date_range" class="font-bold">
+            <el-date-picker
+              v-model="form.date_range"
+              type="daterange"
+              range-separator="至"
+              start-placeholder="開始日期"
+              end-placeholder="結束日期"
+              format="YYYY-MM-DD"
+              value-format="YYYY-MM-DD"
+              size="large"
+              class="!w-full"
+            />
+          </el-form-item>
+        </template>
+
+        <!-- 固定週期 -->
+        <template v-else-if="form.leave_mode === '固定週期'">
+          <div class="bg-purple-50/40 rounded-xl p-4 border border-purple-100 flex flex-col gap-4 mb-4">
+            <el-form-item label="固定星期請假" class="font-bold text-primary mb-0 custom-week-selector">
+              <el-checkbox-group v-model="form.recurring_days" size="default" class="w-full flex justify-between sm:justify-start gap-1 sm:gap-2">
+                <el-checkbox-button :label="1">一</el-checkbox-button>
+                <el-checkbox-button :label="2">二</el-checkbox-button>
+                <el-checkbox-button :label="3">三</el-checkbox-button>
+                <el-checkbox-button :label="4">四</el-checkbox-button>
+                <el-checkbox-button :label="5">五</el-checkbox-button>
+                <el-checkbox-button :label="6">六</el-checkbox-button>
+                <el-checkbox-button :label="0">日</el-checkbox-button>
+              </el-checkbox-group>
+            </el-form-item>
+
+            <el-form-item label="生效期限 (必填)" class="font-bold text-primary mb-0">
+               <el-date-picker
+                v-model="form.recurring_range"
+                type="daterange"
+                range-separator="至"
+                start-placeholder="開始日期"
+                end-placeholder="結束日期"
+                format="YYYY-MM-DD"
+                value-format="YYYY-MM-DD"
+                class="!w-full"
+              />
+            </el-form-item>
+          </div>
+        </template>
+
+        <el-form-item label="請假時段 (選填)" class="font-bold">
+          <div class="flex items-center w-full gap-2">
+            <el-time-picker
+              v-model="form.time_range"
+              is-range
+              range-separator="至"
+              start-placeholder="開始時間"
+              end-placeholder="結束時間"
+              format="HH:mm"
+              value-format="HH:mm"
+              size="large"
+              class="!w-full"
+            />
+          </div>
         </el-form-item>
 
         <el-form-item label="請假原因說明" prop="reason" class="font-bold">
           <el-input v-model="form.reason" type="textarea" :rows="3" placeholder="請簡述請假事由 (選填)" />
-          <p class="text-xs text-gray-400 font-normal mt-1 w-full">假單送出後將自動生效並加入出缺勤紀錄中。</p>
+          <p class="text-sm text-gray-400 font-normal mt-1 w-full">假單送出後將自動生效並加入出缺勤紀錄中。</p>
         </el-form-item>
 
       </el-form>
@@ -273,10 +344,56 @@
       <template #footer>
         <div class="flex justify-end gap-3 mt-4 pt-4 border-t border-gray-100">
           <button @click="isModalOpen = false" class="px-5 py-2.5 text-gray-500 font-bold hover:bg-gray-100 rounded-xl transition-all">取消</button>
-          <button @click="submitForm" :disabled="isSubmitting" class="px-6 py-2.5 bg-orange-600 hover:bg-orange-700 active:scale-95 disabled:opacity-70 text-white font-bold rounded-xl shadow-lg shadow-orange-200 transition-all flex items-center justify-center min-w-[100px]">
+          <button @click="submitForm" :disabled="isSubmitting" class="px-6 py-2.5 bg-primary hover:bg-primary-hover active:scale-95 disabled:opacity-70 text-white font-bold rounded-xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center min-w-[100px]">
             <span v-if="isSubmitting" class="flex gap-2 items-center"><el-icon class="is-loading"><Loading /></el-icon> 送出假單</span>
             <span v-else>確認送出</span>
           </button>
+        </div>
+      </template>
+    </el-dialog>
+
+    <!-- 推播通知設定 Modal -->
+    <el-dialog
+      v-model="isSettingsOpen"
+      title="通知推播設定 (Web Push)"
+      width="90%"
+      style="max-width: 500px; border-radius: 16px;"
+      :show-close="false"
+      class="custom-dialog"
+    >
+      <div v-loading="isFetchingSettings" class="mt-4 space-y-6">
+        <div class="bg-primary/5 p-4 rounded-xl border border-primary/20">
+          <div class="flex items-center justify-between mb-2">
+            <span class="font-extrabold text-gray-800">啟用此裝置推送</span>
+            <el-switch v-model="settingsForm.receive_notifications" active-color="var(--color-primary)" @change="handleTogglePush" />
+          </div>
+          <p class="text-sm text-gray-500 leading-relaxed">
+            開啟後，將綁定「目前這台裝置與瀏覽器」。當有新請假申請時，系統會直接推播到這台裝置上。
+          </p>
+        </div>
+
+        <div v-if="settingsForm.receive_notifications" class="space-y-3 animate-fade-in">
+          <div class="bg-green-50 p-4 rounded-xl text-sm text-green-700 space-y-2 border border-green-100 flex items-center gap-2">
+            <el-icon class="text-green-500 text-xl"><CircleCheckFilled /></el-icon>
+            <span class="font-bold">此裝置已成功綁定推播通知！</span>
+          </div>
+          
+          <div class="bg-gray-50 p-4 rounded-xl text-sm text-gray-500 space-y-2 border border-gray-100">
+            <p class="font-bold text-gray-700 flex items-center gap-1">
+              <el-icon><InfoFilled /></el-icon> 裝置限制注意事項
+            </p>
+            <ul class="list-disc pl-5 space-y-1">
+              <li>如果您更換手機或電腦，需要重新登入並在此開啟推播。</li>
+              <li><span class="font-bold text-primary">iOS / iPhone 用戶請注意：</span>由於 Apple 的限制，您必須先點擊分享圖示 ⍐ 並選擇「加入主畫面 (Add to Home Screen)」，然後從主畫面開啟這套系統，才能成功允許推播通知。</li>
+              <li>如果您不小心在瀏覽器封鎖了通知權限，請至網址列左側點擊鎖頭解開權限。</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="flex justify-end gap-3 mt-4 pt-4 border-t border-gray-100">
+          <button @click="isSettingsOpen = false" class="px-6 py-2.5 bg-primary hover:bg-primary-hover active:scale-95 disabled:opacity-70 text-white font-bold rounded-xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center min-w-[100px]">關閉設定</button>
         </div>
       </template>
     </el-dialog>
@@ -288,38 +405,53 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { supabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Loading } from '@element-plus/icons-vue'
+import { Loading, InfoFilled, CircleCheckFilled } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 
 const authStore = useAuthStore()
 const activeTab = ref('list')
 const isModalOpen = ref(false)
+const isSettingsOpen = ref(false)
+
+// --- Web Push Key ---
+const VAPID_PUBLIC_KEY = 'BIrzQ2oSy_bdMkLjQMDZCnBMzpkFzNHYa1QlcFKNQ3OCjDsMLeKC-2WazmnkSFUK7nwSlM3n8XFahxUxNrLMCmg'
 
 // --- 資料狀態 ---
 const leaveRequests = ref<any[]>([])
-const profiles = ref<any[]>([])
+const team_members_list = ref<any[]>([])
 const isLoading = ref(true)
 const isSubmitting = ref(false)
+const isFetchingSettings = ref(false)
+const isSavingSettings = ref(false)
 const formRef = ref()
 
 // --- 篩選區間 ---
-const defaultStartDate = dayjs().startOf('year').format('YYYY-MM-DD')
-const defaultEndDate = dayjs().endOf('year').format('YYYY-MM-DD')
+const defaultStartDate = dayjs().format('YYYY-MM-DD')
+const defaultEndDate = dayjs().endOf('month').format('YYYY-MM-DD')
 const dateRange = ref<[string, string]>([defaultStartDate, defaultEndDate])
 
 // --- 表單狀態 ---
 const form = reactive({
   user_id: '',
   leave_type: '事假',
-  date_range: ['', ''] as [string, string],
+  leave_mode: '單日請假',
+  date_single: dayjs().format('YYYY-MM-DD'),
+  date_range: [dayjs().format('YYYY-MM-DD'), dayjs().format('YYYY-MM-DD')] as [string, string],
+  recurring_days: [] as number[],
+  recurring_range: [dayjs().format('YYYY-MM-DD'), dayjs().add(1, 'month').format('YYYY-MM-DD')] as [string, string],
+  time_range: null as [string, string] | null,
   reason: ''
 })
 
 const rules = {
   user_id: [{ required: true, message: '請選擇請假人員', trigger: 'change' }],
-  leave_type: [{ required: true, message: '請選擇假別', trigger: 'change' }],
-  date_range: [{ required: true, message: '請選擇請假日期區間', trigger: 'change' }]
+  leave_type: [{ required: true, message: '請選擇假別', trigger: 'change' }]
 }
+
+const settingsForm = reactive({
+  receive_notifications: false,
+  web_push_sub: null as any
+})
 
 // --- 權限判斷 ---
 const isAdminOrManager = computed(() => {
@@ -338,7 +470,7 @@ const getLeavesForDate = (dateStr: string) => {
 
 const getLeaveBadgeClass = (type: string) => {
   switch (type) {
-    case '事假': return 'bg-orange-50 text-orange-600 border-orange-100'
+    case '事假': return 'bg-orange-50 text-primary border-orange-100'
     case '病假': return 'bg-red-50 text-red-600 border-red-100'
     case '公假': return 'bg-blue-50 text-blue-600 border-blue-100'
     default: return 'bg-gray-50 text-gray-600 border-gray-200'
@@ -364,9 +496,8 @@ const rankingByPlayer = computed(() => {
     const pId = r.user_id
     if (!map[pId]) {
       map[pId] = {
-        name: r.profiles?.name || '未知',
-        nickname: r.profiles?.nickname,
-        avatar_url: r.profiles?.avatar_url,
+        name: r.team_members?.name || '未知',
+        avatar_url: r.team_members?.avatar_url,
         total: 0,
         types: { 事假: 0, 病假: 0, 公假: 0, 其他: 0 }
       }
@@ -386,9 +517,9 @@ const fetchData = async () => {
   isLoading.value = true
   try {
     // 1. 撈取使用者名單 (給下拉選單用)
-    if (profiles.value.length === 0) {
-      const { data: pData } = await supabase.from('profiles').select('id, name, nickname, avatar_url').order('name')
-      profiles.value = pData || []
+    if (team_members_list.value.length === 0) {
+      const { data: pData } = await supabase.from('team_members').select('*').order('role', { ascending: true }).order('name', { ascending: true })
+      team_members_list.value = pData || []
     }
 
     // 2. 撈取請假紀錄
@@ -397,7 +528,7 @@ const fetchData = async () => {
       .from('leave_requests')
       .select(`
         id, user_id, leave_type, start_date, end_date, reason, created_at,
-        profiles ( name, nickname, avatar_url )
+        team_members ( name, role, avatar_url )
       `)
       .order('start_date', { ascending: false })
 
@@ -420,7 +551,12 @@ const fetchData = async () => {
 const openCreateModal = () => {
   form.user_id = isAdminOrManager.value ? '' : authStore.user?.id || ''
   form.leave_type = '事假'
+  form.leave_mode = '單日請假'
+  form.date_single = dayjs().format('YYYY-MM-DD')
   form.date_range = [dayjs().format('YYYY-MM-DD'), dayjs().format('YYYY-MM-DD')]
+  form.recurring_days = []
+  form.recurring_range = [dayjs().format('YYYY-MM-DD'), dayjs().add(1, 'month').format('YYYY-MM-DD')]
+  form.time_range = null
   form.reason = ''
   if(formRef.value) formRef.value.clearValidate()
   isModalOpen.value = true
@@ -430,23 +566,96 @@ const submitForm = async () => {
   if (!formRef.value) return
   await formRef.value.validate(async (valid: boolean) => {
     if (!valid) return
+
+    // 前端驗證日期必填
+    if (form.leave_mode === '單日請假' && !form.date_single) return ElMessage.warning('請選擇請假日期')
+    if (form.leave_mode === '連續多日' && (!form.date_range || form.date_range.length !== 2)) return ElMessage.warning('請選擇日期區間')
+
     isSubmitting.value = true
     try {
-      const { error } = await supabase.from('leave_requests').insert({
-        user_id: form.user_id,
-        leave_type: form.leave_type,
-        start_date: form.date_range[0],
-        end_date: form.date_range[1],
-        reason: form.reason || null
-      })
+      let recordsToInsert = []
+
+      // 組合詳細時間與備註
+      let finalReason = form.reason
+      if (form.time_range && form.time_range.length === 2 && form.time_range[0]) {
+        const timeText = `[時段: ${form.time_range[0]} - ${form.time_range[1]}]`
+        finalReason = finalReason ? `${timeText}\n${finalReason}` : timeText
+      }
+
+      if (form.leave_mode === '單日請假') {
+        recordsToInsert.push({
+          user_id: form.user_id,
+          leave_type: form.leave_type,
+          start_date: form.date_single,
+          end_date: form.date_single,
+          reason: finalReason || null
+        })
+      } else if (form.leave_mode === '連續多日') {
+        recordsToInsert.push({
+          user_id: form.user_id,
+          leave_type: form.leave_type,
+          start_date: form.date_range[0],
+          end_date: form.date_range[1],
+          reason: finalReason || null
+        })
+      } else if (form.leave_mode === '固定週期') {
+        if (!form.recurring_range || form.recurring_range.length !== 2) throw new Error('請選擇生效期限')
+        if (!form.recurring_days || form.recurring_days.length === 0) throw new Error('請至少選擇一天固定星期')
+        
+        let curr = dayjs(form.recurring_range[0])
+        let end = dayjs(form.recurring_range[1])
+        const daysMask = form.recurring_days
+        
+        // 防呆迴圈 (最多限制 180 天以內，或更少)
+        let loops = 0
+        while ((curr.isBefore(end) || curr.isSame(end, 'day')) && loops < 365) {
+          if (daysMask.includes(curr.day())) {
+            recordsToInsert.push({
+              user_id: form.user_id,
+              leave_type: form.leave_type,
+              start_date: curr.format('YYYY-MM-DD'),
+              end_date: curr.format('YYYY-MM-DD'),
+              reason: finalReason || null
+            })
+          }
+          curr = curr.add(1, 'day')
+          loops++
+        }
+        if (recordsToInsert.length === 0) throw new Error('所選期限內沒有符合該星期的日期')
+      }
+
+      const { error } = await supabase.from('leave_requests').insert(recordsToInsert)
 
       if (error) throw error
       
+      // --- Trigger PWA Push Notifications to Admins ---
+      try {
+        let playerName = '未知球員'
+        const playerRecord = team_members_list.value.find(p => p.id === form.user_id)
+        if (playerRecord) playerName = playerRecord.name
+
+        const title = `[新增假單] ${playerName} 的${form.leave_type}`
+        let bodyDate = ''
+        if (form.leave_mode === '單日請假') bodyDate = `日期：${form.date_single}`
+        else if (form.leave_mode === '連續多日') bodyDate = `日期：${form.date_range[0]} ~ ${form.date_range[1]}`
+        else if (form.leave_mode === '固定週期') bodyDate = `週期請假：共 ${recordsToInsert.length} 天`
+        
+        await supabase.functions.invoke('send-push-notification', {
+          body: {
+            title,
+            body: `${bodyDate}\n原因：${finalReason || '無'}`,
+            url: '/leave-requests'
+          }
+        })
+      } catch (pushErr) {
+        console.warn('推播傳送失敗', pushErr)
+      }
+
       ElMessage.success('新增假單成功！')
       isModalOpen.value = false
       fetchData()
     } catch (error: any) {
-      ElMessage.error('新增失敗：' + error.message)
+      ElMessage.error('報錯：' + error.message)
     } finally {
       isSubmitting.value = false
     }
@@ -470,6 +679,119 @@ const confirmDelete = async (row: any) => {
   }
 }
 
+// --- 推播設定操作 (Web Push) ---
+const openSettingsModal = async () => {
+  isSettingsOpen.value = true
+  isFetchingSettings.value = true
+  try {
+    const userId = authStore.user?.id
+    if (!userId) return
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('web_push_sub')
+      .eq('id', userId)
+      .single()
+    if (error) throw error
+
+    // 檢查目前瀏覽器是否有訂閱以及 DB 裡是否有舊的 JSON
+    const registration = await navigator.serviceWorker?.getRegistration()
+    let currentSub = registration ? await registration.pushManager.getSubscription() : null
+
+    if (currentSub && data && data.web_push_sub) {
+      settingsForm.receive_notifications = true
+      settingsForm.web_push_sub = data.web_push_sub
+    } else {
+      settingsForm.receive_notifications = false
+      settingsForm.web_push_sub = null
+    }
+
+  } catch (error: any) {
+    ElMessage.error('讀取設定失敗：' + error.message)
+  } finally {
+    isFetchingSettings.value = false
+  }
+}
+
+const urlB64ToUint8Array = (base64String: string) => {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4)
+  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/')
+  const rawData = window.atob(base64)
+  const outputArray = new Uint8Array(rawData.length)
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i)
+  }
+  return outputArray
+}
+
+const handleTogglePush = async (val: boolean | string | number) => {
+  if (val) {
+    // 開啟推播：請求權限並註冊
+    isFetchingSettings.value = true
+    try {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        throw new Error('此瀏覽器不支援推播通知！')
+      }
+
+      const permission = await Notification.requestPermission()
+      if (permission !== 'granted') {
+        settingsForm.receive_notifications = false
+        throw new Error('您封鎖了通知權限，請從瀏覽器設定解開。')
+      }
+
+      const registration = await navigator.serviceWorker.ready
+      let subscription = await registration.pushManager.getSubscription()
+
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC_KEY)
+        })
+      }
+
+      const subJSON = subscription.toJSON()
+      settingsForm.web_push_sub = subJSON
+
+      // 儲存進 DB
+      const { error } = await supabase.from('profiles').update({ 
+        web_push_sub: subJSON,
+        receive_notifications: true
+      }).eq('id', authStore.user?.id)
+      if (error) throw error
+
+      ElMessage.success('推播裝置綁定成功！')
+    } catch (e: any) {
+      settingsForm.receive_notifications = false
+      ElMessage.error(e.message)
+    } finally {
+      isFetchingSettings.value = false
+    }
+  } else {
+    // 關閉推播：清空 DB
+    isFetchingSettings.value = true
+    try {
+      const registration = await navigator.serviceWorker?.ready
+      const subscription = await registration?.pushManager.getSubscription()
+      if (subscription) {
+        await subscription.unsubscribe()
+      }
+
+      settingsForm.web_push_sub = null
+      const { error } = await supabase.from('profiles').update({ 
+        web_push_sub: null,
+        receive_notifications: false
+      }).eq('id', authStore.user?.id)
+      if (error) throw error
+      ElMessage.info('已關閉推播通知')
+    } catch (e: any) {
+      ElMessage.error('關閉推播時發生錯誤：' + e.message)
+      settingsForm.receive_notifications = true
+    } finally {
+      isFetchingSettings.value = false
+    }
+  }
+}
+
 // --- 初始掛載 ---
 onMounted(() => {
   fetchData()
@@ -487,10 +809,10 @@ onMounted(() => {
   transition: all 0.3s ease;
 }
 .custom-tabs-container .el-tabs__item.is-active {
-  color: #ea580c;
+  color: var(--color-primary);
 }
 .custom-tabs-container .el-tabs__active-bar {
-  background-color: #ea580c;
+  background-color: var(--color-primary);
   height: 3px;
   border-radius: 3px;
 }
@@ -546,5 +868,45 @@ onMounted(() => {
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: #e5e7eb;
   border-radius: 4px;
+}
+
+.custom-segmented {
+  --el-radio-button-checked-bg-color: var(--color-primary);
+  --el-radio-button-checked-border-color: var(--color-primary);
+  --el-radio-button-checked-text-color: #fff;
+}
+.custom-segmented .el-radio-button__inner {
+  width: 100%;
+  border-radius: 0;
+  border-color: #e5e7eb;
+  color: #6b7280;
+  font-weight: bold;
+}
+.custom-segmented .el-radio-button:first-child .el-radio-button__inner {
+  border-top-left-radius: 8px;
+  border-bottom-left-radius: 8px;
+}
+.custom-segmented .el-radio-button:last-child .el-radio-button__inner {
+  border-top-right-radius: 8px;
+  border-bottom-right-radius: 8px;
+}
+.custom-segmented .el-radio-button__original-radio:checked + .el-radio-button__inner {
+  background-color: var(--color-primary) !important;
+  border-color: var(--color-primary) !important;
+  box-shadow: -1px 0 0 0 var(--color-primary) !important;
+  color: #fff !important;
+}
+
+.custom-week-selector .el-checkbox-button__inner {
+  border-radius: 4px !important;
+  border-left: 1px solid #e5e7eb;
+  padding: 8px 12px;
+  background-color: white;
+}
+.custom-week-selector .el-checkbox-button.is-checked .el-checkbox-button__inner {
+  background-color: transparent !important;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  box-shadow: inset 0 0 0 1px var(--color-primary);
 }
 </style>

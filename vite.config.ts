@@ -14,11 +14,24 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
+      devOptions: {
+        enabled: true
+      },
+      workbox: {
+        importScripts: ['/push-sw.js']
+      },
       manifest: {
-        name: 'JG BaseBall Community App',
-        short_name: 'JG BaseBall',
+        name: '中港熊戰棒球隊',
+        short_name: '中港熊戰',
         theme_color: '#ffffff',
-        icons: []
+        icons: [
+          {
+            src: '/少棒元素_20260324_232837_0000.png',
+            sizes: '192x192 512x512',
+            type: 'image/png',
+            purpose: 'any maskable'
+          }
+        ]
       }
     })
   ],

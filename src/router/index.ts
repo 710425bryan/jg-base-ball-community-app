@@ -1,32 +1,30 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-import AuthLayout from '../layouts/AuthLayout.vue'
+import PublicLayout from '../layouts/PublicLayout.vue'
 import MainLayout from '../layouts/MainLayout.vue'
+import { useAuthStore } from '../stores/auth'
 
 const router = createRouter({
   history: createWebHashHistory(), // 必須符合舊版WebView設定
   routes: [
     {
       path: '/',
-      redirect: '/login'
-    },
-    {
-      path: '/',
-      component: AuthLayout,
+      component: PublicLayout,
       children: [
         {
-          path: 'login',
-          name: 'Login',
-          component: () => import('../views/LoginView.vue')
+          path: '',
+          name: 'Landing',
+          component: () => import('../views/LandingView.vue')
         }
       ]
     },
     {
       path: '/',
       component: MainLayout,
+      meta: { requiresAuth: true },
       children: [
         {
-          path: 'home',
-          name: 'Home',
+          path: 'dashboard',
+          name: 'Dashboard',
           component: () => import('../views/HomeView.vue')
         },
         {
@@ -52,6 +50,21 @@ const router = createRouter({
       ]
     }
   ]
+})
+
+router.beforeEach(async (to, from, next) => {
+  const authStore = useAuthStore()
+  
+  // Wait for auth init if doing direct navigation
+  if (authStore.isInitializing) {
+    await authStore.initializeAuth()
+  }
+  
+  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
+    next('/')
+  } else {
+    next()
+  }
 })
 
 export default router

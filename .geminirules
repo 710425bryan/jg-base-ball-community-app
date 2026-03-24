@@ -17,6 +17,8 @@
 - **Component Library**: Element Plus 2.13.5 為主 UI 組件庫，圖示請統一使用 `@element-plus/icons-vue`。
 - **Charts**: 專案相關數據圖表使用 Apache ECharts 6.0.0，並搭配組件 `vue-echarts` 8.0.1 處理。
 - **Font**: 全域預設字體採用 `@fontsource/roboto`。
+- **Font size**: 字體最小 14px。
+
 
 ## 4. 後端、資料庫與認證 (Backend, DB & Auth)
 - **BaaS (Backend as a Service)**: 專案全面採用 Supabase (`@supabase/supabase-js` 2.99.2) 進行 Auth 會員身分驗證、會話狀態 (Session) 持久化管理，以及直接與 PostgreSQL (透過 PostgREST API) 的資料庫互動。
