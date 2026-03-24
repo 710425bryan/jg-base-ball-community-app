@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-background text-text flex items-center justify-center">
+  <div class="fixed inset-0 w-full h-full text-text flex items-center justify-center overflow-y-auto" style="background-color: #D88F22;">
     <router-view />
   </div>
 </template>
