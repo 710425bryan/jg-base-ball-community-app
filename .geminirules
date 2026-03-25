@@ -33,3 +33,11 @@
 - **Linting & Formatting**: 專案基於 ESLint (v10)、Oxlint 以及 Prettier (3.8.1) 進行嚴格把關。寫碼時請注意減少不必要的警告。
 - **路徑別名**: '@' 已經指向 `src/` 目錄。所有內部 import 請盡量使用 `@/...` 絕對方式引入，增加易讀性。
 - **註解與格式**: 元件職責請明確，JS/TS 區塊盡量專注邏輯，UI 層交給 template 與 Tailwind。大型邏輯應抽離進 composables (`src/composables`) 或 Pinia Store 內。
+
+## 7. 權限與選單/推播收受規則 (Role & Permissions)
+專案中的功能模組對於 `選單可見性` 與 `即時推播通知接收`，請根據以下角色白名單嚴格管控：
+- **入隊申請 (Join Inquiries)**: 僅限 `ADMIN`, `MANAGER` (可見選單、可收推播)。
+- **設定 (Users / Settings)**: 僅限 `ADMIN`, `MANAGER` (可見選單)。
+- **球員名單 (Players)**: 僅限 `ADMIN`, `MANAGER` (可見選單、可收推播)。
+- **請假系統 (Leave Requests)**: 需開放給教練團，包含 `ADMIN`, `MANAGER`, `HEAD_COACH`, `COACH` (可見選單、可收推播)。
+所有新的功能或介面重構時，請嚴格遵守此權限表 (使用 `v-if` 或 authStore 過濾)。

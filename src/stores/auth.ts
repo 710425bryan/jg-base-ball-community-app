@@ -57,6 +57,14 @@ export const useAuthStore = defineStore('auth', () => {
       type: 'email'
     })
     if (error) throw error
+    
+    // 強制立即將登入狀態寫入，避免 router.push 觸發時 onAuthStateChange 還沒跑完被導回首頁
+    session.value = data.session
+    user.value = data.user || data.session?.user || null
+    if (user.value) {
+      await fetchProfile(user.value.id)
+    }
+    
     return data
   }
 

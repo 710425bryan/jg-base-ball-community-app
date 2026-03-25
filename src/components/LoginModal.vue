@@ -20,7 +20,7 @@
 
             <div class="text-center mb-8 w-full">
               <h2 class="text-2xl font-black text-primary mb-1 tracking-tight">球隊入口登入</h2>
-              <p class="text-gray-500 font-medium text-sm">請輸入電子信箱以獲取魔術連結</p>
+              <p class="text-gray-500 font-medium text-sm">請輸入電子信箱以獲取認證碼</p>
             </div>
             
             <form v-if="!isEmailSent" @submit.prevent="handleLogin" class="space-y-4 w-full">
@@ -34,11 +34,7 @@
                 <svg v-if="!isLoading" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
               </button>
               
-              <div class="mt-4 text-center">
-                <button @click.prevent="handleMockLogin" type="button" class="text-xs font-bold text-gray-400 hover:text-primary transition-colors underline decoration-dotted underline-offset-2">
-                  開發者快速登入通道 (Mock Login)
-                </button>
-              </div>
+              <!-- Mock Login button removed -->
             </form>
 
             <div v-else class="text-center py-2 animate-fade-in w-full">
@@ -46,7 +42,7 @@
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
               </div>
               <h3 class="text-lg font-bold text-gray-800 mb-2">信件已發出！</h3>
-              <p class="text-gray-500 font-medium leading-relaxed text-xs mb-6">我們已將魔術連結寄至<br/><span class="text-primary font-bold text-sm mt-1 inline-block">{{ email }}</span></p>
+              <p class="text-gray-500 font-medium leading-relaxed text-xs mb-6">我們已將登入驗證碼寄至<br/><span class="text-primary font-bold text-sm mt-1 inline-block">{{ email }}</span></p>
               
               <form @submit.prevent="handleVerifyOtp" class="space-y-4">
                 <input v-model="otpCode" type="text" maxlength="8" required class="w-full px-5 py-3 bg-gray-50/80 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all text-center tracking-widest text-xl text-gray-800 placeholder-gray-400 font-bold" placeholder="輸入 8 碼驗證" />
@@ -93,11 +89,7 @@ watch(() => props.modelValue, (newVal) => {
   }
 })
 
-const handleMockLogin = async () => {
-  ElMessage.success('已使用開發者後門登入')
-  emit('update:modelValue', false)
-  router.push('/dashboard')
-}
+// Mock login handler removed
 
 const handleLogin = async () => {
   if (!email.value) return

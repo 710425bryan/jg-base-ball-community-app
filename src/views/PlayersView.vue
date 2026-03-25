@@ -9,17 +9,29 @@
         </div>
         <div>
           <h2 class="text-3xl font-black text-slate-800 tracking-wider flex items-center gap-2">
-            TAIWAN <span class="text-primary italic">BEARS</span>
+            球員名單
           </h2>
           <p class="text-secondary font-bold text-sm mt-1 uppercase tracking-[0.2em] flex items-center gap-2">
-            Team Roster<span class="w-10 h-0.5 bg-secondary inline-block"></span>
+            中港熊戰<span class="w-10 h-0.5 bg-secondary inline-block"></span>
           </p>
         </div>
       </div>
-      <div class="flex items-center gap-3" v-if="isAdmin">
-        <button @click="openCreateModal()" class="bg-primary hover:bg-primary-hover active:scale-95 text-white px-5 py-2.5 rounded-lg shadow-md text-sm font-bold transition-all flex items-center gap-2 uppercase tracking-wide">
+      <div class="flex items-center gap-3">
+        <!-- 切換顯示模式 -->
+        <div class="bg-gray-100 p-1 rounded-lg flex items-center shadow-inner">
+          <button @click="viewMode = 'grid'" :class="['px-3 py-1.5 rounded-md text-sm font-bold transition-all flex items-center gap-1.5', viewMode === 'grid' ? 'bg-white text-primary shadow-sm' : 'text-gray-400 hover:text-gray-600']">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
+            <span class="hidden sm:inline">卡片</span>
+          </button>
+          <button @click="viewMode = 'table'" :class="['px-3 py-1.5 rounded-md text-sm font-bold transition-all flex items-center gap-1.5', viewMode === 'table' ? 'bg-white text-primary shadow-sm' : 'text-gray-400 hover:text-gray-600']">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
+            <span class="hidden sm:inline">表格</span>
+          </button>
+        </div>
+        
+        <button v-if="isAdmin" @click="openCreateModal()" class="bg-primary hover:bg-primary-hover active:scale-95 text-white px-5 py-2.5 rounded-lg shadow-md text-sm font-bold transition-all flex items-center gap-2 tracking-wide">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
-          Add Player
+          新增成員
         </button>
       </div>
     </div>
@@ -42,6 +54,43 @@
         <span class="font-bold text-lg tracking-widest">NO DATA</span>
       </div>
       
+      <!-- 表格模式 -->
+      <div v-else-if="viewMode === 'table'" class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden h-[calc(100vh-230px)] flex flex-col">
+        <el-table :data="filteredMembers" style="width: 100%" height="100%" row-class-name="cursor-pointer" @row-click="openEditModal" :header-cell-style="{ background: '#f8fafc', color: '#475569', fontWeight: 'bold', whiteSpace: 'nowrap' }">
+          <el-table-column width="65" align="center" fixed="left">
+            <template #default="{ row }">
+              <el-avatar :src="row.avatar_url" shape="circle" :size="36" class="bg-gray-100 border border-gray-200 flex items-center justify-center shrink-0">
+                <template #default>
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400 mt-1" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" /></svg>
+                </template>
+              </el-avatar>
+            </template>
+          </el-table-column>
+          <el-table-column prop="name" label="姓名" min-width="120" fixed="left" class-name="font-black text-gray-800 text-base" />
+          <el-table-column prop="role" label="身分" width="100">
+            <template #default="{ row }">
+              <span class="text-[10px] md:text-xs font-bold px-2 py-0.5 rounded border uppercase tracking-wider" :class="getRoleClass(row.role)">{{ row.role }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="打/投" width="100" align="center">
+            <template #default="{ row }">
+              <span v-if="row.throwing_hand && row.batting_hand" class="text-xs font-mono font-bold text-gray-500 bg-gray-100 border border-gray-200 rounded px-1.5 py-0.5">
+                {{ row.throwing_hand.slice(0,1) }}/{{ row.batting_hand.slice(0,1) }}
+              </span>
+              <span v-else class="text-gray-300">-</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="guardian_name" label="法定代理人" min-width="120" />
+          <el-table-column prop="contact_line_id" label="LINE ID" min-width="140" />
+          <el-table-column prop="national_id" label="身分證" width="120">
+            <template #default="{ row }">
+              <span v-if="row.national_id" class="text-xs font-mono text-gray-400">{{ row.national_id.slice(0, 4) }}***</span>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+
+      <!-- 卡片模式 -->
       <div v-else class="flex flex-col gap-3">
         <div v-for="member in filteredMembers" :key="member.id" 
              class="bg-white rounded-xl p-3 md:p-4 border border-gray-200 hover:border-primary/50 hover:shadow-md transition-all duration-300 relative group cursor-pointer flex items-center justify-between shadow-sm"
@@ -73,11 +122,6 @@
             <div class="hidden md:flex flex-col text-right">
               <span class="text-xs uppercase font-bold tracking-widest text-gray-400">Status</span>
               <span class="text-sm font-black text-green-500">ACTIVE</span>
-            </div>
-            <div class="flex items-center gap-2" v-if="isAdmin">
-              <button class="w-10 h-10 rounded-full bg-gray-50 hover:bg-primary/10 text-gray-400 hover:text-primary border border-gray-200 hover:border-primary/30 transition-all flex items-center justify-center p-0 m-0" @click.stop="openEditModal(member)">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-              </button>
             </div>
           </div>
 
@@ -246,6 +290,7 @@ const isLoading = ref(true)
 const isSubmitting = ref(false)
 const members = ref<any[]>([])
 const activeTab = ref('全部')
+const viewMode = ref<'grid' | 'table'>('table')
 
 // 篩選列表
 const filteredMembers = computed(() => {

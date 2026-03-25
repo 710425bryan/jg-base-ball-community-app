@@ -46,8 +46,22 @@ const router = createRouter({
           path: 'users',
           name: 'Users',
           component: () => import('../views/UsersView.vue')
+        },
+        {
+          path: 'join-inquiries',
+          name: 'JoinInquiries',
+          component: () => import('../views/JoinInquiriesView.vue')
+        },
+        {
+          path: 'announcements',
+          name: 'Announcements',
+          component: () => import('../views/AnnouncementsView.vue')
         }
       ]
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      redirect: '/'
     }
   ]
 })
@@ -63,6 +77,8 @@ router.beforeEach(async (to, from, next) => {
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     next('/')
   } else {
+    // 若欲避免已登入會員繼續卡在對外的登入首頁(如果有這種預期)，可在這裡加入 else if。
+    // 不過由於使用者已經有 public首頁，保留原本架構。
     next()
   }
 })

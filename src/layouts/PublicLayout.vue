@@ -3,24 +3,23 @@
     <!-- Navbar -->
     <header class="h-20 bg-slate-900 text-white flex items-center justify-between px-6 md:px-12 sticky top-0 z-40 border-b-4 border-primary shadow-lg">
       <div class="flex items-center gap-4">
-        <div class="w-12 h-12 flex items-center justify-center overflow-hidden">
+        <div class="w-12 h-12 flex items-center justify-center">
           <img src="/少棒元素_20260324_232837_0000.png" alt="Logo" class="w-full h-full object-contain drop-shadow-md" />
         </div>
         <div class="flex flex-col justify-center">
           <h1 class="text-2xl font-black tracking-widest text-primary leading-none uppercase">
             中港熊戰棒球隊
           </h1>
-          <span class="text-xs text-secondary font-bold tracking-widest uppercase mt-1">官方網站</span>
+          <!-- <span class="text-xs text-secondary font-bold tracking-widest uppercase mt-1">官方網站</span> -->
         </div>
       </div>
       
       <!-- Nav Links -->
       <nav class="hidden md:flex absolute left-1/2 -translate-x-1/2 gap-10 font-bold tracking-wide">
         <router-link to="/" class="text-white hover:text-secondary transition-colors uppercase cursor-pointer">首頁</router-link>
-        <a class="text-white hover:text-secondary transition-colors uppercase cursor-pointer">球員名單</a>
         <a class="text-white hover:text-secondary transition-colors uppercase cursor-pointer">賽程表</a>
-        <a class="text-white hover:text-secondary transition-colors uppercase cursor-pointer">最新公告</a>
-        <a class="text-white hover:text-secondary transition-colors uppercase cursor-pointer">線上購票</a>
+        <a @click="scrollToAnnouncements" class="text-white hover:text-secondary transition-colors uppercase cursor-pointer">最新公告</a>
+        <a @click="triggerJoinModal" class="text-white hover:text-secondary transition-colors uppercase cursor-pointer">加入我們</a>
       </nav>
       
       <!-- Login / Dashboard btn -->
@@ -44,7 +43,7 @@
     <footer class="bg-slate-900 pt-16 pb-8 border-t border-slate-800">
       <div class="max-w-7xl mx-auto px-6 md:px-12 flex flex-col md:flex-row justify-between items-center gap-8 mb-12">
         <div class="flex items-center gap-4">
-          <div class="w-16 h-16 bg-white rounded-full border-2 border-slate-700 flex items-center justify-center overflow-hidden p-1">
+          <div class="w-16 h-16 flex items-center justify-center">
             <img src="/少棒元素_20260324_232837_0000.png" alt="Logo" class="w-full h-full object-contain" />
           </div>
           <div>
@@ -70,14 +69,38 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import LoginModal from '@/components/LoginModal.vue'
 
 const authStore = useAuthStore()
+const router = useRouter()
 const showLogin = ref(false)
 
 const getRoleName = (role?: string) => {
   const dict: Record<string, string> = { 'ADMIN': '管理員', 'MANAGER': '經理', 'HEAD_COACH': '總教練', 'COACH': '教練' }
   return role ? (dict[role] || role) : '一般成員'
+}
+
+const triggerJoinModal = () => {
+  if (router.currentRoute.value.path !== '/') {
+    router.push('/').then(() => {
+      setTimeout(() => window.dispatchEvent(new CustomEvent('openJoinModal')), 200)
+    })
+  } else {
+    window.dispatchEvent(new CustomEvent('openJoinModal'))
+  }
+}
+
+const scrollToAnnouncements = () => {
+  if (router.currentRoute.value.path !== '/') {
+    router.push('/').then(() => {
+      setTimeout(() => {
+        document.getElementById('announcements')?.scrollIntoView({ behavior: 'smooth' })
+      }, 200)
+    })
+  } else {
+    document.getElementById('announcements')?.scrollIntoView({ behavior: 'smooth' })
+  }
 }
 </script>

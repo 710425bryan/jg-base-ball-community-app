@@ -55,14 +55,20 @@
           </div>
           <h3 class="font-bold text-lg text-gray-800">最新公告</h3>
         </div>
-        <div class="p-5 flex-1 overflow-y-auto">
-          <div class="p-4 bg-gradient-to-r from-primary/5 to-secondary/10 rounded-xl border border-primary/20 mb-3 hover:shadow-md transition-shadow">
-            <div class="flex items-center justify-between mb-2">
-              <span class="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md">系統公告</span>
-              <span class="text-xs text-gray-400 font-medium">今天</span>
+        <div class="p-5 flex-1 overflow-y-auto" v-loading="isLoading">
+          <div v-if="recentAnnouncements.length === 0 && !isLoading" class="p-8 text-center text-gray-400 font-medium h-full flex items-center justify-center">
+            目前沒有最新公告 📢
+          </div>
+          <div v-else>
+            <div v-for="ann in recentAnnouncements" :key="ann.id" class="p-4 bg-gradient-to-r from-primary/5 to-secondary/10 rounded-xl border border-primary/20 mb-3 hover:shadow-md transition-shadow cursor-pointer" @click="$router.push('/announcements')">
+              <div class="flex items-center justify-between mb-2">
+                <span v-if="ann.is_pinned" class="text-[10px] font-extrabold text-white bg-red-500 px-2 py-0.5 rounded shadow-sm">置頂消息</span>
+                <span v-else class="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md">系統公告</span>
+                <span class="text-xs text-gray-400 font-medium">{{ dayjs(ann.created_at).format('MM/DD HH:mm') }}</span>
+              </div>
+              <p class="text-gray-800 font-extrabold mb-1 line-clamp-1">{{ ann.title }}</p>
+              <p class="text-gray-500 text-sm line-clamp-2">{{ ann.content }}</p>
             </div>
-            <p class="text-gray-800 font-bold mb-1">🎉 歡迎來到台灣黑熊棒球隊全新系統</p>
-            <p class="text-gray-500 text-sm">全新的介面與體驗，整合所有出缺勤與球員名單，讓我們一起揮灑汗水！</p>
           </div>
         </div>
       </div>
@@ -86,11 +92,11 @@
             <div v-for="leave in recentLeaves" :key="leave.id" class="p-4 hover:bg-gray-50/50 transition-colors flex items-center justify-between">
               <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-full bg-gray-100 overflow-hidden shrink-0">
-                  <img v-if="leave.profiles?.avatar_url" :src="leave.profiles.avatar_url" class="w-full h-full object-cover">
-                  <div v-else class="w-full h-full flex items-center justify-center text-gray-400 font-bold">{{ leave.profiles?.name?.charAt(0) }}</div>
+                  <img v-if="leave.team_members?.avatar_url" :src="leave.team_members.avatar_url" class="w-full h-full object-cover">
+                  <div v-else class="w-full h-full flex items-center justify-center text-gray-400 font-bold">{{ leave.team_members?.name?.charAt(0) || '?' }}</div>
                 </div>
                 <div>
-                  <div class="font-bold text-gray-800 text-sm mb-0.5">{{ leave.profiles?.name || '未知' }}</div>
+                  <div class="font-bold text-gray-800 text-sm mb-0.5">{{ leave.team_members?.name || '未知' }}</div>
                   <div class="text-xs text-gray-500 font-medium">{{ leave.start_date === leave.end_date ? leave.start_date : `${leave.start_date} ~ ${leave.end_date}` }}</div>
                 </div>
               </div>
@@ -123,6 +129,7 @@ import dayjs from 'dayjs'
 
 const isLoading = ref(true)
 const recentLeaves = ref<any[]>([])
+const recentAnnouncements = ref<any[]>([])
 
 const stats = reactive({
   totalMembers: 0,
@@ -144,9 +151,17 @@ const fetchDashboardData = async () => {
       .gte('end_date', todayStr)
     stats.todayLeaves = todayLeavesData?.length || 0
 
+    // 取得近期系統公告
+    const { data: announcementsData } = await supabase.from('announcements')
+      .select('*')
+      .order('is_pinned', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(5)
+    recentAnnouncements.value = announcementsData || []
+
     // 取得近期請假即將發生的
     const { data: recentLeavesData } = await supabase.from('leave_requests')
-      .select('id, user_id, leave_type, start_date, end_date, profiles(name, avatar_url)')
+      .select('id, user_id, leave_type, start_date, end_date, team_members(name, avatar_url)')
       .gte('end_date', todayStr) // 結束時間大於等於今天的
       .order('start_date', { ascending: true })
       .limit(5)

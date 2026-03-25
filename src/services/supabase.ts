@@ -14,3 +14,14 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: true
   }
 })
+
+// 解決 iOS/Android 行動端或瀏覽器休眠時，setInterval 卡死導致 Token 不再刷新的問題
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      supabase.auth.stopAutoRefresh()
+    } else {
+      supabase.auth.startAutoRefresh()
+    }
+  })
+}

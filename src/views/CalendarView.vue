@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full flex-1 flex flex-col animate-fade-in relative">
+  <div class="h-full flex-1 flex flex-col animate-fade-in relative p-4 md:p-6 pb-20 md:pb-6 bg-background text-text overflow-hidden">
     <div class="flex justify-between items-center mb-6 shrink-0">
       <h2 class="text-2xl font-extrabold text-primary tracking-tight">行事曆與賽事</h2>
       <button @click="showParserInfo = true" class="bg-white border border-gray-200 hover:bg-gray-50 active:scale-95 text-gray-600 px-4 py-2.5 rounded-xl shadow-sm text-sm font-bold transition-all flex items-center gap-2">
