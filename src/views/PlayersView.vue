@@ -1,8 +1,8 @@
 <template>
   <div class="h-full flex flex-col relative animate-fade-in p-2 md:p-6 pb-20 md:pb-6 bg-background text-text overflow-hidden">
     <!-- 頂部標題與操作區 -->
-    <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-6 gap-4 shrink-0">
-      <div class="flex items-center gap-4">
+    <div class="flex flex-col xl:flex-row justify-between xl:items-center mb-6 gap-4 shrink-0">
+      <div class="flex items-center gap-4 shrink-0">
         <!-- 黑熊 Logo -->
         <div class="w-12 h-12 bg-white rounded-xl border-2 border-primary flex items-center justify-center shadow-sm">
           <span class="text-2xl">🐻</span>
@@ -16,9 +16,20 @@
           </p>
         </div>
       </div>
-      <div class="flex items-center gap-3">
+      
+      <div class="flex flex-wrap items-center gap-3 xl:justify-end w-full xl:w-auto">
+        <!-- 搜尋列 -->
+        <div class="w-full sm:w-auto flex-1 min-w-[200px] max-w-md transition-all duration-300">
+          <el-input
+            v-model="searchQuery"
+            placeholder="搜尋姓名..."
+            :prefix-icon="Search"
+            clearable
+          />
+        </div>
+
         <!-- 切換顯示模式 -->
-        <div class="bg-gray-100 p-1 rounded-lg flex items-center shadow-inner">
+        <div class="bg-gray-100 p-1 rounded-lg flex items-center shadow-inner shrink-0">
           <button @click="viewMode = 'grid'" :class="['px-3 py-1.5 rounded-md text-sm font-bold transition-all flex items-center gap-1.5', viewMode === 'grid' ? 'bg-white text-primary shadow-sm' : 'text-gray-400 hover:text-gray-600']">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
             <span class="hidden sm:inline">卡片</span>
@@ -28,10 +39,14 @@
             <span class="hidden sm:inline">表格</span>
           </button>
         </div>
-        
+        <button v-if="isAdmin" @click="syncFromGoogleSheet" :disabled="isSyncing" class="bg-[#ca8a04] hover:bg-[#a16207] active:scale-95 text-white px-5 py-2.5 rounded-lg shadow-md text-sm font-bold transition-all flex items-center gap-2 tracking-wide disabled:opacity-70">
+          <el-icon v-if="isSyncing" class="is-loading"><Loading /></el-icon>
+          <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg>
+          <span class="hidden sm:inline">同步表單</span>
+        </button>
         <button v-if="isAdmin" @click="openCreateModal()" class="bg-primary hover:bg-primary-hover active:scale-95 text-white px-5 py-2.5 rounded-lg shadow-md text-sm font-bold transition-all flex items-center gap-2 tracking-wide">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
-          新增成員
+          <span class="hidden sm:inline">新增成員</span>
         </button>
       </div>
     </div>
@@ -42,8 +57,6 @@
         <el-tab-pane label="全體人員" name="全部" />
         <el-tab-pane label="球員列表" name="球員" />
         <el-tab-pane label="教練團隊" name="教練" />
-        <el-tab-pane label="管理團隊" name="管理群" />
-        <el-tab-pane label="其他" name="其他" />
       </el-tabs>
     </div>
 
@@ -281,7 +294,8 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { supabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Loading, InfoFilled } from '@element-plus/icons-vue'
+import { Loading, InfoFilled, Search } from '@element-plus/icons-vue'
+import axios from 'axios'
 
 const authStore = useAuthStore()
 const isAdmin = computed(() => authStore.profile?.role === 'ADMIN')
@@ -291,11 +305,22 @@ const isSubmitting = ref(false)
 const members = ref<any[]>([])
 const activeTab = ref('全部')
 const viewMode = ref<'grid' | 'table'>('table')
+const searchQuery = ref('')
 
 // 篩選列表
 const filteredMembers = computed(() => {
-  if (activeTab.value === '全部') return members.value
-  return members.value.filter(m => m.role === activeTab.value)
+  let result = members.value
+  
+  if (activeTab.value !== '全部') {
+    result = result.filter(m => m.role === activeTab.value)
+  }
+  
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase().trim()
+    result = result.filter(m => m.name && m.name.toLowerCase().includes(q))
+  }
+  
+  return result
 })
 
 // --- 表單狀態 ---
@@ -346,6 +371,145 @@ const rules = computed(() => ({
     }
   }]
 }))
+
+// --- 表單同步邏輯 ---
+const isSyncing = ref(false)
+
+function parseCSV(text: string) {
+  const result: string[][] = [];
+  let row: string[] = [];
+  let currentToken = '';
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    if (inQuotes) {
+      if (char === '"') {
+        if (i + 1 < text.length && text[i + 1] === '"') {
+          currentToken += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        currentToken += char;
+      }
+    } else {
+      if (char === '"') {
+        inQuotes = true;
+      } else if (char === ',') {
+        row.push(currentToken);
+        currentToken = '';
+      } else if (char === '\n' || char === '\r') {
+        row.push(currentToken);
+        if (row.length > 1 || currentToken !== '') result.push(row);
+        row = [];
+        currentToken = '';
+        if (char === '\r' && i + 1 < text.length && text[i + 1] === '\n') i++;
+      } else {
+        currentToken += char;
+      }
+    }
+  }
+  if (row.length > 0 || currentToken !== '') {
+    row.push(currentToken);
+    result.push(row);
+  }
+  return result;
+}
+
+const syncFromGoogleSheet = async () => {
+  if (!isAdmin.value) return;
+  try {
+    await ElMessageBox.confirm('確定要從 Google 表單同步球員名單？這將會更新同名的球員資料並新增缺漏的球員。', '🔄 同步確認', {
+      confirmButtonText: '開始同步', cancelButtonText: '取消', type: 'warning'
+    });
+    
+    isSyncing.value = true;
+    
+    const url = 'https://docs.google.com/spreadsheets/d/1WdxX0sv6rlP_Z-9AV0sf4R5CEcZFQiFbRbn30m8g2F0/export?format=csv&id=1WdxX0sv6rlP_Z-9AV0sf4R5CEcZFQiFbRbn30m8g2F0&gid=0';
+    const response = await axios.get(url, { responseType: 'text' });
+    const csvData = parseCSV(response.data);
+    
+    if (csvData.length < 2) throw new Error('無法擷取到有效的表單資料或資料為空');
+
+    const existingMap = new Map();
+    members.value.forEach(m => {
+      existingMap.set(m.name?.trim(), m);
+    });
+
+    const inserts: any[] = [];
+    const updates: any[] = [];
+    
+    for (let i = 1; i < csvData.length; i++) {
+      const row = csvData[i];
+      if (row.length < 10 || !row[0]?.trim()) continue; 
+      
+      const name = row[0].trim();
+      const rawRole = row[1]?.trim();
+      const roleMapped = ['教練', '管理群', '其他'].includes(rawRole) ? rawRole : '球員';
+      let birth_date: string | null = row[2]?.trim().replace(/\//g, '-') || null;
+      if (birth_date && isNaN(Date.parse(birth_date))) {
+          birth_date = null;
+      }
+      
+      const is_early_enrollment = row[4]?.trim() === '有';
+      const national_id = row[5]?.trim() || null;
+      const throwing_hand = row[6]?.trim() || null;
+      const batting_hand = row[7]?.trim() || null;
+      const contact_line_id = row[8]?.trim() || null;
+      const contact_relation = row[9]?.trim() || null;
+      const guardian_name = row[10]?.trim() || null;
+      const guardian_phone = row[11]?.trim() || null;
+      const notes = row[12]?.trim() && !['無', '沒', '無。'].includes(row[12]?.trim()) ? row[12]?.trim() : null;
+      const portrait_auth_str = row[13] || '';
+      const portrait_auth = portrait_auth_str.includes('同意') || portrait_auth_str.includes('已充分閱讀');
+      
+      const payload: any = {
+        name,
+        role: roleMapped,
+        birth_date,
+        is_early_enrollment,
+        national_id,
+        throwing_hand,
+        batting_hand,
+        contact_line_id,
+        contact_relation,
+        guardian_name,
+        guardian_phone,
+        notes,
+        portrait_auth
+      };
+
+      const existingMember = existingMap.get(name);
+      if (existingMember) {
+        payload.id = existingMember.id;
+        updates.push(payload);
+      } else {
+        inserts.push(payload);
+      }
+    }
+    
+    if (updates.length > 0) {
+      const { error } = await supabase.from('team_members').upsert(updates, { onConflict: 'id' });
+      if (error) throw error;
+    }
+    
+    if (inserts.length > 0) {
+      const { error } = await supabase.from('team_members').insert(inserts);
+      if (error) throw error;
+    }
+    
+    ElMessage.success(`同步完成！新增 ${inserts.length} 筆，更新 ${updates.length} 筆資料`);
+    await fetchData();
+  } catch (err: any) {
+    if (err !== 'cancel') {
+      console.error("Sync Error:", err);
+      ElMessage.error('同步失敗：' + (err.message || '發生錯誤'));
+    }
+  } finally {
+    isSyncing.value = false;
+  }
+}
 
 // --- 讀取資料 ---
 const fetchData = async () => {

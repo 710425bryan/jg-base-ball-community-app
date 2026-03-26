@@ -26,9 +26,8 @@
     <div class="flex-1 flex flex-col min-h-0 custom-tabs-container">
       <el-tabs v-model="activeTab" class="w-full h-full flex flex-col">
         <!-- 1. 詳細列表 -->
-        <el-tab-pane name="list" class="h-full flex flex-col">
-          <template #label><div class="flex items-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd" /></svg>詳細列表</div></template>
-          <div class="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/80 flex flex-col min-h-0">
+        <el-tab-pane name="list" class="h-full">
+          <div class="h-full bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/80 flex flex-col min-h-0">
              
             <!-- 篩選列 -->
             <div class="p-4 border-b border-gray-100 flex flex-col sm:flex-row gap-4 items-center justify-between">
@@ -104,9 +103,8 @@
         </el-tab-pane>
 
         <!-- 2. 月曆視圖 -->
-        <el-tab-pane name="calendar" class="h-full flex flex-col">
-          <template #label><div class="flex items-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" /></svg>月曆視圖</div></template>
-          <div class="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/80 p-2 sm:p-4 flex-1 flex flex-col min-h-0 overflow-y-auto">
+        <el-tab-pane name="calendar" class="h-full">
+          <div class="h-full bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/80 p-2 sm:p-4 flex flex-col min-h-0 overflow-y-auto custom-scrollbar">
             <el-calendar v-model="calendarDate" class="custom-calendar">
               <template #date-cell="{ data }">
                 <div class="w-full h-full flex flex-col p-1">
@@ -127,9 +125,8 @@
         </el-tab-pane>
 
         <!-- 3. 統計報表 -->
-        <el-tab-pane name="stats" class="h-full flex flex-col">
-          <template #label><div class="flex items-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 0l-2 2a1 1 0 101.414 1.414L8 10.414l1.293 1.293a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>統計報表</div></template>
-          <div class="h-full flex flex-col min-h-0 space-y-4 pt-4">
+        <el-tab-pane name="stats" class="h-full">
+          <div class="h-full flex flex-col min-h-0 space-y-4 pt-4 pb-20 md:pb-6 overflow-y-auto custom-scrollbar pr-1">
             
             <!-- 統計區間篩選 -->
             <div class="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 p-4 shrink-0 flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -820,10 +817,17 @@ onMounted(() => {
   height: 1px;
   background-color: #f3f4f6;
 }
-/* 讓 Tab 內容區塊自動延伸填滿 */
+/* 讓 Tab 內容區塊自動延伸填滿，並具備 Flex 行為 */
 .custom-tabs-container .el-tabs__content {
   flex-grow: 1;
   padding: 16px 0 0 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+/* 讓分頁具備高度約束，使子元素 overflow 可正常觸發 */
+.custom-tabs-container .el-tab-pane {
+  height: 100%;
 }
 /* 客製化 Dialog 圓角與標題 */
 .custom-dialog .el-dialog__header {
