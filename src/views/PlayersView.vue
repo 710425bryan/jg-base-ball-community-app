@@ -94,6 +94,12 @@
             </template>
           </el-table-column>
           <el-table-column prop="guardian_name" label="法定代理人" min-width="120" />
+          <el-table-column prop="jersey_number" label="背號" width="80" align="center">
+            <template #default="{ row }">
+              <span v-if="row.jersey_number" class="text-xs font-mono font-bold bg-gray-100 px-1.5 py-0.5 rounded">#{{ row.jersey_number }}</span>
+              <span v-else class="text-gray-300">-</span>
+            </template>
+          </el-table-column>
           <el-table-column prop="contact_line_id" label="LINE ID" min-width="140" />
           <el-table-column prop="national_id" label="身分證" width="120">
             <template #default="{ row }">
@@ -121,6 +127,7 @@
               </div>
               <div class="flex flex-wrap items-center gap-2">
                 <span class="text-xs md:text-sm font-bold px-2 py-0.5 rounded border uppercase tracking-wider" :class="getRoleClass(member.role)">[{{ member.role }}]</span>
+                <span v-if="member.jersey_number" class="bg-gray-100 text-gray-500 font-mono font-bold text-xs md:text-sm px-1.5 py-0.5 rounded border border-gray-200">#{{ member.jersey_number }}</span>
                 <span v-if="member.throwing_hand && member.batting_hand" class="text-xs md:text-sm font-mono font-bold text-gray-500 px-2 py-0.5 rounded bg-gray-100 border border-gray-200">
                   {{ member.throwing_hand.slice(0,1) }}/{{ member.batting_hand.slice(0,1) }}
                 </span>
@@ -187,6 +194,9 @@
             </el-form-item>
             <el-form-item label="身分證字號" prop="national_id" class="font-bold mb-0">
               <el-input v-model="form.national_id" placeholder="身分證字號" />
+            </el-form-item>
+            <el-form-item label="背號" prop="jersey_number" class="font-bold mb-0" v-if="form.role === '球員' || form.role === '教練'">
+              <el-input v-model="form.jersey_number" placeholder="隊上背號" />
             </el-form-item>
             <el-form-item prop="is_early_enrollment" class="font-bold mb-0 flex items-center h-[52px]">
               <template #label>
@@ -334,6 +344,7 @@ const initialForm = {
   id: '',
   name: '',
   role: '球員',
+  jersey_number: '',
   birth_date: '',
   is_early_enrollment: false,
   national_id: '',

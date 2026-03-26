@@ -56,6 +56,16 @@ const router = createRouter({
           path: 'announcements',
           name: 'Announcements',
           component: () => import('../views/AnnouncementsView.vue')
+        },
+        {
+          path: 'attendance',
+          name: 'Attendance',
+          component: () => import('../views/AttendanceListView.vue')
+        },
+        {
+          path: 'attendance/:id',
+          name: 'RollCall',
+          component: () => import('../views/RollCallView.vue')
         }
       ]
     },
