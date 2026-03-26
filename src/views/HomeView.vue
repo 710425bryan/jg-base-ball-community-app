@@ -139,8 +139,10 @@ const stats = reactive({
 const fetchDashboardData = async () => {
   isLoading.value = true
   try {
-    // 取得總人數
-    const { count: membersCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true })
+    // 取得總人數 (抓取球員名單中的球員)
+    const { count: membersCount } = await supabase.from('team_members')
+      .select('*', { count: 'exact', head: true })
+      .eq('role', '球員')
     stats.totalMembers = membersCount || 0
 
     // 取得今日請假人數
