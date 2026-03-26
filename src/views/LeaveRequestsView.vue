@@ -26,7 +26,7 @@
     <div class="flex-1 flex flex-col min-h-0 custom-tabs-container">
       <el-tabs v-model="activeTab" class="w-full h-full flex flex-col">
         <!-- 1. 詳細列表 -->
-        <el-tab-pane name="list" class="h-full">
+        <el-tab-pane label="詳細列表" name="list" class="h-full">
           <div class="h-full bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/80 flex flex-col min-h-0">
              
             <!-- 篩選列 -->
@@ -103,7 +103,7 @@
         </el-tab-pane>
 
         <!-- 2. 月曆視圖 -->
-        <el-tab-pane name="calendar" class="h-full">
+        <el-tab-pane label="月曆視圖" name="calendar" class="h-full">
           <div class="h-full bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/80 p-2 sm:p-4 flex flex-col min-h-0 overflow-y-auto custom-scrollbar">
             <el-calendar v-model="calendarDate" class="custom-calendar">
               <template #date-cell="{ data }">
@@ -125,7 +125,7 @@
         </el-tab-pane>
 
         <!-- 3. 統計報表 -->
-        <el-tab-pane name="stats" class="h-full">
+        <el-tab-pane label="統計報表" name="stats" class="h-full">
           <div class="h-full flex flex-col min-h-0 space-y-4 pt-4 pb-20 md:pb-6 overflow-y-auto custom-scrollbar pr-1">
             
             <!-- 統計區間篩選 -->
@@ -806,10 +806,10 @@ onMounted(() => {
   transition: all 0.3s ease;
 }
 .custom-tabs-container .el-tabs__item.is-active {
-  color: var(--color-primary);
+  color: #D88F22;
 }
 .custom-tabs-container .el-tabs__active-bar {
-  background-color: var(--color-primary);
+  background-color: #D88F22;
   height: 3px;
   border-radius: 3px;
 }
