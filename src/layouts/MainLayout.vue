@@ -18,12 +18,24 @@
           <nav class="hidden lg:flex gap-5 xl:gap-8 nav-desktop items-center px-1">
             <router-link to="/dashboard" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">後台大廳</router-link>
             <router-link to="/calendar" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">行事曆</router-link>
+            <router-link to="/match-records" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">比賽紀錄</router-link>
             <router-link v-if="['ADMIN', 'MANAGER', 'HEAD_COACH', 'COACH'].includes(authStore.profile?.role)" to="/leave-requests" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">請假系統</router-link>
             <router-link v-if="['ADMIN', 'HEAD_COACH', 'COACH'].includes(authStore.profile?.role)" to="/attendance" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">點名系統</router-link>
             <router-link v-if="['ADMIN', 'MANAGER'].includes(authStore.profile?.role)" to="/players" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">球員名單</router-link>
-            <router-link v-if="['ADMIN', 'MANAGER'].includes(authStore.profile?.role)" to="/join-inquiries" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">入隊申請</router-link>
-            <router-link v-if="['ADMIN', 'MANAGER'].includes(authStore.profile?.role)" to="/announcements" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">系統公告</router-link>
-            <router-link v-if="['ADMIN', 'MANAGER'].includes(authStore.profile?.role)" to="/users" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">設定</router-link>
+            
+            <!-- 更多選單 (不常用收納區) -->
+            <el-dropdown trigger="hover" placement="bottom" v-if="['ADMIN', 'MANAGER'].includes(authStore.profile?.role)">
+              <div class="cursor-pointer whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide flex items-center gap-1 pt-0.5 outline-none">
+                更多 <el-icon class="text-xs transition-transform duration-300 el-dropdown-link-icon"><ArrowDown /></el-icon>
+              </div>
+              <template #dropdown>
+                <el-dropdown-menu class="!p-1.5 !rounded-xl min-w-[140px] shadow-xl border-gray-100">
+                  <el-dropdown-item @click="router.push('/join-inquiries')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">入隊申請</el-dropdown-item>
+                  <el-dropdown-item @click="router.push('/announcements')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">系統公告</el-dropdown-item>
+                  <el-dropdown-item @click="router.push('/users')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5" divided>設定</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </nav>
         </div>
 
@@ -85,6 +97,7 @@
       <nav class="flex flex-col py-2">
          <router-link to="/dashboard" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">後台大廳</router-link>
          <router-link to="/calendar" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">行事曆</router-link>
+         <router-link to="/match-records" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">比賽紀錄</router-link>
          <router-link v-if="['ADMIN', 'MANAGER', 'HEAD_COACH', 'COACH'].includes(authStore.profile?.role)" to="/leave-requests" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">請假系統</router-link>
          <router-link v-if="['ADMIN', 'HEAD_COACH', 'COACH'].includes(authStore.profile?.role)" to="/attendance" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">點名系統</router-link>
          <router-link v-if="['ADMIN', 'MANAGER'].includes(authStore.profile?.role)" to="/players" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">球員名單</router-link>
@@ -116,6 +129,12 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
         <span class="font-bold tracking-wide">行事曆</span>
+      </router-link>
+      <router-link to="/match-records" class="flex flex-col items-center justify-center p-1 px-2 min-w-[3.5rem] hover:text-primary transition-colors shrink-0">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+        </svg>
+        <span class="font-bold tracking-wide">紀錄</span>
       </router-link>
       <router-link v-if="['ADMIN', 'MANAGER', 'HEAD_COACH', 'COACH'].includes(authStore.profile?.role)" to="/leave-requests" class="flex flex-col items-center justify-center p-1 px-2 min-w-[3.5rem] hover:text-primary transition-colors shrink-0">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -150,7 +169,7 @@ import { ref, watch, onUnmounted, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { supabase } from '@/services/supabase';
-import { Bell } from '@element-plus/icons-vue';
+import { Bell, ArrowDown } from '@element-plus/icons-vue';
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import 'dayjs/locale/zh-tw'
@@ -413,6 +432,13 @@ header nav.nav-desktop .router-link-active {
   border-bottom: 2px solid #D88F22;
   padding-bottom: 2px;
   text-shadow: 0 0 10px rgba(216,143,34,0.4);
+}
+
+.el-dropdown-link-icon {
+  margin-left: 2px;
+}
+.el-dropdown:hover .el-dropdown-link-icon {
+  transform: rotate(180deg);
 }
 
 /* Hide scrollbar for overflowing nav */

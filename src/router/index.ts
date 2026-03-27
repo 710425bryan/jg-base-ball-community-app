@@ -66,6 +66,11 @@ const router = createRouter({
           path: 'attendance/:id',
           name: 'RollCall',
           component: () => import('../views/RollCallView.vue')
+        },
+        {
+          path: 'match-records',
+          name: 'MatchRecords',
+          component: () => import('../views/MatchRecordsView.vue')
         }
       ]
     },
