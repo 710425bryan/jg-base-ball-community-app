@@ -43,15 +43,29 @@
             <div class="flex flex-col gap-1">
               <span class="text-xs font-bold px-2 py-0.5 rounded uppercase tracking-wider w-fit" :class="getTypeClass(event.event_type)">{{ event.event_type }}</span>
             </div>
-            <span class="text-sm font-bold text-gray-500 bg-gray-50 px-2 py-1 rounded-lg border border-gray-100 flex items-center gap-1">
-              <el-icon><Calendar /></el-icon>
-              {{ event.date }}
-            </span>
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-bold text-gray-500 bg-gray-50 px-2 py-1 rounded-lg border border-gray-100 flex items-center gap-1">
+                <el-icon><Calendar /></el-icon>
+                {{ event.date }}
+              </span>
+              <button v-if="canDelete" @click.stop="confirmDelete(event)" class="text-gray-400 hover:text-red-500 bg-gray-50 hover:bg-red-50 p-1.5 rounded-lg border border-gray-100 hover:border-red-100 transition-colors" title="刪除點名單">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+              </button>
+            </div>
           </div>
           
           <h3 class="text-xl font-black text-slate-800 mb-2 line-clamp-2 leading-snug">{{ event.title }}</h3>
           
-          <!-- 出席狀況概覽 (可選功能：未來若能在這顯示出席率會更好) -->
+          <!-- 出席狀況概覽 -->
+          <div class="flex items-center gap-2 mb-2">
+            <div class="flex items-center gap-1 bg-green-50 text-green-600 px-2 py-0.5 rounded text-xs font-extrabold border border-green-100 tracking-wide">
+              ✅ 出席 {{ event.presentCount }} 人
+            </div>
+            <div class="flex items-center gap-1 bg-blue-50 text-blue-500 px-2 py-0.5 rounded text-xs font-extrabold border border-blue-100 tracking-wide">
+              🏖️ 請假 {{ event.leaveCount }} 人
+            </div>
+          </div>
+          
           <div class="mt-auto pt-4 flex items-center justify-between border-t border-gray-50">
             <div class="text-sm font-bold text-gray-400">建立者: <span class="text-gray-600">{{ event.profiles?.name || '未知' }}</span></div>
             <button class="text-primary font-bold text-sm bg-primary/10 px-3 py-1.5 rounded-lg group-hover:bg-primary group-hover:text-white transition-colors flex items-center gap-1">
@@ -107,13 +121,14 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/auth'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Calendar, Loading } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const hasAccess = computed(() => ['ADMIN', 'HEAD_COACH', 'COACH'].includes(authStore.profile?.role))
+const canDelete = computed(() => ['ADMIN', 'MANAGER'].includes(authStore.profile?.role))
 
 const isLoading = ref(true)
 const events = ref<any[]>([])
@@ -141,12 +156,17 @@ const fetchEvents = async () => {
   try {
     const { data, error } = await supabase
       .from('attendance_events')
-      .select('*, profiles(name)')
+      .select('*, profiles(name), attendance_records(status)')
       .order('date', { ascending: false })
       .order('created_at', { ascending: false })
       
     if (error) throw error
-    events.value = data || []
+    events.value = data?.map((e: any) => {
+      const records = e.attendance_records || []
+      const presentCount = records.filter((r: any) => ['出席', '遲到', '早退'].includes(r.status)).length
+      const leaveCount = records.filter((r: any) => r.status === '請假').length
+      return { ...e, presentCount, leaveCount }
+    }) || []
   } catch (error: any) {
     ElMessage.error('讀取紀錄失敗：' + error.message)
   } finally {
@@ -198,6 +218,28 @@ const submitCreate = async () => {
     ElMessage.error(error.message || '發生錯誤')
   } finally {
     isSubmitting.value = false
+  }
+}
+
+const confirmDelete = async (event: any) => {
+  try {
+    await ElMessageBox.confirm(
+      `確定要刪除「${event.title}」這筆紀錄嗎？這將會連帶刪除所有出缺勤資料，此操作無法復原！`,
+      '⚠️ 刪除確認',
+      { confirmButtonText: '確定刪除', cancelButtonText: '取消', type: 'error', buttonSize: 'large' }
+    )
+    
+    // 執行刪除
+    const { error } = await supabase.from('attendance_events').delete().eq('id', event.id)
+    if (error) throw error
+    
+    ElMessage.success('刪除成功')
+    fetchEvents()
+  } catch (err: any) {
+    if (err !== 'cancel') {
+      console.error(err)
+      ElMessage.error('刪除失敗：' + (err.message || '發生錯誤'))
+    }
   }
 }
 

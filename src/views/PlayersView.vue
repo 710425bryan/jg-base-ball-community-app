@@ -18,8 +18,25 @@
       </div>
       
       <div class="flex flex-wrap items-center gap-3 xl:justify-end w-full xl:w-auto">
+        <!-- 狀態與組別過濾 -->
+        <div class="w-full sm:w-auto flex items-center gap-2 shrink-0">
+          <el-select v-model="filterStatus" class="w-24" size="default" placeholder="狀態">
+            <el-option label="全狀態" value="全部" />
+            <el-option label="在隊" value="在隊" />
+            <el-option label="退隊" value="退隊" />
+          </el-select>
+          <el-select v-model="filterULevel" class="w-24" size="default" placeholder="組別">
+            <el-option label="全組別" value="全部" />
+            <el-option label="U12" value="U12" />
+            <el-option label="U11" value="U11" />
+            <el-option label="U10" value="U10" />
+            <el-option label="U9" value="U9" />
+            <el-option label="U8" value="U8" />
+          </el-select>
+        </div>
+
         <!-- 搜尋列 -->
-        <div class="w-full sm:w-auto flex-1 min-w-[200px] max-w-md transition-all duration-300">
+        <div class="w-full sm:w-auto flex-1 min-w-[150px] max-w-md transition-all duration-300">
           <el-input
             v-model="searchQuery"
             placeholder="搜尋姓名..."
@@ -79,10 +96,28 @@
               </el-avatar>
             </template>
           </el-table-column>
-          <el-table-column prop="name" label="姓名" min-width="120" fixed="left" class-name="font-black text-gray-800 text-base" />
-          <el-table-column prop="role" label="身分" width="100">
+       
+          <el-table-column prop="name" label="姓名" min-width="90" fixed="left" class-name="font-black text-gray-800 text-base" />
+          <el-table-column prop="birth_date" label="生日" width="115" sortable>
+            <template #default="{ row }">
+              <div v-if="row.birth_date" class="flex flex-col leading-tight">
+                <span class="font-bold text-gray-800 text-[13px] md:text-sm">{{ row.birth_date }}</span>
+                <span class="text-slate-400 font-bold text-[11px] md:text-xs tracking-wide">{{ getROCDate(row.birth_date) }}</span>
+              </div>
+              <span v-else class="text-gray-300">-</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="role" label="身分" width="90">
             <template #default="{ row }">
               <span class="text-[10px] md:text-xs font-bold px-2 py-0.5 rounded border uppercase tracking-wider" :class="getRoleClass(row.role)">{{ row.role }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="組別" width="95" align="center" sortable :sort-method="sortULevel">
+            <template #default="{ row }">
+              <span v-if="getULevel(row)" class="text-[10px] md:text-xs font-black px-2 py-0.5 rounded uppercase tracking-wider bg-blue-50 text-blue-600 border border-blue-100">
+                {{ getULevel(row) }}
+              </span>
+              <span v-else class="text-gray-300">-</span>
             </template>
           </el-table-column>
           <el-table-column label="打/投" width="100" align="center">
@@ -93,7 +128,14 @@
               <span v-else class="text-gray-300">-</span>
             </template>
           </el-table-column>
-          <el-table-column prop="guardian_name" label="法定代理人" min-width="120" />
+          <el-table-column label="狀態" width="80" align="center">
+            <template #default="{ row }">
+              <span v-if="row.status === '退隊'" class="text-[10px] md:text-xs font-bold px-2 py-0.5 bg-red-50 text-red-600 rounded border border-red-100">退隊</span>
+              <span v-else class="text-[10px] md:text-xs font-bold px-2 py-0.5 bg-green-50 text-green-600 rounded border border-green-100">在隊</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="guardian_name" label="法定代理人" min-width="100" />
+          <el-table-column prop="guardian_phone" label="代理人(手機)" min-width="110" />
           <el-table-column prop="jersey_number" label="背號" width="80" align="center">
             <template #default="{ row }">
               <span v-if="row.jersey_number" class="text-xs font-mono font-bold bg-gray-100 px-1.5 py-0.5 rounded">#{{ row.jersey_number }}</span>
@@ -122,11 +164,18 @@
             </div>
             
             <div class="flex flex-col gap-1 text-left">
-              <div class="font-black text-slate-800 md:text-xl tracking-wide flex items-center gap-2">
+              <div class="font-black text-slate-800 md:text-xl tracking-wide flex items-baseline gap-2">
                 {{ member.name }}
+                <span v-if="member.birth_date" class="text-xs md:text-sm text-slate-500 font-bold tracking-wide">
+                  {{ member.birth_date }} <span class="text-slate-400 font-medium">({{ getROCDate(member.birth_date) }})</span>
+                </span>
               </div>
               <div class="flex flex-wrap items-center gap-2">
+                <span v-if="member.status === '退隊'" class="text-xs md:text-sm font-bold px-2 py-0.5 rounded border bg-red-50 text-red-600 border-red-200 tracking-wider">退隊</span>
                 <span class="text-xs md:text-sm font-bold px-2 py-0.5 rounded border uppercase tracking-wider" :class="getRoleClass(member.role)">[{{ member.role }}]</span>
+                <span v-if="getULevel(member)" class="text-[10px] md:text-xs font-black px-2 py-0.5 rounded uppercase tracking-wider bg-blue-50 text-blue-600 border border-blue-100">
+                  {{ getULevel(member) }}
+                </span>
                 <span v-if="member.jersey_number" class="bg-gray-100 text-gray-500 font-mono font-bold text-xs md:text-sm px-1.5 py-0.5 rounded border border-gray-200">#{{ member.jersey_number }}</span>
                 <span v-if="member.throwing_hand && member.batting_hand" class="text-xs md:text-sm font-mono font-bold text-gray-500 px-2 py-0.5 rounded bg-gray-100 border border-gray-200">
                   {{ member.throwing_hand.slice(0,1) }}/{{ member.batting_hand.slice(0,1) }}
@@ -141,7 +190,8 @@
           <div class="flex items-center gap-4">
             <div class="hidden md:flex flex-col text-right">
               <span class="text-xs uppercase font-bold tracking-widest text-gray-400">Status</span>
-              <span class="text-sm font-black text-green-500">ACTIVE</span>
+              <span v-if="member.status === '退隊'" class="text-sm font-black text-red-500">INACTIVE</span>
+              <span v-else class="text-sm font-black text-green-500">ACTIVE</span>
             </div>
           </div>
 
@@ -187,6 +237,12 @@
                 <el-option label="教練" value="教練" />
                 <el-option label="管理群" value="管理群" />
                 <el-option label="其他" value="其他" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="在隊狀態" prop="status" class="font-bold mb-0">
+              <el-select v-model="form.status" class="w-full text-red-500">
+                <el-option label="在隊" value="在隊" />
+                <el-option label="退隊" value="退隊" />
               </el-select>
             </el-form-item>
             <el-form-item label="生日 (西元年)" prop="birth_date" class="font-bold mb-0">
@@ -316,6 +372,55 @@ const members = ref<any[]>([])
 const activeTab = ref('全部')
 const viewMode = ref<'grid' | 'table'>('table')
 const searchQuery = ref('')
+const filterStatus = ref('在隊')
+const filterULevel = ref('全部')
+
+// 計算 U-level
+const getULevel = (member: any) => {
+  if (member.role !== '球員') return '';
+  if (!member.birth_date) return '';
+  const bd = new Date(member.birth_date);
+  let cohortYear = bd.getFullYear();
+  const month = bd.getMonth() + 1;
+  const date = bd.getDate();
+  
+  // 台灣學制：9月2日含以後出生，算次年學長姐同屆（較晚入學），除非標記為提早入學
+  if ((month > 9 || (month === 9 && date >= 2)) && !member.is_early_enrollment) {
+    cohortYear += 1;
+  }
+  
+  const now = new Date();
+  // 基準年：少棒學年度如果在8月前，視為當年賽季；8月後視為次年賽季
+  const baseYear = (now.getMonth() + 1) <= 8 ? now.getFullYear() : now.getFullYear() + 1;
+  const u = baseYear - cohortYear;
+  
+  if (u >= 12) return 'U12';
+  if (u === 11) return 'U11';
+  if (u === 10) return 'U10';
+  if (u === 9) return 'U9';
+  if (u <= 8) return 'U8';
+  return '';
+}
+
+// 民國年轉換
+const getROCDate = (dateStr: string) => {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length < 3) return '';
+  const rocYear = parseInt(parts[0], 10) - 1911;
+  return `${rocYear}-${parts[1]}-${parts[2]}`;
+}
+
+// U-level 排序邏輯
+const sortULevel = (a: any, b: any) => {
+  const levelA = getULevel(a);
+  const levelB = getULevel(b);
+  
+  const numA = levelA ? parseInt(levelA.replace(/[^0-9]/g, ''), 10) || 0 : -1;
+  const numB = levelB ? parseInt(levelB.replace(/[^0-9]/g, ''), 10) || 0 : -1;
+  
+  return numA - numB;
+}
 
 // 篩選列表
 const filteredMembers = computed(() => {
@@ -324,11 +429,33 @@ const filteredMembers = computed(() => {
   if (activeTab.value !== '全部') {
     result = result.filter(m => m.role === activeTab.value)
   }
+
+  if (filterStatus.value !== '全部') {
+    result = result.filter(m => (m.status || '在隊') === filterStatus.value)
+  }
+
+  if (filterULevel.value !== '全部') {
+    result = result.filter(m => getULevel(m) === filterULevel.value)
+  }
   
   if (searchQuery.value) {
     const q = searchQuery.value.toLowerCase().trim()
     result = result.filter(m => m.name && m.name.toLowerCase().includes(q))
   }
+  
+  // 預設排序：將陣列由 U12 至 U8 (降冪) 排序
+  result = [...result].sort((a, b) => {
+    // 只有球員互相比較時才套用 U-level 排序
+    if (a.role === '球員' && b.role === '球員') {
+      const uSort = sortULevel(b, a); // b在前，表示降冪
+      if (uSort === 0) {
+        return (a.name || '').localeCompare(b.name || '', 'zh-TW');
+      }
+      return uSort;
+    }
+    // 若不是皆為球員，則依身分類別與名字的原始順序不變
+    return 0;
+  });
   
   return result
 })
@@ -344,6 +471,7 @@ const initialForm = {
   id: '',
   name: '',
   role: '球員',
+  status: '在隊',
   jersey_number: '',
   birth_date: '',
   is_early_enrollment: false,
@@ -557,6 +685,7 @@ const openEditModal = (member: any) => {
   }
   isEditing.value = true
   Object.assign(form, member)
+  if (!form.status) form.status = '在隊' // 確保舊資料有預設在隊狀態
   previewAvatar.value = member.avatar_url || ''
   selectedFile = null
   if(formRef.value) formRef.value.clearValidate()

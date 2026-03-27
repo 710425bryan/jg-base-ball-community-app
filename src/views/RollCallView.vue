@@ -29,6 +29,10 @@
           <span class="text-xs font-bold text-gray-500 hidden sm:inline">出席率</span>
           <span class="text-sm font-black text-primary">{{ attendanceRate }}%</span>
         </div>
+        <button v-if="canDelete" @click="confirmDelete" class="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-1.5" title="刪除點名單">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+          <span class="hidden sm:inline">刪除</span>
+        </button>
         <button v-if="hasAccess" @click="saveAttendance" :disabled="isSaving" class="bg-primary hover:bg-primary-hover active:scale-95 text-white px-5 py-2.5 rounded-xl shadow-[0_4px_10px_rgba(216,143,34,0.3)] text-sm font-bold transition-all flex items-center gap-2 tracking-wide disabled:opacity-70">
           <el-icon v-if="isSaving" class="is-loading"><Loading /></el-icon>
           <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
@@ -118,13 +122,14 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/auth'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading, Search } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const hasAccess = computed(() => ['ADMIN', 'HEAD_COACH', 'COACH'].includes(authStore.profile?.role))
+const canDelete = computed(() => ['ADMIN', 'MANAGER'].includes(authStore.profile?.role))
 
 const eventId = route.params.id as string
 const isLoading = ref(true)
@@ -183,7 +188,7 @@ const fetchData = async () => {
     // 2. 取得所有球員 (從 team_members 去撈)
     const { data: membersData, error: memberError } = await supabase
       .from('team_members')
-      .select('id, name, avatar_url, role, jersey_number')
+      .select('id, name, avatar_url, role, jersey_number, status')
       // 理論上若資料有其他身份可過濾 .eq('role', '球員')，這裡抓所有「球員」
       .eq('role', '球員')
       .order('name')
@@ -217,7 +222,10 @@ const fetchData = async () => {
     const recordMap = new Map(recordsData?.map(r => [r.member_id, r.status]))
 
     // 5. 組裝最終 List
-    playersList.value = membersData?.map(m => {
+    // 過濾掉退隊人員，但若該人員在此點名單已有紀錄（歷史紀錄），則保留顯示
+    const activeMembers = membersData?.filter(m => m.status !== '退隊' || recordMap.has(m.id)) || []
+    
+    playersList.value = activeMembers.map(m => {
       let status = recordMap.get(m.id)
       const hasOverlapLeave = leaveNames.includes(m.name)
       
@@ -238,6 +246,27 @@ const fetchData = async () => {
     console.error(err)
   } finally {
     isLoading.value = false
+  }
+}
+
+const confirmDelete = async () => {
+  try {
+    await ElMessageBox.confirm(
+      `確定要刪除這筆點名單嗎？此操作無法復原！`,
+      '⚠️ 刪除確認',
+      { confirmButtonText: '確定刪除', cancelButtonText: '取消', type: 'error', buttonSize: 'large' }
+    )
+    
+    const { error } = await supabase.from('attendance_events').delete().eq('id', eventId)
+    if (error) throw error
+    
+    ElMessage.success('刪除成功')
+    router.push('/attendance')
+  } catch (err: any) {
+    if (err !== 'cancel') {
+      console.error(err)
+      ElMessage.error('刪除失敗：' + (err.message || '發生錯誤'))
+    }
   }
 }
 

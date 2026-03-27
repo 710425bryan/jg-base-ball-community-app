@@ -14,16 +14,16 @@
         </div>
 
         <!-- Center: Desktop Menu -->
-        <div class="flex-1 flex justify-center">
-          <nav class="hidden md:flex space-x-8 nav-desktop">
-            <router-link to="/dashboard" class="hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">後台大廳</router-link>
-            <router-link to="/calendar" class="hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">行事曆</router-link>
-            <router-link v-if="['ADMIN', 'MANAGER', 'HEAD_COACH', 'COACH'].includes(authStore.profile?.role)" to="/leave-requests" class="hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">請假系統</router-link>
-            <router-link v-if="['ADMIN', 'HEAD_COACH', 'COACH'].includes(authStore.profile?.role)" to="/attendance" class="hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">點名系統</router-link>
-            <router-link v-if="['ADMIN', 'MANAGER'].includes(authStore.profile?.role)" to="/players" class="hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">球員名單</router-link>
-            <router-link v-if="['ADMIN', 'MANAGER'].includes(authStore.profile?.role)" to="/join-inquiries" class="hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">入隊申請</router-link>
-            <router-link v-if="['ADMIN', 'MANAGER'].includes(authStore.profile?.role)" to="/announcements" class="hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">系統公告</router-link>
-            <router-link v-if="['ADMIN', 'MANAGER'].includes(authStore.profile?.role)" to="/users" class="hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">設定</router-link>
+        <div class="flex-1 flex justify-center mx-2 overflow-hidden">
+          <nav class="hidden lg:flex gap-5 xl:gap-8 nav-desktop items-center px-1">
+            <router-link to="/dashboard" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">後台大廳</router-link>
+            <router-link to="/calendar" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">行事曆</router-link>
+            <router-link v-if="['ADMIN', 'MANAGER', 'HEAD_COACH', 'COACH'].includes(authStore.profile?.role)" to="/leave-requests" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">請假系統</router-link>
+            <router-link v-if="['ADMIN', 'HEAD_COACH', 'COACH'].includes(authStore.profile?.role)" to="/attendance" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">點名系統</router-link>
+            <router-link v-if="['ADMIN', 'MANAGER'].includes(authStore.profile?.role)" to="/players" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">球員名單</router-link>
+            <router-link v-if="['ADMIN', 'MANAGER'].includes(authStore.profile?.role)" to="/join-inquiries" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">入隊申請</router-link>
+            <router-link v-if="['ADMIN', 'MANAGER'].includes(authStore.profile?.role)" to="/announcements" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">系統公告</router-link>
+            <router-link v-if="['ADMIN', 'MANAGER'].includes(authStore.profile?.role)" to="/users" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">設定</router-link>
           </nav>
         </div>
 
@@ -56,7 +56,7 @@
           </el-popover>
 
           <!-- User Profile (Desktop Only) -->
-          <div class="hidden md:flex flex-col items-end justify-center mr-2">
+          <div class="hidden md:flex flex-col items-end justify-center mr-2 lg:mr-4">
             <span class="text-sm font-extrabold text-gray-800 leading-tight">{{ authStore.profile?.name || '使用者' }}</span>
             <div class="flex items-center gap-1.5 mt-0.5">
               <span class="text-[10px] text-gray-500 font-bold bg-gray-100/80 px-1.5 py-0.5 rounded border border-gray-200 leading-none" title="系統版本">v{{ appVersion }}</span>
@@ -65,13 +65,13 @@
           </div>
 
           <!-- Desktop Sign Out -->
-          <button @click="handleSignOut" class="hidden md:flex items-center gap-1.5 text-gray-400 hover:text-red-500 font-bold transition-colors text-sm px-3 py-1.5 rounded-lg hover:bg-red-50">
+          <button @click="handleSignOut" class="hidden lg:flex items-center gap-1.5 text-gray-400 hover:text-red-500 font-bold transition-colors text-sm px-3 py-1.5 rounded-lg hover:bg-red-50">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
             登出
           </button>
           
           <!-- Mobile Hamburger -->
-          <button @click="isMobileMenuOpen = !isMobileMenuOpen" class="p-1 md:hidden text-gray-600 hover:text-primary transition-colors focus:outline-none rounded-lg">
+          <button @click="isMobileMenuOpen = !isMobileMenuOpen" class="p-1 lg:hidden text-gray-600 hover:text-primary transition-colors focus:outline-none rounded-lg ml-2">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
@@ -81,7 +81,7 @@
     </header>
 
     <!-- Mobile Hamburger Menu (Dropdown/Overlay) -->
-    <div v-if="isMobileMenuOpen" class="md:hidden absolute top-16 left-0 w-full bg-white border-b border-gray-100 z-40 mt-[env(safe-area-inset-top)] shadow-xl animate-fade-in-down">
+    <div v-if="isMobileMenuOpen" class="lg:hidden absolute top-16 left-0 w-full bg-white border-b border-gray-100 z-40 mt-[env(safe-area-inset-top)] shadow-xl animate-fade-in-down">
       <nav class="flex flex-col py-2">
          <router-link to="/dashboard" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">後台大廳</router-link>
          <router-link to="/calendar" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">行事曆</router-link>
@@ -413,5 +413,14 @@ header nav.nav-desktop .router-link-active {
   border-bottom: 2px solid #D88F22;
   padding-bottom: 2px;
   text-shadow: 0 0 10px rgba(216,143,34,0.4);
+}
+
+/* Hide scrollbar for overflowing nav */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
 }
 </style>
