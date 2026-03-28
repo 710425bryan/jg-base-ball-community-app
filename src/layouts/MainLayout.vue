@@ -95,6 +95,14 @@
     <!-- Mobile Hamburger Menu (Dropdown/Overlay) -->
     <div v-if="isMobileMenuOpen" class="lg:hidden absolute top-16 left-0 w-full bg-white border-b border-gray-100 z-40 mt-[env(safe-area-inset-top)] shadow-xl animate-fade-in-down">
       <nav class="flex flex-col py-2">
+         <!-- Mobile User Info & Version -->
+         <div class="px-6 pb-4 pt-2 border-b border-gray-100 flex items-center justify-between mb-1 bg-gray-50/30">
+           <div class="flex flex-col">
+             <span class="text-sm font-extrabold text-gray-800">{{ authStore.profile?.name || '使用者' }}</span>
+             <span class="text-xs text-primary font-bold mt-0.5">{{ translateRole(authStore.profile?.role) }}</span>
+           </div>
+           <span class="text-[10px] text-gray-500 font-bold bg-white px-2 py-1 rounded-md border border-gray-200 shadow-sm tracking-wide">v{{ appVersion }}</span>
+         </div>
          <router-link to="/dashboard" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">後台大廳</router-link>
          <router-link to="/calendar" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">行事曆</router-link>
          <router-link to="/match-records" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">比賽紀錄</router-link>

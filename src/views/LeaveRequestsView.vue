@@ -143,6 +143,7 @@
                 format="YYYY-MM-DD"
                 value-format="YYYY-MM-DD"
                 @change="fetchData"
+                :shortcuts="dateShortcuts"
                 class="!w-full sm:!w-[400px]"
               />
             </div>
@@ -171,8 +172,14 @@
               </div>
             </div>
 
+            <!-- 各月份請假趨勢圖 -->
+            <div class="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 p-4 shrink-0 h-[320px] flex flex-col">
+              <span class="font-bold text-gray-800 mb-2">各月份請假趨勢</span>
+              <v-chart class="flex-1 w-full" :option="monthlyChartOption" autoresize />
+            </div>
+
             <!-- 排行榜列表 -->
-            <div class="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/80 flex-1 flex flex-col min-h-0 overflow-hidden">
+            <div class="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/80 flex-1 flex flex-col min-h-[400px] md:min-h-0 overflow-hidden shrink-0 md:shrink">
               <div class="p-5 border-b border-gray-100 bg-gray-50/30">
                 <h3 class="font-bold text-gray-800">球員請假排行榜 (由多到少)</h3>
               </div>
@@ -183,23 +190,26 @@
                 row-class-name="transition-colors hover:bg-gray-50/50"
                 header-cell-class-name="bg-white text-gray-400 font-medium text-sm"
               >
-                <el-table-column label="球員" min-width="200">
+                <el-table-column label="球員" min-width="100">
                   <template #default="{ row }">
-                    <div class="flex items-center gap-3">
-                      <div class="w-8 h-8 rounded-full overflow-hidden bg-gray-100 shrink-0">
-                        <img v-if="row.avatar_url" :src="row.avatar_url" class="w-full h-full object-cover" />
-                        <div v-else class="w-full h-full flex items-center justify-center text-gray-400 font-bold text-sm">{{ row.name.charAt(0) }}</div>
-                      </div>
-                      <span class="font-bold text-gray-700">{{ row.name }}</span>
+                    <span class="font-bold text-gray-700">{{ row.name }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="請假日期" min-width="260">
+                  <template #default="{ row }">
+                    <div class="flex flex-wrap gap-1.5 mt-1 mb-1">
+                      <span v-for="date in row.dates" :key="date" class="text-[11px] bg-gray-50 text-gray-500 px-1.5 py-0.5 rounded border border-gray-200 font-medium">
+                        {{ date }}
+                      </span>
                     </div>
                   </template>
                 </el-table-column>
-                <el-table-column prop="total" label="總次數" width="120" align="center">
+                <el-table-column prop="total" label="總次數" width="90" align="center">
                   <template #default="{ row }">
-                    <span class="font-extrabold text-gray-800 text-lg">{{ row.total }}</span>
+                     <span class="font-extrabold text-gray-800 text-lg">{{ row.total }}</span>
                   </template>
                 </el-table-column>
-                <el-table-column label="假別分佈" min-width="300">
+                <el-table-column label="假別分佈" min-width="180">
                   <template #default="{ row }">
                     <div class="flex flex-wrap gap-2">
                        <span v-if="row.types.事假 > 0" class="bg-orange-50 text-primary px-2 py-0.5 rounded text-sm font-bold border border-orange-100">事假: {{ row.types.事假 }}</span>
@@ -405,6 +415,14 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading, InfoFilled, CircleCheckFilled } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 
+import { use } from 'echarts/core'
+import { CanvasRenderer } from 'echarts/renderers'
+import { BarChart } from 'echarts/charts'
+import { TitleComponent, TooltipComponent, LegendComponent, GridComponent } from 'echarts/components'
+import VChart from 'vue-echarts'
+
+use([CanvasRenderer, BarChart, TitleComponent, TooltipComponent, LegendComponent, GridComponent])
+
 const authStore = useAuthStore()
 const activeTab = ref('list')
 const isModalOpen = ref(false)
@@ -426,6 +444,13 @@ const formRef = ref()
 const defaultStartDate = dayjs().startOf('month').format('YYYY-MM-DD')
 const defaultEndDate = dayjs().add(2, 'month').endOf('month').format('YYYY-MM-DD')
 const dateRange = ref<[string, string]>([defaultStartDate, defaultEndDate])
+
+const dateShortcuts = [
+  { text: '本月', value: () => [dayjs().startOf('month').format('YYYY-MM-DD'), dayjs().endOf('month').format('YYYY-MM-DD')] },
+  { text: '上個月', value: () => [dayjs().subtract(1, 'month').startOf('month').format('YYYY-MM-DD'), dayjs().subtract(1, 'month').endOf('month').format('YYYY-MM-DD')] },
+  { text: '最近三個月', value: () => [dayjs().subtract(3, 'month').startOf('month').format('YYYY-MM-DD'), dayjs().endOf('month').format('YYYY-MM-DD')] },
+  { text: '今年', value: () => [dayjs().startOf('year').format('YYYY-MM-DD'), dayjs().endOf('year').format('YYYY-MM-DD')] }
+]
 
 // --- 表單狀態 ---
 const form = reactive({
@@ -487,6 +512,72 @@ const statsByType = computed(() => {
   return stats
 })
 
+// === Echarts 月份趨勢圖選項 ===
+const monthlyChartOption = computed(() => {
+  const monthMap: Record<string, Record<string, number>> = {}
+  
+  leaveRequests.value.forEach(r => {
+    // 依據 start_date 解析 YYYY-MM
+    const month = r.start_date.substring(0, 7)
+    if (!monthMap[month]) {
+      monthMap[month] = { 事假: 0, 病假: 0, 公假: 0, 其他: 0 }
+    }
+    const type = r.leave_type in monthMap[month] ? r.leave_type : '其他'
+    monthMap[month][type]++
+  })
+
+  // 將月份排序
+  const months = Object.keys(monthMap).sort()
+
+  const seriesData = ['事假', '病假', '公假', '其他'].map(type => {
+    return {
+      name: type,
+      type: 'bar',
+      stack: 'total', // 堆積長條圖
+      barMaxWidth: 35,
+      itemStyle: { borderRadius: [2, 2, 0, 0] },
+      data: months.map(m => monthMap[m][type])
+    }
+  })
+
+  // 如果這整段區間完全沒有資料，顯示預設值
+  const isNoData = months.length === 0
+
+  return {
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' }
+    },
+    legend: {
+      data: ['事假', '病假', '公假', '其他'],
+      bottom: 0,
+      icon: 'circle',
+      textStyle: { color: '#6b7280' }
+    },
+    grid: {
+      left: '2%',
+      right: '2%',
+      bottom: '10%',
+      top: '10%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'category',
+      data: isNoData ? ['無資料'] : months,
+      axisLabel: { color: '#6b7280', fontSize: 12 },
+      axisLine: { lineStyle: { color: '#e5e7eb' } }
+    },
+    yAxis: {
+      type: 'value',
+      minInterval: 1, // 只能是整數人次
+      splitLine: { lineStyle: { type: 'dashed', color: '#f3f4f6' } },
+      axisLabel: { color: '#9ca3af' }
+    },
+    color: ['#D88F22', '#ef4444', '#3b82f6', '#9ca3af'],
+    series: isNoData ? [] : seriesData
+  }
+})
+
 const rankingByPlayer = computed(() => {
   const map: Record<string, any> = {}
   leaveRequests.value.forEach(r => {
@@ -496,7 +587,8 @@ const rankingByPlayer = computed(() => {
         name: r.team_members?.name || '未知',
         avatar_url: r.team_members?.avatar_url,
         total: 0,
-        types: { 事假: 0, 病假: 0, 公假: 0, 其他: 0 }
+        types: { 事假: 0, 病假: 0, 公假: 0, 其他: 0 },
+        dates: []
       }
     }
     map[pId].total++
@@ -505,7 +597,20 @@ const rankingByPlayer = computed(() => {
     } else {
       map[pId].types.其他++
     }
+
+    // 整理請假日期字串 (例如 "2026-03-28(事)" 或 "2026-03-28~2026-03-29(病)")
+    const typeLabel = r.leave_type.charAt(0)
+    let dateStr = ''
+    if (r.start_date === r.end_date) {
+      dateStr = r.start_date // 完整 YYYY-MM-DD
+    } else {
+      dateStr = `${r.start_date}~${r.end_date}`
+    }
+    map[pId].dates.push(`${dateStr}(${typeLabel})`)
   })
+  
+  Object.values(map).forEach((p: any) => p.dates.sort())
+
   return Object.values(map).sort((a, b) => b.total - a.total)
 })
 
