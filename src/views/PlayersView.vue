@@ -73,6 +73,7 @@
       <el-tabs v-model="activeTab" class="w-full light-tabs">
         <el-tab-pane label="全體人員" name="全部" />
         <el-tab-pane label="球員列表" name="球員" />
+        <el-tab-pane label="校隊成員" name="校隊" />
         <el-tab-pane label="教練團隊" name="教練" />
       </el-tabs>
     </div>
@@ -112,7 +113,15 @@
               <span class="text-[10px] md:text-xs font-bold px-2 py-0.5 rounded border uppercase tracking-wider" :class="getRoleClass(row.role)">{{ row.role }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="組別" width="95" align="center" sortable :sort-method="sortULevel">
+          <el-table-column prop="team_group" label="所屬群組" min-width="115">
+            <template #default="{ row }">
+              <span v-if="row.team_group" class="text-[10px] md:text-xs font-bold px-2 py-0.5 rounded border tracking-wider" :class="getTeamGroupClass(row.team_group)">
+                {{ row.team_group }}
+              </span>
+              <span v-else class="text-gray-300">-</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="年齡組" width="95" align="center" sortable :sort-method="sortULevel">
             <template #default="{ row }">
               <span v-if="getULevel(row)" class="text-[10px] md:text-xs font-black px-2 py-0.5 rounded uppercase tracking-wider bg-blue-50 text-blue-600 border border-blue-100">
                 {{ getULevel(row) }}
@@ -173,6 +182,9 @@
               <div class="flex flex-wrap items-center gap-2">
                 <span v-if="member.status === '退隊'" class="text-xs md:text-sm font-bold px-2 py-0.5 rounded border bg-red-50 text-red-600 border-red-200 tracking-wider">退隊</span>
                 <span class="text-xs md:text-sm font-bold px-2 py-0.5 rounded border uppercase tracking-wider" :class="getRoleClass(member.role)">[{{ member.role }}]</span>
+                <span v-if="member.team_group" class="text-[10px] md:text-xs font-bold px-2 py-0.5 rounded border tracking-wider" :class="getTeamGroupClass(member.team_group)">
+                  {{ member.team_group }}
+                </span>
                 <span v-if="getULevel(member)" class="text-[10px] md:text-xs font-black px-2 py-0.5 rounded uppercase tracking-wider bg-blue-50 text-blue-600 border border-blue-100">
                   {{ getULevel(member) }}
                 </span>
@@ -234,9 +246,17 @@
             <el-form-item label="身分" prop="role" class="font-bold mb-0">
               <el-select v-model="form.role" class="w-full">
                 <el-option label="球員" value="球員" />
+                <el-option label="校隊" value="校隊" />
                 <el-option label="教練" value="教練" />
                 <el-option label="管理群" value="管理群" />
                 <el-option label="其他" value="其他" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="所屬群組 (熊隊)" prop="team_group" class="font-bold mb-0" v-if="form.role === '球員' || form.role === '校隊'">
+              <el-select v-model="form.team_group" class="w-full">
+                <el-option label="泰迪熊(小組)" value="泰迪熊(小組)" />
+                <el-option label="黑熊(中組)" value="黑熊(中組)" />
+                <el-option label="灰熊(大組)" value="灰熊(大組)" />
               </el-select>
             </el-form-item>
             <el-form-item label="在隊狀態" prop="status" class="font-bold mb-0">
@@ -264,7 +284,7 @@
         </div>
 
         <!-- 區塊2: 棒球屬性 -->
-        <div class="bg-gray-50/50 p-4 rounded-xl border border-gray-100 relative" v-if="form.role === '球員' || form.role === '教練'">
+        <div class="bg-gray-50/50 p-4 rounded-xl border border-gray-100 relative" v-if="form.role === '球員' || form.role === '校隊' || form.role === '教練'">
           <div class="absolute -top-3 left-4 bg-white px-2 text-sm font-bold text-gray-500 uppercase tracking-wider">棒球屬性</div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
             <el-form-item label="投球慣用手" prop="throwing_hand" class="font-bold mb-0">
@@ -377,7 +397,7 @@ const filterULevel = ref('全部')
 
 // 計算 U-level
 const getULevel = (member: any) => {
-  if (member.role !== '球員') return '';
+  if (member.role !== '球員' && member.role !== '校隊') return '';
   if (!member.birth_date) return '';
   const bd = new Date(member.birth_date);
   let cohortYear = bd.getFullYear();
@@ -446,14 +466,14 @@ const filteredMembers = computed(() => {
   // 預設排序：將陣列由 U12 至 U8 (降冪) 排序
   result = [...result].sort((a, b) => {
     // 只有球員互相比較時才套用 U-level 排序
-    if (a.role === '球員' && b.role === '球員') {
+    if ((a.role === '球員' || a.role === '校隊') && (b.role === '球員' || b.role === '校隊')) {
       const uSort = sortULevel(b, a); // b在前，表示降冪
       if (uSort === 0) {
         return (a.name || '').localeCompare(b.name || '', 'zh-TW');
       }
       return uSort;
     }
-    // 若不是皆為球員，則依身分類別與名字的原始順序不變
+    // 若不是皆為球員/校隊，則依身分類別與名字的原始順序不變
     return 0;
   });
   
@@ -471,6 +491,7 @@ const initialForm = {
   id: '',
   name: '',
   role: '球員',
+  team_group: '泰迪熊(小組)',
   status: '在隊',
   jersey_number: '',
   birth_date: '',
@@ -494,8 +515,8 @@ const rules = computed(() => ({
   role: [{ required: true, message: '請選擇身分', trigger: 'change' }],
   birth_date: [{ required: true, message: '請選擇生日', trigger: 'change' }],
   national_id: [{ required: true, message: '請填寫身分證字號', trigger: 'blur' }],
-  throwing_hand: [{ required: form.role === '球員' || form.role === '教練', message: '請選擇投球慣用手', trigger: 'change' }],
-  batting_hand: [{ required: form.role === '球員' || form.role === '教練', message: '請選擇打擊慣用方向', trigger: 'change' }],
+  throwing_hand: [{ required: form.role === '球員' || form.role === '校隊' || form.role === '教練', message: '請選擇投球慣用手', trigger: 'change' }],
+  batting_hand: [{ required: form.role === '球員' || form.role === '校隊' || form.role === '教練', message: '請選擇打擊慣用方向', trigger: 'change' }],
   contact_line_id: [{ required: true, message: '請填寫主要聯絡人 LINE ID', trigger: 'blur' }],
   contact_relation: [{ required: true, message: '請選擇主要聯絡人關係', trigger: 'change' }],
   guardian_name: [{ required: true, message: '請填寫法定代理人姓名', trigger: 'blur' }],
@@ -793,9 +814,19 @@ const confirmDelete = async () => {
 const getRoleClass = (role: string) => {
   switch (role) {
     case '球員': return 'border-primary text-primary bg-primary/10'
+    case '校隊': return 'border-pink-400 text-pink-600 bg-pink-50 shadow-sm'
     case '教練': return 'border-secondary text-[#ca8a04] bg-secondary/10'
     case '管理群': return 'border-slate-800 text-slate-800 bg-slate-100'
     default: return 'border-gray-500 text-gray-500 bg-gray-50'
+  }
+}
+
+const getTeamGroupClass = (group: string) => {
+  switch (group) {
+    case '泰迪熊(小組)': return 'bg-orange-50 text-orange-600 border-orange-200'
+    case '黑熊(中組)': return 'bg-neutral-800 text-neutral-100 border-neutral-700'
+    case '灰熊(大組)': return 'bg-zinc-100 text-zinc-600 border-zinc-300'
+    default: return 'bg-gray-50 text-gray-500 border-gray-200'
   }
 }
 

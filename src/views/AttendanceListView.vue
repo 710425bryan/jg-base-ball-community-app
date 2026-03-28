@@ -57,7 +57,10 @@
           <h3 class="text-xl font-black text-slate-800 mb-2 line-clamp-2 leading-snug">{{ event.title }}</h3>
           
           <!-- 出席狀況概覽 -->
-          <div class="flex items-center gap-2 mb-2">
+          <div class="flex flex-wrap items-center gap-2 mb-2">
+            <div class="flex items-center gap-1 bg-gray-50 text-gray-600 px-2 py-0.5 rounded text-xs font-extrabold border border-gray-200 tracking-wide">
+              👥 總數 {{ event.totalCount }} 人
+            </div>
             <div class="flex items-center gap-1 bg-green-50 text-green-600 px-2 py-0.5 rounded text-xs font-extrabold border border-green-100 tracking-wide">
               ✅ 出席 {{ event.presentCount }} 人
             </div>
@@ -67,7 +70,7 @@
           </div>
           
           <div class="mt-auto pt-4 flex items-center justify-between border-t border-gray-50">
-            <div class="text-sm font-bold text-gray-400">建立者: <span class="text-gray-600">{{ event.profiles?.name || '未知' }}</span></div>
+            <div class="text-sm font-bold text-gray-400">建立者: <span class="text-gray-600">{{ event.profiles?.nickname || event.profiles?.name || '未知' }}</span></div>
             <button class="text-primary font-bold text-sm bg-primary/10 px-3 py-1.5 rounded-lg group-hover:bg-primary group-hover:text-white transition-colors flex items-center gap-1">
               開始點名
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
@@ -154,9 +157,16 @@ const rules = {
 const fetchEvents = async () => {
   isLoading.value = true
   try {
+    // 先取得目前有效球員總數，作為尚未進行點名（records 為 0）時的總數參考
+    const { count: memberCount } = await supabase
+      .from('team_members')
+      .select('*', { count: 'exact', head: true })
+      .in('role', ['球員', '校隊'])
+      .neq('status', '退隊')
+
     const { data, error } = await supabase
       .from('attendance_events')
-      .select('*, profiles(name), attendance_records(status)')
+      .select('*, profiles(name, nickname), attendance_records(status)')
       .order('date', { ascending: false })
       .order('created_at', { ascending: false })
       
@@ -165,7 +175,9 @@ const fetchEvents = async () => {
       const records = e.attendance_records || []
       const presentCount = records.filter((r: any) => ['出席', '遲到', '早退'].includes(r.status)).length
       const leaveCount = records.filter((r: any) => r.status === '請假').length
-      return { ...e, presentCount, leaveCount }
+      // 如果還沒進行過點名儲存，就顯示目前系統活躍球員總數
+      const totalCount = records.length > 0 ? records.length : (memberCount || 0)
+      return { ...e, presentCount, leaveCount, totalCount }
     }) || []
   } catch (error: any) {
     ElMessage.error('讀取紀錄失敗：' + error.message)

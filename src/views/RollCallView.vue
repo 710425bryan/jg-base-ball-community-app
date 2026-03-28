@@ -33,17 +33,43 @@
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
           <span class="hidden sm:inline">刪除</span>
         </button>
-        <button v-if="hasAccess" @click="saveAttendance" :disabled="isSaving" class="bg-primary hover:bg-primary-hover active:scale-95 text-white px-5 py-2.5 rounded-xl shadow-[0_4px_10px_rgba(216,143,34,0.3)] text-sm font-bold transition-all flex items-center gap-2 tracking-wide disabled:opacity-70">
-          <el-icon v-if="isSaving" class="is-loading"><Loading /></el-icon>
-          <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
-          <span class="hidden sm:inline">儲存點名結果</span>
-          <span class="sm:hidden">儲存</span>
-        </button>
+        
+        <div v-if="hasAccess" class="flex items-center gap-2 text-sm font-bold bg-gray-50 border border-gray-100 px-3 py-2 rounded-xl transition-colors min-w-[100px] justify-center">
+          <template v-if="isSyncing || pendingChangesSize > 0">
+            <el-icon class="is-loading text-primary"><Loading /></el-icon>
+            <span class="text-primary hidden sm:inline">儲存中</span>
+          </template>
+          <template v-else>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+            </svg>
+            <span class="text-green-600 hidden sm:inline">已存檔</span>
+          </template>
+        </div>
       </div>
       </div>
       
-      <!-- Bottom Row: Fixed Search Bar -->
-      <div class="w-full max-w-4xl mx-auto mt-1" v-if="!isLoading && playersList.length > 0">
+      <!-- Bottom Row: Fixed Search Bar & Filters -->
+      <div class="w-full max-w-4xl mx-auto mt-1 flex flex-col gap-3" v-if="!isLoading && playersList.length > 0">
+        <!-- Filter Tabs -->
+        <div class="overflow-x-auto custom-scrollbar pb-1">
+          <div class="flex gap-2">
+            <button 
+              v-for="filter in ['全部', '泰迪熊(小組)', '黑熊(中組)', '灰熊(大組)', '校隊']" 
+              :key="filter"
+              @click="activeFilter = filter"
+              class="px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-all border"
+              :class="[
+                activeFilter === filter 
+                  ? 'bg-primary text-white border-primary shadow-sm' 
+                  : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+              ]"
+            >
+              {{ filter }}
+            </button>
+          </div>
+        </div>
+        
         <el-input
           v-model="searchQuery"
           placeholder="搜尋姓名或背號..."
@@ -118,7 +144,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/auth'
@@ -133,20 +159,33 @@ const canDelete = computed(() => ['ADMIN', 'MANAGER'].includes(authStore.profile
 
 const eventId = route.params.id as string
 const isLoading = ref(true)
-const isSaving = ref(false)
+const isSyncing = ref(false)
 
 const eventData = ref<any>(null)
-// playersList 架構: { id, name, avatar_url, role, status: '缺席'..., hasOverlapLeave: boolean }
 const playersList = ref<any[]>([])
 const searchQuery = ref('')
+const activeFilter = ref('全部') // 新增過濾器
 
 const filteredPlayers = computed(() => {
-  if (!searchQuery.value) return playersList.value
-  const q = searchQuery.value.toLowerCase().trim()
-  return playersList.value.filter(p => 
-    (p.name && p.name.toLowerCase().includes(q)) || 
-    (p.jersey_number && String(p.jersey_number).includes(q))
-  )
+  let result = playersList.value
+
+  // 套用群組 / 身份過濾
+  if (activeFilter.value === '校隊') {
+    result = result.filter(p => p.role === '校隊')
+  } else if (activeFilter.value !== '全部') {
+    result = result.filter(p => p.team_group === activeFilter.value)
+  }
+
+  // 套用搜尋
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase().trim()
+    result = result.filter(p => 
+      (p.name && p.name.toLowerCase().includes(q)) || 
+      (p.jersey_number && String(p.jersey_number).includes(q))
+    )
+  }
+
+  return result
 })
 
 const statusOptions = [
@@ -167,9 +206,52 @@ const attendanceRate = computed(() => {
   return Math.round((presentCount / baseCount) * 100)
 })
 
+const pendingChanges = ref<Map<string, string>>(new Map())
+const pendingChangesSize = computed(() => pendingChanges.value.size)
+const syncTimeout = ref<number | null>(null)
+
+const flushChanges = async () => {
+  if (pendingChanges.value.size === 0) return
+  
+  isSyncing.value = true
+  // 提取目前的變更並立即清空 Map，讓後續的點擊可以寫入新 Map 避免遺漏
+  const entriesToSync = Array.from(pendingChanges.value.entries())
+  pendingChanges.value.clear()
+  
+  try {
+    const payloads = entriesToSync.map(([member_id, status]) => ({
+      event_id: eventId,
+      member_id,
+      status
+    }))
+    
+    const { error } = await supabase
+      .from('attendance_records')
+      .upsert(payloads, { onConflict: 'event_id,member_id' })
+      
+    if (error) throw error
+  } catch (err: any) {
+    console.error('Auto-sync failed', err)
+    ElMessage.error('自動存檔失敗，請確認網路連線')
+  } finally {
+    isSyncing.value = false
+  }
+}
+
 const setPlayerStatus = (playerId: string, status: string) => {
   const p = playersList.value.find(x => x.id === playerId)
-  if (p) p.status = status
+  if (p && p.status !== status) {
+    p.status = status
+    
+    // 加入異動對列
+    pendingChanges.value.set(playerId, status)
+    
+    // 進入 Debounce 自動存檔 (防手抖、合併多次點擊，提高效能)
+    if (syncTimeout.value) clearTimeout(syncTimeout.value)
+    syncTimeout.value = window.setTimeout(() => {
+      flushChanges()
+    }, 1200) // 延遲 1.2 秒才送 API
+  }
 }
 
 const fetchData = async () => {
@@ -188,9 +270,8 @@ const fetchData = async () => {
     // 2. 取得所有球員 (從 team_members 去撈)
     const { data: membersData, error: memberError } = await supabase
       .from('team_members')
-      .select('id, name, avatar_url, role, jersey_number, status')
-      // 理論上若資料有其他身份可過濾 .eq('role', '球員')，這裡抓所有「球員」
-      .eq('role', '球員')
+      .select('id, name, avatar_url, role, jersey_number, status, team_group')
+      .in('role', ['球員', '校隊'])
       .order('name')
       
     if (memberError) throw memberError
@@ -270,32 +351,15 @@ const confirmDelete = async () => {
   }
 }
 
-const saveAttendance = async () => {
-  isSaving.value = true
-  try {
-    const payloads = playersList.value.map(p => ({
-      event_id: eventId,
-      member_id: p.id,
-      status: p.status
-    }))
-    
-    const { error } = await supabase
-      .from('attendance_records')
-      .upsert(payloads, { onConflict: 'event_id,member_id' })
-      
-    if (error) throw error
-    
-    ElMessage.success('儲存成功！')
-  } catch (err: any) {
-    ElMessage.error('儲存失敗：' + err.message)
-    console.error(err)
-  } finally {
-    isSaving.value = false
-  }
-}
-
 onMounted(() => {
   fetchData()
+})
+
+onBeforeUnmount(() => {
+  if (pendingChanges.value.size > 0 || syncTimeout.value) {
+    if (syncTimeout.value) clearTimeout(syncTimeout.value)
+    flushChanges()
+  }
 })
 </script>
 
