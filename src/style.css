@@ -39,4 +39,5 @@ body {
 
 html {
   height: -webkit-fill-available;
+  touch-action: manipulation;
 }
