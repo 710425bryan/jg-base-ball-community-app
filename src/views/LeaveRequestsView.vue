@@ -398,7 +398,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
 import { supabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -423,8 +423,8 @@ const isSavingSettings = ref(false)
 const formRef = ref()
 
 // --- 篩選區間 ---
-const defaultStartDate = dayjs().format('YYYY-MM-DD')
-const defaultEndDate = dayjs().endOf('month').format('YYYY-MM-DD')
+const defaultStartDate = dayjs().startOf('month').format('YYYY-MM-DD')
+const defaultEndDate = dayjs().add(2, 'month').endOf('month').format('YYYY-MM-DD')
 const dateRange = ref<[string, string]>([defaultStartDate, defaultEndDate])
 
 // --- 表單狀態 ---
@@ -789,9 +789,25 @@ const handleTogglePush = async (val: boolean | string | number) => {
   }
 }
 
+// --- Supabase Realtime 訂閱 ---
+let realtimeChannel: any
+
 // --- 初始掛載 ---
 onMounted(() => {
   fetchData()
+
+  // 監聽 leave_requests 資料表變更
+  realtimeChannel = supabase.channel('leave-requests-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'leave_requests' }, () => {
+      fetchData()
+    })
+    .subscribe()
+})
+
+onUnmounted(() => {
+  if (realtimeChannel) {
+    supabase.removeChannel(realtimeChannel)
+  }
 })
 </script>
 
