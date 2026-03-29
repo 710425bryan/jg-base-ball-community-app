@@ -2,19 +2,34 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#ffffff" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <title>JG BaseBall Community App</title>
-    <script type="module" crossorigin src="/assets/index-CMR6lTdw.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-DMqUC5BG.css">
+    <link rel="icon" type="image/png" href="/少棒元素_20260324_232837_0000.png" />
+    <link rel="apple-touch-icon" href="/少棒元素_20260324_232837_0000.png" />
+    <title>中港熊戰棒球隊</title>
+    <script type="module" crossorigin src="/assets/index-Ch_EWvCs.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-BMHkVrV4.css">
     <script type="module">import.meta.url;import("_").catch(()=>1);(async function*(){})().next();window.__vite_is_modern_browser=true</script>
     <script type="module">!function(){if(window.__vite_is_modern_browser)return;console.warn("vite: loading legacy chunks, syntax error above and the same error below should be ignored");var e=document.getElementById("vite-legacy-polyfill"),n=document.createElement("script");n.src=e.src,n.onload=function(){System.import(document.getElementById('vite-legacy-entry').getAttribute('data-src'))},document.body.appendChild(n)}();</script>
   <link rel="manifest" href="/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/registerSW.js"></script></head>
   <body>
     <div id="app"></div>
+    <script>
+      // iOS Safari Zoom 防護機制 (因應 Safari 10+ 忽略 user-scalable=no)
+      document.addEventListener('gesturestart', function(e) { e.preventDefault(); }, { passive: false });
+      document.addEventListener('dblclick', function(e) { e.preventDefault(); }, { passive: false });
+      let lastTouchEnd = 0;
+      document.addEventListener('touchend', function(event) {
+        let now = (new Date()).getTime();
+        if (now - lastTouchEnd <= 300) { event.preventDefault(); }
+        lastTouchEnd = now;
+      }, { passive: false });
+      document.addEventListener('touchmove', function(event) {
+        if (event.touches.length > 1) { event.preventDefault(); } // 雙指或多指滑動
+      }, { passive: false });
+    </script>
     <script nomodule>!function(){var e=document,t=e.createElement("script");if(!("noModule"in t)&&"onbeforeload"in t){var n=!1;e.addEventListener("beforeload",(function(e){if(e.target===t)n=!0;else if(!e.target.hasAttribute("nomodule")||!n)return;e.preventDefault()}),!0),t.type="module",t.src=".",e.head.appendChild(t),t.remove()}}();</script>
-    <script nomodule crossorigin id="vite-legacy-polyfill" src="/assets/polyfills-legacy-0fQOyWNx.js"></script>
-    <script nomodule crossorigin id="vite-legacy-entry" data-src="/assets/index-legacy-zX5GOw7k.js">System.import(document.getElementById('vite-legacy-entry').getAttribute('data-src'))</script>
+    <script nomodule crossorigin id="vite-legacy-polyfill" src="/assets/polyfills-legacy-D85zr-so.js"></script>
+    <script nomodule crossorigin id="vite-legacy-entry" data-src="/assets/index-legacy-CFpH1T4K.js">System.import(document.getElementById('vite-legacy-entry').getAttribute('data-src'))</script>
   </body>
 </html>

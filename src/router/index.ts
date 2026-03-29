@@ -71,6 +71,11 @@ const router = createRouter({
           path: 'match-records',
           name: 'MatchRecords',
           component: () => import('../views/MatchRecordsView.vue')
+        },
+        {
+          path: 'fees',
+          name: 'Fees',
+          component: () => import('../views/FeesView.vue')
         }
       ]
     },

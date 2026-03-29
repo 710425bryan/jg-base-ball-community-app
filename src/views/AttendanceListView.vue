@@ -64,6 +64,9 @@
             <div class="flex items-center gap-1 bg-green-50 text-green-600 px-2 py-0.5 rounded text-xs font-extrabold border border-green-100 tracking-wide">
               ✅ 出席 {{ event.presentCount }} 人
             </div>
+            <div class="flex items-center gap-1 bg-red-50 text-red-500 px-2 py-0.5 rounded text-xs font-extrabold border border-red-100 tracking-wide">
+              ❌ 缺席 {{ event.absentCount }} 人
+            </div>
             <div class="flex items-center gap-1 bg-blue-50 text-blue-500 px-2 py-0.5 rounded text-xs font-extrabold border border-blue-100 tracking-wide">
               🏖️ 請假 {{ event.leaveCount }} 人
             </div>
@@ -175,9 +178,10 @@ const fetchEvents = async () => {
       const records = e.attendance_records || []
       const presentCount = records.filter((r: any) => ['出席', '遲到', '早退'].includes(r.status)).length
       const leaveCount = records.filter((r: any) => r.status === '請假').length
+      const absentCount = records.filter((r: any) => r.status === '缺席').length
       // 如果還沒進行過點名儲存，就顯示目前系統活躍球員總數
       const totalCount = records.length > 0 ? records.length : (memberCount || 0)
-      return { ...e, presentCount, leaveCount, totalCount }
+      return { ...e, presentCount, leaveCount, absentCount, totalCount }
     }) || []
   } catch (error: any) {
     ElMessage.error('讀取紀錄失敗：' + error.message)

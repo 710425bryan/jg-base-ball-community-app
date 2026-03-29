@@ -32,6 +32,7 @@
                 <el-dropdown-menu class="!p-1.5 !rounded-xl min-w-[140px] shadow-xl border-gray-100">
                   <el-dropdown-item @click="router.push('/join-inquiries')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">入隊申請</el-dropdown-item>
                   <el-dropdown-item @click="router.push('/announcements')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">系統公告</el-dropdown-item>
+                  <el-dropdown-item v-if="authStore.profile?.role === 'ADMIN'" @click="router.push('/fees')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">收費管理</el-dropdown-item>
                   <el-dropdown-item @click="router.push('/users')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5" divided>設定</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
@@ -111,6 +112,7 @@
          <router-link v-if="['ADMIN', 'MANAGER'].includes(authStore.profile?.role)" to="/players" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">球員名單</router-link>
          <router-link v-if="['ADMIN', 'MANAGER'].includes(authStore.profile?.role)" to="/join-inquiries" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">入隊申請</router-link>
          <router-link v-if="['ADMIN', 'MANAGER'].includes(authStore.profile?.role)" to="/announcements" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">系統公告</router-link>
+         <router-link v-if="['ADMIN'].includes(authStore.profile?.role)" to="/fees" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">收費管理</router-link>
          <router-link v-if="['ADMIN', 'MANAGER'].includes(authStore.profile?.role)" to="/users" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">設定</router-link>
          <button @click="handleSignOut" class="text-left px-6 py-5 text-red-500 hover:bg-red-50 font-bold w-full transition-colors flex items-center gap-2 uppercase tracking-widest text-sm">
            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
@@ -215,6 +217,7 @@ const handleSignOut = async () => {
 let realtimeChannel: any = null;
 let teamMemberChannel: any = null;
 let joinInquiriesChannel: any = null;
+let quarterlyFeesChannel: any = null;
 
 const startListening = () => {
   if (realtimeChannel || teamMemberChannel || joinInquiriesChannel) return;
@@ -339,6 +342,44 @@ const startListening = () => {
     .subscribe((status) => {
       console.log('📡 [WebSocket] 入隊詢問表單連線狀態：', status);
     });
+
+  // 4. 監聽季費表單 (專屬跑道D)
+  quarterlyFeesChannel = supabase
+    .channel('quarterly-fees-channel')
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'quarterly_fees' },
+      async (payload) => {
+        // 限 ADMIN, MANAGER 接收
+        if (!['ADMIN', 'MANAGER'].includes(authStore.profile?.role)) return;
+
+        const { data } = await supabase.from('team_members').select('name').eq('id', payload.new.member_id).single();
+
+        const newNote = {
+          id: payload.new.id,
+          title: `[新增季費] 收到 ${data?.name || '未知球員'} 的繳費登記`,
+          body: `季度: ${payload.new.year_quarter} | 方式: ${payload.new.payment_method} | 金額: $${payload.new.amount}`,
+          created_at: payload.new.created_at || new Date().toISOString(),
+          link: '/fees'
+        };
+        notifications.value.unshift(newNote);
+
+        if (Notification.permission === 'granted') {
+          const note = new Notification('季費登記通知', {
+            body: newNote.title,
+            icon: '/少棒元素_20260324_232837_0000.png'
+          });
+          note.onclick = () => {
+            window.focus();
+            router.push('/fees');
+            note.close();
+          };
+        }
+      }
+    )
+    .subscribe((status) => {
+      console.log('📡 [WebSocket] 季費表單連線狀態：', status);
+    });
 };
 
 const stopListening = () => {
@@ -354,39 +395,104 @@ const stopListening = () => {
     supabase.removeChannel(joinInquiriesChannel);
     joinInquiriesChannel = null;
   }
+  if (quarterlyFeesChannel) {
+    supabase.removeChannel(quarterlyFeesChannel);
+    quarterlyFeesChannel = null;
+  }
 };
 
 const fetchInitialNotifications = async () => {
-  const [leaveRes, memberRes] = await Promise.all([
-    supabase.from('leave_requests')
-      .select('id, leave_type, start_date, end_date, reason, created_at, team_members(name)')
-      .order('created_at', { ascending: false })
-      .limit(8),
-    supabase.from('team_members')
-      .select('id, name, role, created_at')
-      .order('created_at', { ascending: false })
-      .limit(5)
-  ])
+  const role = authStore.profile?.role
+  if (!role) return
 
-  const combined = []
-  if (leaveRes.data) {
-    combined.push(...leaveRes.data.map(r => ({
-      id: r.id,
-      title: `[新增假單] ${(r.team_members as any)?.name || '未知球員'} 的${r.leave_type}`,
-      body: `日期：${r.start_date} ~ ${r.end_date}\n原因：${r.reason || '無'}`,
-      created_at: r.created_at,
-      link: '/leave-requests'
-    })))
+  const promises = []
+
+  // 1. 請假系統 (ADMIN, MANAGER, HEAD_COACH, COACH)
+  if (['ADMIN', 'MANAGER', 'HEAD_COACH', 'COACH'].includes(role)) {
+    promises.push(
+      supabase.from('leave_requests')
+        .select('id, leave_type, start_date, end_date, reason, created_at, team_members(name)')
+        .order('created_at', { ascending: false })
+        .limit(8)
+        .then(res => ({ type: 'leave', data: res.data }))
+    )
   }
-  if (memberRes.data) {
-    combined.push(...memberRes.data.map(m => ({
-      id: m.id,
-      title: `[新進通知] 歡迎 ${m.name} 入隊！`,
-      body: `剛從表單收到了 ${m.name} (${m.role}) 的球員資料。`,
-      created_at: m.created_at,
-      link: '/players'
-    })))
+
+  // 2. 限管理員層級接收的通知 (ADMIN, MANAGER)
+  if (['ADMIN', 'MANAGER'].includes(role)) {
+    // 球員異動
+    promises.push(
+      supabase.from('team_members')
+        .select('id, name, role, created_at')
+        .order('created_at', { ascending: false })
+        .limit(5)
+        .then(res => ({ type: 'member', data: res.data }))
+    )
+    // 入隊申請
+    promises.push(
+      supabase.from('join_inquiries')
+        .select('id, parent_name, phone, created_at')
+        .order('created_at', { ascending: false })
+        .limit(5)
+        .then(res => ({ type: 'join', data: res.data }))
+    )
+    // 季費表單 (為了避免關聯名稱抓取失敗，我們獨立抓取名字)
+    promises.push(
+      supabase.from('quarterly_fees')
+        .select('id, member_id, year_quarter, payment_method, amount, created_at')
+        .order('created_at', { ascending: false })
+        .limit(5)
+        .then(async (res) => {
+           if (res.data) {
+             // 補上名稱對應
+             const mIds = [...new Set(res.data.map(f => f.member_id))]
+             const { data: mData } = await supabase.from('team_members').select('id, name').in('id', mIds)
+             const nameMap = (mData || []).reduce((acc: any, cur: any) => ({ ...acc, [cur.id]: cur.name }), {})
+             res.data.forEach((f: any) => { f.memberName = nameMap[f.member_id] || '未知球員' })
+           }
+           return { type: 'fee', data: res.data }
+        })
+    )
   }
+
+  const results = await Promise.all(promises)
+  const combined: any[] = []
+
+  results.forEach(res => {
+    if (res.type === 'leave' && res.data) {
+      combined.push(...res.data.map((r: any) => ({
+        id: r.id,
+        title: `[新增假單] ${(r.team_members as any)?.name || '未知球員'} 的${r.leave_type}`,
+        body: `日期：${r.start_date} ~ ${r.end_date}\n原因：${r.reason || '無'}`,
+        created_at: r.created_at,
+        link: '/leave-requests'
+      })))
+    } else if (res.type === 'member' && res.data) {
+      combined.push(...res.data.map((m: any) => ({
+        id: m.id,
+        title: `[新進通知] 歡迎 ${m.name} 入隊！`,
+        body: `剛從表單收到了 ${m.name} (${translateRole(m.role)}) 的球員資料。`,
+        created_at: m.created_at,
+        link: '/players'
+      })))
+    } else if (res.type === 'join' && res.data) {
+      combined.push(...res.data.map((j: any) => ({
+        id: j.id,
+        title: `[入隊詢問] 收到來自 ${j.parent_name} 的聯絡`,
+        body: `電話: ${j.phone}。請盡快與家長聯繫！`,
+        created_at: j.created_at,
+        link: '/join-inquiries'
+      })))
+    } else if (res.type === 'fee' && res.data) {
+      combined.push(...res.data.map((f: any) => ({
+        id: f.id,
+        title: `[新增季費] 收到 ${f.memberName} 的繳費登記`,
+        body: `季度: ${f.year_quarter} | 方式: ${f.payment_method} | 金額: $${f.amount}`,
+        created_at: f.created_at,
+        link: '/fees'
+      })))
+    }
+  })
 
   combined.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
   notifications.value = combined.slice(0, 10)

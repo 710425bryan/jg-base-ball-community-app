@@ -190,17 +190,14 @@ const filteredPlayers = computed(() => {
 
 const statusOptions = [
   { label: '出席', value: '出席', bgClass: 'bg-green-50', textClass: 'text-green-600', icon: '✅' },
-  { label: '遲到', value: '遲到', bgClass: 'bg-yellow-50', textClass: 'text-yellow-600', icon: '⚠️' },
-  { label: '早退', value: '早退', bgClass: 'bg-orange-50', textClass: 'text-orange-500', icon: '🏃' },
   { label: '缺席', value: '缺席', bgClass: 'bg-red-50', textClass: 'text-red-500', icon: '❌' },
   { label: '請假', value: '請假', bgClass: 'bg-blue-50', textClass: 'text-blue-500', icon: '🏖️' }
 ]
 
-// 計算出席率 (出席 人數 / 總人數，扣除請假?)
-// 一般計算: 出席 + 遲到 + 早退 都算有來
+// 計算出席率
 const attendanceRate = computed(() => {
   if (playersList.value.length === 0) return 0
-  const presentCount = playersList.value.filter(p => ['出席', '遲到', '早退'].includes(p.status)).length
+  const presentCount = playersList.value.filter(p => p.status === '出席').length
   // 若想扣掉請假的基數可調整分母: const baseCount = playersList.value.filter(p => p.status !== '請假').length || 1
   const baseCount = playersList.value.length
   return Math.round((presentCount / baseCount) * 100)

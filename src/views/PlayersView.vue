@@ -98,7 +98,14 @@
             </template>
           </el-table-column>
        
-          <el-table-column prop="name" label="姓名" min-width="90" fixed="left" class-name="font-black text-gray-800 text-base" />
+          <el-table-column label="姓名" min-width="110" fixed="left">
+            <template #default="{ row }">
+              <div class="flex flex-col">
+                <span class="font-black text-gray-800 text-base leading-tight">{{ row.name }}</span>
+                <span v-if="row.sibling_id && getSiblingName(row.sibling_id)" class="text-[10px] text-primary/80 font-bold border border-primary/20 bg-primary/5 px-1 rounded-sm mt-0.5 w-max">跟隨: {{ getSiblingName(row.sibling_id) }} (半價)</span>
+              </div>
+            </template>
+          </el-table-column>
           <el-table-column prop="birth_date" label="生日" width="115" sortable>
             <template #default="{ row }">
               <div v-if="row.birth_date" class="flex flex-col leading-tight">
@@ -179,7 +186,8 @@
                   {{ member.birth_date }} <span class="text-slate-400 font-medium">({{ getROCDate(member.birth_date) }})</span>
                 </span>
               </div>
-              <div class="flex flex-wrap items-center gap-2">
+              <div class="flex flex-wrap items-center gap-2 mt-1">
+                <span v-if="member.sibling_id && getSiblingName(member.sibling_id)" class="text-[10px] md:text-xs font-bold px-2 py-0.5 rounded border bg-primary/5 text-primary border-primary/20 tracking-wider">跟隨: {{ getSiblingName(member.sibling_id) }} (半價)</span>
                 <span v-if="member.status === '退隊'" class="text-xs md:text-sm font-bold px-2 py-0.5 rounded border bg-red-50 text-red-600 border-red-200 tracking-wider">退隊</span>
                 <span class="text-xs md:text-sm font-bold px-2 py-0.5 rounded border uppercase tracking-wider" :class="getRoleClass(member.role)">[{{ member.role }}]</span>
                 <span v-if="member.team_group" class="text-[10px] md:text-xs font-bold px-2 py-0.5 rounded border tracking-wider" :class="getTeamGroupClass(member.team_group)">
@@ -279,6 +287,14 @@
                 <div class="inline-flex items-center gap-1 leading-none mr-3">提早入學 <el-tooltip content="9/2以後出生，但提前就讀" placement="top"><el-icon class="text-gray-400 cursor-help"><InfoFilled /></el-icon></el-tooltip></div>
               </template>
               <el-switch v-model="form.is_early_enrollment" active-text="有" inactive-text="無" />
+            </el-form-item>
+            <el-form-item prop="sibling_id" class="font-bold mb-0 flex items-center h-[52px]" v-if="form.role === '球員' || form.role === '校隊'">
+              <template #label>
+                <div class="inline-flex items-center gap-1 leading-none mr-3">主要繳費手足 <el-tooltip content="若是第二位手足，可在此選擇第一位全額繳費的哥哥/姊姊。選定後結算月費將自動折半" placement="top"><el-icon class="text-gray-400 cursor-help"><InfoFilled /></el-icon></el-tooltip></div>
+              </template>
+              <el-select v-model="form.sibling_id" placeholder="無" clearable filterable class="w-[180px]">
+                <el-option v-for="m in members.filter(x => x.id !== form.id && (x.role === '球員' || x.role === '校隊'))" :key="m.id" :label="m.name" :value="m.id" />
+              </el-select>
             </el-form-item>
           </div>
         </div>
@@ -431,6 +447,10 @@ const getROCDate = (dateStr: string) => {
   return `${rocYear}-${parts[1]}-${parts[2]}`;
 }
 
+const getSiblingName = (id: string) => {
+  return members.value.find(m => m.id === id)?.name || '';
+}
+
 // U-level 排序邏輯
 const sortULevel = (a: any, b: any) => {
   const levelA = getULevel(a);
@@ -496,6 +516,7 @@ const initialForm = {
   jersey_number: '',
   birth_date: '',
   is_early_enrollment: false,
+  sibling_id: null,
   national_id: '',
   throwing_hand: '',
   batting_hand: '',
