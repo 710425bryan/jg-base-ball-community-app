@@ -21,6 +21,7 @@ body {
   margin: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior-y: none; /* Prevent elastic scroll pull-down revealing background */
 }
 
 /* Fallbacks and Mobile Optimizations */
@@ -40,4 +41,5 @@ body {
 html {
   height: -webkit-fill-available;
   touch-action: manipulation;
+  overscroll-behavior-y: none;
 }
