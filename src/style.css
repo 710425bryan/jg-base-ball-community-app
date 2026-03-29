@@ -43,3 +43,33 @@ html {
   touch-action: manipulation;
   overscroll-behavior-y: none;
 }
+
+/* Element Plus Table Global Soft UI Style */
+.el-table {
+  --el-table-border-color: #f1f5f9; /* Slate 100 border */
+  --el-table-header-bg-color: #fff7ed; /* Orange 50 */
+  --el-table-header-text-color: #b45309; /* Amber 700 / Primary */
+  --el-table-text-color: var(--color-text);
+  background-color: transparent !important;
+}
+.el-table th.el-table__cell {
+  border-bottom: 1px solid #ffedd5; /* Orange 100 */
+}
+.el-table td.el-table__cell {
+  border-bottom: 1px solid #f8fafc; /* Slate 50 */
+}
+/* Remove solid outer borders from card layouts */
+.el-table--border .el-table__inner-wrapper::after,
+.el-table--border::after,
+.el-table--border::before,
+.el-table__inner-wrapper::before,
+.el-table::before {
+  display: none !important;
+}
+.el-table__body-wrapper, .el-table__header-wrapper {
+  background-color: transparent !important;
+}
+/* Enhance hover row color to soft orange */
+.el-table tbody tr:hover > td.el-table__cell {
+  background-color: #fffaf0 !important; /* Soft orange hover */
+}

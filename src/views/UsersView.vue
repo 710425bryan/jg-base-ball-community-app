@@ -26,8 +26,7 @@
         height="100%"
         v-loading="isLoading" 
         empty-text="目前沒有使用者資料"
-        row-class-name="transition-colors hover:bg-orange-50/30 cursor-pointer"
-        header-cell-class-name="bg-gray-50/50 text-gray-500 font-bold"
+        class="custom-users-table"
       >
         <el-table-column label="使用者" min-width="250">
           <template #default="{ row }">
@@ -405,13 +404,5 @@ onMounted(() => {
 }
 .custom-dialog .el-dialog__body {
   padding: 16px 24px 0px 24px;
-}
-/* Table 樣式微調 */
-.el-table {
-  --el-table-border-color: #f3f4f6;
-  --el-table-header-bg-color: #f9fafb;
-}
-.el-table .el-table__inner-wrapper::before {
-  display: none;
 }
 </style>

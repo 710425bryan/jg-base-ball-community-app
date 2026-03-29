@@ -50,10 +50,9 @@ const handleNotifyLine = (m: MatchRecord) => {
     <el-table 
       :data="matches" 
       class="w-full" 
-      stripe 
-      row-class-name="group cursor-pointer hover:bg-primary/5 transition-colors"
+      row-class-name="group cursor-pointer transition-colors"
       @row-click="(row: any) => emit('view', row.id)"
-      :header-cell-style="{ background: '#f9fafb', color: '#6b7280', fontSize: '12px', fontWeight: 'bold' }"
+      :header-cell-style="{ fontSize: '12px', fontWeight: 'bold' }"
     >
       <!-- Date -->
       <el-table-column label="日期時間" width="130">

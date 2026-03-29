@@ -86,8 +86,8 @@
       </div>
       
       <!-- 表格模式 -->
-      <div v-else-if="viewMode === 'table'" class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden h-[calc(100vh-230px)] flex flex-col">
-        <el-table :data="filteredMembers" style="width: 100%" height="100%" row-class-name="cursor-pointer" @row-click="openEditModal" :header-cell-style="{ background: '#f8fafc', color: '#475569', fontWeight: 'bold', whiteSpace: 'nowrap' }">
+      <div v-else-if="viewMode === 'table'" class="bg-white rounded-xl shadow-sm overflow-hidden h-[calc(100vh-230px)] flex flex-col">
+        <el-table :data="filteredMembers" style="width: 100%" height="100%" row-class-name="cursor-pointer" @row-click="openEditModal" :header-cell-style="{ fontWeight: 'bold', whiteSpace: 'nowrap' }">
           <el-table-column width="65" align="center" fixed="left">
             <template #default="{ row }">
               <el-avatar :src="row.avatar_url" shape="circle" :size="36" class="bg-gray-100 border border-gray-200 flex items-center justify-center shrink-0">

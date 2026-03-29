@@ -248,7 +248,7 @@ const isGreatAvg = (s: any) => {
                     size="small" 
                     class="w-full text-xs font-medium min-w-[600px]" 
                     border
-                    :header-cell-style="{background:'#f8fafc', color:'#475569', fontWeight:'black', padding:'6px 2px', textAlign:'center'}"
+                    :header-cell-style="{fontWeight:'black', padding:'6px 2px', textAlign:'center'}"
                     :cell-style="{padding:'6px 2px', textAlign:'center', color: '#1f2937'}"
                   >
                     <!-- Fixed Player Col -->

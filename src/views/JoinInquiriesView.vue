@@ -34,7 +34,6 @@
         style="width: 100%" 
         v-loading="isLoading" 
         class="custom-table"
-        stripe
         height="100%"
         :empty-text="'目前沒有任何新的入隊申請 ⚾'"
       >
@@ -187,20 +186,11 @@ onMounted(() => {
   to { opacity: 1; transform: translateY(0); }
 }
 
-:deep(.custom-table) {
-  --el-table-border-color: #f1f5f9;
-  --el-table-header-bg-color: #f8fafc;
-  --el-table-header-text-color: #64748b;
-  border-radius: 12px;
-}
 :deep(.el-table th.el-table__cell) {
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-size: 0.85rem;
-}
-:deep(.el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell) {
-  background-color: #f8fafc;
 }
 
 /* 狀態下拉選單的顏色自訂 */

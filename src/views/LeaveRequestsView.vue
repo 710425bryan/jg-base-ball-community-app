@@ -51,8 +51,6 @@
               height="100%"
               v-loading="isLoading" 
               empty-text="目前沒有請假紀錄"
-              row-class-name="transition-colors hover:bg-orange-50/30"
-              header-cell-class-name="bg-gray-50/50 text-gray-500 font-bold"
             >
               <el-table-column label="日期" min-width="120">
                 <template #default="{ row }">
@@ -187,8 +185,6 @@
                 :data="rankingByPlayer" 
                 style="width: 100%; height: 100%" 
                 height="100%"
-                row-class-name="transition-colors hover:bg-gray-50/50"
-                header-cell-class-name="bg-white text-gray-400 font-medium text-sm"
               >
                 <el-table-column label="球員" min-width="100">
                   <template #default="{ row }">
