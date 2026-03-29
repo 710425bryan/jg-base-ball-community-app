@@ -36,9 +36,9 @@
 
     <!-- Content Area -->
     <div class="flex-1 overflow-y-auto min-h-0 p-4 md:p-6 pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:pb-6 relative custom-scrollbar">
-      <div class="max-w-6xl mx-auto h-full">
+      <div class="max-w-6xl mx-auto min-h-full">
         <!-- Not authorized -->
-        <div v-if="!hasAccess" class="flex flex-col items-center justify-center h-full text-center">
+        <div v-if="!hasAccess" class="flex flex-col items-center justify-center min-h-[50vh] text-center">
           <el-icon class="text-6xl text-gray-300 mb-4"><Lock /></el-icon>
           <h3 class="text-lg font-bold text-gray-700">無權限存取</h3>
           <p class="text-sm text-gray-500 mt-2">此頁面僅限系統管理員 (ADMIN) 使用</p>
