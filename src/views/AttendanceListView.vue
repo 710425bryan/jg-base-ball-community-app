@@ -64,7 +64,7 @@
             <div class="flex items-center gap-1 bg-green-50 text-green-600 px-2 py-0.5 rounded text-xs font-extrabold border border-green-100 tracking-wide">
               ✅ 出席 {{ event.presentCount }} 人
             </div>
-            <div class="flex items-center gap-1 bg-red-50 text-red-500 px-2 py-0.5 rounded text-xs font-extrabold border border-red-100 tracking-wide">
+            <div v-if="event.absentCount > 0" class="flex items-center gap-1 bg-red-50 text-red-500 px-2 py-0.5 rounded text-xs font-extrabold border border-red-100 tracking-wide">
               ❌ 缺席 {{ event.absentCount }} 人
             </div>
             <div class="flex items-center gap-1 bg-blue-50 text-blue-500 px-2 py-0.5 rounded text-xs font-extrabold border border-blue-100 tracking-wide">

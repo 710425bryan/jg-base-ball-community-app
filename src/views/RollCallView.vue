@@ -190,7 +190,6 @@ const filteredPlayers = computed(() => {
 
 const statusOptions = [
   { label: '出席', value: '出席', bgClass: 'bg-green-50', textClass: 'text-green-600', icon: '✅' },
-  { label: '缺席', value: '缺席', bgClass: 'bg-red-50', textClass: 'text-red-500', icon: '❌' },
   { label: '請假', value: '請假', bgClass: 'bg-blue-50', textClass: 'text-blue-500', icon: '🏖️' }
 ]
 
@@ -309,7 +308,7 @@ const fetchData = async () => {
       
       if (!status) {
         // 沒有點名紀錄時，判斷是否請假預設
-        status = hasOverlapLeave ? '請假' : '缺席' // 預設缺席或是其他
+        status = '請假' // 預設請假
       }
       
       return {
