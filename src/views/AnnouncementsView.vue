@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full flex flex-col relative animate-fade-in p-2 md:p-6 pb-20 md:pb-6">
+  <div class="h-full flex flex-col relative animate-fade-in p-2 md:p-6 pb-0 md:pb-6">
     <div class="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
       <div>
         <h2 class="text-3xl font-extrabold text-primary tracking-tight">系統公告設定</h2>

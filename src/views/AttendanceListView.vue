@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full flex flex-col relative animate-fade-in p-2 md:p-6 pb-20 md:pb-6 bg-background text-text overflow-hidden">
+  <div class="h-full flex flex-col relative animate-fade-in p-2 md:p-6 pb-0 md:pb-6 bg-background text-text overflow-hidden">
     <!-- 頂部標題與操作區 -->
     <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-6 gap-4 shrink-0">
       <div class="flex items-center gap-4">

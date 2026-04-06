@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full flex flex-col relative animate-fade-in p-2 md:p-6 pb-20 md:pb-6 bg-background text-text overflow-hidden">
+  <div class="h-full flex flex-col relative animate-fade-in p-2 md:p-6 pb-0 md:pb-6 bg-background text-text overflow-hidden">
     <!-- 頂部標題與操作區 -->
     <div class="flex flex-col xl:flex-row justify-between xl:items-center mb-6 gap-4 shrink-0">
       <div class="flex items-center gap-4 shrink-0">
@@ -86,7 +86,7 @@
       </div>
       
       <!-- 表格模式 -->
-      <div v-else-if="viewMode === 'table'" class="bg-white rounded-xl shadow-sm overflow-hidden h-[calc(100vh-230px)] flex flex-col">
+      <div v-else-if="viewMode === 'table'" class="bg-white rounded-xl shadow-sm overflow-hidden h-[calc(100vh-230px)] min-h-[600px] sm:min-h-0 flex flex-col">
         <el-table :data="filteredMembers" style="width: 100%" height="100%" row-class-name="cursor-pointer" @row-click="openEditModal" :header-cell-style="{ fontWeight: 'bold', whiteSpace: 'nowrap' }">
           <el-table-column width="65" align="center" fixed="left">
             <template #default="{ row }">

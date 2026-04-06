@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full flex flex-col relative animate-fade-in p-2 md:p-6 pb-20 md:pb-6">
+  <div class="h-full flex flex-col relative animate-fade-in p-2 md:p-6 pb-0 md:pb-6">
     <!-- 頂部標題區 -->
     <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4 shrink-0">
       <div>
@@ -24,10 +24,10 @@
 
     <!-- 頁籤與內容區塊 -->
     <div class="flex-1 flex flex-col min-h-0 custom-tabs-container">
-      <el-tabs v-model="activeTab" class="w-full h-full flex flex-col">
+      <el-tabs v-model="activeTab" class="w-full h-full flex flex-col min-h-0">
         <!-- 1. 詳細列表 -->
         <el-tab-pane label="詳細列表" name="list" class="h-full">
-          <div class="h-full bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/80 flex flex-col min-h-0">
+          <div class="h-full bg-white sm:rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] sm:border border-gray-100/80 flex flex-col min-h-[600px] sm:min-h-0 -mx-2 sm:mx-0">
              
             <!-- 篩選列 -->
             <div class="p-4 border-b border-gray-100 flex flex-col sm:flex-row gap-4 items-center justify-between">
@@ -102,7 +102,7 @@
 
         <!-- 2. 月曆視圖 -->
         <el-tab-pane label="月曆視圖" name="calendar" class="h-full">
-          <div class="h-full bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/80 p-2 sm:p-4 flex flex-col min-h-0 overflow-y-auto custom-scrollbar">
+          <div class="h-full bg-white sm:rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] sm:border border-y border-gray-100/80 p-2 sm:p-4 flex flex-col min-h-0 overflow-y-auto custom-scrollbar -mx-2 sm:mx-0">
             <el-calendar v-model="calendarDate" class="custom-calendar">
               <template #date-cell="{ data }">
                 <div class="w-full h-full flex flex-col p-1">
@@ -124,7 +124,7 @@
 
         <!-- 3. 統計報表 -->
         <el-tab-pane label="統計報表" name="stats" class="h-full">
-          <div class="h-full flex flex-col min-h-0 space-y-4 pt-4 pb-20 md:pb-6 overflow-y-auto custom-scrollbar pr-1">
+          <div class="h-full flex flex-col min-h-0 space-y-4 pt-4 pb-2 overflow-y-auto custom-scrollbar pr-1">
             
             <!-- 統計區間篩選 -->
             <div class="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 p-4 shrink-0 flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -177,7 +177,7 @@
             </div>
 
             <!-- 排行榜列表 -->
-            <div class="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/80 flex-1 flex flex-col min-h-[400px] md:min-h-0 overflow-hidden shrink-0 md:shrink">
+            <div class="bg-white sm:rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] sm:border border-y border-gray-100/80 flex-1 flex flex-col min-h-[400px] md:min-h-0 overflow-hidden shrink-0 md:shrink -mx-2 sm:mx-0">
               <div class="p-5 border-b border-gray-100 bg-gray-50/30">
                 <h3 class="font-bold text-gray-800">球員請假排行榜 (由多到少)</h3>
               </div>

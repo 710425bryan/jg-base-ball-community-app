@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full flex flex-col relative animate-fade-in p-2 md:p-6 pb-20 md:pb-6">
+  <div class="h-full flex flex-col relative animate-fade-in p-2 md:p-6 pb-0 md:pb-6">
     <!-- Header Section -->
     <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4 shrink-0">
       <div>
@@ -19,7 +19,7 @@
     </div>
 
     <!-- Data Table Card -->
-    <div class="flex-1 bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/80 overflow-hidden flex flex-col min-h-0">
+    <div class="flex-1 bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/80 overflow-hidden flex flex-col min-h-[600px] sm:min-h-0">
       <el-table 
         :data="users" 
         style="width: 100%; height: 100%" 

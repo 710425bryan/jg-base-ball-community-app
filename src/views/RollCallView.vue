@@ -82,7 +82,7 @@
     </div>
 
     <!-- 點名列表 -->
-    <div class="flex-1 overflow-y-auto min-h-0 p-2 md:p-6 pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:pb-6 relative custom-scrollbar" v-loading="isLoading">
+    <div class="flex-1 overflow-y-auto min-h-0 p-2 md:p-6 pb-2 md:pb-6 relative custom-scrollbar" v-loading="isLoading">
 
       <div v-if="playersList.length === 0 && !isLoading" class="flex flex-col justify-center items-center h-full text-gray-400 font-bold">
         未找到任何有效之球員名單

@@ -28,7 +28,7 @@
     </div>
 
     <!-- Data Table -->
-    <div v-else class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex-1 flex flex-col p-4 w-full">
+    <div v-else class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex-1 flex flex-col p-4 w-full min-h-[600px] sm:min-h-0">
       <el-table 
         :data="inquiries" 
         style="width: 100%" 
