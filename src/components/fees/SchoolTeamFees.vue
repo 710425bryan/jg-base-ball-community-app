@@ -96,7 +96,7 @@
                   <el-tooltip v-if="fee.has_leave_overlap" content="此月有請假紀錄" placement="top">
                     <span class="text-[10px] font-bold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded leading-none shrink-0 border border-blue-100">有假單</span>
                   </el-tooltip>
-                  <el-tooltip v-if="fee.sibling_id" content="符合手足同行半價優惠" placement="top">
+                  <el-tooltip v-if="fee.sibling_ids && fee.sibling_ids.length > 0" content="符合手足同行半價優惠" placement="top">
                     <span class="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded leading-none shrink-0 border border-primary/20">半價優惠</span>
                   </el-tooltip>
                 </div>
@@ -226,7 +226,7 @@ const calculateFees = async () => {
     // 1. 撈取校隊名單
     const { data: membersData, error: membersErr } = await supabase
       .from('team_members')
-      .select('id, name, status, sibling_id')
+      .select('id, name, status, sibling_ids')
       .eq('role', '校隊')
     if (membersErr) throw membersErr
 
@@ -294,7 +294,7 @@ const calculateFees = async () => {
       let per_session_fee = feeSettingMap.get(m.id) || 500
       
       // 手足半價優惠處理 (直接折半單次費率)
-      if (m.sibling_id) {
+      if (m.sibling_ids && m.sibling_ids.length > 0) {
         per_session_fee = Math.round(per_session_fee / 2)
       }
       
@@ -313,7 +313,7 @@ const calculateFees = async () => {
         deduction_amount: existing ? existing.deduction_amount : 0,
         is_paid: existing ? existing.status === 'paid' : false,
         has_leave_overlap,
-        sibling_id: m.sibling_id,
+        sibling_ids: m.sibling_ids,
         detailed_leaves: preciseLeaveMap.get(m.id)
       }
     })

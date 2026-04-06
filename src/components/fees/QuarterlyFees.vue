@@ -51,7 +51,7 @@
             <tr v-for="fee in filteredFees" :key="fee.id" class="hover:bg-gray-50/50 transition-colors border-l-4" :class="getQuarterBorderClass(fee.year_quarter)">
               <td class="py-3 px-4 font-mono text-sm font-bold text-gray-600">{{ fee.year_quarter }}</td>
               <td class="py-3 px-4 font-mono text-sm">{{ fee.remittance_date || '-' }}</td>
-              <td class="py-3 px-4 font-black text-gray-800">{{ getMemberName(fee.member_id) }}</td>
+              <td class="py-3 px-4 font-black text-gray-800">{{ getMemberName(fee.member_ids) }}</td>
               <td class="py-3 px-4">
                 <div class="flex flex-wrap gap-1 max-w-[250px]">
                   <template v-if="Array.isArray(fee.payment_items) && fee.payment_items.length > 0">
@@ -125,8 +125,8 @@
           </el-form-item>
         </div>
 
-        <el-form-item label="球員姓名(兩位以上填一位即可) *" required>
-          <el-select v-model="form.member_id" placeholder="選擇球員" filterable class="w-full">
+        <el-form-item label="球員姓名(可選擇多位) *" required>
+          <el-select v-model="form.member_ids" multiple placeholder="選擇球員" filterable class="w-full">
             <el-option v-for="m in players" :key="m.id" :label="m.name" :value="m.id" />
           </el-select>
         </el-form-item>
@@ -227,14 +227,14 @@ const generatedQuarters = computed(() => {
 const filteredFees = computed(() => {
   return feesList.value.filter(fee => {
     const matchQuarter = !filterQuarter.value || fee.year_quarter === filterQuarter.value
-    const matchName = !searchQuery.value || getMemberName(fee.member_id).includes(searchQuery.value)
+    const matchName = !searchQuery.value || getMemberName(fee.member_ids).includes(searchQuery.value)
     return matchQuarter && matchName
   })
 })
 
 const initialForm = {
   id: '',
-  member_id: '',
+  member_ids: [] as string[],
   year_quarter: `${dayjs().year()}-Q${Math.floor(dayjs().month() / 3) + 1}`,
   remittance_date: dayjs().format('YYYY-MM-DD'),
   payment_items: [] as string[],
@@ -248,9 +248,11 @@ const initialForm = {
 
 const form = ref({...initialForm})
 
-const getMemberName = (id: string) => {
-  const m = players.value.find(p => p.id === id)
-  return m ? m.name : '未知球員'
+const getMemberName = (ids: string[] | string) => {
+  if (!ids) return '未知球員';
+  const idArray = Array.isArray(ids) ? ids : [ids];
+  const names = idArray.map(id => players.value.find(p => p.id === id)?.name).filter(Boolean);
+  return names.length > 0 ? names.join(', ') : '未知球員';
 }
 
 const getStatusClass = (status: string) => {
@@ -314,6 +316,7 @@ const openAddDialog = () => {
 const editFee = (fee: any) => {
   isEdit.value = true
   form.value = { ...fee }
+  if (!form.value.member_ids) form.value.member_ids = []
   dialogVisible.value = true
 }
 
@@ -342,7 +345,7 @@ const markAsPaid = async (fee: any) => {
 const deleteFee = async (fee: any) => {
   try {
     await ElMessageBox.confirm(
-      `確定要刪除 ${getMemberName(fee.member_id)} 的 ${fee.year_quarter} 季費紀錄嗎？此操作將無法還原！`,
+      `確定要刪除 ${getMemberName(fee.member_ids)} 的 ${fee.year_quarter} 季費紀錄嗎？此操作將無法還原！`,
       '刪除紀錄確認',
       {
         confirmButtonText: '確定刪除',
@@ -370,7 +373,7 @@ const deleteFee = async (fee: any) => {
 }
 
 const submitForm = async () => {
-  if (!form.value.member_id || !form.value.year_quarter || !form.value.remittance_date || !Array.isArray(form.value.payment_items) || form.value.payment_items.length === 0) {
+  if (!form.value.member_ids || form.value.member_ids.length === 0 || !form.value.year_quarter || !form.value.remittance_date || !Array.isArray(form.value.payment_items) || form.value.payment_items.length === 0) {
     ElMessage.warning('請填寫完整必填欄位 (包含匯款日期與至少一項匯款項目)')
     return
   }
@@ -378,7 +381,7 @@ const submitForm = async () => {
   isSubmitting.value = true
   try {
     const payload = {
-      member_id: form.value.member_id,
+      member_ids: form.value.member_ids,
       year_quarter: form.value.year_quarter,
       remittance_date: form.value.remittance_date,
       payment_items: form.value.payment_items,
