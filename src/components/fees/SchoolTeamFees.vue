@@ -95,7 +95,10 @@
 
           <div class="text-sm text-gray-500 flex flex-wrap items-center justify-between gap-y-1 mb-2">
             <span class="flex items-center gap-1.5 text-gray-600 font-bold"><el-icon><Calendar /></el-icon> {{ r.remittance_date || '-' }}</span>
-            <span v-if="r.account_last_5" class="bg-gray-100/80 text-gray-600 border border-gray-200 rounded px-2 py-0.5 font-mono text-xs">末五碼: <span class="text-gray-800 font-bold">{{ r.account_last_5 }}</span></span>
+            <div class="flex gap-1">
+              <span v-if="r.account_last_5" class="bg-gray-100/80 text-gray-600 border border-gray-200 rounded px-2 py-0.5 font-mono text-xs">末五碼: <span class="text-gray-800 font-bold">{{ r.account_last_5 }}</span></span>
+              <span v-if="r.payment_method" class="bg-blue-50 text-blue-600 border border-blue-100 rounded px-2 py-0.5 font-bold text-xs">{{ r.payment_method }}</span>
+            </div>
           </div>
           
           <div v-if="r.payment_items && r.payment_items.length" class="flex flex-wrap gap-1 mb-3">
@@ -107,11 +110,14 @@
           <div class="flex items-center justify-between mt-auto pt-3 border-t border-gray-200/60">
              <div class="text-[10px] text-gray-400">填寫於 {{ formatTimestamp(r.created_at) }}</div>
              <div class="flex gap-2">
-               <button @click="openEditDialog(r)" class="flex items-center gap-1 text-xs text-blue-500 font-bold hover:bg-blue-100 px-2.5 py-1.5 rounded transition-colors bg-blue-50">
-                 <el-icon><Edit /></el-icon> 編輯
+               <button @click="markAsPaid(r)" class="flex items-center gap-1 text-xs text-green-600 font-bold hover:bg-green-100 hover:text-green-700 px-2.5 py-1.5 rounded transition-colors bg-green-50 shadow-sm border border-green-200/50">
+                 <el-icon><Check /></el-icon> 確認款項
                </button>
-               <button @click="handleDeleteRemittance(r.id)" class="flex items-center gap-1 text-xs text-red-500 font-bold hover:bg-red-100 px-2.5 py-1.5 rounded transition-colors bg-red-50">
-                 <el-icon><Delete /></el-icon> 刪除
+               <button @click="openEditDialog(r)" class="flex items-center justify-center text-blue-500 font-bold hover:bg-blue-100 w-7 h-7 rounded transition-colors bg-blue-50">
+                 <el-icon><Edit /></el-icon>
+               </button>
+               <button @click="handleDeleteRemittance(r.id)" class="flex items-center justify-center text-red-500 font-bold hover:bg-red-100 w-7 h-7 rounded transition-colors bg-red-50">
+                 <el-icon><Delete /></el-icon>
                </button>
              </div>
           </div>
@@ -596,7 +602,7 @@ const fetchRemittances = async (schoolTeamMembers: any[]) => {
         } else if (fee.member_id) {
           extractedIds = [fee.member_id]
         }
-        return extractedIds.some(id => stIds.includes(id))
+        return extractedIds.some(id => stIds.includes(id)) && fee.status !== 'paid'
       }).map(fee => {
         // 將 ID 解析為實際的球員名稱
         let extractedIds: string[] = []
@@ -658,6 +664,27 @@ const saveRemittanceEdit = async () => {
     ElMessage.error('儲存失敗: ' + err.message)
   } finally {
     isEditingRemittance.value = false
+  }
+}
+
+const markAsPaid = async (remittance: any) => {
+  try {
+    const { error } = await supabase
+      .from('quarterly_fees')
+      .update({ status: 'paid' })
+      .eq('id', remittance.id)
+      
+    if (error) throw error
+    
+    ElMessage.success('已標記為已繳費')
+    // 更新本地狀態
+    const idx = schoolTeamRemittances.value.findIndex(r => r.id === remittance.id)
+    if (idx !== -1) {
+      schoolTeamRemittances.value.splice(idx, 1) // 從抽屜中移除
+    }
+  } catch (err) {
+    console.error('更新狀態失敗', err)
+    ElMessage.error('更新狀態失敗')
   }
 }
 
