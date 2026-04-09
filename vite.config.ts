@@ -74,6 +74,19 @@ export default defineConfig({
       }
     })
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vue-core': ['vue', 'vue-router', 'pinia', '@vueuse/core'],
+          'ui-vendor': ['element-plus', '@element-plus/icons-vue'],
+          'db-vendor': ['@supabase/supabase-js'],
+          'chart-vendor': ['echarts', 'vue-echarts'],
+          'utils': ['dayjs', 'axios', 'zod', 'decimal.js']
+        }
+      }
+    }
+  },
   resolve: {
     alias: {
       '@': resolve(__dirname, './src')
