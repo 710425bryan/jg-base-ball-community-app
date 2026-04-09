@@ -68,6 +68,39 @@
       </div>
     </div>
 
+    <!-- 收到的匯款回報區塊 -->
+    <div v-if="schoolTeamRemittances.length > 0" class="bg-blue-50 border border-blue-100 rounded-2xl p-5 md:p-6 shadow-sm mb-2">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+        <div class="flex items-center gap-2">
+          <el-icon class="text-blue-500 text-xl"><BellFilled /></el-icon>
+          <h3 class="text-blue-800 font-bold text-lg">近期收到的校隊匯款回報 (Google 表單與季費系統)</h3>
+          <span class="bg-blue-500 text-white text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-full">{{ schoolTeamRemittances.length }}</span>
+        </div>
+        <div class="text-xs text-blue-600/80 bg-blue-100/50 px-3 py-1.5 rounded-lg font-bold">
+          💡 此區塊僅供參考，確認收款後請記得在下方列表將其切換為「已繳」並點擊一鍵存檔！
+        </div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div v-for="r in schoolTeamRemittances" :key="r.id" class="bg-white p-4 rounded-xl border border-blue-100 shadow-sm flex flex-col gap-2 hover:shadow-md transition-shadow relative overflow-hidden group">
+          <div class="absolute top-0 right-0 h-full w-1.5 bg-gradient-to-b from-blue-300 to-blue-500"></div>
+          <div class="flex justify-between items-center pr-3">
+            <span class="font-black text-gray-800 text-lg">{{ r.member_names }}</span>
+            <span class="text-blue-600 font-mono font-bold text-lg bg-blue-50 px-2 py-0.5 rounded">${{ r.amount }}</span>
+          </div>
+          <div class="text-sm text-gray-500 flex flex-wrap items-center justify-between gap-y-1">
+            <span class="flex items-center gap-1.5 text-gray-600 font-bold"><el-icon><Calendar /></el-icon> {{ r.remittance_date || '-' }}</span>
+            <span v-if="r.account_last_5" class="bg-gray-100/80 text-gray-600 border border-gray-200 rounded px-2 py-0.5 font-mono text-xs">末五碼: <span class="text-gray-800 font-bold">{{ r.account_last_5 }}</span></span>
+          </div>
+          <div v-if="r.payment_items && r.payment_items.length" class="flex flex-wrap gap-1 mt-1">
+            <span v-for="item in r.payment_items" :key="item" class="text-[10px] bg-indigo-50 text-indigo-500 border border-indigo-100 px-1.5 py-0.5 rounded truncate max-w-full font-bold">
+              {{ item }}
+            </span>
+          </div>
+          <div class="text-xs text-gray-400 mt-0.5">{{ formatTimestamp(r.created_at) }}</div>
+        </div>
+      </div>
+    </div>
+
     <!-- Data Table -->
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden" v-loading="isLoading">
       <div class="overflow-x-auto">
@@ -158,13 +191,14 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { supabase } from '@/services/supabase'
 import { ElMessage } from 'element-plus'
-import { Loading } from '@element-plus/icons-vue'
+import { Loading, BellFilled, Calendar } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 
 const selectedMonth = ref(dayjs().format('YYYY-MM'))
 const isLoading = ref(false)
 const isCalculating = ref(false)
 const feesList = ref<any[]>([])
+const schoolTeamRemittances = ref<any[]>([])
 const classDates = ref<string[]>([])
 
 const pendingChanges = ref<string[]>([])
@@ -248,6 +282,9 @@ const calculateFees = async () => {
     })
 
     const memberIds = members.map(m => m.id)
+    
+    // 平行取得最新的校隊匯款回報
+    fetchRemittances(members)
 
     // 2. 撈取本月所有人費率設定 (如果沒有則預設 500)
     const { data: feeSettings, error: fsErr } = await supabase
@@ -459,6 +496,45 @@ const exportCSV = () => {
   URL.revokeObjectURL(url);
   
   ElMessage.success('報表已匯出');
+}
+
+const formatTimestamp = (timestamp: string) => {
+  if (!timestamp) return '-'
+  return dayjs(timestamp).format('YYYY-MM-DD HH:mm')
+}
+
+// 撈取近期寫入的季費總表，過濾出有包含「本校隊清單中任何一員」的新回報
+const fetchRemittances = async (schoolTeamMembers: any[]) => {
+  try {
+    const stIds = schoolTeamMembers.map(m => m.id)
+    if (stIds.length === 0) return
+
+    // 撈取近期 30 筆最新表單資料就好，這區塊只作為提示使用
+    const { data, error } = await supabase
+      .from('quarterly_fees')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(30)
+      
+    if (error) throw error
+    
+    if (data) {
+      schoolTeamRemittances.value = data.filter(fee => {
+        const ids = Array.isArray(fee.member_ids) ? fee.member_ids : (fee.member_ids ? [fee.member_ids] : [])
+        return ids.some(id => stIds.includes(id))
+      }).map(fee => {
+        // 將 ID 解析為實際的球員名稱
+        const ids = Array.isArray(fee.member_ids) ? fee.member_ids : (fee.member_ids ? [fee.member_ids] : [])
+        const names = ids.map(id => schoolTeamMembers.find(m => m.id === id)?.name).filter(Boolean).join(', ')
+        return {
+          ...fee,
+          member_names: names || '未知學員'
+        }
+      })
+    }
+  } catch (err) {
+    console.error('未能取得近期匯款回報', err)
+  }
 }
 
 onMounted(() => {
