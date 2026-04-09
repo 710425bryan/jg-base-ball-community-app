@@ -68,38 +68,90 @@
       </div>
     </div>
 
-    <!-- 收到的匯款回報區塊 -->
-    <div v-if="schoolTeamRemittances.length > 0" class="bg-blue-50 border border-blue-100 rounded-2xl p-5 md:p-6 shadow-sm mb-2">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-        <div class="flex items-center gap-2">
-          <el-icon class="text-blue-500 text-xl"><BellFilled /></el-icon>
-          <h3 class="text-blue-800 font-bold text-lg">近期收到的校隊匯款回報 (Google 表單與季費系統)</h3>
-          <span class="bg-blue-500 text-white text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-full">{{ schoolTeamRemittances.length }}</span>
-        </div>
-        <div class="text-xs text-blue-600/80 bg-blue-100/50 px-3 py-1.5 rounded-lg font-bold">
-          💡 此區塊僅供參考，確認收款後請記得在下方列表將其切換為「已繳」並點擊一鍵存檔！
+    <!-- 收到的匯款回報區塊 (精簡橫幅) -->
+    <div v-if="schoolTeamRemittances.length > 0" class="bg-blue-50 border border-blue-100 rounded-2xl p-4 md:p-5 shadow-sm mb-2 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-3 w-full sm:w-auto">
+        <el-icon class="text-blue-500 text-3xl shrink-0"><BellFilled /></el-icon>
+        <div>
+          <h3 class="text-blue-800 font-bold text-base">近期收到 {{ schoolTeamRemittances.length }} 筆校隊匯款回報</h3>
+          <p class="text-blue-600/80 text-[10px] sm:text-xs mt-0.5">點擊查看詳情，並在下方列表將其切換為「已繳」</p>
         </div>
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        <div v-for="r in schoolTeamRemittances" :key="r.id" class="bg-white p-4 rounded-xl border border-blue-100 shadow-sm flex flex-col gap-2 hover:shadow-md transition-shadow relative overflow-hidden group">
+      <button @click="drawerVisible = true" class="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 active:scale-95 text-white font-bold py-2.5 px-6 rounded-xl text-sm transition-all shadow-sm flex items-center justify-center gap-2 shrink-0">
+        查看並處理回報 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+      </button>
+    </div>
+
+    <!-- 匯款回報處理抽屜 -->
+    <el-drawer v-model="drawerVisible" title="校隊最新匯款回報" :size="drawerSize" class="!rounded-l-2xl">
+      <div class="flex flex-col gap-4">
+        <div v-for="r in schoolTeamRemittances" :key="r.id" class="bg-gray-50 border border-gray-100 rounded-xl p-4 relative group overflow-hidden shadow-sm">
           <div class="absolute top-0 right-0 h-full w-1.5 bg-gradient-to-b from-blue-300 to-blue-500"></div>
-          <div class="flex justify-between items-center pr-3">
+          
+          <div class="flex justify-between items-center pr-2 mb-2">
             <span class="font-black text-gray-800 text-lg">{{ r.member_names }}</span>
             <span class="text-blue-600 font-mono font-bold text-lg bg-blue-50 px-2 py-0.5 rounded">${{ r.amount }}</span>
           </div>
-          <div class="text-sm text-gray-500 flex flex-wrap items-center justify-between gap-y-1">
+
+          <div class="text-sm text-gray-500 flex flex-wrap items-center justify-between gap-y-1 mb-2">
             <span class="flex items-center gap-1.5 text-gray-600 font-bold"><el-icon><Calendar /></el-icon> {{ r.remittance_date || '-' }}</span>
             <span v-if="r.account_last_5" class="bg-gray-100/80 text-gray-600 border border-gray-200 rounded px-2 py-0.5 font-mono text-xs">末五碼: <span class="text-gray-800 font-bold">{{ r.account_last_5 }}</span></span>
           </div>
-          <div v-if="r.payment_items && r.payment_items.length" class="flex flex-wrap gap-1 mt-1">
+          
+          <div v-if="r.payment_items && r.payment_items.length" class="flex flex-wrap gap-1 mb-3">
             <span v-for="item in r.payment_items" :key="item" class="text-[10px] bg-indigo-50 text-indigo-500 border border-indigo-100 px-1.5 py-0.5 rounded truncate max-w-full font-bold">
               {{ item }}
             </span>
           </div>
-          <div class="text-xs text-gray-400 mt-0.5">{{ formatTimestamp(r.created_at) }}</div>
+
+          <div class="flex items-center justify-between mt-auto pt-3 border-t border-gray-200/60">
+             <div class="text-[10px] text-gray-400">填寫於 {{ formatTimestamp(r.created_at) }}</div>
+             <div class="flex gap-2">
+               <button @click="openEditDialog(r)" class="flex items-center gap-1 text-xs text-blue-500 font-bold hover:bg-blue-100 px-2.5 py-1.5 rounded transition-colors bg-blue-50">
+                 <el-icon><Edit /></el-icon> 編輯
+               </button>
+               <button @click="handleDeleteRemittance(r.id)" class="flex items-center gap-1 text-xs text-red-500 font-bold hover:bg-red-100 px-2.5 py-1.5 rounded transition-colors bg-red-50">
+                 <el-icon><Delete /></el-icon> 刪除
+               </button>
+             </div>
+          </div>
         </div>
       </div>
-    </div>
+    </el-drawer>
+
+    <!-- 編輯匯款回報彈窗 -->
+    <el-dialog v-model="editDialogVisible" title="編輯匯款單" width="90%" class="max-w-md !rounded-2xl" append-to-body>
+      <div class="flex flex-col gap-5 pt-2">
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-bold text-gray-700">匯款金額</label>
+          <el-input-number v-model="editForm.amount" class="!w-full" :min="0" :step="100" size="large" />
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-bold text-gray-700">匯款日期</label>
+          <el-date-picker v-model="editForm.remittance_date" type="date" value-format="YYYY-MM-DD" class="!w-full" size="large" />
+        </div>
+        <div class="flex gap-4">
+          <div class="flex flex-col gap-1.5 flex-1">
+            <label class="text-sm font-bold text-gray-700">後五碼 (選填)</label>
+            <el-input v-model="editForm.account_last_5" size="large" />
+          </div>
+          <div class="flex flex-col gap-1.5 flex-1">
+            <label class="text-sm font-bold text-gray-700">匯款方式</label>
+            <el-input v-model="editForm.payment_method" size="large" />
+          </div>
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-bold text-gray-700">繳費項目 (用逗號分隔)</label>
+          <el-input v-model="editForm.payment_items_raw" placeholder="例如: 月費, 加購練習衣" size="large" />
+        </div>
+      </div>
+      <template #footer>
+        <div class="flex justify-end gap-3 mt-4">
+          <el-button @click="editDialogVisible = false" class="!rounded-xl font-bold px-6" size="large">取消</el-button>
+          <el-button type="primary" :loading="isEditingRemittance" @click="saveRemittanceEdit" class="!rounded-xl font-bold px-6" size="large">儲存變更</el-button>
+        </div>
+      </template>
+    </el-dialog>
 
     <!-- Data Table -->
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden" v-loading="isLoading">
@@ -188,10 +240,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { supabase } from '@/services/supabase'
-import { ElMessage } from 'element-plus'
-import { Loading, BellFilled, Calendar } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Loading, BellFilled, Calendar, Edit, Delete } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 
 const selectedMonth = ref(dayjs().format('YYYY-MM'))
@@ -199,7 +251,24 @@ const isLoading = ref(false)
 const isCalculating = ref(false)
 const feesList = ref<any[]>([])
 const schoolTeamRemittances = ref<any[]>([])
+const currentSchoolTeamMembers = ref<any[]>([])
 const classDates = ref<string[]>([])
+
+const drawerVisible = ref(false)
+const drawerSize = computed(() => {
+  return window.innerWidth < 640 ? '100%' : '450px'
+})
+
+const editDialogVisible = ref(false)
+const isEditingRemittance = ref(false)
+const editForm = ref({
+  id: '',
+  amount: 0,
+  remittance_date: '',
+  account_last_5: '',
+  payment_method: '',
+  payment_items_raw: ''
+})
 
 const pendingChanges = ref<string[]>([])
 const hasChanges = computed(() => pendingChanges.value.length > 0)
@@ -282,6 +351,7 @@ const calculateFees = async () => {
     })
 
     const memberIds = members.map(m => m.id)
+    currentSchoolTeamMembers.value = members
     
     // 平行取得最新的校隊匯款回報
     fetchRemittances(members)
@@ -534,6 +604,68 @@ const fetchRemittances = async (schoolTeamMembers: any[]) => {
     }
   } catch (err) {
     console.error('未能取得近期匯款回報', err)
+  }
+}
+
+const openEditDialog = (r: any) => {
+  editForm.value = {
+    id: r.id,
+    amount: r.amount || 0,
+    remittance_date: r.remittance_date || '',
+    account_last_5: r.account_last_5 || '',
+    payment_method: r.payment_method || '',
+    payment_items_raw: Array.isArray(r.payment_items) ? r.payment_items.join(', ') : ''
+  }
+  editDialogVisible.value = true
+}
+
+const saveRemittanceEdit = async () => {
+  if (!editForm.value.id) return
+  isEditingRemittance.value = true
+  try {
+    const items = editForm.value.payment_items_raw
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean)
+
+    const { error } = await supabase
+      .from('quarterly_fees')
+      .update({
+        amount: editForm.value.amount,
+        remittance_date: editForm.value.remittance_date,
+        account_last_5: editForm.value.account_last_5,
+        payment_method: editForm.value.payment_method,
+        payment_items: items
+      })
+      .eq('id', editForm.value.id)
+
+    if (error) throw error
+    ElMessage.success('儲存成功')
+    editDialogVisible.value = false
+    fetchRemittances(currentSchoolTeamMembers.value)
+  } catch (err: any) {
+    ElMessage.error('儲存失敗: ' + err.message)
+  } finally {
+    isEditingRemittance.value = false
+  }
+}
+
+const handleDeleteRemittance = async (id: string) => {
+  try {
+    await ElMessageBox.confirm('確定要刪除這筆匯款回報嗎？這不會刪除任何成員的繳費狀態，只會刪除表單紀錄。', '刪除確認', {
+      confirmButtonText: '確定刪除',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    
+    const { error } = await supabase.from('quarterly_fees').delete().eq('id', id)
+    if (error) throw error
+    ElMessage.success('已刪除')
+    fetchRemittances(currentSchoolTeamMembers.value)
+  } catch (err: any) {
+    if (err !== 'cancel') {
+      ElMessage.error('刪除失敗: ' + err.message)
+    }
   }
 }
 
