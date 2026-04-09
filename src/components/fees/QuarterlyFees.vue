@@ -228,6 +228,14 @@ const generatedQuarters = computed(() => {
 
 const filteredFees = computed(() => {
   return feesList.value.filter(fee => {
+    // 如果這筆紀錄對應到校隊球員，則在「季費表單清單」中隱藏 (校隊是由月費管理)
+    const memberIds = Array.isArray(fee.member_ids) ? fee.member_ids : (fee.member_ids ? [fee.member_ids] : [])
+    const hasSchoolTeamMember = memberIds.some(id => {
+      const p = players.value.find(p => p.id === id)
+      return p && p.role === '校隊'
+    })
+    if (hasSchoolTeamMember) return false
+
     const matchQuarter = !filterQuarter.value || fee.year_quarter === filterQuarter.value
     const matchName = !searchQuery.value || getMemberName(fee.member_ids).includes(searchQuery.value)
     return matchQuarter && matchName
@@ -289,10 +297,10 @@ const getQuarterBorderClass = (quarter: string) => {
 const fetchData = async () => {
   isLoading.value = true
   try {
-    // 撈取團隊成員名單 (放寬條件，不再只限 '球員'，避免校隊或退役球員變成未知球員)
+    // 撈取團隊成員名單 (加入 role 用於過濾校隊)
     const { data: members, error: mErr } = await supabase
       .from('team_members')
-      .select('id, name')
+      .select('id, name, role')
     if (mErr) throw mErr
     players.value = members || []
 
