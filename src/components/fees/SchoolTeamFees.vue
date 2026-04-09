@@ -669,6 +669,7 @@ const saveRemittanceEdit = async () => {
 
 const markAsPaid = async (remittance: any) => {
   try {
+    // 1. 將回報紀錄標記為已繳費 (隱藏)
     const { error } = await supabase
       .from('quarterly_fees')
       .update({ status: 'paid' })
@@ -676,8 +677,33 @@ const markAsPaid = async (remittance: any) => {
       
     if (error) throw error
     
-    ElMessage.success('已標記為已繳費')
-    // 更新本地狀態
+    // 2. 自動嘗試將目前的月費試算表中該名成員標記為已繳費並存檔
+    let syncedMonthly = false
+    let extractedIds: string[] = []
+    if (Array.isArray(remittance.member_ids) && remittance.member_ids.length > 0) {
+      extractedIds = remittance.member_ids
+    } else if (remittance.member_id) {
+      extractedIds = [remittance.member_id]
+    }
+
+    if (extractedIds.length > 0 && feesList.value.length > 0) {
+      extractedIds.forEach(id => {
+        const feeItem = feesList.value.find(f => f.member_id === id)
+        if (feeItem && !feeItem.is_paid) {
+          feeItem.is_paid = true
+          markChanged(feeItem)
+          syncedMonthly = true
+        }
+      })
+    }
+
+    if (syncedMonthly) {
+      await saveAll() // 自動存檔目前月份的狀態
+    }
+
+    ElMessage.success(syncedMonthly ? '已標記為已繳費，並同步更新此月對帳單！' : '已確認款項！(當前月份無需對帳)')
+    
+    // 3. 更新本地狀態移除抽屜
     const idx = schoolTeamRemittances.value.findIndex(r => r.id === remittance.id)
     if (idx !== -1) {
       schoolTeamRemittances.value.splice(idx, 1) // 從抽屜中移除
