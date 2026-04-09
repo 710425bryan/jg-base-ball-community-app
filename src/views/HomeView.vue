@@ -46,6 +46,8 @@
       </div>
     </div>
 
+    <!-- 移除了原有的今日點名與請假狀況，改放置於外部大廳 LandingView 中 -->
+
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
       <!-- 近期通知/公告 -->
       <div class="bg-white p-0 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/60 overflow-hidden flex flex-col min-h-[400px]">
@@ -96,7 +98,7 @@
                   <div v-else class="w-full h-full flex items-center justify-center text-gray-400 font-bold">{{ leave.team_members?.name?.charAt(0) || '?' }}</div>
                 </div>
                 <div>
-                  <div class="font-bold text-gray-800 text-sm mb-0.5">{{ leave.team_members?.name || '未知' }}</div>
+                  <div class="font-bold text-gray-800 text-sm mb-0.5">{{ maskName(leave.team_members?.name) }}</div>
                   <div class="text-xs text-gray-500 font-medium">{{ leave.start_date === leave.end_date ? leave.start_date : `${leave.start_date} ~ ${leave.end_date}` }}</div>
                 </div>
               </div>
@@ -123,13 +125,20 @@
 </style>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { supabase } from '@/services/supabase'
 import dayjs from 'dayjs'
 
 const isLoading = ref(true)
 const recentLeaves = ref<any[]>([])
 const recentAnnouncements = ref<any[]>([])
+
+const maskName = (name: string) => {
+  if (!name) return '未知'
+  if (name.length <= 1) return name
+  if (name.length === 2) return name[0] + '*'
+  return name[0] + '*'.repeat(name.length - 2) + name[name.length - 1]
+}
 
 const stats = reactive({
   totalMembers: 0,
@@ -170,6 +179,8 @@ const fetchDashboardData = async () => {
       .limit(5)
     
     recentLeaves.value = recentLeavesData || []
+
+    // 處理當日點名等功能已搬移至公開的大廳 LandingView.vue 中執行
 
   } catch (error) {
     console.error('Error fetching dashboard data:', error)

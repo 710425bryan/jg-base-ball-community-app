@@ -302,6 +302,9 @@ const fetchData = async () => {
     // 過濾掉退隊人員，但若該人員在此點名單已有紀錄（歷史紀錄），則保留顯示
     const activeMembers = membersData?.filter(m => m.status !== '退隊' || recordMap.has(m.id)) || []
     
+    // 收集尚未在資料庫擁有紀錄的球員，稍後於背景自動補齊
+    const unrecordedMembers: Array<{member_id: string, status: string}> = []
+
     playersList.value = activeMembers.map(m => {
       let status = recordMap.get(m.id)
       const hasOverlapLeave = leaveNames.includes(m.name)
@@ -309,6 +312,7 @@ const fetchData = async () => {
       if (!status) {
         // 沒有點名紀錄時，判斷是否請假預設
         status = '請假' // 預設請假
+        unrecordedMembers.push({ member_id: m.id, status })
       }
       
       return {
@@ -317,6 +321,19 @@ const fetchData = async () => {
         hasOverlapLeave
       }
     }) || []
+
+    // 背景非同步自動補齊缺漏的預設點名紀錄 (預設請假)，避免沒點到的人在統計時不算數
+    if (unrecordedMembers.length > 0) {
+      const payloads = unrecordedMembers.map(u => ({
+        event_id: eventId,
+        member_id: u.member_id,
+        status: u.status
+      }))
+      supabase.from('attendance_records')
+        .upsert(payloads, { onConflict: 'event_id,member_id' })
+        .then()
+        .catch(e => console.error("Auto sync missing records failed:", e))
+    }
 
   } catch (err: any) {
     ElMessage.error('資料讀取失敗：' + err.message)

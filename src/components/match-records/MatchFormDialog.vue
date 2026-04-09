@@ -7,6 +7,7 @@ import { supabase } from '@/services/supabase'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import dayjs from 'dayjs'
 import { onMounted } from 'vue'
+import { compressImage } from '@/utils/imageCompressor'
 
 const props = defineProps<{
   modelValue: boolean
@@ -350,13 +351,15 @@ const handlePhotoUpload = async (event: Event) => {
   
   uploadingPhoto.value = true
   try {
-    const fileExt = file.name.split('.').pop()
+    const compressedFile = await compressImage(file, 1920, 1080)
+
+    const fileExt = compressedFile.name.split('.').pop()
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
     const filePath = `matches/${fileName}`
 
     const { error: uploadError } = await supabase.storage
       .from('matches-photos')
-      .upload(filePath, file)
+      .upload(filePath, compressedFile)
 
     if (uploadError) throw new Error('圖片上傳失敗，請確認 Storage 是否已建立 matches-photos 儲存桶。')
     

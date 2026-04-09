@@ -215,19 +215,36 @@ const submitCreate = async () => {
     }
     
     // Insert and fetch back the created row ID
-    const { data, error } = await supabase
+    const { data: evData, error } = await supabase
       .from('attendance_events')
       .insert(payload)
       .select()
       .single()
       
     if (error) throw error
+
+    // 自動為所有現役球員/校隊產生預設點名紀錄 (狀態：請假)
+    const { data: members, error: memError } = await supabase
+      .from('team_members')
+      .select('id')
+      .in('role', ['球員', '校隊'])
+      .neq('status', '退隊')
+      
+    if (!memError && members && members.length > 0) {
+      const recordsPayload = members.map(m => ({
+        event_id: evData.id,
+        member_id: m.id,
+        status: '請假'
+      }))
+      // 批次插入，忽略錯誤
+      await supabase.from('attendance_records').insert(recordsPayload)
+    }
     
     ElMessage.success('建立成功！即將進入點名畫面...')
     isModalOpen.value = false
     
     // Navigate immediately to roll call
-    router.push(`/attendance/${data.id}`)
+    router.push(`/attendance/${evData.id}`)
     
   } catch (error: any) {
     console.error("Submit Error:", error)

@@ -35,6 +35,7 @@
           <thead>
             <tr class="bg-gray-50/80 border-b border-gray-100">
               <th class="py-3 px-4 text-left font-bold text-gray-500 text-sm whitespace-nowrap">年度/季度</th>
+              <th class="py-3 px-4 text-left font-bold text-gray-500 text-sm whitespace-nowrap">建立時間</th>
               <th class="py-3 px-4 text-left font-bold text-gray-500 text-sm whitespace-nowrap">匯款日期</th>
               <th class="py-3 px-4 text-left font-bold text-gray-500 text-sm whitespace-nowrap">球員姓名</th>
               <th class="py-3 px-4 text-left font-bold text-gray-500 text-sm whitespace-nowrap">匯款項目</th>
@@ -50,6 +51,7 @@
             </tr>
             <tr v-for="fee in filteredFees" :key="fee.id" class="hover:bg-gray-50/50 transition-colors border-l-4" :class="getQuarterBorderClass(fee.year_quarter)">
               <td class="py-3 px-4 font-mono text-sm font-bold text-gray-600">{{ fee.year_quarter }}</td>
+              <td class="py-3 px-4 font-mono text-xs text-gray-400 whitespace-nowrap">{{ formatTimestamp(fee.created_at) }}</td>
               <td class="py-3 px-4 font-mono text-sm">{{ fee.remittance_date || '-' }}</td>
               <td class="py-3 px-4 font-black text-gray-800">{{ getMemberName(fee.member_ids) }}</td>
               <td class="py-3 px-4">
@@ -267,6 +269,11 @@ const getStatusText = (status: string) => {
   return '未繳納'
 }
 
+const formatTimestamp = (timestamp: string) => {
+  if (!timestamp) return '-'
+  return dayjs(timestamp).format('YYYY-MM-DD HH:mm')
+}
+
 const getQuarterBorderClass = (quarter: string) => {
   // 將季度對應到一組指定的左側 border 顏色來協助區分不同季度的資料
   if (!quarter) return 'border-transparent'
@@ -282,11 +289,10 @@ const getQuarterBorderClass = (quarter: string) => {
 const fetchData = async () => {
   isLoading.value = true
   try {
-    // 撈球員名單 (role='球員')
+    // 撈取團隊成員名單 (放寬條件，不再只限 '球員'，避免校隊或退役球員變成未知球員)
     const { data: members, error: mErr } = await supabase
       .from('team_members')
       .select('id, name')
-      .eq('role', '球員')
     if (mErr) throw mErr
     players.value = members || []
 
@@ -294,7 +300,6 @@ const fetchData = async () => {
     const { data: fees, error: fErr } = await supabase
       .from('quarterly_fees')
       .select('*')
-      .order('year_quarter', { ascending: false })
       .order('created_at', { ascending: false })
     if (fErr) throw fErr
     feesList.value = fees || []

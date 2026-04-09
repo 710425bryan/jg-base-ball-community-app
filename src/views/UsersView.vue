@@ -146,6 +146,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { supabase } from '@/services/supabase'
+import { compressImage } from '@/utils/imageCompressor'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
 
@@ -273,10 +274,12 @@ const handleFileSelect = (e: Event) => {
 const uploadAvatar = async (userId: string) => {
   if (!avatarFile.value) return form.avatar_url
 
-  const fileExt = avatarFile.value.name.split('.').pop()
+  const compressedFile = await compressImage(avatarFile.value, 800, 800)
+
+  const fileExt = compressedFile.name.split('.').pop()
   const filePath = `user-${userId}-${Math.random().toString(36).substring(7)}.${fileExt}`
 
-  const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, avatarFile.value)
+  const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, compressedFile)
   if (uploadError) throw uploadError
 
   const { data } = supabase.storage.from('avatars').getPublicUrl(filePath)

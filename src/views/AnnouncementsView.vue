@@ -153,6 +153,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, reactive } from 'vue'
 import { supabase } from '@/services/supabase'
+import { compressImage } from '@/utils/imageCompressor'
 import { useAuthStore } from '@/stores/auth'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -233,13 +234,15 @@ const handleFileSelect = (event: Event) => {
 }
 
 const uploadImage = async (file: File): Promise<string> => {
-  const fileExt = file.name.split('.').pop()
+  const compressedFile = await compressImage(file, 1920, 1080)
+
+  const fileExt = compressedFile.name.split('.').pop()
   const fileName = `announcement-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
   const filePath = `avatars/${fileName}` // 借用 avatars bucket 上傳
 
   const { error: uploadError } = await supabase.storage
     .from('avatars')
-    .upload(filePath, file)
+    .upload(filePath, compressedFile)
 
   if (uploadError) throw new Error('圖片上傳失敗，請確認 Storage 是否有足夠權限。')
   

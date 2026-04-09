@@ -23,7 +23,15 @@
       </nav>
       
       <!-- Login / Dashboard btn -->
-      <div class="flex items-center">
+      <div class="flex items-center gap-4">
+        <!-- 首頁專屬：更新按鈕 -->
+        <button v-if="hasUpdateAvailable" @click="refreshApp" class="bg-[#D88F22] hover:bg-[#b87a1d] text-white text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 transition-colors animate-pulse shadow-sm" title="點擊重新整理以獲取最新功能">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          更新可用
+        </button>
+
         <router-link v-if="authStore.isAuthenticated" to="/dashboard" class="flex flex-col items-end group cursor-pointer text-white hover:text-secondary transition-colors text-right">
           <span class="font-bold tracking-widest text-sm leading-tight group-hover:text-secondary transition-colors">{{ authStore.profile?.name || '管理員' }}</span>
           <span class="text-[10px] text-gray-400 font-bold tracking-widest uppercase truncate max-w-[80px] mt-0.5">{{ getRoleName(authStore.profile?.role) }}</span>
@@ -72,10 +80,12 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import LoginModal from '@/components/LoginModal.vue'
+import { useVersionCheck } from '@/composables/useVersionCheck'
 
 const authStore = useAuthStore()
 const router = useRouter()
 const showLogin = ref(false)
+const { hasUpdateAvailable, refreshApp } = useVersionCheck()
 
 const getRoleName = (role?: string) => {
   const dict: Record<string, string> = { 'ADMIN': '管理員', 'MANAGER': '經理', 'HEAD_COACH': '總教練', 'COACH': '教練' }

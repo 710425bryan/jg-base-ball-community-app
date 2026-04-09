@@ -38,7 +38,44 @@
     </section>
 
     <!-- Content Sections -->
-    <section class="max-w-7xl mx-auto py-24 px-6 md:px-12 w-full">
+    <section class="max-w-7xl mx-auto py-16 px-6 md:px-12 w-full">
+      <!-- 今日點名狀況 (全寬置頂區塊) -->
+      <div class="w-full mb-20 md:mb-24">
+        <div class="bg-white p-0 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-blue-100/60 overflow-hidden flex flex-col">
+          <div class="p-5 border-b border-blue-100 flex items-center justify-between bg-blue-50/30">
+            <div class="flex items-center gap-3">
+               <div class="p-2 bg-blue-100 rounded-lg text-blue-600">
+                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" /></svg>
+               </div>
+               <h3 class="font-bold text-lg text-blue-900">今日點名請假狀況 <span class="text-xs ml-2 bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full border border-blue-200">當日限定</span></h3>
+            </div>
+          </div>
+          <div class="p-5" v-loading="isLoadingAttendance">
+            <div v-if="!todayEvent" class="flex flex-col items-center justify-center text-gray-400 font-medium py-8">
+               <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+               今天無訓練點名
+            </div>
+            <div v-else>
+               <div class="mb-4">
+                  <h4 class="font-black text-gray-800 text-xl">{{ todayEvent.title }}</h4>
+                  <span class="text-sm font-bold text-gray-500">{{ todayEvent.date }}</span>
+               </div>
+               <div class="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                  <h5 class="font-bold text-gray-700 mb-3 flex items-center gap-2">
+                     <span class="w-2 h-2 rounded-full bg-red-400"></span>今日請假名單 ({{ todayLeaveNames.length }}人)
+                  </h5>
+                  <div v-if="todayLeaveNames.length === 0" class="text-sm text-gray-500 font-medium tracking-wide">無人請假，全員到齊！🎉</div>
+                  <div v-else class="flex flex-wrap gap-2">
+                     <span v-for="(name, idx) in todayLeaveNames" :key="idx" class="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-700 shadow-sm tracking-widest">
+                       {{ maskName(name) }}
+                     </span>
+                  </div>
+               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-16">
         
         <!-- Schedule Ticker -->
@@ -311,6 +348,60 @@ const openAnnouncement = (item: any) => {
   isAnnouncementModalOpen.value = true
 }
 
+const isLoadingAttendance = ref(true)
+const todayEvent = ref<any>(null)
+const todayLeaveNames = ref<string[]>([])
+
+const maskName = (name: string) => {
+  if (!name) return '未知'
+  if (name.length <= 1) return name
+  if (name.length === 2) return name[0] + '*'
+  return name[0] + '*'.repeat(name.length - 2) + name[name.length - 1]
+}
+
+const fetchTodayAttendance = async () => {
+  isLoadingAttendance.value = true
+  try {
+    const todayStr = dayjs().format('YYYY-MM-DD')
+    const { data: evData } = await supabase.from('attendance_events')
+      .select('*')
+      .eq('date', todayStr)
+      .limit(1)
+      .maybeSingle()
+    
+    if (evData) {
+      todayEvent.value = evData
+      
+      const { data: tLeaves } = await supabase.from('leave_requests')
+        .select('id, team_members(name)')
+        .lte('start_date', todayStr)
+        .gte('end_date', todayStr)
+      const formalLeaveNames = (tLeaves || []).map((l: any) => l.team_members?.name).filter(Boolean)
+        
+      const { data: rLeaves } = await supabase.from('attendance_records')
+        .select('member_id')
+        .eq('event_id', evData.id)
+        .eq('status', '請假')
+      
+      let rollCallLeaveNames: string[] = []
+      if (rLeaves && rLeaves.length > 0) {
+        const memberIds = rLeaves.map(r => r.member_id)
+        const { data: members } = await supabase.from('team_members')
+          .select('name')
+          .in('id', memberIds)
+        if (members) rollCallLeaveNames = members.map(m => m.name).filter(Boolean)
+      }
+
+      const allLeaveNames = [...formalLeaveNames, ...rollCallLeaveNames]
+      todayLeaveNames.value = Array.from(new Set(allLeaveNames))
+    }
+  } catch (error) {
+    console.error('Error fetching today attendance:', error)
+  } finally {
+    isLoadingAttendance.value = false
+  }
+}
+
 const joinForm = reactive({
   parent_name: '',
   phone: '',
@@ -380,6 +471,7 @@ const handleOpenJoin = () => {
 
 onMounted(() => {
   fetchAnnouncements()
+  fetchTodayAttendance()
   window.addEventListener('openJoinModal', handleOpenJoin)
 })
 

@@ -93,6 +93,17 @@
       </div>
     </header>
 
+    <!-- 系統更新提示列 (登入後專屬，接績在 Topbar 下方) -->
+    <div v-if="hasUpdateAvailable" 
+         @click="refreshApp" 
+         class="flex-none bg-[#D88F22] hover:bg-[#b87a1d] text-white text-xs sm:text-sm font-bold p-2 text-center flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-sm animate-fade-in-down relative z-[45]"
+         title="點擊以重新載入系統獲取最新功能">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 sm:h-5 sm:w-5 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+      <span>✨ 系統已發布新版本！請點擊此處重新整理以獲取最新功能 ✨</span>
+    </div>
+
     <!-- Mobile Hamburger Menu (Dropdown/Overlay) -->
     <div v-if="isMobileMenuOpen" class="lg:hidden absolute top-16 left-0 w-full max-h-[calc(100vh-4rem)] overflow-y-auto bg-white border-b border-gray-100 z-40 shadow-xl animate-fade-in-down">
       <nav class="flex flex-col py-2">
@@ -182,6 +193,7 @@ import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { supabase } from '@/services/supabase';
 import { Bell, ArrowDown } from '@element-plus/icons-vue';
+import { useVersionCheck } from '@/composables/useVersionCheck';
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import 'dayjs/locale/zh-tw'
@@ -194,6 +206,7 @@ const appVersion = pkg.version;
 
 const router = useRouter();
 const authStore = useAuthStore();
+const { hasUpdateAvailable, refreshApp } = useVersionCheck();
 const isMobileMenuOpen = ref(false);
 const notifications = ref<any[]>([]);
 
@@ -446,10 +459,15 @@ const fetchInitialNotifications = async () => {
         .limit(5)
         .then(async (res) => {
            if (res.data) {
-             // 補上名稱對應
-             const mIds = [...new Set(res.data.map(f => f.member_id))]
-             const { data: mData } = await supabase.from('team_members').select('id, name').in('id', mIds)
-             const nameMap = (mData || []).reduce((acc: any, cur: any) => ({ ...acc, [cur.id]: cur.name }), {})
+             // 補上名稱對應，並過濾掉 uuid 為 null 的情況避免 22P02 錯誤
+             const mIds = [...new Set(res.data.map((f: any) => f.member_id).filter(Boolean))]
+             
+             let nameMap: any = {}
+             if (mIds.length > 0) {
+               const { data: mData } = await supabase.from('team_members').select('id, name').in('id', mIds)
+               nameMap = (mData || []).reduce((acc: any, cur: any) => ({ ...acc, [cur.id]: cur.name }), {})
+             }
+             
              res.data.forEach((f: any) => { f.memberName = nameMap[f.member_id] || '未知球員' })
            }
            return { type: 'fee', data: res.data }

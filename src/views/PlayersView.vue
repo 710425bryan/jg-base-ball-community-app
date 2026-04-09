@@ -296,6 +296,12 @@
                 <el-option v-for="m in members.filter(x => x.id !== form.id && (x.role === '球員' || x.role === '校隊'))" :key="m.id" :label="m.name" :value="m.id" />
               </el-select>
             </el-form-item>
+            <el-form-item label="球衣名字" prop="jersey_name" class="font-bold mb-0" v-if="form.role === '球員' || form.role === '校隊' || form.role === '教練'">
+              <el-input v-model="form.jersey_name" placeholder="球衣顯示名稱" />
+            </el-form-item>
+            <el-form-item label="球衣尺寸" prop="jersey_size" class="font-bold mb-0" v-if="form.role === '球員' || form.role === '校隊' || form.role === '教練'">
+              <el-input v-model="form.jersey_size" placeholder="例如: XS, S, M, L, XL" />
+            </el-form-item>
           </div>
         </div>
 
@@ -342,6 +348,19 @@
             </el-form-item>
             <el-form-item label="法定代理人 (手機)" prop="guardian_phone" class="font-bold mb-0">
               <el-input v-model="form.guardian_phone" placeholder="09XX-XXX-XXX" />
+            </el-form-item>
+          </div>
+        </div>
+
+        <!-- 區塊3-1: 身分調查 -->
+        <div class="bg-purple-50/50 p-4 rounded-xl border border-purple-100 relative mt-6" v-if="form.role === '球員' || form.role === '校隊'">
+          <div class="absolute -top-3 left-4 bg-white px-2 text-sm font-bold text-purple-500 uppercase tracking-wider">資格設定</div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+            <el-form-item prop="low_income_qualification" class="font-bold mb-0 flex items-center h-[52px]">
+              <template #label>
+                <div class="inline-flex items-center gap-1 leading-none mr-3">清寒低收資格 <el-tooltip content="具備清寒低收資格的球員免繳月費" placement="top"><el-icon class="text-gray-400 cursor-help"><InfoFilled /></el-icon></el-tooltip></div>
+              </template>
+              <el-switch v-model="form.low_income_qualification" active-text="是" inactive-text="否" />
             </el-form-item>
           </div>
         </div>
@@ -394,6 +413,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { supabase } from '@/services/supabase'
+import { compressImage } from '@/utils/imageCompressor'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading, InfoFilled, Search } from '@element-plus/icons-vue'
@@ -516,8 +536,11 @@ const initialForm = {
   team_group: '泰迪熊(小組)',
   status: '在隊',
   jersey_number: '',
+  jersey_name: '',
+  jersey_size: '',
   birth_date: '',
   is_early_enrollment: false,
+  low_income_qualification: false,
   sibling_ids: [] as string[],
   national_id: '',
   throwing_hand: '',
@@ -609,7 +632,7 @@ const syncFromGoogleSheet = async () => {
     
     isSyncing.value = true;
     
-    const url = 'https://docs.google.com/spreadsheets/d/1WdxX0sv6rlP_Z-9AV0sf4R5CEcZFQiFbRbn30m8g2F0/export?format=csv&id=1WdxX0sv6rlP_Z-9AV0sf4R5CEcZFQiFbRbn30m8g2F0&gid=0';
+    const url = 'https://docs.google.com/spreadsheets/d/1JJHUF0mn8afiYd0ZUkqrhKbdoPLGQAq15oE14JgdcBA/export?format=csv&id=1JJHUF0mn8afiYd0ZUkqrhKbdoPLGQAq15oE14JgdcBA&gid=0';
     const response = await axios.get(url, { responseType: 'text' });
     const csvData = parseCSV(response.data);
     
@@ -629,22 +652,38 @@ const syncFromGoogleSheet = async () => {
       
       const name = row[0].trim();
       const rawRole = row[1]?.trim();
-      const roleMapped = ['教練', '管理群', '其他'].includes(rawRole) ? rawRole : '球員';
-      let birth_date: string | null = row[2]?.trim().replace(/\//g, '-') || null;
+      let roleMapped = ['教練', '管理群', '其他'].includes(rawRole) ? rawRole : '球員';
+      if (row[2]?.trim() === '是') {
+        roleMapped = '校隊';
+      }
+      
+      const siblingNamesRaw = row[3]?.trim();
+      const siblingNames = siblingNamesRaw ? siblingNamesRaw.split(/[,、]/).map(s => s.trim()).filter(Boolean) : [];
+      let sibling_ids: string[] = [];
+      siblingNames.forEach(sName => {
+        const sibling = existingMap.get(sName);
+        if (sibling && sibling.id) sibling_ids.push(sibling.id);
+      });
+
+      let birth_date: string | null = row[4]?.trim().replace(/\//g, '-') || null;
       if (birth_date && isNaN(Date.parse(birth_date))) {
           birth_date = null;
       }
       
-      const is_early_enrollment = row[4]?.trim() === '有';
-      const national_id = row[5]?.trim() || null;
-      const throwing_hand = row[6]?.trim() || null;
-      const batting_hand = row[7]?.trim() || null;
-      const contact_line_id = row[8]?.trim() || null;
-      const contact_relation = row[9]?.trim() || null;
-      const guardian_name = row[10]?.trim() || null;
-      const guardian_phone = row[11]?.trim() || null;
-      const notes = row[12]?.trim() && !['無', '沒', '無。'].includes(row[12]?.trim()) ? row[12]?.trim() : null;
-      const portrait_auth_str = row[13] || '';
+      const is_early_enrollment = row[6]?.trim() === '有';
+      const national_id = row[7]?.trim() || null;
+      const throwing_hand = row[8]?.trim() || null;
+      const batting_hand = row[9]?.trim() || null;
+      const contact_line_id = row[10]?.trim() || null;
+      const contact_relation = row[11]?.trim() || null;
+      const guardian_name = row[12]?.trim() || null;
+      const guardian_phone = row[13]?.trim() || null;
+      const jersey_number = row[14]?.trim() || null;
+      const jersey_size = row[15]?.trim() || null;
+      const jersey_name = row[16]?.trim() || null;
+      const low_income_qualification = row[17]?.trim() === '是';
+      const notes = row[18]?.trim() && !['無', '沒', '無。'].includes(row[18]?.trim()) ? row[18]?.trim() : null;
+      const portrait_auth_str = row[19] || '';
       const portrait_auth = portrait_auth_str.includes('同意') || portrait_auth_str.includes('已充分閱讀');
       
       const payload: any = {
@@ -652,6 +691,7 @@ const syncFromGoogleSheet = async () => {
         role: roleMapped,
         birth_date,
         is_early_enrollment,
+        sibling_ids,
         national_id,
         throwing_hand,
         batting_hand,
@@ -659,6 +699,10 @@ const syncFromGoogleSheet = async () => {
         contact_relation,
         guardian_name,
         guardian_phone,
+        jersey_number,
+        jersey_size,
+        jersey_name,
+        low_income_qualification,
         notes,
         portrait_auth
       };
@@ -747,13 +791,15 @@ const handleFileSelect = (event: Event) => {
 }
 
 const uploadAvatar = async (file: File): Promise<string> => {
-  const fileExt = file.name.split('.').pop()
+  const compressedFile = await compressImage(file, 800, 800)
+
+  const fileExt = compressedFile.name.split('.').pop()
   const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
   const filePath = `avatars/${fileName}`
 
   const { error: uploadError } = await supabase.storage
     .from('avatars')
-    .upload(filePath, file)
+    .upload(filePath, compressedFile)
 
   if (uploadError) throw new Error('圖片上傳失敗，請確認 Storage 是否已建立 avatars 儲存桶。')
   

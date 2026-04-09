@@ -96,7 +96,7 @@
                   <el-tooltip v-if="fee.has_leave_overlap" content="此月有請假紀錄" placement="top">
                     <span class="text-[10px] font-bold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded leading-none shrink-0 border border-blue-100">有假單</span>
                   </el-tooltip>
-                  <el-tooltip v-if="fee.sibling_ids && fee.sibling_ids.length > 0" content="符合手足同行半價優惠" placement="top">
+                  <el-tooltip v-if="fee.is_discounted" content="符合手足同行半價優惠" placement="top">
                     <span class="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded leading-none shrink-0 border border-primary/20">半價優惠</span>
                   </el-tooltip>
                 </div>
@@ -231,6 +231,22 @@ const calculateFees = async () => {
     if (membersErr) throw membersErr
 
     const members = membersData?.filter(m => m.status !== '退隊') || []
+    
+    // 預處理：確保手足連結是對稱的（防呆：萬一只單向填寫，另一方忘記填寫）
+    members.forEach(m => {
+      if (m.sibling_ids && m.sibling_ids.length > 0) {
+        m.sibling_ids.forEach((sId: string) => {
+          const sibling = members.find(x => x.id === sId)
+          if (sibling) {
+            if (!sibling.sibling_ids) sibling.sibling_ids = []
+            if (!sibling.sibling_ids.includes(m.id)) {
+              sibling.sibling_ids.push(m.id)
+            }
+          }
+        })
+      }
+    })
+
     const memberIds = members.map(m => m.id)
 
     // 2. 撈取本月所有人費率設定 (如果沒有則預設 500)
@@ -294,8 +310,23 @@ const calculateFees = async () => {
       let per_session_fee = feeSettingMap.get(m.id) || 500
       
       // 手足半價優惠處理 (直接折半單次費率)
+      // 若兩者互設為手足，避免兩人同時半價，我們規定 UUID 較小的一方付全額，較大的一方享半價
+      let isDiscounted = false
       if (m.sibling_ids && m.sibling_ids.length > 0) {
-        per_session_fee = Math.round(per_session_fee / 2)
+        for (const sId of m.sibling_ids) {
+          // 確保該手足同樣位於這次的結算名單中
+          if (members.find(x => x.id === sId)) {
+            // 如果存在任何一個同名單手足的 ID 比自己的 ID 小，就由對方付全額，自己拿半價優惠
+            if (m.id > sId) {
+              isDiscounted = true
+              break
+            }
+          }
+        }
+        
+        if (isDiscounted) {
+          per_session_fee = Math.round(per_session_fee / 2)
+        }
       }
       
       const leave_sessions = leaveMap.get(m.id) || 0
@@ -313,6 +344,7 @@ const calculateFees = async () => {
         deduction_amount: existing ? existing.deduction_amount : 0,
         is_paid: existing ? existing.status === 'paid' : false,
         has_leave_overlap,
+        is_discounted: isDiscounted,
         sibling_ids: m.sibling_ids,
         detailed_leaves: preciseLeaveMap.get(m.id)
       }
