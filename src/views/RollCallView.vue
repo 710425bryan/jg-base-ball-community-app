@@ -331,8 +331,9 @@ const fetchData = async () => {
       }))
       supabase.from('attendance_records')
         .upsert(payloads, { onConflict: 'event_id,member_id' })
-        .then()
-        .catch(e => console.error("Auto sync missing records failed:", e))
+        .then(({ error }) => {
+          if (error) console.error("Auto sync missing records failed:", error)
+        })
     }
 
   } catch (err: any) {
