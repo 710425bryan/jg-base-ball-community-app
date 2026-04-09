@@ -69,7 +69,7 @@
     </div>
 
     <!-- 收到的匯款回報區塊 (精簡橫幅) -->
-    <div v-if="schoolTeamRemittances.length > 0" class="bg-blue-50 border border-blue-100 rounded-2xl p-4 md:p-5 shadow-sm mb-2 flex flex-col sm:flex-row items-center justify-between gap-4">
+    <div class="bg-blue-50 border border-blue-100 rounded-2xl p-4 md:p-5 shadow-sm mb-2 flex flex-col sm:flex-row items-center justify-between gap-4">
       <div class="flex items-center gap-3 w-full sm:w-auto">
         <el-icon class="text-blue-500 text-3xl shrink-0"><BellFilled /></el-icon>
         <div>
@@ -77,7 +77,14 @@
           <p class="text-blue-600/80 text-[10px] sm:text-xs mt-0.5">點擊查看詳情，並在下方列表將其切換為「已繳」</p>
         </div>
       </div>
-      <button @click="drawerVisible = true" class="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 active:scale-95 text-white font-bold py-2.5 px-6 rounded-xl text-sm transition-all shadow-sm flex items-center justify-center gap-2 shrink-0">
+      <button 
+        @click="drawerVisible = true" 
+        :disabled="schoolTeamRemittances.length === 0"
+        :class="[
+          'w-full sm:w-auto font-bold py-2.5 px-6 rounded-xl text-sm transition-all shadow-sm flex items-center justify-center gap-2 shrink-0',
+          schoolTeamRemittances.length === 0 ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600 active:scale-95 text-white'
+        ]"
+      >
         查看並處理回報 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
       </button>
     </div>
@@ -252,7 +259,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading, BellFilled, Calendar, Edit, Delete } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 
-const selectedMonth = ref(dayjs().format('YYYY-MM'))
+const selectedMonth = ref(dayjs().subtract(1, 'month').format('YYYY-MM'))
 const isLoading = ref(false)
 const isCalculating = ref(false)
 const feesList = ref<any[]>([])
@@ -595,6 +602,10 @@ const fetchRemittances = async (schoolTeamMembers: any[]) => {
     if (error) throw error
     
     if (data) {
+      // 根據使用者要求：「結算月份三月，匯款是四月份才顯示」 (後收制)
+      // 算出目前選擇的結算月份的「下一個月」
+      const nextMonthPrefix = dayjs(selectedMonth.value).add(1, 'month').format('YYYY-MM')
+
       schoolTeamRemittances.value = data.filter(fee => {
         let extractedIds: string[] = []
         if (Array.isArray(fee.member_ids) && fee.member_ids.length > 0) {
@@ -602,7 +613,12 @@ const fetchRemittances = async (schoolTeamMembers: any[]) => {
         } else if (fee.member_id) {
           extractedIds = [fee.member_id]
         }
-        return extractedIds.some(id => stIds.includes(id)) && fee.status !== 'paid'
+        
+        const isTeamMember = extractedIds.some(id => stIds.includes(id))
+        const dateToCheck = fee.remittance_date || fee.created_at || ''
+        const isNextMonth = dateToCheck.startsWith(nextMonthPrefix)
+
+        return isTeamMember && fee.status !== 'paid' && isNextMonth
       }).map(fee => {
         // 將 ID 解析為實際的球員名稱
         let extractedIds: string[] = []
