@@ -372,16 +372,16 @@ const startListening = () => {
 
         const newNote = {
           id: payload.new.id,
-          title: `[新增季費] 收到 ${data?.name || '未知球員'} 的繳費登記`,
-          body: `季度: ${payload.new.year_quarter} | 方式: ${payload.new.payment_method} | 金額: $${payload.new.amount}`,
+          title: `季費/月費登記: ${data?.name || '未知球員'}`,
+          body: `繳費時間: ${payload.new.remittance_date || '-'}\n金額: $${payload.new.amount}\n方式: ${payload.new.payment_method}`,
           created_at: payload.new.created_at || new Date().toISOString(),
           link: '/fees'
         };
         notifications.value.unshift(newNote);
 
         if (Notification.permission === 'granted') {
-          const note = new Notification('季費登記通知', {
-            body: newNote.title,
+          const note = new Notification(newNote.title, {
+            body: newNote.body,
             icon: '/少棒元素_20260324_232837_0000.png'
           });
           note.onclick = () => {
