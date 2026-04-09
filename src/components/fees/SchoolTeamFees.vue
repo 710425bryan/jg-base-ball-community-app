@@ -590,15 +590,26 @@ const fetchRemittances = async (schoolTeamMembers: any[]) => {
     
     if (data) {
       schoolTeamRemittances.value = data.filter(fee => {
-        const ids = Array.isArray(fee.member_ids) ? fee.member_ids : (fee.member_ids ? [fee.member_ids] : [])
-        return ids.some(id => stIds.includes(id))
+        let extractedIds: string[] = []
+        if (Array.isArray(fee.member_ids) && fee.member_ids.length > 0) {
+          extractedIds = fee.member_ids
+        } else if (fee.member_id) {
+          extractedIds = [fee.member_id]
+        }
+        return extractedIds.some(id => stIds.includes(id))
       }).map(fee => {
         // 將 ID 解析為實際的球員名稱
-        const ids = Array.isArray(fee.member_ids) ? fee.member_ids : (fee.member_ids ? [fee.member_ids] : [])
-        const names = ids.map(id => schoolTeamMembers.find(m => m.id === id)?.name).filter(Boolean).join(', ')
+        let extractedIds: string[] = []
+        if (Array.isArray(fee.member_ids) && fee.member_ids.length > 0) {
+          extractedIds = fee.member_ids
+        } else if (fee.member_id) {
+          extractedIds = [fee.member_id]
+        }
+        
+        const names = extractedIds.map(id => schoolTeamMembers.find(m => m.id === id)?.name).filter(Boolean).join(', ')
         return {
           ...fee,
-          member_names: names || '未知學員'
+          member_names: names || '未知球員'
         }
       })
     }

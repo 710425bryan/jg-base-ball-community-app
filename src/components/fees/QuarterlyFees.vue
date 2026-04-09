@@ -53,7 +53,7 @@
               <td class="py-3 px-4 font-mono text-sm font-bold text-gray-600">{{ fee.year_quarter }}</td>
               <td class="py-3 px-4 font-mono text-xs text-gray-400 whitespace-nowrap">{{ formatTimestamp(fee.created_at) }}</td>
               <td class="py-3 px-4 font-mono text-sm">{{ fee.remittance_date || '-' }}</td>
-              <td class="py-3 px-4 font-black text-gray-800">{{ getMemberName(fee.member_ids) }}</td>
+              <td class="py-3 px-4 font-black text-gray-800">{{ getMemberName(fee) }}</td>
               <td class="py-3 px-4">
                 <div class="flex flex-wrap gap-1 max-w-[250px]">
                   <template v-if="Array.isArray(fee.payment_items) && fee.payment_items.length > 0">
@@ -228,16 +228,26 @@ const generatedQuarters = computed(() => {
 
 const filteredFees = computed(() => {
   return feesList.value.filter(fee => {
+    // 組合新舊欄位的 IDs (為了兼容之前的舊資料)
+    let extractedIds: string[] = []
+    if (Array.isArray(fee.member_ids) && fee.member_ids.length > 0) {
+      extractedIds = fee.member_ids
+    } else if (fee.member_id) {
+      extractedIds = [fee.member_id]
+    }
+
     // 如果這筆紀錄對應到校隊球員，則在「季費表單清單」中隱藏 (校隊是由月費管理)
-    const memberIds = Array.isArray(fee.member_ids) ? fee.member_ids : (fee.member_ids ? [fee.member_ids] : [])
-    const hasSchoolTeamMember = memberIds.some(id => {
-      const p = players.value.find(p => p.id === id)
+    const hasSchoolTeamMember = extractedIds.some((id: string) => {
+      const p = players.value.find((p: any) => p.id === id)
       return p && p.role === '校隊'
     })
     if (hasSchoolTeamMember) return false
 
     const matchQuarter = !filterQuarter.value || fee.year_quarter === filterQuarter.value
-    const matchName = !searchQuery.value || getMemberName(fee.member_ids).includes(searchQuery.value)
+    
+    // getMemberName 內部一樣最好兼容
+    const matchName = !searchQuery.value || getMemberName(fee).includes(searchQuery.value)
+    
     return matchQuarter && matchName
   })
 })
@@ -258,10 +268,24 @@ const initialForm = {
 
 const form = ref({...initialForm})
 
-const getMemberName = (ids: string[] | string) => {
-  if (!ids) return '未知球員';
-  const idArray = Array.isArray(ids) ? ids : [ids];
-  const names = idArray.map(id => players.value.find(p => p.id === id)?.name).filter(Boolean);
+const getMemberName = (feeOrIds: any) => {
+  if (!feeOrIds) return '未知球員';
+  
+  let ids: string[] = []
+  if (Array.isArray(feeOrIds)) {
+    ids = feeOrIds
+  } else if (typeof feeOrIds === 'string') {
+    ids = [feeOrIds]
+  } else if (typeof feeOrIds === 'object') {
+    if (Array.isArray(feeOrIds.member_ids) && feeOrIds.member_ids.length > 0) {
+      ids = feeOrIds.member_ids
+    } else if (feeOrIds.member_id) {
+      ids = [feeOrIds.member_id]
+    }
+  }
+
+  if (ids.length === 0) return '未知球員'
+  const names = ids.map(id => players.value.find(p => p.id === id)?.name).filter(Boolean);
   return names.length > 0 ? names.join(', ') : '未知球員';
 }
 
