@@ -102,7 +102,10 @@
             <template #default="{ row }">
               <div class="flex flex-col">
                 <span class="font-black text-gray-800 text-base leading-tight">{{ row.name }}</span>
-                <span v-if="row.sibling_ids && row.sibling_ids.length > 0 && getSiblingName(row.sibling_ids)" class="text-[10px] text-primary/80 font-bold border border-primary/20 bg-primary/5 px-1 rounded-sm mt-0.5 w-max">跟隨: {{ getSiblingName(row.sibling_ids) }} (半價)</span>
+                <span v-if="row.sibling_ids && row.sibling_ids.length > 0 && getSiblingName(row.sibling_ids)" class="text-[10px] font-bold border px-1.5 py-0.5 rounded-sm mt-0.5 w-max inline-flex items-center gap-1" :class="row.is_primary_payer ? 'text-emerald-700 border-emerald-200 bg-emerald-50' : 'text-primary border-primary/20 bg-primary/5'">
+                  <span class="tracking-wide">{{ row.is_primary_payer ? '主要繳費人' : '半價優惠' }}</span>
+                  <span class="opacity-80 font-medium ml-0.5">· 手足: {{ getSiblingName(row.sibling_ids) }}</span>
+                </span>
               </div>
             </template>
           </el-table-column>
@@ -187,7 +190,10 @@
                 </span>
               </div>
               <div class="flex flex-wrap items-center gap-2 mt-1">
-                <span v-if="member.sibling_ids && member.sibling_ids.length > 0 && getSiblingName(member.sibling_ids)" class="text-[10px] md:text-xs font-bold px-2 py-0.5 rounded border bg-primary/5 text-primary border-primary/20 tracking-wider">跟隨: {{ getSiblingName(member.sibling_ids) }} (半價)</span>
+                <span v-if="member.sibling_ids && member.sibling_ids.length > 0 && getSiblingName(member.sibling_ids)" class="text-[10px] md:text-xs font-bold px-2 py-0.5 rounded border tracking-wider inline-flex items-center gap-1.5" :class="member.is_primary_payer ? 'text-emerald-700 border-emerald-200 bg-emerald-50' : 'bg-primary/5 text-primary border-primary/20'">
+                  <span>{{ member.is_primary_payer ? '主要繳費人' : '半價優惠' }}</span>
+                  <span class="opacity-80 font-medium border-l border-current pl-1.5 text-[9px] md:text-[10px]">手足: {{ getSiblingName(member.sibling_ids) }}</span>
+                </span>
                 <span v-if="member.status === '退隊'" class="text-xs md:text-sm font-bold px-2 py-0.5 rounded border bg-red-50 text-red-600 border-red-200 tracking-wider">退隊</span>
                 <span class="text-xs md:text-sm font-bold px-2 py-0.5 rounded border uppercase tracking-wider" :class="getRoleClass(member.role)">[{{ member.role }}]</span>
                 <span v-if="member.team_group" class="text-[10px] md:text-xs font-bold px-2 py-0.5 rounded border tracking-wider" :class="getTeamGroupClass(member.team_group)">
@@ -288,9 +294,15 @@
               </template>
               <el-switch v-model="form.is_early_enrollment" active-text="有" inactive-text="無" />
             </el-form-item>
+            <el-form-item prop="is_primary_payer" class="font-bold mb-0 flex items-center h-[52px]" v-if="form.role === '球員' || form.role === '校隊'">
+              <template #label>
+                <div class="inline-flex items-center gap-1 leading-none mr-3">主要繳費人 <el-tooltip content="開啟代表此球員為主要繳費代表(全額)，相關手足將自動享有半價折扣" placement="top"><el-icon class="text-gray-400 cursor-help"><InfoFilled /></el-icon></el-tooltip></div>
+              </template>
+              <el-switch v-model="form.is_primary_payer" active-text="是" inactive-text="否" />
+            </el-form-item>
             <el-form-item prop="sibling_ids" class="font-bold mb-0 flex flex-col h-[72px]" v-if="form.role === '球員' || form.role === '校隊'">
               <template #label>
-                <div class="inline-flex items-center gap-1 leading-none mr-3">主要繳費手足 <el-tooltip content="可選擇多位全額繳費的哥哥/姊姊。選定後結算月費將自動折半" placement="top"><el-icon class="text-gray-400 cursor-help"><InfoFilled /></el-icon></el-tooltip></div>
+                <div class="inline-flex items-center gap-1 leading-none mr-3">相關手足 (兄弟姊妹) <el-tooltip content="請選擇有在球隊的兄弟姊妹。系統將依據「主要繳費人」設定自動給予半價優惠" placement="top"><el-icon class="text-gray-400 cursor-help"><InfoFilled /></el-icon></el-tooltip></div>
               </template>
               <el-select v-model="form.sibling_ids" multiple placeholder="無" clearable filterable class="w-full">
                 <el-option v-for="m in members.filter(x => x.id !== form.id && (x.role === '球員' || x.role === '校隊'))" :key="m.id" :label="m.name" :value="m.id" />
@@ -540,6 +552,7 @@ const initialForm = {
   jersey_size: '',
   birth_date: '',
   is_early_enrollment: false,
+  is_primary_payer: false,
   low_income_qualification: false,
   sibling_ids: [] as string[],
   national_id: '',
@@ -643,6 +656,9 @@ const syncFromGoogleSheet = async () => {
       existingMap.set(m.name?.trim(), m);
     });
 
+    const headers = csvData[0].map(h => h.trim());
+    const primaryPayerIndex = headers.findIndex(h => h === '是否為主要繳費人' || h.includes('主要繳費人'));
+
     const inserts: any[] = [];
     const updates: any[] = [];
     
@@ -686,11 +702,17 @@ const syncFromGoogleSheet = async () => {
       const portrait_auth_str = row[19] || '';
       const portrait_auth = portrait_auth_str.includes('同意') || portrait_auth_str.includes('已充分閱讀');
       
+      let is_primary_payer = false;
+      if (primaryPayerIndex !== -1 && row.length > primaryPayerIndex) {
+        is_primary_payer = row[primaryPayerIndex]?.trim() === '是';
+      }
+      
       const payload: any = {
         name,
         role: roleMapped,
         birth_date,
         is_early_enrollment,
+        is_primary_payer,
         sibling_ids,
         national_id,
         throwing_hand,
@@ -748,7 +770,10 @@ const fetchData = async () => {
       .order('role')
       .order('name')
     if (error) throw error
-    members.value = data || []
+    console.log('Fetched team members example: ', data && data.length > 0 ? Object.keys(data[0]) : 'no data')
+    
+    // Auto-update any missing is_primary_payer field for robust frontend mapping
+    members.value = (data || []).map(m => ({ ...m, is_primary_payer: !!m.is_primary_payer }))
   } catch (error: any) {
     ElMessage.error('讀取名單失敗：' + error.message)
   } finally {
@@ -772,6 +797,7 @@ const openEditModal = (member: any) => {
     return
   }
   isEditing.value = true
+  Object.assign(form, initialForm)
   Object.assign(form, member)
   if (!form.status) form.status = '在隊' // 確保舊資料有預設在隊狀態
   if (!form.sibling_ids) form.sibling_ids = [] // 確保 sibling_ids 始終是陣列

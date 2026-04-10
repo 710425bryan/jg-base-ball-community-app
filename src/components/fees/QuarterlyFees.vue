@@ -285,7 +285,10 @@ const getMemberName = (feeOrIds: any) => {
   }
 
   if (ids.length === 0) return '未知球員'
-  const names = ids.map(id => players.value.find(p => p.id === id)?.name).filter(Boolean);
+  const names = ids.map(id => {
+    const p = players.value.find(p => p.id === id);
+    return p ? p.name : '(已刪除之球員)';
+  });
   return names.length > 0 ? names.join(', ') : '未知球員';
 }
 
@@ -324,7 +327,7 @@ const fetchData = async () => {
     // 撈取團隊成員名單 (加入 role 用於過濾校隊)
     const { data: members, error: mErr } = await supabase
       .from('team_members')
-      .select('id, name, role')
+      .select('id, name, role, sibling_ids')
     if (mErr) throw mErr
     players.value = members || []
 
@@ -334,7 +337,27 @@ const fetchData = async () => {
       .select('*')
       .order('created_at', { ascending: false })
     if (fErr) throw fErr
-    feesList.value = fees || []
+
+    feesList.value = (fees || []).map(fee => {
+      // 從 Google 表單進來的資料可能只有一個人，我們自動展開他的手足
+      let ids: string[] = [];
+      if (Array.isArray(fee.member_ids) && fee.member_ids.length > 0) {
+        ids = [...fee.member_ids];
+      } else if (fee.member_id) {
+        ids = [fee.member_id];
+      }
+
+      let expandedIds = [...ids];
+      ids.forEach((id: string) => {
+        const p = players.value.find((p: any) => p.id === id);
+        if (p && Array.isArray(p.sibling_ids) && p.sibling_ids.length > 0) {
+          expandedIds.push(...p.sibling_ids);
+        }
+      });
+      // 確保陣列唯一，賦值回 fee 物件
+      fee.member_ids = [...new Set(expandedIds)];
+      return fee;
+    });
 
   } catch (e: any) {
     ElMessage.error('資料載入失敗: ' + e.message)

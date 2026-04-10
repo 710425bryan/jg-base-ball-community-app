@@ -368,12 +368,23 @@ const startListening = () => {
         // 限 ADMIN, MANAGER 接收
         if (!['ADMIN', 'MANAGER'].includes(authStore.profile?.role)) return;
 
-        const { data } = await supabase.from('team_members').select('name').eq('id', payload.new.member_id).single();
+        let targetIds = payload.new.member_ids || [];
+        if (!targetIds.length && payload.new.member_id) {
+          targetIds = [payload.new.member_id];
+        }
+
+        let membersName = '未知球員';
+        if (targetIds.length > 0) {
+          const { data } = await supabase.from('team_members').select('name').in('id', targetIds);
+          if (data && data.length > 0) {
+            membersName = data.map(d => d.name).join(', ');
+          }
+        }
 
         const newNote = {
           id: payload.new.id,
-          title: `季費/月費登記: ${data?.name || '未知球員'}`,
-          body: `繳費時間: ${payload.new.remittance_date || '-'}\n金額: $${payload.new.amount}\n方式: ${payload.new.payment_method}`,
+          title: `[新增季費] 收到 ${membersName} 的繳費登記`,
+          body: `季度: ${payload.new.year_quarter || '-'}\n方式: ${payload.new.payment_method}\n金額: $${payload.new.amount}`,
           created_at: payload.new.created_at || new Date().toISOString(),
           link: '/fees'
         };
@@ -451,24 +462,38 @@ const fetchInitialNotifications = async () => {
         .limit(5)
         .then(res => ({ type: 'join', data: res.data }))
     )
-    // 季費表單 (為了避免關聯名稱抓取失敗，我們獨立抓取名字)
+    // 季費表單 (因為現在支援多選，需要讀取 member_ids)
     promises.push(
       supabase.from('quarterly_fees')
-        .select('id, member_id, year_quarter, payment_method, amount, created_at')
+        .select('id, member_id, member_ids, year_quarter, payment_method, amount, created_at')
         .order('created_at', { ascending: false })
         .limit(5)
         .then(async (res) => {
            if (res.data) {
-             // 補上名稱對應，並過濾掉 uuid 為 null 的情況避免 22P02 錯誤
-             const mIds = [...new Set(res.data.map((f: any) => f.member_id).filter(Boolean))]
+             // 收集所有的 ID (兼顧舊欄位 member_id 與新欄位 member_ids)
+             let allIds: string[] = []
+             res.data.forEach((f: any) => {
+               if (f.member_ids && f.member_ids.length > 0) allIds.push(...f.member_ids)
+               else if (f.member_id) allIds.push(f.member_id)
+             })
+             
+             const uniqueIds = [...new Set(allIds)].filter(Boolean)
              
              let nameMap: any = {}
-             if (mIds.length > 0) {
-               const { data: mData } = await supabase.from('team_members').select('id, name').in('id', mIds)
+             if (uniqueIds.length > 0) {
+               const { data: mData } = await supabase.from('team_members').select('id, name').in('id', uniqueIds)
                nameMap = (mData || []).reduce((acc: any, cur: any) => ({ ...acc, [cur.id]: cur.name }), {})
              }
              
-             res.data.forEach((f: any) => { f.memberName = nameMap[f.member_id] || '未知球員' })
+             res.data.forEach((f: any) => {
+               let names = []
+               if (f.member_ids && f.member_ids.length > 0) {
+                 names = f.member_ids.map((id: string) => nameMap[id]).filter(Boolean)
+               } else if (f.member_id) {
+                 if (nameMap[f.member_id]) names.push(nameMap[f.member_id])
+               }
+               f.memberName = names.length > 0 ? names.join(', ') : '未知球員'
+             })
            }
            return { type: 'fee', data: res.data }
         })

@@ -19,7 +19,9 @@
           <tr v-for="member in members" :key="member.id" class="hover:bg-gray-50/50 transition-colors">
             <td class="py-3 px-4 flex items-center gap-2">
               <span class="font-black text-gray-800">{{ member.name }}</span>
-              <span v-if="member.sibling_ids && member.sibling_ids.length > 0" class="text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded whitespace-nowrap">半價優惠</span>
+              <span v-if="member.sibling_ids && member.sibling_ids.length > 0" class="text-[10px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap" :class="member.is_primary_payer ? 'text-green-600 bg-green-50 border border-green-200' : 'text-primary bg-primary/10 border border-primary/20'">
+                {{ member.is_primary_payer ? '主要繳費人' : '半價優惠' }}
+              </span>
             </td>
             <td class="py-3 px-4">
               <el-input-number 
@@ -69,7 +71,7 @@ const fetchData = async () => {
     // 1. 撈取校隊名單
     const { data: teamMembers, error: mErr } = await supabase
       .from('team_members')
-      .select('id, name, status, sibling_ids')
+      .select('id, name, status, sibling_ids, is_primary_payer')
       .eq('role', '校隊')
       .order('name')
     if (mErr) throw mErr

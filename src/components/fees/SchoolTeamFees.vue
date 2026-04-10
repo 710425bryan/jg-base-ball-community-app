@@ -342,7 +342,7 @@ const calculateFees = async () => {
     // 1. 撈取校隊名單
     const { data: membersData, error: membersErr } = await supabase
       .from('team_members')
-      .select('id, name, status, sibling_ids')
+      .select('id, name, status, sibling_ids, is_primary_payer')
       .eq('role', '校隊')
     if (membersErr) throw membersErr
 
@@ -430,16 +430,22 @@ const calculateFees = async () => {
       let per_session_fee = feeSettingMap.get(m.id) || 500
       
       // 手足半價優惠處理 (直接折半單次費率)
-      // 若兩者互設為手足，避免兩人同時半價，我們規定 UUID 較小的一方付全額，較大的一方享半價
       let isDiscounted = false
       if (m.sibling_ids && m.sibling_ids.length > 0) {
-        for (const sId of m.sibling_ids) {
-          // 確保該手足同樣位於這次的結算名單中
-          if (members.find(x => x.id === sId)) {
-            // 如果存在任何一個同名單手足的 ID 比自己的 ID 小，就由對方付全額，自己拿半價優惠
-            if (m.id > sId) {
-              isDiscounted = true
-              break
+        if (!m.is_primary_payer) {
+          const siblings = m.sibling_ids.map((sId: string) => members.find(x => x.id === sId)).filter(Boolean)
+          const hasPrimarySibling = siblings.some((s: any) => s.is_primary_payer)
+
+          if (hasPrimarySibling) {
+            // 有其他手足是主要繳費人，則自己必定享半價
+            isDiscounted = true
+          } else {
+            // 防呆/向下相容：若互相連結的手足都沒有人被設為 主要繳費人，退回原來的機制（系統比較 UUID）
+            for (const s of siblings) {
+              if (m.id > s.id) {
+                isDiscounted = true
+                break
+              }
             }
           }
         }
