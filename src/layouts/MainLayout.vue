@@ -44,7 +44,7 @@
         <div class="shrink-0 flex items-center justify-end md:w-auto gap-4">
           
           <!-- Notification Bell -->
-          <el-popover placement="bottom-end" :width="320" trigger="click" :show-arrow="false" popper-style="padding: 0; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);">
+          <el-popover ref="notificationPopover" placement="bottom-end" :width="320" trigger="click" :show-arrow="false" popper-style="padding: 0; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);">
             <template #reference>
               <button class="relative p-2 text-gray-400 hover:text-primary transition-colors focus:outline-none rounded-full hover:bg-gray-50 flex items-center justify-center">
                 <el-icon class="text-[22px]"><Bell /></el-icon>
@@ -56,7 +56,7 @@
               <span class="bg-primary/10 text-primary text-[10px] font-extrabold px-2 py-0.5 rounded-full">{{ notifications.length }} 則新通知</span>
             </div>
             <div v-if="notifications.length > 0" class="max-h-[350px] overflow-y-auto bg-white">
-              <div v-for="note in notifications" :key="note.id" @click="router.push(note.link || '/')" class="p-3 px-4 border-b border-gray-50 hover:bg-primary/5 transition-colors cursor-pointer text-sm">
+              <div v-for="note in notifications" :key="note.id" @click="handleNotificationClick(note.link)" class="p-3 px-4 border-b border-gray-50 hover:bg-primary/5 transition-colors cursor-pointer text-sm">
                 <div class="text-gray-800 font-bold mb-1 line-clamp-1 leading-snug">{{ note.title }}</div>
                 <div class="text-gray-500 text-xs mb-1.5 leading-snug">{{ note.body }}</div>
                 <div class="text-gray-400 text-[10px] flex justify-end">{{ dayjs(note.created_at).fromNow() }}</div>
@@ -209,6 +209,17 @@ const authStore = useAuthStore();
 const { hasUpdateAvailable, refreshApp } = useVersionCheck();
 const isMobileMenuOpen = ref(false);
 const notifications = ref<any[]>([]);
+const notificationPopover = ref<any>(null);
+
+const handleNotificationClick = (link: string | undefined) => {
+  if (link) {
+    router.push(link);
+  } else {
+    router.push('/');
+  }
+  // 自動收起推播選單
+  notificationPopover.value?.hide();
+};
 
 const translateRole = (role: string | undefined) => {
   const map: Record<string, string> = {
@@ -253,7 +264,7 @@ const startListening = () => {
           title: `[新增假單] ${data?.name || '未知成員'} 的${payload.new.leave_type || '假單'}`,
           body: `日期：${payload.new.start_date} ~ ${payload.new.end_date}`,
           created_at: payload.new.created_at,
-          link: '/leave-requests'
+          link: `/leave-requests?highlight_leave_id=${payload.new.id}`
         };
         notifications.value.unshift(newNote);
 
@@ -265,7 +276,7 @@ const startListening = () => {
           });
           note.onclick = () => {
             window.focus();
-            router.push('/leave-requests');
+            router.push(`/leave-requests?highlight_leave_id=${payload.new.id}`);
             note.close();
           };
         }
@@ -374,19 +385,26 @@ const startListening = () => {
         }
 
         let membersName = '未知球員';
+        let memberRole = '球員';
         if (targetIds.length > 0) {
-          const { data } = await supabase.from('team_members').select('name').in('id', targetIds);
+          const { data } = await supabase.from('team_members').select('name, role').in('id', targetIds);
           if (data && data.length > 0) {
             membersName = data.map(d => d.name).join(', ');
+            memberRole = data[0].role;
           }
         }
 
+        const isSchoolTeam = memberRole === '校隊';
+        const feeTab = isSchoolTeam ? 'monthly' : 'quarterly';
+        const highlightMemberId = targetIds.length > 0 ? targetIds[0] : '';
+
+        const newNoteLink = `/fees?tab=${feeTab}&highlight_fee_id=${payload.new.id}&highlight_member_id=${highlightMemberId}`;
         const newNote = {
           id: payload.new.id,
-          title: `[新增季費] 收到 ${membersName} 的繳費登記`,
+          title: `[新增匯款] 收到 ${membersName} 的繳費登記`,
           body: `季度: ${payload.new.year_quarter || '-'}\n方式: ${payload.new.payment_method}\n金額: $${payload.new.amount}`,
           created_at: payload.new.created_at || new Date().toISOString(),
-          link: '/fees'
+          link: newNoteLink
         };
         notifications.value.unshift(newNote);
 
@@ -397,7 +415,7 @@ const startListening = () => {
           });
           note.onclick = () => {
             window.focus();
-            router.push('/fees');
+            router.push(newNoteLink);
             note.close();
           };
         }
@@ -480,19 +498,27 @@ const fetchInitialNotifications = async () => {
              const uniqueIds = [...new Set(allIds)].filter(Boolean)
              
              let nameMap: any = {}
+             let roleMap: any = {}
              if (uniqueIds.length > 0) {
-               const { data: mData } = await supabase.from('team_members').select('id, name').in('id', uniqueIds)
+               const { data: mData } = await supabase.from('team_members').select('id, name, role').in('id', uniqueIds)
                nameMap = (mData || []).reduce((acc: any, cur: any) => ({ ...acc, [cur.id]: cur.name }), {})
+               roleMap = (mData || []).reduce((acc: any, cur: any) => ({ ...acc, [cur.id]: cur.role }), {})
              }
              
              res.data.forEach((f: any) => {
                let names = []
+               let role = '球員'
                if (f.member_ids && f.member_ids.length > 0) {
                  names = f.member_ids.map((id: string) => nameMap[id]).filter(Boolean)
+                 role = roleMap[f.member_ids[0]] || '球員'
+                 f.highlightMemberId = f.member_ids[0]
                } else if (f.member_id) {
                  if (nameMap[f.member_id]) names.push(nameMap[f.member_id])
+                 role = roleMap[f.member_id] || '球員'
+                 f.highlightMemberId = f.member_id
                }
                f.memberName = names.length > 0 ? names.join(', ') : '未知球員'
+               f.isSchoolTeam = role === '校隊'
              })
            }
            return { type: 'fee', data: res.data }
@@ -510,7 +536,7 @@ const fetchInitialNotifications = async () => {
         title: `[新增假單] ${(r.team_members as any)?.name || '未知球員'} 的${r.leave_type}`,
         body: `日期：${r.start_date} ~ ${r.end_date}\n原因：${r.reason || '無'}`,
         created_at: r.created_at,
-        link: '/leave-requests'
+        link: `/leave-requests?highlight_leave_id=${r.id}`
       })))
     } else if (res.type === 'member' && res.data) {
       combined.push(...res.data.map((m: any) => ({
@@ -531,10 +557,10 @@ const fetchInitialNotifications = async () => {
     } else if (res.type === 'fee' && res.data) {
       combined.push(...res.data.map((f: any) => ({
         id: f.id,
-        title: `[新增季費] 收到 ${f.memberName} 的繳費登記`,
+        title: `[新增匯款] 收到 ${f.memberName} 的繳費登記`,
         body: `季度: ${f.year_quarter} | 方式: ${f.payment_method} | 金額: $${f.amount}`,
         created_at: f.created_at,
-        link: '/fees'
+        link: `/fees?tab=${f.isSchoolTeam ? 'monthly' : 'quarterly'}&highlight_fee_id=${f.id}&highlight_member_id=${f.highlightMemberId || ''}`
       })))
     }
   })

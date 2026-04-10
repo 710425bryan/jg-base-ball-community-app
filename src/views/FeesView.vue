@@ -57,8 +57,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { Money, Lock } from '@element-plus/icons-vue'
 
@@ -67,6 +67,7 @@ import SchoolTeamFees from '@/components/fees/SchoolTeamFees.vue'
 import QuarterlyFees from '@/components/fees/QuarterlyFees.vue'
 import FeeSettings from '@/components/fees/FeeSettings.vue'
 
+const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const hasAccess = computed(() => ['ADMIN'].includes(authStore.profile?.role))
@@ -78,6 +79,12 @@ const tabs = [
 ]
 
 const activeTab = ref('monthly')
+
+watch(() => route.query.tab, (newTab) => {
+  if (newTab === 'monthly' || newTab === 'quarterly' || newTab === 'settings') {
+    activeTab.value = newTab as string
+  }
+}, { immediate: true })
 
 const currentComponent = computed(() => {
   switch (activeTab.value) {

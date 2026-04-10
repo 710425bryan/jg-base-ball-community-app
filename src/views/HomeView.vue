@@ -26,6 +26,22 @@
         </div>
       </div>
       <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100/80 flex flex-col justify-center relative overflow-hidden">
+        <div class="absolute -right-4 -top-4 w-16 h-16 bg-blue-50 rounded-full blur-xl"></div>
+        <span class="text-gray-400 font-bold text-sm mb-1">校隊人數</span>
+        <div class="flex items-end gap-2">
+          <span class="text-4xl font-extrabold text-blue-500">{{ stats.schoolTeamMembers }}</span>
+          <span class="text-gray-400 font-medium text-sm mb-1">人</span>
+        </div>
+      </div>
+      <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100/80 flex flex-col justify-center relative overflow-hidden">
+        <div class="absolute -right-4 -top-4 w-16 h-16 bg-green-50 rounded-full blur-xl"></div>
+        <span class="text-gray-400 font-bold text-sm mb-1">球員人數</span>
+        <div class="flex items-end gap-2">
+          <span class="text-4xl font-extrabold text-green-500">{{ stats.playerMembers }}</span>
+          <span class="text-gray-400 font-medium text-sm mb-1">人</span>
+        </div>
+      </div>
+      <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100/80 flex flex-col justify-center relative overflow-hidden">
         <div class="absolute -right-4 -top-4 w-16 h-16 bg-red-50 rounded-full blur-xl"></div>
         <span class="text-gray-400 font-bold text-sm mb-1">今日請假人數</span>
         <div class="flex items-end gap-2">
@@ -33,7 +49,7 @@
           <span class="text-gray-400 font-medium text-sm mb-1">人</span>
         </div>
       </div>
-      <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100/80 flex flex-col justify-center col-span-2 relative overflow-hidden group cursor-pointer" @click="$router.push('/players')">
+      <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100/80 flex flex-col justify-center col-span-2 md:col-span-4 relative overflow-hidden group cursor-pointer" @click="$router.push('/players')">
         <div class="flex items-center justify-between">
           <div>
             <span class="text-gray-400 font-bold text-sm mb-1 block">球員管理</span>
@@ -142,6 +158,8 @@ const maskName = (name: string) => {
 
 const stats = reactive({
   totalMembers: 0,
+  schoolTeamMembers: 0,
+  playerMembers: 0,
   todayLeaves: 0
 })
 
@@ -149,11 +167,14 @@ const fetchDashboardData = async () => {
   isLoading.value = true
   try {
     // 取得總人數 (抓取球員名單中的球員與校隊)
-    const { count: membersCount } = await supabase.from('team_members')
-      .select('*', { count: 'exact', head: true })
+    const { data: members, count: membersCount } = await supabase.from('team_members')
+      .select('role', { count: 'exact' })
       .in('role', ['球員', '校隊'])
       .neq('status', '退隊')
+    
     stats.totalMembers = membersCount || 0
+    stats.schoolTeamMembers = members?.filter(m => m.role === '校隊').length || 0
+    stats.playerMembers = members?.filter(m => m.role === '球員').length || 0
 
     // 取得今日請假人數
     const todayStr = dayjs().format('YYYY-MM-DD')
