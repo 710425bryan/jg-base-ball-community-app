@@ -194,6 +194,9 @@
                   <span>{{ member.is_primary_payer ? '主要繳費人' : '半價優惠' }}</span>
                   <span class="opacity-80 font-medium border-l border-current pl-1.5 text-[9px] md:text-[10px]">手足: {{ getSiblingName(member.sibling_ids) }}</span>
                 </span>
+                <span v-else-if="member.is_half_price" class="text-[10px] md:text-xs font-bold px-2 py-0.5 rounded border tracking-wider bg-primary/5 text-primary border-primary/20">
+                  半價優惠
+                </span>
                 <span v-if="member.status === '退隊'" class="text-xs md:text-sm font-bold px-2 py-0.5 rounded border bg-red-50 text-red-600 border-red-200 tracking-wider">退隊</span>
                 <span class="text-xs md:text-sm font-bold px-2 py-0.5 rounded border uppercase tracking-wider" :class="getRoleClass(member.role)">[{{ member.role }}]</span>
                 <span v-if="member.team_group" class="text-[10px] md:text-xs font-bold px-2 py-0.5 rounded border tracking-wider" :class="getTeamGroupClass(member.team_group)">
@@ -299,6 +302,12 @@
                 <div class="inline-flex items-center gap-1 leading-none mr-3">主要繳費人 <el-tooltip content="開啟代表此球員為主要繳費代表(全額)，相關手足將自動享有半價折扣" placement="top"><el-icon class="text-gray-400 cursor-help"><InfoFilled /></el-icon></el-tooltip></div>
               </template>
               <el-switch v-model="form.is_primary_payer" active-text="是" inactive-text="否" />
+            </el-form-item>
+            <el-form-item prop="is_half_price" class="font-bold mb-0 flex items-center h-[52px]" v-if="form.role === '球員' || form.role === '校隊'">
+              <template #label>
+                <div class="inline-flex items-center gap-1 leading-none mr-3">半價優惠 <el-tooltip content="手動標記此球員強制享有半價優惠" placement="top"><el-icon class="text-gray-400 cursor-help"><InfoFilled /></el-icon></el-tooltip></div>
+              </template>
+              <el-switch v-model="form.is_half_price" active-text="是" inactive-text="否" />
             </el-form-item>
             <el-form-item prop="sibling_ids" class="font-bold mb-0 flex flex-col h-[72px]" v-if="form.role === '球員' || form.role === '校隊'">
               <template #label>
@@ -553,6 +562,7 @@ const initialForm = {
   birth_date: '',
   is_early_enrollment: false,
   is_primary_payer: false,
+  is_half_price: false,
   low_income_qualification: false,
   sibling_ids: [] as string[],
   national_id: '',
@@ -713,6 +723,7 @@ const syncFromGoogleSheet = async () => {
         birth_date,
         is_early_enrollment,
         is_primary_payer,
+        is_half_price: false,
         sibling_ids,
         national_id,
         throwing_hand,
@@ -770,10 +781,13 @@ const fetchData = async () => {
       .order('role')
       .order('name')
     if (error) throw error
-    console.log('Fetched team members example: ', data && data.length > 0 ? Object.keys(data[0]) : 'no data')
     
-    // Auto-update any missing is_primary_payer field for robust frontend mapping
-    members.value = (data || []).map(m => ({ ...m, is_primary_payer: !!m.is_primary_payer }))
+    // Auto-update any missing is_primary_payer/is_half_price field for robust frontend mapping
+    members.value = (data || []).map(m => ({ 
+      ...m, 
+      is_primary_payer: !!m.is_primary_payer,
+      is_half_price: !!m.is_half_price 
+    }))
   } catch (error: any) {
     ElMessage.error('讀取名單失敗：' + error.message)
   } finally {
