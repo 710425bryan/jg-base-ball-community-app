@@ -93,17 +93,18 @@
 import { ref, onMounted, computed } from 'vue'
 import { supabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/auth'
+import { usePermissionsStore } from '@/stores/permissions'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Warning } from '@element-plus/icons-vue'
 
 const authStore = useAuthStore()
+const permissionsStore = usePermissionsStore()
 const inquiries = ref<any[]>([])
 const isLoading = ref(false)
 
 const hasPermission = computed(() => {
-  const role = authStore.profile?.role
-  return role === 'ADMIN' || role === 'MANAGER'
+  return permissionsStore.can('join_inquiries', 'VIEW')
 })
 
 const fetchInquiries = async () => {

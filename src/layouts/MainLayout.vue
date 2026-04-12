@@ -19,21 +19,21 @@
             <router-link to="/dashboard" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">後台大廳</router-link>
             <router-link to="/calendar" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">行事曆</router-link>
             <router-link to="/match-records" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">比賽紀錄</router-link>
-            <router-link v-if="['ADMIN', 'MANAGER', 'HEAD_COACH', 'COACH'].includes(authStore.profile?.role)" to="/leave-requests" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">請假系統</router-link>
-            <router-link v-if="['ADMIN', 'HEAD_COACH', 'COACH'].includes(authStore.profile?.role)" to="/attendance" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">點名系統</router-link>
-            <router-link v-if="['ADMIN', 'MANAGER'].includes(authStore.profile?.role)" to="/players" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">球員名單</router-link>
+            <router-link v-if="permissionsStore.can('leave_requests', 'VIEW')" to="/leave-requests" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">請假系統</router-link>
+            <router-link v-if="permissionsStore.can('attendance', 'VIEW')" to="/attendance" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">點名系統</router-link>
+            <router-link v-if="permissionsStore.can('players', 'VIEW')" to="/players" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">球員名單</router-link>
             
             <!-- 更多選單 (不常用收納區) -->
-            <el-dropdown trigger="hover" placement="bottom" v-if="['ADMIN', 'MANAGER'].includes(authStore.profile?.role)">
+            <el-dropdown trigger="hover" placement="bottom" v-if="permissionsStore.can('join_inquiries') || permissionsStore.can('announcements') || permissionsStore.can('fees') || permissionsStore.can('users')">
               <div class="cursor-pointer whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide flex items-center gap-1 pt-0.5 outline-none">
                 更多 <el-icon class="text-xs transition-transform duration-300 el-dropdown-link-icon"><ArrowDown /></el-icon>
               </div>
               <template #dropdown>
                 <el-dropdown-menu class="!p-1.5 !rounded-xl min-w-[140px] shadow-xl border-gray-100">
-                  <el-dropdown-item @click="router.push('/join-inquiries')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">入隊申請</el-dropdown-item>
-                  <el-dropdown-item @click="router.push('/announcements')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">系統公告</el-dropdown-item>
-                  <el-dropdown-item v-if="authStore.profile?.role === 'ADMIN'" @click="router.push('/fees')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">收費管理</el-dropdown-item>
-                  <el-dropdown-item @click="router.push('/users')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5" divided>設定</el-dropdown-item>
+                  <el-dropdown-item v-if="permissionsStore.can('join_inquiries', 'VIEW')" @click="router.push('/join-inquiries')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">入隊申請</el-dropdown-item>
+                  <el-dropdown-item v-if="permissionsStore.can('announcements', 'VIEW')" @click="router.push('/announcements')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">系統公告</el-dropdown-item>
+                  <el-dropdown-item v-if="permissionsStore.can('fees', 'VIEW')" @click="router.push('/fees')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">收費管理</el-dropdown-item>
+                  <el-dropdown-item v-if="permissionsStore.can('users', 'VIEW')" @click="router.push('/users')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5" divided>設定</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
@@ -118,13 +118,13 @@
          <router-link to="/dashboard" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">後台大廳</router-link>
          <router-link to="/calendar" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">行事曆</router-link>
          <router-link to="/match-records" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">比賽紀錄</router-link>
-         <router-link v-if="['ADMIN', 'MANAGER', 'HEAD_COACH', 'COACH'].includes(authStore.profile?.role)" to="/leave-requests" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">請假系統</router-link>
-         <router-link v-if="['ADMIN', 'HEAD_COACH', 'COACH'].includes(authStore.profile?.role)" to="/attendance" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">點名系統</router-link>
-         <router-link v-if="['ADMIN', 'MANAGER'].includes(authStore.profile?.role)" to="/players" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">球員名單</router-link>
-         <router-link v-if="['ADMIN', 'MANAGER'].includes(authStore.profile?.role)" to="/join-inquiries" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">入隊申請</router-link>
-         <router-link v-if="['ADMIN', 'MANAGER'].includes(authStore.profile?.role)" to="/announcements" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">系統公告</router-link>
-         <router-link v-if="['ADMIN'].includes(authStore.profile?.role)" to="/fees" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">收費管理</router-link>
-         <router-link v-if="['ADMIN', 'MANAGER'].includes(authStore.profile?.role)" to="/users" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">設定</router-link>
+         <router-link v-if="permissionsStore.can('leave_requests', 'VIEW')" to="/leave-requests" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">請假系統</router-link>
+         <router-link v-if="permissionsStore.can('attendance', 'VIEW')" to="/attendance" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">點名系統</router-link>
+         <router-link v-if="permissionsStore.can('players', 'VIEW')" to="/players" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">球員名單</router-link>
+         <router-link v-if="permissionsStore.can('join_inquiries', 'VIEW')" to="/join-inquiries" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">入隊申請</router-link>
+         <router-link v-if="permissionsStore.can('announcements', 'VIEW')" to="/announcements" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">系統公告</router-link>
+         <router-link v-if="permissionsStore.can('fees', 'VIEW')" to="/fees" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">收費管理</router-link>
+         <router-link v-if="permissionsStore.can('users', 'VIEW')" to="/users" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">設定</router-link>
          <button @click="handleSignOut" class="text-left px-6 py-5 text-red-500 hover:bg-red-50 font-bold w-full transition-colors flex items-center gap-2 uppercase tracking-widest text-sm">
            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
            登出系統
@@ -158,25 +158,25 @@
         </svg>
         <span class="font-bold tracking-wide">紀錄</span>
       </router-link>
-      <router-link v-if="['ADMIN', 'MANAGER', 'HEAD_COACH', 'COACH'].includes(authStore.profile?.role)" to="/leave-requests" class="flex flex-col items-center justify-center p-1 px-2 min-w-[3.5rem] hover:text-primary transition-colors shrink-0">
+      <router-link v-if="permissionsStore.can('leave_requests', 'VIEW')" to="/leave-requests" class="flex flex-col items-center justify-center p-1 px-2 min-w-[3.5rem] hover:text-primary transition-colors shrink-0">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
         </svg>
         <span class="font-bold tracking-wide">請假</span>
       </router-link>
-      <router-link v-if="['ADMIN', 'HEAD_COACH', 'COACH'].includes(authStore.profile?.role)" to="/attendance" class="flex flex-col items-center justify-center p-1 px-2 min-w-[3.5rem] hover:text-primary transition-colors shrink-0">
+      <router-link v-if="permissionsStore.can('attendance', 'VIEW')" to="/attendance" class="flex flex-col items-center justify-center p-1 px-2 min-w-[3.5rem] hover:text-primary transition-colors shrink-0">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
         <span class="font-bold tracking-wide">點名</span>
       </router-link>
-      <router-link v-if="['ADMIN', 'MANAGER'].includes(authStore.profile?.role)" to="/players" class="flex flex-col items-center justify-center p-1 px-2 min-w-[3.5rem] hover:text-primary transition-colors shrink-0">
+      <router-link v-if="permissionsStore.can('players', 'VIEW')" to="/players" class="flex flex-col items-center justify-center p-1 px-2 min-w-[3.5rem] hover:text-primary transition-colors shrink-0">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
         </svg>
         <span class="font-bold tracking-wide">球員</span>
       </router-link>
-      <router-link v-if="['ADMIN', 'MANAGER'].includes(authStore.profile?.role)" to="/users" class="flex flex-col items-center justify-center p-1 px-2 min-w-[3.5rem] hover:text-primary transition-colors shrink-0">
+      <router-link v-if="permissionsStore.can('users', 'VIEW')" to="/users" class="flex flex-col items-center justify-center p-1 px-2 min-w-[3.5rem] hover:text-primary transition-colors shrink-0">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
@@ -191,21 +191,22 @@
 import { ref, watch, onUnmounted, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import { usePermissionsStore } from '@/stores/permissions';
 import { supabase } from '@/services/supabase';
 import { Bell, ArrowDown } from '@element-plus/icons-vue';
 import { useVersionCheck } from '@/composables/useVersionCheck';
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import 'dayjs/locale/zh-tw'
-import pkg from '../../package.json'
 
 dayjs.extend(relativeTime)
 dayjs.locale('zh-tw')
 
-const appVersion = pkg.version;
+const appVersion = __APP_VERSION__;
 
 const router = useRouter();
 const authStore = useAuthStore();
+const permissionsStore = usePermissionsStore();
 const { hasUpdateAvailable, refreshApp } = useVersionCheck();
 const isMobileMenuOpen = ref(false);
 const notifications = ref<any[]>([]);
@@ -256,7 +257,7 @@ const startListening = () => {
       { event: 'INSERT', schema: 'public', table: 'leave_requests' },
       async (payload) => {
         // 限 ADMIN, MANAGER, HEAD_COACH, COACH 接收:
-        if (!['ADMIN', 'MANAGER', 'HEAD_COACH', 'COACH'].includes(authStore.profile?.role)) return;
+        if (!permissionsStore.can('leave_requests', 'VIEW')) return;
 
         const { data } = await supabase.from('team_members').select('name').eq('id', payload.new.user_id).single();
         const newNote = {
@@ -294,7 +295,7 @@ const startListening = () => {
       { event: 'INSERT', schema: 'public', table: 'team_members' },
       (payload) => {
         // 限 ADMIN, MANAGER 接收:
-        if (!['ADMIN', 'MANAGER'].includes(authStore.profile?.role)) return;
+        if (!permissionsStore.can('players', 'VIEW')) return;
 
         console.log('⚡ [Realtime 攔截] 收到 team_members 最新資料！Payload:', payload);
 
@@ -339,7 +340,7 @@ const startListening = () => {
         { event: 'INSERT', schema: 'public', table: 'join_inquiries' },
         (payload) => {
           // 只推播給管理員
-          if (!['ADMIN', 'MANAGER'].includes(authStore.profile?.role)) return;
+          if (!permissionsStore.can('join_inquiries', 'VIEW')) return;
 
           console.log('⚡ [Realtime 攔截] 收到 join_inquiries 最新資料！Payload:', payload);
 
@@ -377,7 +378,7 @@ const startListening = () => {
       { event: 'INSERT', schema: 'public', table: 'quarterly_fees' },
       async (payload) => {
         // 限 ADMIN, MANAGER 接收
-        if (!['ADMIN', 'MANAGER'].includes(authStore.profile?.role)) return;
+        if (!permissionsStore.can('fees', 'VIEW')) return;
 
         let targetIds = payload.new.member_ids || [];
         if (!targetIds.length && payload.new.member_id) {
@@ -451,8 +452,8 @@ const fetchInitialNotifications = async () => {
 
   const promises = []
 
-  // 1. 請假系統 (ADMIN, MANAGER, HEAD_COACH, COACH)
-  if (['ADMIN', 'MANAGER', 'HEAD_COACH', 'COACH'].includes(role)) {
+  // 1. 請假系統
+  if (permissionsStore.can('leave_requests', 'VIEW')) {
     promises.push(
       supabase.from('leave_requests')
         .select('id, leave_type, start_date, end_date, reason, created_at, team_members(name)')
@@ -462,8 +463,8 @@ const fetchInitialNotifications = async () => {
     )
   }
 
-  // 2. 限管理員層級接收的通知 (ADMIN, MANAGER)
-  if (['ADMIN', 'MANAGER'].includes(role)) {
+  // 2. 其它各模組通知
+  if (permissionsStore.can('players', 'VIEW')) {
     // 球員異動
     promises.push(
       supabase.from('team_members')
@@ -472,6 +473,8 @@ const fetchInitialNotifications = async () => {
         .limit(5)
         .then(res => ({ type: 'member', data: res.data }))
     )
+  }
+  if (permissionsStore.can('join_inquiries', 'VIEW')) {
     // 入隊申請
     promises.push(
       supabase.from('join_inquiries')
@@ -480,6 +483,8 @@ const fetchInitialNotifications = async () => {
         .limit(5)
         .then(res => ({ type: 'join', data: res.data }))
     )
+  }
+  if (permissionsStore.can('fees', 'VIEW')) {
     // 季費表單 (因為現在支援多選，需要讀取 member_ids)
     promises.push(
       supabase.from('quarterly_fees')
@@ -571,24 +576,21 @@ const fetchInitialNotifications = async () => {
 
 // 監聽權限變化，確保有權限的角色才會開啟 WebSocket
 watch(() => authStore.profile?.role, (newRole) => {
-  if (newRole === 'ADMIN' || newRole === 'MANAGER' || newRole === 'HEAD_COACH' || newRole === 'COACH') {
-    if (Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
-    startListening();
-  } else {
-    stopListening();
+  // 現在只要登入就啟動監聽，內部會有 `can()` 判斷
+  if (Notification.permission === 'default') {
+    Notification.requestPermission();
   }
+  startListening();
 }, { immediate: true });
+
 
 onUnmounted(() => {
   stopListening();
 });
 
 onMounted(() => {
-  if (authStore.profile?.role === 'ADMIN' || authStore.profile?.role === 'MANAGER' || authStore.profile?.role === 'HEAD_COACH' || authStore.profile?.role === 'COACH') {
-    fetchInitialNotifications()
-  }
+  // We can fetch notifications if they have permission for anything
+  fetchInitialNotifications()
 })
 </script>
 

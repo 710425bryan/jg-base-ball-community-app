@@ -56,12 +56,12 @@
             <span class="hidden sm:inline">表格</span>
           </button>
         </div>
-        <button v-if="isAdmin" @click="syncFromGoogleSheet" :disabled="isSyncing" class="bg-[#ca8a04] hover:bg-[#a16207] active:scale-95 text-white px-5 py-2.5 rounded-lg shadow-md text-sm font-bold transition-all flex items-center gap-2 tracking-wide disabled:opacity-70">
+        <button v-if="canEditPlayers" @click="syncFromGoogleSheet" :disabled="isSyncing" class="bg-[#ca8a04] hover:bg-[#a16207] active:scale-95 text-white px-5 py-2.5 rounded-lg shadow-md text-sm font-bold transition-all flex items-center gap-2 tracking-wide disabled:opacity-70">
           <el-icon v-if="isSyncing" class="is-loading"><Loading /></el-icon>
           <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg>
           <span class="hidden sm:inline">同步表單</span>
         </button>
-        <button v-if="isAdmin" @click="openCreateModal()" class="bg-primary hover:bg-primary-hover active:scale-95 text-white px-5 py-2.5 rounded-lg shadow-md text-sm font-bold transition-all flex items-center gap-2 tracking-wide">
+        <button v-if="canEditPlayers" @click="openCreateModal()" class="bg-primary hover:bg-primary-hover active:scale-95 text-white px-5 py-2.5 rounded-lg shadow-md text-sm font-bold transition-all flex items-center gap-2 tracking-wide">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
           <span class="hidden sm:inline">新增成員</span>
         </button>
@@ -436,12 +436,14 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { supabase } from '@/services/supabase'
 import { compressImage } from '@/utils/imageCompressor'
 import { useAuthStore } from '@/stores/auth'
+import { usePermissionsStore } from '@/stores/permissions'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading, InfoFilled, Search } from '@element-plus/icons-vue'
 import axios from 'axios'
 
 const authStore = useAuthStore()
-const isAdmin = computed(() => authStore.profile?.role === 'ADMIN')
+const permissionsStore = usePermissionsStore()
+const canEditPlayers = computed(() => permissionsStore.can('players', 'EDIT'))
 
 const isLoading = ref(true)
 const isSubmitting = ref(false)
@@ -647,7 +649,7 @@ function parseCSV(text: string) {
 }
 
 const syncFromGoogleSheet = async () => {
-  if (!isAdmin.value) return;
+  if (!canEditPlayers.value) return;
   try {
     await ElMessageBox.confirm('確定要從 Google 表單同步球員名單？這將會更新同名的球員資料並新增缺漏的球員。', '🔄 同步確認', {
       confirmButtonText: '開始同步', cancelButtonText: '取消', type: 'warning'
@@ -806,8 +808,8 @@ const openCreateModal = () => {
 }
 
 const openEditModal = (member: any) => {
-  if (!isAdmin.value) {
-    // 若非管理員，仍可提供彈窗檢視詳情模式(唯讀)，但根據需求這裡直接return，或依照你的設計進行
+  if (!canEditPlayers.value) {
+    // 若無編輯權限，仍可提供彈窗檢視詳情模式(唯讀)，但根據需求這裡直接return，或依照你的設計進行
     return
   }
   isEditing.value = true

@@ -438,6 +438,7 @@ import { ref, reactive, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { supabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/auth'
+import { usePermissionsStore } from '@/stores/permissions'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading, InfoFilled, CircleCheckFilled } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
@@ -451,6 +452,7 @@ import VChart from 'vue-echarts'
 use([CanvasRenderer, BarChart, TitleComponent, TooltipComponent, LegendComponent, GridComponent])
 
 const authStore = useAuthStore()
+const permissionsStore = usePermissionsStore()
 const activeTab = ref('list')
 const isModalOpen = ref(false)
 const isSettingsOpen = ref(false)
@@ -505,8 +507,7 @@ const settingsForm = reactive({
 
 // --- 權限判斷 ---
 const isAdminOrManager = computed(() => {
-  const role = authStore.profile?.role
-  return role === 'ADMIN' || role === 'MANAGER' || role === 'HEAD_COACH'
+  return permissionsStore.can('leave_requests', 'EDIT')
 })
 
 // --- 月曆邏輯 ---

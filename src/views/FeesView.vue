@@ -60,6 +60,7 @@
 import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { usePermissionsStore } from '@/stores/permissions'
 import { Money, Lock } from '@element-plus/icons-vue'
 
 // Import Sub Components
@@ -70,7 +71,8 @@ import FeeSettings from '@/components/fees/FeeSettings.vue'
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
-const hasAccess = computed(() => ['ADMIN'].includes(authStore.profile?.role))
+const permissionsStore = usePermissionsStore()
+const hasAccess = computed(() => permissionsStore.can('fees', 'VIEW'))
 
 const tabs = [
   { id: 'monthly', name: '校隊月費結算' },

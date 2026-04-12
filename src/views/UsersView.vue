@@ -18,8 +18,11 @@
       </button>
     </div>
 
-    <!-- Data Table Card -->
-    <div class="flex-1 bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/80 overflow-hidden flex flex-col min-h-[600px] sm:min-h-0">
+    <!-- Tabs -->
+    <el-tabs v-model="activeTab" class="flex-1 flex flex-col min-h-0 bg-transparent custom-tabs">
+      <el-tab-pane label="系統帳號管理" name="users" class="h-full flex flex-col">
+        <!-- Data Table Card -->
+        <div class="flex-1 bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/80 overflow-hidden flex flex-col min-h-[600px] sm:min-h-0">
       <el-table 
         :data="users" 
         style="width: 100%; height: 100%" 
@@ -77,6 +80,12 @@
         </el-table-column>
       </el-table>
     </div>
+    </el-tab-pane>
+
+    <el-tab-pane label="角色與權限設定" name="roles" class="h-full">
+      <RolePermissionsManager />
+    </el-tab-pane>
+    </el-tabs>
 
     <!-- Modal Form (Create / Edit) -->
     <el-dialog
@@ -121,10 +130,12 @@
 
         <el-form-item label="角色權限" prop="role" class="font-bold">
           <el-select v-model="form.role" placeholder="請選擇職位角色" size="large" class="w-full">
-            <el-option label="ADMIN — 最高管理員" value="ADMIN" />
-            <el-option label="MANAGER — 經理" value="MANAGER" />
-            <el-option label="HEAD_COACH — 總教練" value="HEAD_COACH" />
-            <el-option label="COACH — 教練 / 一般成員" value="COACH" />
+            <el-option 
+              v-for="r in permissionsStore.roles" 
+              :key="r.role_key"
+              :label="`${r.role_key} — ${r.role_name}`" 
+              :value="r.role_key" 
+            />
           </el-select>
         </el-form-item>
       </el-form>
@@ -149,6 +160,12 @@ import { supabase } from '@/services/supabase'
 import { compressImage } from '@/utils/imageCompressor'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
+import RolePermissionsManager from '@/components/RolePermissionsManager.vue'
+import { usePermissionsStore } from '@/stores/permissions'
+
+const permissionsStore = usePermissionsStore()
+
+const activeTab = ref('users')
 
 // -- 資料狀態 --
 const users = ref<any[]>([])
@@ -182,8 +199,8 @@ const rules = {
 
 // -- 工具函式 --
 const getRoleName = (role: string) => {
-  const dict: Record<string, string> = { 'ADMIN': '管理員', 'MANAGER': '經理', 'HEAD_COACH': '總教練', 'COACH': '教練' }
-  return dict[role] || role
+  const r = permissionsStore.roles.find(x => x.role_key === role)
+  return r ? r.role_name : role
 }
 
 const getRoleTagClass = (role: string) => {
@@ -388,7 +405,10 @@ const confirmDelete = async (row: any) => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  if (permissionsStore.roles.length === 0) {
+    await permissionsStore.fetchRoles()
+  }
   fetchUsers()
 })
 </script>
@@ -407,5 +427,18 @@ onMounted(() => {
 }
 .custom-dialog .el-dialog__body {
   padding: 16px 24px 0px 24px;
+}
+
+/* 滿版 Tab 修飾 */
+.custom-tabs .el-tabs__content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0;
+}
+.custom-tabs .el-tabs__item {
+  font-weight: 800;
+  font-size: 1rem;
 }
 </style>

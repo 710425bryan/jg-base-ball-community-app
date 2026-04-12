@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { supabase } from '@/services/supabase'
 import type { User, Session } from '@supabase/supabase-js'
+import { usePermissionsStore } from './permissions'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
@@ -22,15 +23,24 @@ export const useAuthStore = defineStore('auth', () => {
       const { data: { session: existingSession } } = await supabase.auth.getSession()
       session.value = existingSession
       user.value = existingSession?.user ?? null
-      if (user.value) await fetchProfile(user.value.id)
+      if (user.value) {
+        await fetchProfile(user.value.id)
+        if (profile.value?.role) {
+          await usePermissionsStore().fetchPermissions(profile.value.role)
+        }
+      }
 
       supabase.auth.onAuthStateChange(async (_event, newSession) => {
         session.value = newSession
         user.value = newSession?.user ?? null
         if (user.value) {
           await fetchProfile(user.value.id)
+          if (profile.value?.role) {
+            await usePermissionsStore().fetchPermissions(profile.value.role)
+          }
         } else {
           profile.value = null
+          await usePermissionsStore().fetchPermissions('')
         }
       })
     } catch (error) {
@@ -69,11 +79,13 @@ export const useAuthStore = defineStore('auth', () => {
     })
     if (error) throw error
     
-    // 強制立即將登入狀態寫入，避免 router.push 觸發時 onAuthStateChange 還沒跑完被導回首頁
     session.value = data.session
     user.value = data.user || data.session?.user || null
     if (user.value) {
       await fetchProfile(user.value.id)
+      if (profile.value?.role) {
+        await usePermissionsStore().fetchPermissions(profile.value.role)
+      }
     }
     
     return data
@@ -83,6 +95,8 @@ export const useAuthStore = defineStore('auth', () => {
     await supabase.auth.signOut()
     user.value = null
     session.value = null
+    profile.value = null
+    await usePermissionsStore().fetchPermissions('')
   }
 
   return {
