@@ -70,7 +70,7 @@
                     <td class="px-4 py-3 text-center">
                       <el-switch 
                         v-model="permissionFlags[feature.key]" 
-                        @change="(val) => togglePermission(feature.key, val)" 
+                        @change="togglePermission(feature.key, $event)" 
                         style="--el-switch-on-color: #D88F22"
                         :disabled="selectedRole.role_key === 'ADMIN'"
                       />
