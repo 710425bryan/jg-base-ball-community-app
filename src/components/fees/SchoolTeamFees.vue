@@ -342,7 +342,7 @@ const calculateFees = async () => {
     // 1. 撈取校隊名單
     const { data: membersData, error: membersErr } = await supabase
       .from('team_members')
-      .select('id, name, status, sibling_ids, is_primary_payer')
+      .select('id, name, status, sibling_ids, is_primary_payer, is_half_price')
       .eq('role', '校隊')
     if (membersErr) throw membersErr
 
@@ -431,7 +431,9 @@ const calculateFees = async () => {
       
       // 手足半價優惠處理 (直接折半單次費率)
       let isDiscounted = false
-      if (m.sibling_ids && m.sibling_ids.length > 0) {
+      if (m.is_half_price) {
+        isDiscounted = true
+      } else if (m.sibling_ids && m.sibling_ids.length > 0) {
         if (!m.is_primary_payer) {
           const siblings = m.sibling_ids.map((sId: string) => members.find(x => x.id === sId)).filter(Boolean)
           const hasPrimarySibling = siblings.some((s: any) => s.is_primary_payer)

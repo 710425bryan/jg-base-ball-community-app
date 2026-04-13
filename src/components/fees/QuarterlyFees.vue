@@ -230,7 +230,9 @@ const filteredFees = computed(() => {
   return feesList.value.filter(fee => {
     // 組合新舊欄位的 IDs (為了兼容之前的舊資料)
     let extractedIds: string[] = []
-    if (Array.isArray(fee.member_ids) && fee.member_ids.length > 0) {
+    if (Array.isArray((fee as any)._original_ids) && (fee as any)._original_ids.length > 0) {
+      extractedIds = (fee as any)._original_ids
+    } else if (Array.isArray(fee.member_ids) && fee.member_ids.length > 0) {
       extractedIds = fee.member_ids
     } else if (fee.member_id) {
       extractedIds = [fee.member_id]
@@ -346,6 +348,9 @@ const fetchData = async () => {
       } else if (fee.member_id) {
         ids = [fee.member_id];
       }
+      
+      // Preserve original IDs for filtering purposes
+      (fee as any)._original_ids = [...ids];
 
       let expandedIds = [...ids];
       ids.forEach((id: string) => {
