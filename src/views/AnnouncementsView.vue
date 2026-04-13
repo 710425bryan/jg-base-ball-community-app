@@ -155,10 +155,12 @@ import { ref, onMounted, computed, reactive } from 'vue'
 import { supabase } from '@/services/supabase'
 import { compressImage } from '@/utils/imageCompressor'
 import { useAuthStore } from '@/stores/auth'
+import { usePermissionsStore } from '@/stores/permissions'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const authStore = useAuthStore()
+const permissionsStore = usePermissionsStore()
 const isLoading = ref(true)
 const isSubmitting = ref(false)
 const announcements = ref<any[]>([])
@@ -176,9 +178,9 @@ const form = reactive({
   image_url: null as string | null
 })
 
-// 權限：只有 ADMIN 和 MANAGER 可以新增刪除
+// 權限判斷
 const hasPermission = computed(() => {
-  return authStore.profile?.role === 'ADMIN' || authStore.profile?.role === 'MANAGER'
+  return permissionsStore.can('announcements', 'EDIT')
 })
 
 const fetchAnnouncements = async () => {

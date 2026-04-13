@@ -92,7 +92,7 @@
     <!-- 匯款回報處理抽屜 -->
     <el-drawer v-model="drawerVisible" title="校隊最新匯款回報" :size="drawerSize" class="!rounded-l-2xl">
       <div class="flex flex-col gap-4">
-        <div v-for="r in schoolTeamRemittances" :key="r.id" class="bg-gray-50 border border-gray-100 rounded-xl p-4 relative group overflow-hidden shadow-sm">
+        <div :id="`fee-card-${r.id}`" v-for="r in schoolTeamRemittances" :key="r.id" class="bg-gray-50 border border-gray-100 rounded-xl p-4 relative group overflow-hidden shadow-sm transition-colors duration-1000">
           <div class="absolute top-0 right-0 h-full w-1.5 bg-gradient-to-b from-blue-300 to-blue-500"></div>
           
           <div class="flex justify-between items-center pr-2 mb-2">
@@ -187,7 +187,7 @@
                 請點擊右上角「試算本月」載入校隊名單
               </td>
             </tr>
-            <tr v-for="fee in feesList" :key="fee.member_id" class="hover:bg-gray-50/50 transition-colors">
+            <tr :id="`fee-row-${fee.member_id}`" v-for="fee in feesList" :key="fee.member_id" class="hover:bg-gray-50/50 transition-colors duration-1000">
               <td class="py-3 px-4">
                 <div class="flex items-center gap-2">
                   <div class="font-black text-gray-800 shrink-0">{{ fee.member_name }}</div>
@@ -253,11 +253,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch, nextTick } from 'vue'
 import { supabase } from '@/services/supabase'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Loading, BellFilled, Calendar, Edit, Delete } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox, ElNotification } from 'element-plus'
+import { Loading, BellFilled, Edit, Delete, Check, Calendar } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
+import { useWindowSize } from '@vueuse/core'
+import { useRoute } from 'vue-router'
 
 const selectedMonth = ref(dayjs().subtract(1, 'month').format('YYYY-MM'))
 const isLoading = ref(false)
@@ -283,8 +285,45 @@ const editForm = ref({
   payment_items_raw: ''
 })
 
+// 存檔與變更追蹤
 const pendingChanges = ref<string[]>([])
+const isSaving = ref(false)
 const hasChanges = computed(() => pendingChanges.value.length > 0)
+
+const route = useRoute()
+const highlightFeeId = computed(() => route.query.highlight_fee_id as string | undefined)
+const highlightMemberId = computed(() => route.query.highlight_member_id as string | undefined)
+
+// --- Watcher for Highlight Logic ---
+watch([isLoading, schoolTeamRemittances], ([newLoading, newRemittances]) => {
+  if (!newLoading) {
+    if (highlightFeeId.value) {
+      // 1. 若在匯款回報抽屜中
+      const rMatch = newRemittances.some((r: any) => r.id === highlightFeeId.value)
+      if (rMatch) {
+         drawerVisible.value = true
+         setTimeout(() => {
+            const el = document.getElementById(`fee-card-${highlightFeeId.value}`)
+            if (el) {
+               el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+               el.classList.add('bg-yellow-100', 'animate-pulse')
+               setTimeout(() => el.classList.remove('bg-yellow-100', 'animate-pulse'), 3000)
+            }
+         }, 500)
+      } else if (highlightMemberId.value) {
+         // 2. 否則若在表格中
+         setTimeout(() => {
+            const el = document.getElementById(`fee-row-${highlightMemberId.value}`)
+            if (el) {
+               el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+               el.classList.add('bg-yellow-100', 'animate-pulse')
+               setTimeout(() => el.classList.remove('bg-yellow-100', 'animate-pulse'), 3000)
+            }
+         }, 500)
+      }
+    }
+  }
+})
 
 const disabledDate = (time: Date) => {
   if (!selectedMonth.value) return false

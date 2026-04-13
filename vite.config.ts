@@ -43,6 +43,9 @@ const versionUpdatePlugin = () => {
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(getPackageVersion())
+  },
   plugins: [
     vue(),
     versionUpdatePlugin(),

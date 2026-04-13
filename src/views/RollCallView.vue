@@ -148,14 +148,16 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/auth'
+import { usePermissionsStore } from '@/stores/permissions'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading, Search } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
-const hasAccess = computed(() => ['ADMIN', 'HEAD_COACH', 'COACH'].includes(authStore.profile?.role))
-const canDelete = computed(() => ['ADMIN', 'MANAGER'].includes(authStore.profile?.role))
+const permissionsStore = usePermissionsStore()
+const hasAccess = computed(() => permissionsStore.can('attendance', 'EDIT'))
+const canDelete = computed(() => permissionsStore.can('attendance', 'EDIT'))
 
 const eventId = route.params.id as string
 const isLoading = ref(true)

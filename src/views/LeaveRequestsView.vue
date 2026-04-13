@@ -30,27 +30,57 @@
           <div class="h-full bg-white sm:rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] sm:border border-gray-100/80 flex flex-col min-h-[600px] sm:min-h-0 -mx-2 sm:mx-0">
              
             <!-- 篩選列 -->
-            <div class="p-4 border-b border-gray-100 flex flex-col sm:flex-row gap-4 items-center justify-between">
-              <el-date-picker
-                v-model="dateRange"
-                type="daterange"
-                range-separator="至"
-                start-placeholder="開始日期"
-                end-placeholder="結束日期"
-                format="YYYY-MM-DD"
-                value-format="YYYY-MM-DD"
-                @change="fetchData"
-                class="!w-full sm:!w-[300px]"
-              />
+            <div class="p-4 border-b border-gray-100 flex flex-col gap-4">
+              <div class="flex flex-col sm:flex-row items-center justify-between">
+                <el-date-picker
+                  v-model="dateRange"
+                  type="daterange"
+                  range-separator="至"
+                  start-placeholder="開始日期"
+                  end-placeholder="結束日期"
+                  format="YYYY-MM-DD"
+                  value-format="YYYY-MM-DD"
+                  @change="fetchData"
+                  class="!w-full sm:!w-[300px]"
+                />
+              </div>
+
+              <!-- 日期篩選按鈕區 -->
+              <div class="flex items-stretch gap-3 overflow-x-auto custom-scrollbar pb-2 pt-1 px-1">
+                <button 
+                  @click="selectedDate = ''"
+                  class="flex items-center justify-center px-4 rounded-xl border transition-all text-sm font-bold shrink-0"
+                  :class="!selectedDate ? 'border-primary bg-primary/5 text-primary' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'"
+                >
+                  全部區間
+                </button>
+                <button 
+                  v-for="dateItem in filterDatesInSelectedMonth" 
+                  :key="dateItem.dateStr"
+                  @click="selectedDate = selectedDate === dateItem.dateStr ? '' : dateItem.dateStr"
+                  class="relative flex flex-col items-center justify-center px-5 py-2 rounded-xl border transition-all min-w-[80px] shrink-0 group"
+                  :class="selectedDate === dateItem.dateStr ? 'border-primary bg-primary/5 text-primary' : 'border-gray-200 bg-white hover:border-primary/50 text-gray-600'"
+                >
+                  <span class="text-xs font-bold mb-1 opacity-80 group-hover:opacity-100 transition-opacity" :class="dateItem.dayName === '週日' || dateItem.dayName === '週六' ? 'text-primary' : ''">{{ dateItem.dayName }}</span>
+                  <span class="text-base font-black leading-none">{{ dateItem.label }}</span>
+                  <span 
+                    v-if="dateItem.count > 0" 
+                    class="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm border-2 border-white"
+                  >
+                    {{ dateItem.count }}
+                  </span>
+                </button>
+              </div>
             </div>
 
             <!-- 列表 -->
             <el-table 
-              :data="leaveRequests" 
+              :data="filteredLeaveRequests" 
               style="width: 100%; height: 100%" 
               height="100%"
               v-loading="isLoading" 
               empty-text="目前沒有請假紀錄"
+              :row-class-name="tableRowClassName"
             >
               <el-table-column label="日期" min-width="120">
                 <template #default="{ row }">
@@ -404,9 +434,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, computed, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { supabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/auth'
+import { usePermissionsStore } from '@/stores/permissions'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading, InfoFilled, CircleCheckFilled } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
@@ -420,9 +452,11 @@ import VChart from 'vue-echarts'
 use([CanvasRenderer, BarChart, TitleComponent, TooltipComponent, LegendComponent, GridComponent])
 
 const authStore = useAuthStore()
+const permissionsStore = usePermissionsStore()
 const activeTab = ref('list')
 const isModalOpen = ref(false)
 const isSettingsOpen = ref(false)
+const route = useRoute()
 
 // --- Web Push Key ---
 const VAPID_PUBLIC_KEY = 'BIrzQ2oSy_bdMkLjQMDZCnBMzpkFzNHYa1QlcFKNQ3OCjDsMLeKC-2WazmnkSFUK7nwSlM3n8XFahxUxNrLMCmg'
@@ -473,8 +507,7 @@ const settingsForm = reactive({
 
 // --- 權限判斷 ---
 const isAdminOrManager = computed(() => {
-  const role = authStore.profile?.role
-  return role === 'ADMIN' || role === 'MANAGER' || role === 'HEAD_COACH'
+  return permissionsStore.can('leave_requests', 'EDIT')
 })
 
 // --- 月曆邏輯 ---
@@ -494,6 +527,48 @@ const getLeaveBadgeClass = (type: string) => {
     default: return 'bg-gray-50 text-gray-600 border-gray-200'
   }
 }
+
+// --- 日期篩選邏輯 ---
+const selectedDate = ref<string>('')
+
+watch(dateRange, () => {
+  selectedDate.value = ''
+})
+
+const filterDatesInSelectedMonth = computed(() => {
+  const [start] = dateRange.value || [null, null]
+  if (!start) return []
+  
+  // 取得篩選範圍開始日的「該月份」所有有請假的日期與所有的週六
+  const monthStart = dayjs(start).startOf('month')
+  const daysInMonth = monthStart.daysInMonth()
+  const filterDates = []
+  
+  const daysMap = ['週日', '週一', '週二', '週三', '週四', '週五', '週六']
+  
+  for (let i = 1; i <= daysInMonth; i++) {
+    const d = monthStart.date(i)
+    const dateStr = d.format('YYYY-MM-DD')
+    const count = getLeavesForDate(dateStr).length
+    
+    if (d.day() === 6 || count > 0) {
+      filterDates.push({
+        dateStr,
+        dayName: daysMap[d.day()],
+        label: d.format('MM/DD'),
+        count
+      })
+    }
+  }
+  return filterDates
+})
+
+const filteredLeaveRequests = computed(() => {
+  if (!selectedDate.value) return leaveRequests.value
+  return leaveRequests.value.filter(leave => {
+    return selectedDate.value >= leave.start_date && selectedDate.value <= leave.end_date
+  })
+})
 
 // --- 統計邏輯 ---
 const statsByType = computed(() => {
@@ -644,6 +719,27 @@ const fetchData = async () => {
     isLoading.value = false
   }
 }
+
+// --- 高亮顯示與跳轉處理 ---
+const highlightLeaveId = computed(() => route.query.highlight_leave_id as string | undefined)
+
+const tableRowClassName = ({ row }: { row: any }) => {
+  return `leave-row-${row.id}`
+}
+
+watch([isLoading, highlightLeaveId], ([newLoading, newId]) => {
+  if (!newLoading && newId) {
+    activeTab.value = 'list' // 確保在列表檢視
+    setTimeout(() => {
+      const el = document.querySelector(`.leave-row-${newId}`) as HTMLElement
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        el.classList.add('highlight-row')
+        setTimeout(() => el.classList.remove('highlight-row'), 3000)
+      }
+    }, 500)
+  }
+}, { immediate: true })
 
 // --- 表單操作 ---
 const openCreateModal = () => {
@@ -1029,5 +1125,18 @@ onUnmounted(() => {
   border-color: var(--color-primary);
   color: var(--color-primary);
   box-shadow: inset 0 0 0 1px var(--color-primary);
+}
+</style>
+<style>
+/* 覆蓋 Element Plus el-table 的 td 背景 */
+.el-table tr.highlight-row td {
+  /* 由於 CSS @keyframes 不能使用 !important，我們利用動畫層級覆寫背景 */
+  animation: bg-pulse-el 3s ease-in-out forwards !important;
+}
+
+@keyframes bg-pulse-el {
+  0% { background-color: #fef08a; }
+  50% { background-color: #fef9c3; }
+  100% { background-color: transparent; }
 }
 </style>

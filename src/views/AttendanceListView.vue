@@ -127,14 +127,16 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/auth'
+import { usePermissionsStore } from '@/stores/permissions'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Calendar, Loading } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 
 const router = useRouter()
 const authStore = useAuthStore()
-const hasAccess = computed(() => ['ADMIN', 'HEAD_COACH', 'COACH'].includes(authStore.profile?.role))
-const canDelete = computed(() => ['ADMIN', 'MANAGER'].includes(authStore.profile?.role))
+const permissionsStore = usePermissionsStore()
+const hasAccess = computed(() => permissionsStore.can('roll_call', 'CREATE'))
+const canDelete = computed(() => permissionsStore.can('roll_call', 'DELETE'))
 
 const isLoading = ref(true)
 const events = ref<any[]>([])

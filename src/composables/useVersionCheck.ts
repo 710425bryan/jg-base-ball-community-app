@@ -1,9 +1,8 @@
 import { ref, onMounted, onUnmounted } from 'vue'
-import pkg from '../../package.json'
 
 export function useVersionCheck() {
   const hasUpdateAvailable = ref(false)
-  const currentVersion = pkg.version
+  const currentVersion = __APP_VERSION__
   
   let intervalId: number | null = null
 
