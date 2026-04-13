@@ -61,7 +61,7 @@
           <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg>
           <span class="hidden sm:inline">同步表單</span>
         </button>
-        <button v-if="canEditPlayers" @click="openCreateModal()" class="bg-primary hover:bg-primary-hover active:scale-95 text-white px-5 py-2.5 rounded-lg shadow-md text-sm font-bold transition-all flex items-center gap-2 tracking-wide">
+        <button v-if="canCreatePlayers" @click="openCreateModal()" class="bg-primary hover:bg-primary-hover active:scale-95 text-white px-5 py-2.5 rounded-lg shadow-md text-sm font-bold transition-all flex items-center gap-2 tracking-wide">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
           <span class="hidden sm:inline">新增成員</span>
         </button>
@@ -162,9 +162,9 @@
             </template>
           </el-table-column>
           <el-table-column prop="contact_line_id" label="LINE ID" min-width="140" />
-          <el-table-column prop="national_id" label="身分證" width="120">
+          <el-table-column v-if="canEditPlayers" prop="national_id" label="身分證" width="130">
             <template #default="{ row }">
-              <span v-if="row.national_id" class="text-xs font-mono text-gray-400">{{ row.national_id.slice(0, 4) }}***</span>
+              <span v-if="row.national_id" class="text-xs font-mono text-gray-400">{{ row.national_id }}</span>
             </template>
           </el-table-column>
         </el-table>
@@ -209,8 +209,8 @@
                 <span v-if="member.throwing_hand && member.batting_hand" class="text-xs md:text-sm font-mono font-bold text-gray-500 px-2 py-0.5 rounded bg-gray-100 border border-gray-200">
                   {{ member.throwing_hand.slice(0,1) }}/{{ member.batting_hand.slice(0,1) }}
                 </span>
-                <span v-if="member.national_id" class="text-xs md:text-sm font-mono text-gray-400 hidden sm:inline-block">
-                  ID: {{ member.national_id.slice(0, 4) }}***
+                <span v-if="member.national_id && canEditPlayers" class="text-xs md:text-sm font-mono text-gray-400 hidden sm:inline-block">
+                  ID: {{ member.national_id }}
                 </span>
               </div>
             </div>
@@ -285,7 +285,7 @@
             <el-form-item label="生日 (西元年)" prop="birth_date" class="font-bold mb-0">
               <el-date-picker v-model="form.birth_date" type="date" placeholder="選擇生日" format="YYYY-MM-DD" value-format="YYYY-MM-DD" class="!w-full" />
             </el-form-item>
-            <el-form-item label="身分證字號" prop="national_id" class="font-bold mb-0">
+            <el-form-item v-if="canEditPlayers" label="身分證字號" prop="national_id" class="font-bold mb-0">
               <el-input v-model="form.national_id" placeholder="身分證字號" />
             </el-form-item>
             <el-form-item label="背號" prop="jersey_number" class="font-bold mb-0" v-if="form.role === '球員' || form.role === '教練'">
@@ -352,7 +352,8 @@
           <div class="absolute -top-3 left-4 bg-white px-2 text-sm font-bold text-gray-500 uppercase tracking-wider">聯絡資訊</div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
             <el-form-item label="主要聯絡人 LINE ID" prop="contact_line_id" class="font-bold mb-0">
-              <el-input v-model="form.contact_line_id" placeholder="LINE ID" />
+              <el-input v-if="canEditPlayers" v-model="form.contact_line_id" placeholder="LINE ID" />
+              <div v-else class="text-sm font-mono text-gray-500 bg-gray-100 px-3 py-2 rounded-lg tracking-wider">{{ form.contact_line_id || '—' }}</div>
             </el-form-item>
             <el-form-item label="主要聯絡人關係" prop="contact_relation" class="font-bold mb-0">
               <el-select v-model="form.contact_relation" class="w-full" clearable>
@@ -368,7 +369,8 @@
               <el-input v-model="form.guardian_name" placeholder="請填寫姓名" />
             </el-form-item>
             <el-form-item label="法定代理人 (手機)" prop="guardian_phone" class="font-bold mb-0">
-              <el-input v-model="form.guardian_phone" placeholder="09XX-XXX-XXX" />
+              <el-input v-if="canEditPlayers" v-model="form.guardian_phone" placeholder="09XX-XXX-XXX" />
+              <div v-else class="text-sm font-mono text-gray-500 bg-gray-100 px-3 py-2 rounded-lg tracking-wider">{{ form.guardian_phone || '—' }}</div>
             </el-form-item>
           </div>
         </div>
@@ -412,7 +414,7 @@
 
       <template #footer>
         <div class="flex justify-between items-center mt-4 pt-4 border-t border-gray-100">
-          <button v-if="isEditing" @click="confirmDelete" class="text-red-500 hover:text-red-600 hover:bg-red-50 font-bold px-4 py-2 rounded-lg transition-colors text-sm flex items-center gap-1">
+          <button v-if="isEditing && canDeletePlayers" @click="confirmDelete" class="text-red-500 hover:text-red-600 hover:bg-red-50 font-bold px-4 py-2 rounded-lg transition-colors text-sm flex items-center gap-1">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
             刪除
           </button>
@@ -444,6 +446,8 @@ import axios from 'axios'
 const authStore = useAuthStore()
 const permissionsStore = usePermissionsStore()
 const canEditPlayers = computed(() => permissionsStore.can('players', 'EDIT'))
+const canCreatePlayers = computed(() => permissionsStore.can('players', 'CREATE'))
+const canDeletePlayers = computed(() => permissionsStore.can('players', 'DELETE'))
 
 const isLoading = ref(true)
 const isSubmitting = ref(false)
@@ -719,13 +723,12 @@ const syncFromGoogleSheet = async () => {
         is_primary_payer = row[primaryPayerIndex]?.trim() === '是';
       }
       
-      const payload: any = {
+      const basePayload: any = {
         name,
         role: roleMapped,
         birth_date,
         is_early_enrollment,
         is_primary_payer,
-        is_half_price: false,
         sibling_ids,
         national_id,
         throwing_hand,
@@ -744,10 +747,12 @@ const syncFromGoogleSheet = async () => {
 
       const existingMember = existingMap.get(name);
       if (existingMember) {
-        payload.id = existingMember.id;
+        // 更新時：保留原本的 is_half_price，不覆蓋
+        const payload = { ...basePayload, id: existingMember.id };
         updates.push(payload);
       } else {
-        inserts.push(payload);
+        // 新增時：is_half_price 預設為 false
+        inserts.push({ ...basePayload, is_half_price: false });
       }
     }
     
@@ -773,22 +778,24 @@ const syncFromGoogleSheet = async () => {
   }
 }
 
+
+
 // --- 讀取資料 ---
 const fetchData = async () => {
   isLoading.value = true
   try {
+    // 使用安全視圖：server 端已依權限 mask 敏感欄位（national_id / guardian_phone / contact_line_id）
     const { data, error } = await supabase
-      .from('team_members')
+      .from('team_members_safe')
       .select('*')
       .order('role')
       .order('name')
     if (error) throw error
     
-    // Auto-update any missing is_primary_payer/is_half_price field for robust frontend mapping
-    members.value = (data || []).map(m => ({ 
-      ...m, 
+    members.value = (data || []).map(m => ({
+      ...m,
       is_primary_payer: !!m.is_primary_payer,
-      is_half_price: !!m.is_half_price 
+      is_half_price: !!m.is_half_price
     }))
   } catch (error: any) {
     ElMessage.error('讀取名單失敗：' + error.message)
@@ -808,15 +815,13 @@ const openCreateModal = () => {
 }
 
 const openEditModal = (member: any) => {
-  if (!canEditPlayers.value) {
-    // 若無編輯權限，仍可提供彈窗檢視詳情模式(唯讀)，但根據需求這裡直接return，或依照你的設計進行
-    return
-  }
+  // 有 EDIT 權限才可開啟編輯，否則直接 return（只讀情境可於此擴充）
+  if (!canEditPlayers.value) return
   isEditing.value = true
   Object.assign(form, initialForm)
   Object.assign(form, member)
-  if (!form.status) form.status = '在隊' // 確保舊資料有預設在隊狀態
-  if (!form.sibling_ids) form.sibling_ids = [] // 確保 sibling_ids 始終是陣列
+  if (!form.status) form.status = '在隊'
+  if (!form.sibling_ids) form.sibling_ids = []
   previewAvatar.value = member.avatar_url || ''
   selectedFile = null
   if(formRef.value) formRef.value.clearValidate()
@@ -903,6 +908,7 @@ const submitForm = async () => {
 
 // --- 刪除資料 ---
 const confirmDelete = async () => {
+  if (!canDeletePlayers.value) return
   try {
     await ElMessageBox.confirm(`確定要刪除「${form.name}」的資料嗎？`, '⚠️ 刪除確認', {
       confirmButtonText: '確定刪除', cancelButtonText: '取消', type: 'error'

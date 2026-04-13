@@ -18,7 +18,7 @@
           <nav class="hidden lg:flex gap-5 xl:gap-8 nav-desktop items-center px-1">
             <router-link to="/dashboard" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">後台大廳</router-link>
             <router-link to="/calendar" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">行事曆</router-link>
-            <router-link to="/match-records" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">比賽紀錄</router-link>
+            <router-link v-if="permissionsStore.can('matches', 'VIEW')" to="/match-records" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">比賽紀錄</router-link>
             <router-link v-if="permissionsStore.can('leave_requests', 'VIEW')" to="/leave-requests" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">請假系統</router-link>
             <router-link v-if="permissionsStore.can('attendance', 'VIEW')" to="/attendance" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">點名系統</router-link>
             <router-link v-if="permissionsStore.can('players', 'VIEW')" to="/players" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">球員名單</router-link>
@@ -117,7 +117,7 @@
          </div>
          <router-link to="/dashboard" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">後台大廳</router-link>
          <router-link to="/calendar" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">行事曆</router-link>
-         <router-link to="/match-records" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">比賽紀錄</router-link>
+         <router-link v-if="permissionsStore.can('matches', 'VIEW')" to="/match-records" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">比賽紀錄</router-link>
          <router-link v-if="permissionsStore.can('leave_requests', 'VIEW')" to="/leave-requests" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">請假系統</router-link>
          <router-link v-if="permissionsStore.can('attendance', 'VIEW')" to="/attendance" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">點名系統</router-link>
          <router-link v-if="permissionsStore.can('players', 'VIEW')" to="/players" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">球員名單</router-link>
@@ -152,7 +152,7 @@
         </svg>
         <span class="font-bold tracking-wide">行事曆</span>
       </router-link>
-      <router-link to="/match-records" class="flex flex-col items-center justify-center p-1 px-2 min-w-[3.5rem] hover:text-primary transition-colors shrink-0">
+      <router-link v-if="permissionsStore.can('matches', 'VIEW')" to="/match-records" class="flex flex-col items-center justify-center p-1 px-2 min-w-[3.5rem] hover:text-primary transition-colors shrink-0">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
         </svg>
