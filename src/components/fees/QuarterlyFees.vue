@@ -398,6 +398,8 @@ const fetchData = async () => {
         }
         if (isDiscounted) baseAmount = 3000
       }
+      
+
 
       return {
         member_id: m.id,

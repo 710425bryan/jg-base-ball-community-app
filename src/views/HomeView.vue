@@ -20,9 +20,13 @@
       <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100/80 flex flex-col justify-center relative overflow-hidden">
         <div class="absolute -right-4 -top-4 w-16 h-16 bg-primary/5 rounded-full blur-xl"></div>
         <span class="text-gray-400 font-bold text-sm mb-1">球隊總人數</span>
-        <div class="flex items-end gap-2">
+        <div class="flex items-baseline gap-2">
           <span class="text-4xl font-extrabold text-gray-800">{{ stats.totalMembers }}</span>
-          <span class="text-gray-400 font-medium text-sm mb-1">人</span>
+          <span class="text-gray-400 font-medium text-sm">人</span>
+        </div>
+        <div class="mt-2 flex items-center gap-3 text-xs font-bold text-gray-500">
+          <div class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span>校隊: {{ stats.schoolTeamMembers }}</div>
+          <div class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>社區: {{ stats.communityMembers }}</div>
         </div>
       </div>
       <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100/80 flex flex-col justify-center relative overflow-hidden">
@@ -160,6 +164,7 @@ const stats = reactive({
   totalMembers: 0,
   schoolTeamMembers: 0,
   playerMembers: 0,
+  communityMembers: 0,
   todayLeaves: 0
 })
 
@@ -175,6 +180,7 @@ const fetchDashboardData = async () => {
     stats.totalMembers = membersCount || 0
     stats.schoolTeamMembers = members?.filter(m => m.role === '校隊').length || 0
     stats.playerMembers = members?.filter(m => m.role === '球員').length || 0
+    stats.communityMembers = members?.filter(m => m.role === '球員').length || 0
 
     // 取得今日請假人數
     const todayStr = dayjs().format('YYYY-MM-DD')
