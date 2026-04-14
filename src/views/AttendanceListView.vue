@@ -135,8 +135,8 @@ import dayjs from 'dayjs'
 const router = useRouter()
 const authStore = useAuthStore()
 const permissionsStore = usePermissionsStore()
-const hasAccess = computed(() => permissionsStore.can('roll_call', 'CREATE'))
-const canDelete = computed(() => permissionsStore.can('roll_call', 'DELETE'))
+const hasAccess = computed(() => permissionsStore.can('attendance', 'CREATE'))
+const canDelete = computed(() => permissionsStore.can('attendance', 'DELETE'))
 
 const isLoading = ref(true)
 const events = ref<any[]>([])

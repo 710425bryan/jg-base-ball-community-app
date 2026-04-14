@@ -21,70 +21,68 @@
     <!-- Tabs -->
     <el-tabs v-model="activeTab" class="flex-1 flex flex-col min-h-0 bg-transparent custom-tabs">
       <el-tab-pane label="系統帳號管理" name="users" class="h-full flex flex-col">
-        <!-- Data Table Card -->
-        <div class="flex-1 bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/80 overflow-hidden flex flex-col min-h-[600px] sm:min-h-0">
-      <el-table 
-        :data="users" 
-        style="width: 100%; height: 100%" 
-        height="100%"
-        v-loading="isLoading" 
-        empty-text="目前沒有使用者資料"
-        class="custom-users-table"
-      >
-        <el-table-column label="使用者" min-width="250">
-          <template #default="{ row }">
-            <div class="flex items-center gap-4 py-2">
-              <div class="relative w-12 h-12 rounded-full overflow-hidden shadow-sm border border-gray-100 bg-gray-50 shrink-0">
-                <img v-if="row.avatar_url" :src="row.avatar_url" class="w-full h-full object-cover" />
-                <div v-else class="w-full h-full flex items-center justify-center text-gray-300 font-bold bg-gradient-to-br from-gray-50 to-gray-200">
-                  {{ row.name.charAt(0) }}
-                </div>
-              </div>
-              <div class="flex flex-col">
-                <span class="font-extrabold text-gray-800 text-base flex items-center gap-2">
-                  {{ row.name }}
-                  <span v-if="row.nickname" class="text-sm font-bold text-gray-400">({{ row.nickname }})</span>
-                </span>
-                <span class="text-gray-500 text-sm truncate font-medium mt-0.5">{{ row.email }}</span>
+        <!-- 手機版：卡片列表 -->
+        <div v-if="isLoading" class="flex-1 flex items-center justify-center py-16">
+          <el-icon class="is-loading text-primary text-3xl"><Loading /></el-icon>
+        </div>
+        <div v-else-if="users.length === 0" class="flex-1 flex flex-col items-center justify-center text-gray-400 py-16">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+          <span class="font-bold">目前沒有使用者資料</span>
+        </div>
+        <div v-else class="flex-1 overflow-y-auto space-y-3 pb-2">
+          <div 
+            v-for="row in users" 
+            :key="row.id"
+            class="bg-white rounded-2xl shadow-[0_2px_12px_rgb(0,0,0,0.05)] border border-gray-100/80 p-4 flex items-center gap-4"
+          >
+            <!-- 頭像 -->
+            <div class="relative w-12 h-12 rounded-full overflow-hidden shadow-sm border border-gray-100 bg-gray-50 shrink-0">
+              <img v-if="row.avatar_url" :src="row.avatar_url" class="w-full h-full object-cover" />
+              <div v-else class="w-full h-full flex items-center justify-center text-gray-400 font-extrabold text-lg bg-gradient-to-br from-gray-50 to-gray-200">
+                {{ row.name?.charAt(0) }}
               </div>
             </div>
-          </template>
-        </el-table-column>
 
-        <el-table-column prop="role" label="權限角色" width="160">
-          <template #default="{ row }">
-            <span :class="getRoleTagClass(row.role)" class="px-3 py-1.5 rounded-lg text-sm font-bold border flex items-center w-max gap-1">
-              <span class="w-1.5 h-1.5 rounded-full" :class="getRoleDotClass(row.role)"></span>
-              {{ getRoleName(row.role) }}
-            </span>
-          </template>
-        </el-table-column>
+            <!-- 資訊 -->
+            <div class="flex-1 min-w-0">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="font-extrabold text-gray-800 text-base leading-tight">{{ row.name }}</span>
+                <span v-if="row.nickname" class="text-sm font-bold text-gray-400">({{ row.nickname }})</span>
+              </div>
+              <div class="text-gray-500 text-sm truncate font-medium mt-0.5">{{ row.email }}</div>
+              <div class="flex flex-wrap items-center gap-2 mt-2">
+                <span :class="getRoleTagClass(row.role)" class="px-2.5 py-1 rounded-lg text-xs font-bold border inline-flex items-center gap-1">
+                  <span class="w-1.5 h-1.5 rounded-full" :class="getRoleDotClass(row.role)"></span>
+                  {{ getRoleName(row.role) }}
+                </span>
+                <span class="text-xs text-gray-400 font-medium">{{ formatDate(row.created_at) }}</span>
+              </div>
+            </div>
 
-        <el-table-column label="加入時間" width="160" class-name="hidden md:table-cell">
-          <template #default="{ row }">
-            <span class="text-gray-500 font-medium text-sm">{{ formatDate(row.created_at) }}</span>
-          </template>
-        </el-table-column>
-
-        <el-table-column label="操作" width="140" align="right" fixed="right">
-          <template #default="{ row }">
-            <div class="flex gap-2 justify-end">
-              <button @click="openEditModal(row)" class="p-2 text-gray-400 hover:text-primary hover:bg-orange-50 rounded-xl transition-all" title="編輯">
+            <!-- 操作按鈕 -->
+            <div class="flex flex-col sm:flex-row gap-2 shrink-0">
+              <button 
+                @click="openEditModal(row)" 
+                class="p-2.5 text-gray-400 hover:text-primary hover:bg-orange-50 rounded-xl transition-all border border-transparent hover:border-orange-100"
+                title="編輯"
+              >
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
               </button>
-              <button @click="confirmDelete(row)" class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all" title="刪除">
+              <button 
+                @click="confirmDelete(row)" 
+                class="p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all border border-transparent hover:border-red-100"
+                title="刪除"
+              >
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
               </button>
             </div>
-          </template>
-        </el-table-column>
-      </el-table>
-    </div>
-    </el-tab-pane>
+          </div>
+        </div>
+      </el-tab-pane>
 
-    <el-tab-pane label="角色與權限設定" name="roles" class="h-full">
-      <RolePermissionsManager />
-    </el-tab-pane>
+      <el-tab-pane label="角色與權限設定" name="roles" class="h-full">
+        <RolePermissionsManager />
+      </el-tab-pane>
     </el-tabs>
 
     <!-- Modal Form (Create / Edit) -->
