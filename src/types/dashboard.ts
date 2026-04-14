@@ -1,0 +1,81 @@
+export interface DashboardStats {
+  totalMembers: number
+  schoolTeamMembers: number
+  communityMembers: number
+  todayLeaves: number
+}
+
+export interface DashboardPendingCounts {
+  joinInquiries: number
+  unpaidFees: number
+  upcomingLeaves: number
+  weeklyEvents: number
+}
+
+export interface DashboardAnnouncement {
+  id: string
+  title: string
+  content: string | null
+  createdAt: string
+  isPinned: boolean
+}
+
+export interface DashboardEvent {
+  id: string
+  title: string
+  date: string
+  eventType: string | null
+  createdAt: string
+}
+
+export interface DashboardSnapshot {
+  stats: DashboardStats
+  pendingCounts: DashboardPendingCounts
+  todayEvent: DashboardEvent | null
+  recentAnnouncements: DashboardAnnouncement[]
+}
+
+export type NotificationSource = 'leave' | 'member' | 'join' | 'fee'
+
+export interface NotificationFeedRow {
+  id: string
+  source: NotificationSource
+  title: string
+  body: string
+  created_at: string
+  link: string
+  highlight_member_id: string | null
+}
+
+export interface NotificationFeedItem {
+  id: string
+  source: NotificationSource
+  title: string
+  body: string
+  createdAt: string
+  link: string
+  highlightMemberId: string | null
+}
+
+export const createEmptyDashboardStats = (): DashboardStats => ({
+  totalMembers: 0,
+  schoolTeamMembers: 0,
+  communityMembers: 0,
+  todayLeaves: 0
+})
+
+export const createEmptyDashboardPendingCounts = (): DashboardPendingCounts => ({
+  joinInquiries: 0,
+  unpaidFees: 0,
+  upcomingLeaves: 0,
+  weeklyEvents: 0
+})
+
+export const createEmptyDashboardSnapshot = (): DashboardSnapshot => ({
+  stats: createEmptyDashboardStats(),
+  pendingCounts: createEmptyDashboardPendingCounts(),
+  todayEvent: null,
+  recentAnnouncements: []
+})
+
+export const buildNotificationFeedItemId = (source: NotificationSource, id: string) => `${source}:${id}`

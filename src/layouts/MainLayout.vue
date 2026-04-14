@@ -46,7 +46,7 @@
           <!-- Notification Bell -->
           <el-popover ref="notificationPopover" placement="bottom-end" :width="320" trigger="click" :show-arrow="false" popper-style="padding: 0; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);">
             <template #reference>
-              <button class="relative p-2 text-gray-400 hover:text-primary transition-colors focus:outline-none rounded-full hover:bg-gray-50 flex items-center justify-center">
+              <button @click="handleNotificationBellClick" class="relative p-2 text-gray-400 hover:text-primary transition-colors focus:outline-none rounded-full hover:bg-gray-50 flex items-center justify-center">
                 <el-icon class="text-[22px]"><Bell /></el-icon>
                 <span v-if="notifications.length > 0" class="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-red-500 border-2 border-white"></span>
               </button>
@@ -59,8 +59,12 @@
               <div v-for="note in notifications" :key="note.id" @click="handleNotificationClick(note.link)" class="p-3 px-4 border-b border-gray-50 hover:bg-primary/5 transition-colors cursor-pointer text-sm">
                 <div class="text-gray-800 font-bold mb-1 line-clamp-1 leading-snug">{{ note.title }}</div>
                 <div class="text-gray-500 text-xs mb-1.5 leading-snug">{{ note.body }}</div>
-                <div class="text-gray-400 text-[10px] flex justify-end">{{ dayjs(note.created_at).fromNow() }}</div>
+                <div class="text-gray-400 text-[10px] flex justify-end">{{ dayjs(note.createdAt).fromNow() }}</div>
               </div>
+            </div>
+            <div v-else-if="isNotificationFeedLoading" class="text-sm text-gray-400 text-center py-8 bg-white flex flex-col items-center">
+              <el-icon class="text-4xl text-gray-200 mb-2"><Bell /></el-icon>
+              通知載入中...
             </div>
             <div v-else class="text-sm text-gray-400 text-center py-8 bg-white flex flex-col items-center">
               <el-icon class="text-4xl text-gray-200 mb-2"><Bell /></el-icon>
@@ -188,13 +192,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onUnmounted, onMounted } from 'vue';
+import { ref, watch, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { usePermissionsStore } from '@/stores/permissions';
 import { supabase } from '@/services/supabase';
 import { Bell, ArrowDown } from '@element-plus/icons-vue';
+import { configureNotificationFeedFallbackFetcher, useNotificationFeed } from '@/composables/useNotificationFeed';
 import { useVersionCheck } from '@/composables/useVersionCheck';
+import { buildNotificationFeedItemId, type NotificationFeedItem, type NotificationFeedRow } from '@/types/dashboard';
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import 'dayjs/locale/zh-tw'
@@ -207,9 +213,15 @@ const appVersion = __APP_VERSION__;
 const router = useRouter();
 const authStore = useAuthStore();
 const permissionsStore = usePermissionsStore();
+const {
+  notifications,
+  isLoading: isNotificationFeedLoading,
+  loadNotificationFeed,
+  upsertNotification,
+  resetNotificationFeed
+} = useNotificationFeed();
 const { hasUpdateAvailable, refreshApp } = useVersionCheck();
 const isMobileMenuOpen = ref(false);
-const notifications = ref<any[]>([]);
 const notificationPopover = ref<any>(null);
 
 const handleNotificationClick = (link: string | undefined) => {
@@ -220,6 +232,10 @@ const handleNotificationClick = (link: string | undefined) => {
   }
   // 自動收起推播選單
   notificationPopover.value?.hide();
+};
+
+const handleNotificationBellClick = () => {
+  void loadNotificationFeedSafely();
 };
 
 const translateRole = (role: string | undefined) => {
@@ -239,6 +255,245 @@ const handleSignOut = async () => {
   await authStore.signOut();
   router.push('/');
 };
+
+type IdleDeadlineLike = {
+  didTimeout: boolean;
+  timeRemaining: () => number;
+}
+
+type IdleCapableWindow = Window & typeof globalThis & {
+  requestIdleCallback?: (
+    callback: (deadline: IdleDeadlineLike) => void,
+    options?: { timeout: number }
+  ) => number;
+  cancelIdleCallback?: (handle: number) => void;
+}
+
+let notificationIdleHandle: number | null = null;
+let notificationDelayHandle: number | null = null;
+
+const loadNotificationFeedSafely = async () => {
+  try {
+    await loadNotificationFeed(10);
+  } catch (error) {
+    console.error('Error fetching notification feed:', error);
+  }
+};
+
+const scheduleNotificationFeedLoad = () => {
+  if (!authStore.profile?.role || typeof window === 'undefined') return;
+
+  const idleWindow = window as IdleCapableWindow;
+
+  if (typeof idleWindow.requestIdleCallback === 'function') {
+    notificationIdleHandle = idleWindow.requestIdleCallback(() => {
+      void loadNotificationFeedSafely();
+    }, { timeout: 1200 });
+    return;
+  }
+
+  notificationDelayHandle = window.setTimeout(() => {
+    void loadNotificationFeedSafely();
+  }, 800);
+};
+
+const clearScheduledNotificationFeedLoad = () => {
+  if (typeof window === 'undefined') return;
+
+  const idleWindow = window as IdleCapableWindow;
+
+  if (notificationIdleHandle !== null && typeof idleWindow.cancelIdleCallback === 'function') {
+    idleWindow.cancelIdleCallback(notificationIdleHandle);
+    notificationIdleHandle = null;
+  }
+
+  if (notificationDelayHandle !== null) {
+    window.clearTimeout(notificationDelayHandle);
+    notificationDelayHandle = null;
+  }
+};
+
+const maybeShowBrowserNotification = (
+  title: string,
+  body: string,
+  onClick: () => void
+) => {
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
+    return;
+  }
+
+  const notification = new Notification(title, {
+    body,
+    icon: '/少棒元素_20260324_232837_0000.png'
+  });
+
+  notification.onclick = () => {
+    window.focus();
+    onClick();
+    notification.close();
+  };
+};
+
+const fetchNotificationFeedLegacy = async (limit: number): Promise<NotificationFeedRow[]> => {
+  const role = authStore.profile?.role
+  if (!role) return []
+
+  const promises: Array<PromiseLike<{ type: 'leave' | 'member' | 'join' | 'fee'; data: any[] | null | undefined }>> = []
+
+  if (permissionsStore.can('leave_requests', 'VIEW')) {
+    promises.push(
+      supabase.from('leave_requests')
+        .select('id, leave_type, start_date, end_date, reason, created_at, team_members(name)')
+        .order('created_at', { ascending: false })
+        .limit(Math.max(limit, 8))
+        .then((res) => {
+          if (res.error) throw res.error
+          return { type: 'leave' as const, data: res.data }
+        })
+    )
+  }
+
+  if (permissionsStore.can('players', 'VIEW')) {
+    promises.push(
+      supabase.from('team_members')
+        .select('id, name, role, created_at')
+        .order('created_at', { ascending: false })
+        .limit(Math.max(limit, 5))
+        .then((res) => {
+          if (res.error) throw res.error
+          return { type: 'member' as const, data: res.data }
+        })
+    )
+  }
+
+  if (permissionsStore.can('join_inquiries', 'VIEW')) {
+    promises.push(
+      supabase.from('join_inquiries')
+        .select('id, parent_name, phone, created_at')
+        .order('created_at', { ascending: false })
+        .limit(Math.max(limit, 5))
+        .then((res) => {
+          if (res.error) throw res.error
+          return { type: 'join' as const, data: res.data }
+        })
+    )
+  }
+
+  if (permissionsStore.can('fees', 'VIEW')) {
+    promises.push(
+      supabase.from('quarterly_fees')
+        .select('id, member_id, member_ids, year_quarter, payment_method, amount, created_at')
+        .order('created_at', { ascending: false })
+        .limit(Math.max(limit, 5))
+        .then(async (res) => {
+          if (res.error) throw res.error
+
+          if (res.data) {
+            let allIds: string[] = []
+            res.data.forEach((fee: any) => {
+              if (fee.member_ids && fee.member_ids.length > 0) allIds.push(...fee.member_ids)
+              else if (fee.member_id) allIds.push(fee.member_id)
+            })
+
+            const uniqueIds = [...new Set(allIds)].filter(Boolean)
+            let nameMap: Record<string, string> = {}
+            let roleMap: Record<string, string> = {}
+
+            if (uniqueIds.length > 0) {
+              const { data: membersData, error: membersError } = await supabase
+                .from('team_members')
+                .select('id, name, role')
+                .in('id', uniqueIds)
+
+              if (membersError) throw membersError
+
+              nameMap = (membersData || []).reduce(
+                (acc: Record<string, string>, current: any) => ({ ...acc, [current.id]: current.name }),
+                {}
+              )
+              roleMap = (membersData || []).reduce(
+                (acc: Record<string, string>, current: any) => ({ ...acc, [current.id]: current.role }),
+                {}
+              )
+            }
+
+            res.data.forEach((fee: any) => {
+              let names: string[] = []
+              let roleName = '球員'
+
+              if (fee.member_ids && fee.member_ids.length > 0) {
+                names = fee.member_ids.map((id: string) => nameMap[id]).filter(Boolean)
+                roleName = roleMap[fee.member_ids[0]] || '球員'
+                fee.highlightMemberId = fee.member_ids[0]
+              } else if (fee.member_id) {
+                if (nameMap[fee.member_id]) names.push(nameMap[fee.member_id])
+                roleName = roleMap[fee.member_id] || '球員'
+                fee.highlightMemberId = fee.member_id
+              }
+
+              fee.memberName = names.length > 0 ? names.join(', ') : '未知球員'
+              fee.isSchoolTeam = roleName === '校隊'
+            })
+          }
+
+          return { type: 'fee' as const, data: res.data }
+        })
+    )
+  }
+
+  const results = await Promise.all(promises)
+  const combined: NotificationFeedRow[] = []
+
+  results.forEach((result) => {
+    if (result.type === 'leave' && result.data) {
+      combined.push(...result.data.map((row: any) => ({
+        id: String(row.id),
+        source: 'leave' as const,
+        title: `[新增假單] ${row.team_members?.name || '未知球員'} 的${row.leave_type}`,
+        body: `日期：${row.start_date} ~ ${row.end_date}\n原因：${row.reason || '無'}`,
+        created_at: row.created_at,
+        link: `/leave-requests?highlight_leave_id=${row.id}`,
+        highlight_member_id: null
+      })))
+    } else if (result.type === 'member' && result.data) {
+      combined.push(...result.data.map((member: any) => ({
+        id: String(member.id),
+        source: 'member' as const,
+        title: `[新進通知] 歡迎 ${member.name} 入隊！`,
+        body: `剛從表單收到了 ${member.name} (${translateRole(member.role)}) 的球員資料。`,
+        created_at: member.created_at,
+        link: '/players',
+        highlight_member_id: null
+      })))
+    } else if (result.type === 'join' && result.data) {
+      combined.push(...result.data.map((join: any) => ({
+        id: String(join.id),
+        source: 'join' as const,
+        title: `[入隊詢問] 收到來自 ${join.parent_name} 的聯絡`,
+        body: `電話: ${join.phone}。請盡快與家長聯繫！`,
+        created_at: join.created_at,
+        link: '/join-inquiries',
+        highlight_member_id: null
+      })))
+    } else if (result.type === 'fee' && result.data) {
+      combined.push(...result.data.map((fee: any) => ({
+        id: String(fee.id),
+        source: 'fee' as const,
+        title: `[新增匯款] 收到 ${fee.memberName} 的繳費登記`,
+        body: `季度: ${fee.year_quarter} | 方式: ${fee.payment_method} | 金額: $${fee.amount}`,
+        created_at: fee.created_at,
+        link: `/fees?tab=${fee.isSchoolTeam ? 'monthly' : 'quarterly'}&highlight_fee_id=${fee.id}&highlight_member_id=${fee.highlightMemberId || ''}`,
+        highlight_member_id: fee.highlightMemberId || null
+      })))
+    }
+  })
+
+  return combined
+    .sort((left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime())
+    .slice(0, limit)
+};
+
+configureNotificationFeedFallbackFetcher(fetchNotificationFeedLegacy);
 
 // --- 推播通知機制 (Web Notification + Supabase Realtime) ---
 let realtimeChannel: any = null;
@@ -260,27 +515,24 @@ const startListening = () => {
         if (!permissionsStore.can('leave_requests', 'VIEW')) return;
 
         const { data } = await supabase.from('team_members').select('name').eq('id', payload.new.user_id).single();
-        const newNote = {
-          id: payload.new.id,
+        const newNote: NotificationFeedItem = {
+          id: buildNotificationFeedItemId('leave', String(payload.new.id)),
+          source: 'leave',
           title: `[新增假單] ${data?.name || '未知成員'} 的${payload.new.leave_type || '假單'}`,
           body: `日期：${payload.new.start_date} ~ ${payload.new.end_date}`,
-          created_at: payload.new.created_at,
-          link: `/leave-requests?highlight_leave_id=${payload.new.id}`
+          createdAt: payload.new.created_at || new Date().toISOString(),
+          link: `/leave-requests?highlight_leave_id=${payload.new.id}`,
+          highlightMemberId: null
         };
-        notifications.value.unshift(newNote);
+        upsertNotification(newNote);
 
-        if (Notification.permission === 'granted') {
-          if (payload.new.user_id === authStore.user?.id) return;
-          const note = new Notification('收到新的系統通知', {
-            body: newNote.title,
-            icon: '/少棒元素_20260324_232837_0000.png'
-          });
-          note.onclick = () => {
-            window.focus();
-            router.push(`/leave-requests?highlight_leave_id=${payload.new.id}`);
-            note.close();
-          };
+        if (payload.new.user_id === authStore.user?.id) {
+          return;
         }
+
+        maybeShowBrowserNotification('收到新的系統通知', newNote.title, () => {
+          router.push(`/leave-requests?highlight_leave_id=${payload.new.id}`);
+        });
       }
     )
     .subscribe((status, err) => {
@@ -299,27 +551,26 @@ const startListening = () => {
 
         console.log('⚡ [Realtime 攔截] 收到 team_members 最新資料！Payload:', payload);
 
-        const newNote = {
-          id: payload.new.id,
+        const newNote: NotificationFeedItem = {
+          id: buildNotificationFeedItemId('member', String(payload.new.id)),
+          source: 'member',
           title: `[新進通知] 歡迎 ${payload.new.name} 入隊！`,
           body: `剛從表單收到了 ${payload.new.name} (${payload.new.role}) 的球員資料。`,
-          created_at: payload.new.created_at || new Date().toISOString(),
-          link: '/players'
+          createdAt: payload.new.created_at || new Date().toISOString(),
+          link: '/players',
+          highlightMemberId: null
         };
-        notifications.value.unshift(newNote);
+        upsertNotification(newNote);
+
+        if (typeof Notification === 'undefined') {
+          return;
+        }
 
         if (Notification.permission === 'granted') {
           console.log('[推播觸發] Notification.permission 是 granted, 準備彈出橫幅...');
-          const note = new Notification('收到新球員名單', {
-            body: newNote.title,
-            icon: '/少棒元素_20260324_232837_0000.png'
-          });
-          console.log('[推播觸發] 橫幅呼叫完成！', note);
-          note.onclick = () => {
-            window.focus();
+          maybeShowBrowserNotification('收到新球員名單', newNote.title, () => {
             router.push('/players');
-            note.close();
-          };
+          });
         } else {
           console.log('[推播阻擋] 雖然收到了 Socket 更新，但目前權限狀態是：', Notification.permission);
         }
@@ -344,26 +595,20 @@ const startListening = () => {
 
           console.log('⚡ [Realtime 攔截] 收到 join_inquiries 最新資料！Payload:', payload);
 
-          const newNote = {
-            id: payload.new.id,
+          const newNote: NotificationFeedItem = {
+            id: buildNotificationFeedItemId('join', String(payload.new.id)),
+            source: 'join',
             title: `[入隊詢問] 收到來自 ${payload.new.parent_name} 的聯絡`,
             body: `電話: ${payload.new.phone}。請盡快與家長聯繫！`,
-            created_at: payload.new.created_at || new Date().toISOString(),
-            link: '/join-inquiries'
+            createdAt: payload.new.created_at || new Date().toISOString(),
+            link: '/join-inquiries',
+            highlightMemberId: null
           };
-          notifications.value.unshift(newNote);
+          upsertNotification(newNote);
 
-          if (Notification.permission === 'granted') {
-            const note = new Notification('收到新的入隊詢問', {
-              body: newNote.title,
-              icon: '/少棒元素_20260324_232837_0000.png'
-            });
-            note.onclick = () => {
-              window.focus();
-              router.push('/join-inquiries');
-              note.close();
-            };
-          }
+          maybeShowBrowserNotification('收到新的入隊詢問', newNote.title, () => {
+            router.push('/join-inquiries');
+          });
         }
     )
     .subscribe((status) => {
@@ -397,29 +642,23 @@ const startListening = () => {
 
         const isSchoolTeam = memberRole === '校隊';
         const feeTab = isSchoolTeam ? 'monthly' : 'quarterly';
-        const highlightMemberId = targetIds.length > 0 ? targetIds[0] : '';
+        const highlightMemberId = targetIds.length > 0 ? String(targetIds[0]) : '';
 
         const newNoteLink = `/fees?tab=${feeTab}&highlight_fee_id=${payload.new.id}&highlight_member_id=${highlightMemberId}`;
-        const newNote = {
-          id: payload.new.id,
+        const newNote: NotificationFeedItem = {
+          id: buildNotificationFeedItemId('fee', String(payload.new.id)),
+          source: 'fee',
           title: `[新增匯款] 收到 ${membersName} 的繳費登記`,
           body: `季度: ${payload.new.year_quarter || '-'}\n方式: ${payload.new.payment_method}\n金額: $${payload.new.amount}`,
-          created_at: payload.new.created_at || new Date().toISOString(),
-          link: newNoteLink
+          createdAt: payload.new.created_at || new Date().toISOString(),
+          link: newNoteLink,
+          highlightMemberId: highlightMemberId || null
         };
-        notifications.value.unshift(newNote);
+        upsertNotification(newNote);
 
-        if (Notification.permission === 'granted') {
-          const note = new Notification(newNote.title, {
-            body: newNote.body,
-            icon: '/少棒元素_20260324_232837_0000.png'
-          });
-          note.onclick = () => {
-            window.focus();
-            router.push(newNoteLink);
-            note.close();
-          };
-        }
+        maybeShowBrowserNotification(newNote.title, newNote.body, () => {
+          router.push(newNoteLink);
+        });
       }
     )
     .subscribe((status) => {
@@ -446,152 +685,33 @@ const stopListening = () => {
   }
 };
 
-const fetchInitialNotifications = async () => {
-  const role = authStore.profile?.role
-  if (!role) return
-
-  const promises = []
-
-  // 1. 請假系統
-  if (permissionsStore.can('leave_requests', 'VIEW')) {
-    promises.push(
-      supabase.from('leave_requests')
-        .select('id, leave_type, start_date, end_date, reason, created_at, team_members(name)')
-        .order('created_at', { ascending: false })
-        .limit(8)
-        .then(res => ({ type: 'leave', data: res.data }))
-    )
-  }
-
-  // 2. 其它各模組通知
-  if (permissionsStore.can('players', 'VIEW')) {
-    // 球員異動
-    promises.push(
-      supabase.from('team_members')
-        .select('id, name, role, created_at')
-        .order('created_at', { ascending: false })
-        .limit(5)
-        .then(res => ({ type: 'member', data: res.data }))
-    )
-  }
-  if (permissionsStore.can('join_inquiries', 'VIEW')) {
-    // 入隊申請
-    promises.push(
-      supabase.from('join_inquiries')
-        .select('id, parent_name, phone, created_at')
-        .order('created_at', { ascending: false })
-        .limit(5)
-        .then(res => ({ type: 'join', data: res.data }))
-    )
-  }
-  if (permissionsStore.can('fees', 'VIEW')) {
-    // 季費表單 (因為現在支援多選，需要讀取 member_ids)
-    promises.push(
-      supabase.from('quarterly_fees')
-        .select('id, member_id, member_ids, year_quarter, payment_method, amount, created_at')
-        .order('created_at', { ascending: false })
-        .limit(5)
-        .then(async (res) => {
-           if (res.data) {
-             // 收集所有的 ID (兼顧舊欄位 member_id 與新欄位 member_ids)
-             let allIds: string[] = []
-             res.data.forEach((f: any) => {
-               if (f.member_ids && f.member_ids.length > 0) allIds.push(...f.member_ids)
-               else if (f.member_id) allIds.push(f.member_id)
-             })
-             
-             const uniqueIds = [...new Set(allIds)].filter(Boolean)
-             
-             let nameMap: any = {}
-             let roleMap: any = {}
-             if (uniqueIds.length > 0) {
-               const { data: mData } = await supabase.from('team_members').select('id, name, role').in('id', uniqueIds)
-               nameMap = (mData || []).reduce((acc: any, cur: any) => ({ ...acc, [cur.id]: cur.name }), {})
-               roleMap = (mData || []).reduce((acc: any, cur: any) => ({ ...acc, [cur.id]: cur.role }), {})
-             }
-             
-             res.data.forEach((f: any) => {
-               let names = []
-               let role = '球員'
-               if (f.member_ids && f.member_ids.length > 0) {
-                 names = f.member_ids.map((id: string) => nameMap[id]).filter(Boolean)
-                 role = roleMap[f.member_ids[0]] || '球員'
-                 f.highlightMemberId = f.member_ids[0]
-               } else if (f.member_id) {
-                 if (nameMap[f.member_id]) names.push(nameMap[f.member_id])
-                 role = roleMap[f.member_id] || '球員'
-                 f.highlightMemberId = f.member_id
-               }
-               f.memberName = names.length > 0 ? names.join(', ') : '未知球員'
-               f.isSchoolTeam = role === '校隊'
-             })
-           }
-           return { type: 'fee', data: res.data }
-        })
-    )
-  }
-
-  const results = await Promise.all(promises)
-  const combined: any[] = []
-
-  results.forEach(res => {
-    if (res.type === 'leave' && res.data) {
-      combined.push(...res.data.map((r: any) => ({
-        id: r.id,
-        title: `[新增假單] ${(r.team_members as any)?.name || '未知球員'} 的${r.leave_type}`,
-        body: `日期：${r.start_date} ~ ${r.end_date}\n原因：${r.reason || '無'}`,
-        created_at: r.created_at,
-        link: `/leave-requests?highlight_leave_id=${r.id}`
-      })))
-    } else if (res.type === 'member' && res.data) {
-      combined.push(...res.data.map((m: any) => ({
-        id: m.id,
-        title: `[新進通知] 歡迎 ${m.name} 入隊！`,
-        body: `剛從表單收到了 ${m.name} (${translateRole(m.role)}) 的球員資料。`,
-        created_at: m.created_at,
-        link: '/players'
-      })))
-    } else if (res.type === 'join' && res.data) {
-      combined.push(...res.data.map((j: any) => ({
-        id: j.id,
-        title: `[入隊詢問] 收到來自 ${j.parent_name} 的聯絡`,
-        body: `電話: ${j.phone}。請盡快與家長聯繫！`,
-        created_at: j.created_at,
-        link: '/join-inquiries'
-      })))
-    } else if (res.type === 'fee' && res.data) {
-      combined.push(...res.data.map((f: any) => ({
-        id: f.id,
-        title: `[新增匯款] 收到 ${f.memberName} 的繳費登記`,
-        body: `季度: ${f.year_quarter} | 方式: ${f.payment_method} | 金額: $${f.amount}`,
-        created_at: f.created_at,
-        link: `/fees?tab=${f.isSchoolTeam ? 'monthly' : 'quarterly'}&highlight_fee_id=${f.id}&highlight_member_id=${f.highlightMemberId || ''}`
-      })))
-    }
-  })
-
-  combined.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-  notifications.value = combined.slice(0, 10)
-}
-
 // 監聽權限變化，確保有權限的角色才會開啟 WebSocket
 watch(() => authStore.profile?.role, (newRole) => {
-  // 現在只要登入就啟動監聽，內部會有 `can()` 判斷
-  if (Notification.permission === 'default') {
-    Notification.requestPermission();
+  if (!newRole) {
+    clearScheduledNotificationFeedLoad();
+    stopListening();
+    resetNotificationFeed();
+    return;
   }
+
+  // 現在只要登入就啟動監聽，內部會有 `can()` 判斷
+  if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+    void Notification.requestPermission();
+  }
+
   startListening();
+  clearScheduledNotificationFeedLoad();
+  scheduleNotificationFeedLoad();
 }, { immediate: true });
 
 
 onUnmounted(() => {
+  clearScheduledNotificationFeedLoad();
   stopListening();
+  resetNotificationFeed();
+  configureNotificationFeedFallbackFetcher(null);
 });
 
-onMounted(() => {
-  // We can fetch notifications if they have permission for anything
-  fetchInitialNotifications()
-})
 </script>
 
 <style scoped>

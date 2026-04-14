@@ -221,7 +221,7 @@
                   :min="0" :step="50" 
                   size="small" 
                   class="!w-28 font-mono font-bold"
-                  @change="markChanged(fee)"
+                  @change="handleAmountChange(fee)"
                 />
               </td>
               <td class="py-3 px-4 text-center">
@@ -241,7 +241,7 @@
                     inactive-text="未繳"
                     class="ml-2 font-bold"
                     style="--el-switch-on-color: #10b981; --el-switch-off-color: #ef4444;"
-                    @change="markChanged(fee)"
+                    @change="handlePaidToggle(fee)"
                   />
                 </div>
               </td>
@@ -261,6 +261,11 @@ import { BellFilled, Calendar, Check, Delete } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 import { useRoute } from 'vue-router'
 import { useWindowSize } from '@vueuse/core'
+import {
+  buildSiblingGroupMap,
+  normalizeSiblingIds,
+  resolveLinkedMemberIds
+} from '@/utils/siblingGroups'
 
 const route = useRoute()
 const highlightFeeId = computed(() => route.query.highlight_fee_id as string | undefined)
@@ -333,10 +338,49 @@ const editForm = ref({
   other_item_note: ''
 })
 
+const cloneFeeValue = <T,>(value: T): T => {
+  if (Array.isArray(value)) {
+    return [...value] as T
+  }
+
+  return value
+}
+
+const isSharedFamilyRecord = (fee: any) =>
+  Boolean(fee.record_id && Array.isArray(fee.linked_member_ids) && fee.linked_member_ids.length > 1)
+
 const markChanged = (fee: any) => {
   if (!pendingChanges.value.includes(fee.member_id)) {
     pendingChanges.value.push(fee.member_id)
   }
+}
+
+const syncSharedRecordRows = (fee: any, updates: Record<string, unknown>) => {
+  if (!isSharedFamilyRecord(fee)) return
+
+  feesList.value.forEach((item) => {
+    if (item.record_id !== fee.record_id || item.member_id === fee.member_id) return
+
+    Object.entries(updates).forEach(([key, value]) => {
+      item[key] = cloneFeeValue(value)
+    })
+
+    markChanged(item)
+  })
+}
+
+const handleAmountChange = (fee: any) => {
+  syncSharedRecordRows(fee, {
+    amount: fee.amount
+  })
+  markChanged(fee)
+}
+
+const handlePaidToggle = (fee: any) => {
+  syncSharedRecordRows(fee, {
+    is_paid: fee.is_paid
+  })
+  markChanged(fee)
 }
 
 const formatTimestamp = (timestamp: string) => {
@@ -410,22 +454,17 @@ const fetchData = async () => {
       
     if (mErr) throw mErr
     
-    const members = membersData?.filter(m => m.status !== '退隊') || []
+    const members = normalizeSiblingIds(
+      (membersData?.filter(m => m.status !== '退隊') || []).map((member) => ({
+        ...member,
+        sibling_ids: Array.isArray(member.sibling_ids) ? [...member.sibling_ids] : []
+      }))
+    )
 
-    members.forEach(m => {
-      if (m.sibling_ids && m.sibling_ids.length > 0) {
-        m.sibling_ids.forEach((sId: string) => {
-          const sibling = members.find(x => x.id === sId)
-          if (sibling) {
-            if (!sibling.sibling_ids) sibling.sibling_ids = []
-            if (!sibling.sibling_ids.includes(m.id)) sibling.sibling_ids.push(m.id)
-          }
-        })
-      }
-    })
+    const siblingGroupMap = buildSiblingGroupMap(members)
 
     currentPlayers.value = members
-    fetchRemittances(members)
+    await fetchRemittances(members, siblingGroupMap)
 
     const { data: existingFees, error: fErr } = await supabase
       .from('quarterly_fees')
@@ -434,24 +473,37 @@ const fetchData = async () => {
       
     if (fErr) throw fErr
     
-    const recordsMap = new Map()
-    existingFees?.forEach(f => {
-      let ids: string[] = []
-      if (Array.isArray(f.member_ids) && f.member_ids.length > 0) ids = f.member_ids
-      else if (f.member_id) ids = [f.member_id]
-      
-      ids.forEach(id => {
-        recordsMap.set(id, f)
+    const recordsMap = new Map<string, { record: any; linkedMemberIds: string[] }>()
+    const sortedExistingFees = [...(existingFees || [])].sort((left, right) => {
+      const rightTime = new Date(right.updated_at || right.created_at || 0).getTime()
+      const leftTime = new Date(left.updated_at || left.created_at || 0).getTime()
+      return rightTime - leftTime
+    })
+
+    sortedExistingFees.forEach((record) => {
+      const linkedMemberIds = resolveLinkedMemberIds(record, siblingGroupMap)
+
+      linkedMemberIds.forEach((memberId) => {
+        if (!recordsMap.has(memberId)) {
+          recordsMap.set(memberId, {
+            record,
+            linkedMemberIds
+          })
+        }
       })
     })
 
     feesList.value = members.map(m => {
-      const record = recordsMap.get(m.id)
+      const recordEntry = recordsMap.get(m.id)
+      const record = recordEntry?.record
+      const linkedMemberIds = recordEntry?.linkedMemberIds || [m.id]
       let baseAmount = 6000
       let isDiscounted = false
       if (m.sibling_ids && m.sibling_ids.length > 0) {
         if (!m.is_primary_payer) {
-          const siblings = m.sibling_ids.map((sId: string) => members.find(x => x.id === sId)).filter(Boolean)
+          const siblings = m.sibling_ids
+            .map((sId: string) => members.find(x => x.id === sId))
+            .filter((sibling): sibling is any => Boolean(sibling))
           const hasPrimarySibling = siblings.some((s: any) => s.is_primary_payer)
           if (hasPrimarySibling) isDiscounted = true
           else {
@@ -469,6 +521,9 @@ const fetchData = async () => {
         member_id: m.id,
         member_name: m.name,
         record_id: record ? record.id : null,
+        record_member_id: record?.member_id || null,
+        record_member_ids: Array.isArray(record?.member_ids) ? [...record.member_ids] : [],
+        linked_member_ids: linkedMemberIds,
         amount: record ? record.amount : baseAmount,
         payment_items: record && Array.isArray(record.payment_items) ? [...record.payment_items] : (isDiscounted ? ['學費(季繳$6000/3000)'] : ['學費(季繳$6000/3000)']),
         other_item_note: record ? record.other_item_note : '',
@@ -488,10 +543,13 @@ const fetchData = async () => {
   }
 }
 
-const fetchRemittances = async (players: any[]) => {
+const fetchRemittances = async (
+  players: any[],
+  siblingGroupMap = buildSiblingGroupMap(players)
+) => {
   try {
-    const pIds = players.map(m => m.id)
-    if (pIds.length === 0) return
+    const pIds = new Set(players.map(m => m.id))
+    if (pIds.size === 0) return
 
     const { data, error } = await supabase
       .from('quarterly_fees')
@@ -503,19 +561,15 @@ const fetchRemittances = async (players: any[]) => {
     
     if (data) {
       playerRemittances.value = data.filter(fee => {
-        let extractedIds: string[] = []
-        if (Array.isArray(fee.member_ids) && fee.member_ids.length > 0) extractedIds = fee.member_ids
-        else if (fee.member_id) extractedIds = [fee.member_id]
+        const extractedIds = resolveLinkedMemberIds(fee, siblingGroupMap)
         
         // 分類：確保是目前的球員 (role==='球員')
-        const isPlayer = extractedIds.some(id => pIds.includes(id))
+        const isPlayer = extractedIds.some(id => pIds.has(id))
         
         // 只看尚未付款，且必須要是該季度的回報
         return isPlayer && fee.status !== 'paid' && fee.year_quarter === selectedPeriodLabel.value
       }).map(fee => {
-        let extractedIds: string[] = []
-        if (Array.isArray(fee.member_ids) && fee.member_ids.length > 0) extractedIds = fee.member_ids
-        else if (fee.member_id) extractedIds = [fee.member_id]
+        const extractedIds = resolveLinkedMemberIds(fee, siblingGroupMap)
         
         const names = extractedIds.map(id => players.find(m => m.id === id)?.name).filter(Boolean).join(', ')
         return {
@@ -536,11 +590,24 @@ const saveAll = async () => {
   
   try {
     const changedFees = feesList.value.filter(f => pendingChanges.value.includes(f.member_id))
-    
+    const processedRecordIds = new Set<string>()
+    const now = new Date().toISOString()
+
     for (const f of changedFees) {
+      if (f.record_id && processedRecordIds.has(f.record_id)) {
+        continue
+      }
+
+      if (f.record_id) {
+        processedRecordIds.add(f.record_id)
+      }
+
+      const shouldExpandMemberIds = isSharedFamilyRecord(f)
       const payload: any = {
-        member_id: f.member_id,
-        member_ids: [f.member_id], // 為了向下相容保留舊陣列格式
+        member_id: f.record_member_id || f.member_id,
+        member_ids: shouldExpandMemberIds
+          ? [...f.linked_member_ids]
+          : [f.member_id],
         year_quarter: selectedPeriodLabel.value,
         amount: f.amount,
         payment_items: f.payment_items,
@@ -548,21 +615,34 @@ const saveAll = async () => {
         payment_method: f.payment_method,
         account_last_5: ['銀行轉帳', '郵局無摺', 'ATM存款'].includes(f.payment_method) ? f.account_last_5 : null,
         remittance_date: f.remittance_date,
-        updated_at: new Date().toISOString()
+        updated_at: now
       }
       
       payload.status = f.is_paid ? 'paid' : 'unpaid'
-      if (f.is_paid) payload.paid_at = new Date().toISOString()
+      if (f.is_paid) payload.paid_at = now
       else payload.paid_at = null
 
       if (f.record_id) {
         // 更新現有紀錄
-        await supabase.from('quarterly_fees').update(payload).eq('id', f.record_id)
+        const { error } = await supabase.from('quarterly_fees').update(payload).eq('id', f.record_id)
+        if (error) throw error
+
+        if (shouldExpandMemberIds) {
+          feesList.value.forEach((item) => {
+            if (item.record_id !== f.record_id) return
+            item.record_member_id = payload.member_id
+            item.record_member_ids = [...payload.member_ids]
+            item.linked_member_ids = [...payload.member_ids]
+          })
+        }
       } else {
         // 新增紀錄（第一次觸發該季繳費）
-        const { data } = await supabase.from('quarterly_fees').insert([payload]).select('id')
+        const { data, error } = await supabase.from('quarterly_fees').insert([payload]).select('id')
+        if (error) throw error
         if (data && data.length > 0) {
           f.record_id = data[0].id
+          f.record_member_id = payload.member_id
+          f.record_member_ids = [...payload.member_ids]
         }
       }
     }
@@ -593,7 +673,7 @@ const markAsPaid = async (remittance: any) => {
         const feeItem = feesList.value.find(f => f.member_id === id)
         if (feeItem && !feeItem.is_paid) {
           feeItem.is_paid = true
-          markChanged(feeItem)
+          handlePaidToggle(feeItem)
           synced = true
         }
       })
@@ -645,6 +725,14 @@ const saveRemittanceEdit = () => {
     feeItem.payment_method = editForm.value.payment_method
     feeItem.payment_items = [...editForm.value.payment_items]
     feeItem.other_item_note = editForm.value.other_item_note
+    syncSharedRecordRows(feeItem, {
+      amount: feeItem.amount,
+      remittance_date: feeItem.remittance_date,
+      account_last_5: feeItem.account_last_5,
+      payment_method: feeItem.payment_method,
+      payment_items: [...feeItem.payment_items],
+      other_item_note: feeItem.other_item_note
+    })
     markChanged(feeItem)
   }
   editDialogVisible.value = false

@@ -11,43 +11,83 @@ export const useAuthStore = defineStore('auth', () => {
   const isInitializing = ref(true)
 
   const isAuthenticated = computed(() => !!user.value)
+  const permissionsStore = usePermissionsStore()
+
+  let initializationPromise: Promise<void> | null = null
+  let authStateSubscription: { unsubscribe: () => void } | null = null
+  let hydratedProfileUserId: string | null = null
 
   const fetchProfile = async (userId: string) => {
-    const { data } = await supabase.from('profiles').select('*').eq('id', userId).single()
+    const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single()
+    if (error) throw error
     profile.value = data || null
+  }
+
+  const syncAuthContext = async (
+    nextSession: Session | null,
+    options: { forceProfileReload?: boolean } = {}
+  ) => {
+    session.value = nextSession
+    user.value = nextSession?.user ?? null
+
+    if (!user.value) {
+      profile.value = null
+      hydratedProfileUserId = null
+      if (permissionsStore.currentRole !== '') {
+        await permissionsStore.fetchPermissions('')
+      }
+      return
+    }
+
+    const shouldReloadProfile =
+      options.forceProfileReload || hydratedProfileUserId !== user.value.id || !profile.value
+
+    if (shouldReloadProfile) {
+      await fetchProfile(user.value.id)
+      hydratedProfileUserId = user.value.id
+    }
+
+    const nextRole = profile.value?.role || ''
+    if (permissionsStore.currentRole !== nextRole) {
+      await permissionsStore.fetchPermissions(nextRole)
+    }
+  }
+
+  const registerAuthStateListener = () => {
+    if (authStateSubscription) return
+
+    const { data } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      void syncAuthContext(newSession)
+    })
+
+    authStateSubscription = data.subscription
   }
 
   const initializeAuth = async () => {
     isInitializing.value = true
-    try {
-      const { data: { session: existingSession } } = await supabase.auth.getSession()
-      session.value = existingSession
-      user.value = existingSession?.user ?? null
-      if (user.value) {
-        await fetchProfile(user.value.id)
-        if (profile.value?.role) {
-          await usePermissionsStore().fetchPermissions(profile.value.role)
-        }
-      }
 
-      supabase.auth.onAuthStateChange(async (_event, newSession) => {
-        session.value = newSession
-        user.value = newSession?.user ?? null
-        if (user.value) {
-          await fetchProfile(user.value.id)
-          if (profile.value?.role) {
-            await usePermissionsStore().fetchPermissions(profile.value.role)
-          }
-        } else {
-          profile.value = null
-          await usePermissionsStore().fetchPermissions('')
-        }
-      })
+    try {
+      const {
+        data: { session: existingSession }
+      } = await supabase.auth.getSession()
+
+      await syncAuthContext(existingSession, { forceProfileReload: true })
+      registerAuthStateListener()
     } catch (error) {
       console.error('Failed to initialize auth', error)
     } finally {
       isInitializing.value = false
     }
+  }
+
+  const ensureInitialized = async () => {
+    if (!initializationPromise) {
+      initializationPromise = initializeAuth().finally(() => {
+        initializationPromise = null
+      })
+    }
+
+    return initializationPromise
   }
 
   const sendMagicLink = async (email: string) => {
@@ -79,24 +119,14 @@ export const useAuthStore = defineStore('auth', () => {
     })
     if (error) throw error
     
-    session.value = data.session
-    user.value = data.user || data.session?.user || null
-    if (user.value) {
-      await fetchProfile(user.value.id)
-      if (profile.value?.role) {
-        await usePermissionsStore().fetchPermissions(profile.value.role)
-      }
-    }
+    await syncAuthContext(data.session, { forceProfileReload: true })
     
     return data
   }
 
   const signOut = async () => {
     await supabase.auth.signOut()
-    user.value = null
-    session.value = null
-    profile.value = null
-    await usePermissionsStore().fetchPermissions('')
+    await syncAuthContext(null, { forceProfileReload: true })
   }
 
   return {
@@ -106,6 +136,7 @@ export const useAuthStore = defineStore('auth', () => {
     isInitializing,
     isAuthenticated,
     initializeAuth,
+    ensureInitialized,
     sendMagicLink,
     verifyOtpCode,
     signOut

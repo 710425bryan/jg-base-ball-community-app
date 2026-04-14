@@ -101,7 +101,7 @@ router.beforeEach(async (to, from, next) => {
   
   // Wait for auth init if doing direct navigation
   if (authStore.isInitializing) {
-    await authStore.initializeAuth()
+    await authStore.ensureInitialized()
   }
   
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {

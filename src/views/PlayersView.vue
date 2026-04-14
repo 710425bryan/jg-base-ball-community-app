@@ -437,6 +437,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { supabase } from '@/services/supabase'
 import { compressImage } from '@/utils/imageCompressor'
+import { normalizeSiblingIds } from '@/utils/siblingGroups'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -457,6 +458,59 @@ const viewMode = ref<'grid' | 'table'>('table')
 const searchQuery = ref('')
 const filterStatus = ref('在隊')
 const filterULevel = ref('全部')
+
+const isSiblingEligibleRole = (role: string | null | undefined) => role === '球員' || role === '校隊'
+
+const buildMembersWithNormalizedSiblings = (memberList: any[]) => {
+  const normalizedSiblingMembers = normalizeSiblingIds(
+    memberList
+      .filter((member) => isSiblingEligibleRole(member.role))
+      .map((member) => ({
+        ...member,
+        sibling_ids: Array.isArray(member.sibling_ids) ? [...member.sibling_ids] : []
+      }))
+  )
+
+  const normalizedMap = new Map(
+    normalizedSiblingMembers.map((member) => [member.id, member.sibling_ids])
+  )
+
+  return memberList.map((member) => ({
+    ...member,
+    sibling_ids: normalizedMap.get(member.id) ? [...normalizedMap.get(member.id)!] : []
+  }))
+}
+
+const fetchMembersForSiblingSync = async () => {
+  const { data, error } = await supabase
+    .from('team_members')
+    .select('id, name, role, sibling_ids')
+    .order('name')
+
+  if (error) throw error
+
+  return (data || []).map((member) => ({
+    ...member,
+    sibling_ids: Array.isArray(member.sibling_ids) ? [...member.sibling_ids] : []
+  }))
+}
+
+const persistNormalizedSiblingIds = async (memberList: any[]) => {
+  const normalizedMembers = buildMembersWithNormalizedSiblings(memberList)
+
+  for (const member of normalizedMembers) {
+    const { error } = await supabase
+      .from('team_members')
+      .update({
+        sibling_ids: member.sibling_ids
+      })
+      .eq('id', member.id)
+
+    if (error) throw error
+  }
+
+  return normalizedMembers
+}
 
 // 計算 U-level
 const getULevel = (member: any) => {
@@ -677,6 +731,7 @@ const syncFromGoogleSheet = async () => {
 
     const inserts: any[] = [];
     const updates: any[] = [];
+    const syncRows: Array<{ name: string; siblingNames: string[]; roleMapped: string }> = [];
     
     for (let i = 1; i < csvData.length; i++) {
       const row = csvData[i];
@@ -745,6 +800,12 @@ const syncFromGoogleSheet = async () => {
         portrait_auth
       };
 
+      syncRows.push({
+        name,
+        siblingNames,
+        roleMapped
+      })
+
       const existingMember = existingMap.get(name);
       if (existingMember) {
         // 更新時：保留原本的 is_half_price，不覆蓋
@@ -765,6 +826,24 @@ const syncFromGoogleSheet = async () => {
       const { error } = await supabase.from('team_members').insert(inserts);
       if (error) throw error;
     }
+
+    const refreshedMembers = await fetchMembersForSiblingSync()
+    const memberByName = new Map(
+      refreshedMembers.map((member) => [member.name?.trim(), member])
+    )
+
+    syncRows.forEach((row) => {
+      const member = memberByName.get(row.name)
+      if (!member) return
+
+      member.sibling_ids = isSiblingEligibleRole(row.roleMapped)
+        ? row.siblingNames
+            .map((siblingName) => memberByName.get(siblingName)?.id)
+            .filter(Boolean)
+        : []
+    })
+
+    await persistNormalizedSiblingIds(refreshedMembers)
     
     ElMessage.success(`同步完成！新增 ${inserts.length} 筆，更新 ${updates.length} 筆資料`);
     await fetchData();
@@ -792,7 +871,7 @@ const fetchData = async () => {
       .order('name')
     if (error) throw error
     
-    members.value = (data || []).map(m => ({
+    members.value = buildMembersWithNormalizedSiblings(data || []).map(m => ({
       ...m,
       is_primary_payer: !!m.is_primary_payer,
       is_half_price: !!m.is_half_price
@@ -894,6 +973,16 @@ const submitForm = async () => {
       const { error } = await supabase.from('team_members').insert(payload)
       if (error) throw error
       ElMessage.success('新增隊員成功！')
+    }
+
+    const siblingSyncMembers = await fetchMembersForSiblingSync()
+    const savedMember = siblingSyncMembers.find((member) => member.name === form.name) || siblingSyncMembers.find((member) => member.id === form.id)
+    if (savedMember) {
+      savedMember.role = payload.role
+      savedMember.sibling_ids = isSiblingEligibleRole(payload.role)
+        ? (Array.isArray(payload.sibling_ids) ? [...payload.sibling_ids] : [])
+        : []
+      await persistNormalizedSiblingIds(siblingSyncMembers)
     }
 
     isModalOpen.value = false

@@ -123,16 +123,22 @@ import dayjs from 'dayjs'
 import { supabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
+import {
+  createEmptyDashboardPendingCounts,
+  createEmptyDashboardSnapshot,
+  createEmptyDashboardStats,
+  type DashboardAnnouncement,
+  type DashboardEvent,
+  type DashboardSnapshot
+} from '@/types/dashboard'
+import {
+  isSupabaseRpcMissingError,
+  isSupabaseRpcUnavailable,
+  markSupabaseRpcUnavailable
+} from '@/utils/supabaseRpc'
 
 type LinkTarget = string | { path: string; query?: Record<string, string> }
 
-type QuickAction = {
-  key: string
-  title: string
-  subtitle?: string
-  to: LinkTarget
-  icon: string
-}
 type PendingItem = {
   key: string
   title: string
@@ -154,22 +160,12 @@ type WeatherSnapshot = {
 const authStore = useAuthStore()
 const permissionsStore = usePermissionsStore()
 
-const stats = reactive({
-  totalMembers: 0,
-  schoolTeamMembers: 0,
-  communityMembers: 0,
-  todayLeaves: 0
-})
+const stats = reactive(createEmptyDashboardStats())
 
-const recentAnnouncements = ref<any[]>([])
-const todayEvent = ref<any>(null)
+const recentAnnouncements = ref<DashboardAnnouncement[]>([])
+const todayEvent = ref<DashboardEvent | null>(null)
 
-const pendingCounts = reactive({
-  joinInquiries: 0,
-  unpaidFees: 0,
-  upcomingLeaves: 0,
-  weeklyEvents: 0
-})
+const pendingCounts = reactive(createEmptyDashboardPendingCounts())
 
 const today = dayjs()
 const todayStr = today.format('YYYY-MM-DD')
@@ -186,9 +182,8 @@ const weatherState = reactive<WeatherSnapshot>({
 })
 
 const canViewAttendance = computed(() => permissionsStore.can('attendance', 'VIEW'))
-const canViewPlayers = computed(() => permissionsStore.can('players', 'VIEW'))
-const canViewFees = computed(() => permissionsStore.can('fees', 'VIEW'))
 const canViewAnnouncements = computed(() => permissionsStore.can('announcements', 'VIEW'))
+const canViewFees = computed(() => permissionsStore.can('fees', 'VIEW'))
 const canViewJoinInquiries = computed(() => permissionsStore.can('join_inquiries', 'VIEW'))
 const canViewLeaveRequests = computed(() => permissionsStore.can('leave_requests', 'VIEW'))
 
@@ -341,93 +336,161 @@ const todoActionLabel = (key: string) => {
   return '前往'
 }
 
+const normalizeDashboardSnapshot = (payload: Partial<DashboardSnapshot> | null | undefined): DashboardSnapshot => {
+  const emptySnapshot = createEmptyDashboardSnapshot()
+
+  return {
+    stats: {
+      ...emptySnapshot.stats,
+      ...(payload?.stats || {})
+    },
+    pendingCounts: {
+      ...emptySnapshot.pendingCounts,
+      ...(payload?.pendingCounts || {})
+    },
+    todayEvent: payload?.todayEvent ?? null,
+    recentAnnouncements: Array.isArray(payload?.recentAnnouncements)
+      ? payload.recentAnnouncements
+      : []
+  }
+}
+
+const applyDashboardSnapshot = (snapshot: DashboardSnapshot) => {
+  Object.assign(stats, snapshot.stats)
+  Object.assign(pendingCounts, snapshot.pendingCounts)
+  recentAnnouncements.value = snapshot.recentAnnouncements
+  todayEvent.value = snapshot.todayEvent
+}
+
+const fetchDashboardDataLegacy = async () => {
+  const weekEndStr = today.add(6, 'day').format('YYYY-MM-DD')
+
+  const memberPromise = supabase
+    .from('team_members')
+    .select('role, status')
+    .in('role', ['球員', '校隊'])
+
+  const todayLeavesPromise = canViewLeaveRequests.value
+    ? supabase
+        .from('leave_requests')
+        .select('id', { count: 'exact', head: true })
+        .lte('start_date', todayStr)
+        .gte('end_date', todayStr)
+    : Promise.resolve({ count: 0, error: null } as const)
+
+  const announcementsPromise = canViewAnnouncements.value
+    ? supabase
+        .from('announcements')
+        .select('id, title, content, created_at, is_pinned')
+        .order('is_pinned', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(3)
+    : Promise.resolve({ data: [], error: null } as const)
+
+  const todayEventPromise = canViewAttendance.value
+    ? supabase
+        .from('attendance_events')
+        .select('id, title, date, event_type, created_at')
+        .eq('date', todayStr)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle()
+    : Promise.resolve({ data: null, error: null } as const)
+
+  const joinPromise = canViewJoinInquiries.value
+    ? supabase
+        .from('join_inquiries')
+        .select('id', { count: 'exact', head: true })
+        .neq('status', 'completed')
+    : Promise.resolve({ count: 0, error: null } as const)
+
+  const feesPromise = canViewFees.value
+    ? supabase
+        .from('quarterly_fees')
+        .select('id', { count: 'exact', head: true })
+        .neq('status', 'paid')
+    : Promise.resolve({ count: 0, error: null } as const)
+
+  const upcomingLeavesPromise = canViewLeaveRequests.value
+    ? supabase
+        .from('leave_requests')
+        .select('id', { count: 'exact', head: true })
+        .gte('end_date', todayStr)
+        .lte('start_date', weekEndStr)
+    : Promise.resolve({ count: 0, error: null } as const)
+
+  const [membersRes, todayLeavesRes, announcementsRes, todayEventRes, joinRes, feesRes, upcomingLeavesRes] =
+    await Promise.all([
+      memberPromise,
+      todayLeavesPromise,
+      announcementsPromise,
+      todayEventPromise,
+      joinPromise,
+      feesPromise,
+      upcomingLeavesPromise
+    ])
+
+  if (membersRes.error) throw membersRes.error
+  if (todayLeavesRes.error) throw todayLeavesRes.error
+  if (announcementsRes.error) throw announcementsRes.error
+  if (todayEventRes.error) throw todayEventRes.error
+  if (joinRes.error) throw joinRes.error
+  if (feesRes.error) throw feesRes.error
+  if (upcomingLeavesRes.error) throw upcomingLeavesRes.error
+
+  const members = (membersRes.data || []).filter((member: any) => member.status !== '離隊')
+  stats.totalMembers = members.length
+  stats.schoolTeamMembers = members.filter((member: any) => member.role === '校隊').length
+  stats.communityMembers = members.filter((member: any) => member.role === '球員').length
+  stats.todayLeaves = todayLeavesRes.count || 0
+
+  recentAnnouncements.value = (announcementsRes.data || []).map((announcement: any) => ({
+    id: String(announcement.id),
+    title: announcement.title,
+    content: announcement.content ?? null,
+    createdAt: announcement.created_at,
+    isPinned: Boolean(announcement.is_pinned)
+  }))
+
+  todayEvent.value = todayEventRes.data
+    ? {
+        id: String(todayEventRes.data.id),
+        title: todayEventRes.data.title,
+        date: todayEventRes.data.date,
+        eventType: todayEventRes.data.event_type ?? null,
+        createdAt: todayEventRes.data.created_at
+      }
+    : null
+
+  pendingCounts.joinInquiries = joinRes.count || 0
+  pendingCounts.unpaidFees = feesRes.count || 0
+  pendingCounts.upcomingLeaves = upcomingLeavesRes.count || 0
+}
+
 const fetchDashboardData = async () => {
   try {
-    const weekEndStr = today.add(6, 'day').format('YYYY-MM-DD')
+    if (isSupabaseRpcUnavailable('get_dashboard_snapshot')) {
+      await fetchDashboardDataLegacy()
+      return
+    }
 
-    const memberPromise = supabase
-      .from('team_members')
-      .select('role, status')
-      .in('role', ['球員', '校隊'])
+    const { data, error } = await supabase.rpc('get_dashboard_snapshot', {
+      p_today: todayStr
+    })
 
-    const todayLeavesPromise = canViewLeaveRequests.value
-      ? supabase
-          .from('leave_requests')
-          .select('id', { count: 'exact', head: true })
-          .lte('start_date', todayStr)
-          .gte('end_date', todayStr)
-      : Promise.resolve({ count: 0, error: null } as any)
+    if (error) throw error
 
-    const announcementsPromise = canViewAnnouncements.value
-      ? supabase
-          .from('announcements')
-          .select('id, title, content, created_at, is_pinned')
-          .order('is_pinned', { ascending: false })
-          .order('created_at', { ascending: false })
-          .limit(3)
-      : Promise.resolve({ data: [] as any[], error: null } as any)
-
-    const todayEventPromise = supabase
-      .from('attendance_events')
-      .select('id, title, date, event_type, created_at')
-      .eq('date', todayStr)
-      .order('created_at', { ascending: true })
-      .limit(1)
-      .maybeSingle()
-
-    const joinPromise = canViewJoinInquiries.value
-      ? supabase
-          .from('join_inquiries')
-          .select('id', { count: 'exact', head: true })
-          .neq('status', 'completed')
-      : Promise.resolve({ count: 0, error: null } as any)
-
-    const feesPromise = canViewFees.value
-      ? supabase
-          .from('quarterly_fees')
-          .select('id', { count: 'exact', head: true })
-          .neq('status', 'paid')
-      : Promise.resolve({ count: 0, error: null } as any)
-
-    const upcomingLeavesPromise = canViewLeaveRequests.value
-      ? supabase
-          .from('leave_requests')
-          .select('id', { count: 'exact', head: true })
-          .gte('end_date', todayStr)
-          .lte('start_date', weekEndStr)
-      : Promise.resolve({ count: 0, error: null } as any)
-
-    const [membersRes, todayLeavesRes, announcementsRes, todayEventRes, joinRes, feesRes, upcomingLeavesRes] =
-      await Promise.all([
-        memberPromise,
-        todayLeavesPromise,
-        announcementsPromise,
-        todayEventPromise,
-        joinPromise,
-        feesPromise,
-        upcomingLeavesPromise
-      ])
-
-    if (membersRes.error) throw membersRes.error
-    if (todayLeavesRes?.error) throw todayLeavesRes.error
-    if (announcementsRes?.error) throw announcementsRes.error
-    if (todayEventRes?.error) throw todayEventRes.error
-    if (joinRes?.error) throw joinRes.error
-    if (feesRes?.error) throw feesRes.error
-    if (upcomingLeavesRes?.error) throw upcomingLeavesRes.error
-
-    const members = (membersRes.data || []).filter((member: any) => member.status !== '離隊')
-    stats.totalMembers = members.length
-    stats.schoolTeamMembers = members.filter((member: any) => member.role === '校隊').length
-    stats.communityMembers = members.filter((member: any) => member.role === '球員').length
-    stats.todayLeaves = todayLeavesRes?.count || 0
-
-    recentAnnouncements.value = announcementsRes?.data || []
-    todayEvent.value = todayEventRes?.data || null
-    pendingCounts.joinInquiries = joinRes?.count || 0
-    pendingCounts.unpaidFees = feesRes?.count || 0
-    pendingCounts.upcomingLeaves = upcomingLeavesRes?.count || 0
+    applyDashboardSnapshot(
+      normalizeDashboardSnapshot((data || null) as Partial<DashboardSnapshot> | null)
+    )
   } catch (error) {
+    if (isSupabaseRpcMissingError(error, 'get_dashboard_snapshot')) {
+      markSupabaseRpcUnavailable('get_dashboard_snapshot')
+      console.warn('get_dashboard_snapshot RPC 尚未部署，改用前端查詢 fallback。')
+      await fetchDashboardDataLegacy()
+      return
+    }
+
     console.error('Error fetching dashboard data:', error)
   }
 }

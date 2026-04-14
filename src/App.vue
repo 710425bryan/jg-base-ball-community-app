@@ -1,13 +1,11 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import { useVersionCheck } from '@/composables/useVersionCheck'
 
 const authStore = useAuthStore()
-const { hasUpdateAvailable, refreshApp } = useVersionCheck()
 
 onMounted(async () => {
-  await authStore.initializeAuth()
+  await authStore.ensureInitialized()
 })
 </script>
 
