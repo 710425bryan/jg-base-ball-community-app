@@ -1,398 +1,117 @@
 <template>
-  <div class="relative animate-fade-in p-3 pb-5 md:p-6">
-    <div class="mx-auto max-w-7xl space-y-5 md:space-y-6">
-      <section
-        class="overflow-hidden rounded-[28px] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(216,143,34,0.20),_transparent_38%),linear-gradient(135deg,_#fffaf1_0%,_#ffffff_45%,_#f7fafc_100%)] shadow-[0_18px_50px_rgba(15,23,42,0.08)]"
-      >
-        <div class="grid gap-6 px-5 py-6 md:grid-cols-[1.4fr_0.9fr] md:px-8 md:py-8">
-          <div class="space-y-5">
-            <div class="space-y-2">
-              <div class="flex flex-wrap items-center gap-2">
-                <div
-                  class="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-white/80 px-3 py-1 text-xs font-extrabold tracking-wide text-amber-700"
-                >
-                  <span class="h-2 w-2 rounded-full bg-amber-500"></span>
-                  社區棒球營運大廳
-                </div>
-                <div
-                  :class="roleBadgeClass"
-                  class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-extrabold tracking-wide"
-                >
-                  {{ roleLabel }}
-                </div>
-              </div>
-              <h2 class="text-3xl font-black tracking-tight text-slate-800 md:text-4xl">
-                {{ greetingText }}
-              </h2>
-              <p class="max-w-2xl text-sm font-medium leading-6 text-slate-500 md:text-base">
-                今天先掌握球隊動態、待處理事項與本週行程，重要資訊都集中在這一頁。
-              </p>
+  <div class="animate-fade-in min-h-full bg-[#f7f7f4] px-3 pb-24 pt-3 md:px-6 md:pb-8 md:pt-5">
+    <div class="mx-auto max-w-7xl space-y-4 md:space-y-5">
+      <section class="flex flex-row items-stretch gap-3 md:gap-4">
+        <article class="dashboard-card relative min-w-0 flex-1 overflow-hidden p-4 md:p-7">
+          <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary/80 via-primary/35 to-transparent"></div>
+          <div class="relative">
+            <div class="inline-flex rounded-full bg-[#fcead8] px-2.5 py-1 text-[0.65rem] md:px-3 md:py-1 md:text-xs font-black uppercase tracking-wide text-[#b5762a]">
+              Back Office
             </div>
-
-            <div class="rounded-[24px] border border-white/80 bg-white/75 p-4 shadow-sm backdrop-blur md:p-5">
-              <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-                <div class="space-y-2">
-                  <div class="text-xs font-black uppercase tracking-[0.24em] text-slate-400">Dashboard Mode</div>
-                  <div class="text-lg font-black text-slate-800 md:text-xl">{{ dashboardModeTitle }}</div>
-                  <p class="max-w-xl text-sm font-medium leading-6 text-slate-500">
-                    {{ dashboardNarrative }}
-                  </p>
-                </div>
-                <div class="flex flex-wrap gap-2">
-                  <span
-                    v-for="chip in priorityChips"
-                    :key="chip"
-                    class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-black text-slate-600"
-                  >
-                    {{ chip }}
-                  </span>
-                </div>
-              </div>
+            <div class="mt-3 text-[1.4rem] font-black tracking-tight text-slate-950 sm:text-[1.8rem] md:mt-5 md:text-[2.2rem] lg:text-[2.8rem]">
+              {{ todayLabel }}
+              <span class="ml-1 text-slate-800 md:ml-2">{{ todayWeekday }}</span>
             </div>
-
-            <div class="grid gap-3 md:grid-cols-3">
-              <div class="min-h-[132px] rounded-2xl border border-red-100 bg-gradient-to-br from-red-50 via-white to-orange-50 p-4 shadow-sm">
-                <div class="text-xs font-black uppercase tracking-[0.22em] text-red-500">今日重點提醒</div>
-                <div class="mt-3 text-base font-black leading-6 text-slate-800">
-                  {{ todayReminderTitle }}
-                </div>
-                <div class="mt-2 text-xs font-medium leading-5 text-slate-500">
-                  {{ todayReminderBody }}
-                </div>
-              </div>
-
-              <div class="min-h-[132px] rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-4 shadow-sm">
-                <div class="text-xs font-black uppercase tracking-[0.22em] text-sky-600">天氣提醒</div>
-                <div class="mt-3 text-base font-black leading-6 text-slate-800">
-                  {{ weatherReminderTitle }}
-                </div>
-                <div class="mt-2 text-xs font-medium leading-5 text-slate-500">
-                  {{ weatherReminderBody }}
-                </div>
-              </div>
-
-              <div class="min-h-[132px] rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-lime-50 p-4 shadow-sm">
-                <div class="text-xs font-black uppercase tracking-[0.22em] text-emerald-600">集合資訊</div>
-                <div class="mt-3 text-base font-black leading-6 text-slate-800">
-                  {{ gatherInfoTitle }}
-                </div>
-                <div class="mt-2 text-xs font-medium leading-5 text-slate-500">
-                  {{ gatherInfoBody }}
-                </div>
-              </div>
+            <div class="mt-1 text-[1.2rem] font-black leading-tight text-slate-950 sm:text-[1.5rem] md:mt-4 md:text-[1.85rem] lg:text-[2.7rem]">
+              {{ greetingText }}
             </div>
+            <p class="mt-2 max-w-3xl text-xs font-bold text-slate-600 md:mt-4 md:text-sm">
+              這裡是中港熊戰少棒隊，掌控今日球隊脈動。
+            </p>
+          </div>
+        </article>
 
-            <div class="grid gap-3 sm:grid-cols-3">
-              <div class="rounded-2xl border border-white/70 bg-white/85 p-4 shadow-sm backdrop-blur">
-                <div class="text-xs font-bold uppercase tracking-wide text-slate-400">今天日期</div>
-                <div class="mt-2 text-xl font-black text-slate-800">{{ todayLabel }}</div>
-                <div class="mt-1 text-xs font-medium text-slate-500">{{ todayWeekday }}</div>
-              </div>
-              <div class="rounded-2xl border border-white/70 bg-white/85 p-4 shadow-sm backdrop-blur">
-                <div class="text-xs font-bold uppercase tracking-wide text-slate-400">今日焦點</div>
-                <div class="mt-2 text-xl font-black text-slate-800">{{ heroEventTitle }}</div>
-                <div class="mt-1 text-xs font-medium text-slate-500">{{ heroEventSubtitle }}</div>
-              </div>
-              <div class="rounded-2xl border border-white/70 bg-white/85 p-4 shadow-sm backdrop-blur">
-                <div class="text-xs font-bold uppercase tracking-wide text-slate-400">本週節奏</div>
-                <div class="mt-2 text-xl font-black text-slate-800">{{ pendingCounts.weeklyEvents }} 場活動</div>
-                <div class="mt-1 text-xs font-medium text-slate-500">已安排未來 7 天的球隊行程</div>
-              </div>
+        <article class="dashboard-card w-[42%] shrink-0 p-4 sm:w-[230px] md:w-[260px] md:p-6 lg:w-[290px]">
+          <div class="text-[0.9rem] font-black text-slate-950 md:text-[1.05rem]">
+            天氣預報 <span class="hidden sm:inline">({{ weatherCard.location }})</span>
+          </div>
+          <div class="mt-3 flex flex-col gap-2 sm:mt-5 sm:flex-row sm:items-center sm:gap-3">
+            <div class="weather-illustration weather-illustration-compact hidden shrink-0 sm:block">
+              <span class="weather-sun"></span>
+              <span class="weather-cloud weather-cloud-back"></span>
+              <span class="weather-cloud weather-cloud-front"></span>
             </div>
-
-            <div class="flex flex-col gap-3 sm:flex-row">
-              <router-link
-                v-if="canViewLeaveRequests"
-                to="/leave-requests"
-                class="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-black text-white shadow-[0_10px_24px_rgba(216,143,34,0.28)] transition-all hover:bg-primary-hover"
-              >
-                我要請假
-              </router-link>
-              <router-link
-                to="/calendar"
-                class="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700 shadow-sm transition-all hover:border-primary/40 hover:text-primary"
-              >
-                查看本週行程
-              </router-link>
+            <div class="min-w-0">
+              <div class="text-[0.75rem] font-semibold text-slate-500 md:text-sm">{{ weatherCard.summary }}</div>
+              <div class="mt-1 text-[1.4rem] font-black leading-none text-slate-950 md:text-[1.9rem]">{{ weatherCard.temperature }}</div>
+              <div class="mt-1 space-y-0.5 text-[0.75rem] font-semibold text-slate-700 md:mt-2 md:space-y-1 md:text-sm">
+                <div>{{ weatherCard.rain }}</div>
+                <div>{{ weatherCard.wind }}</div>
+              </div>
             </div>
           </div>
-
-          <div class="grid gap-3 sm:grid-cols-2 md:grid-cols-1">
-            <div
-              v-for="card in focusCards"
-              :key="card.title"
-              class="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm backdrop-blur"
-            >
-              <div class="flex items-start justify-between gap-3">
-                <div>
-                  <div class="text-xs font-bold uppercase tracking-wide text-slate-400">{{ card.title }}</div>
-                  <div class="mt-2 text-2xl font-black text-slate-800">{{ card.value }}</div>
-                </div>
-                <div
-                  :class="card.iconClass"
-                  class="flex h-10 w-10 items-center justify-center rounded-2xl text-sm font-black"
-                >
-                  {{ card.icon }}
-                </div>
-              </div>
-              <div class="mt-2 text-xs font-medium leading-5 text-slate-500">{{ card.description }}</div>
-            </div>
-          </div>
-        </div>
+        </article>
       </section>
 
-      <section class="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <div
-          :class="quickSectionClass"
-          class="rounded-[26px] border border-slate-200 bg-white shadow-[0_14px_36px_rgba(15,23,42,0.05)]"
-        >
-          <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-            <div>
-              <h3 class="text-lg font-black text-slate-800">快速操作</h3>
-              <p class="mt-1 text-xs font-medium text-slate-500">常用入口集中在這裡，直接進到下一步。</p>
-            </div>
+      <section class="grid gap-3 md:gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <article class="dashboard-card p-4 md:p-5">
+          <div class="text-sm font-semibold text-slate-500 md:text-base">球隊總人數</div>
+          <div class="mt-2 text-[2.7rem] font-black leading-none text-slate-950 md:text-[3.45rem]">
+            {{ stats.totalMembers }}
+            <span class="ml-1 text-xl font-semibold text-slate-400 md:text-2xl">人</span>
           </div>
-          <div class="grid gap-3 p-4 sm:grid-cols-2 sm:p-5 xl:grid-cols-3">
-            <router-link
-              v-for="action in quickActions"
-              :key="action.key"
-              :to="action.to"
-              :class="action.surfaceClass"
-              class="group min-h-[136px] rounded-2xl border p-4 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:bg-white hover:shadow-md"
-            >
-              <div class="flex items-start justify-between gap-3">
-                <div class="space-y-2">
-                  <div :class="action.iconClass" class="inline-flex h-9 w-9 items-center justify-center rounded-2xl text-sm font-black">
-                    {{ action.icon }}
-                  </div>
-                  <div class="text-sm font-black text-slate-800">{{ action.title }}</div>
-                  <div class="text-xs font-medium leading-5 text-slate-500">{{ action.description }}</div>
-                </div>
-                <div :class="action.badgeClass" class="rounded-xl px-2 py-1 text-[11px] font-extrabold">
-                  {{ action.badge }}
-                </div>
-              </div>
-            </router-link>
+          <div class="mt-4 flex flex-wrap gap-3 text-xs font-semibold text-slate-500 md:text-sm">
+            <span class="flex items-center gap-1.5">
+              <span class="h-2.5 w-2.5 rounded-full bg-[#60a5fa]"></span>
+              校隊: {{ stats.schoolTeamMembers }}
+            </span>
+            <span class="flex items-center gap-1.5">
+              <span class="h-2.5 w-2.5 rounded-full bg-[#22c55e]"></span>
+              社區: {{ stats.communityMembers }}
+            </span>
           </div>
-        </div>
+        </article>
 
-        <div
-          :class="pendingSectionClass"
-          class="rounded-[26px] border border-slate-200 bg-white shadow-[0_14px_36px_rgba(15,23,42,0.05)]"
-        >
-          <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-            <div>
-              <h3 class="text-lg font-black text-slate-800">待處理事項</h3>
-              <p class="mt-1 text-xs font-medium text-slate-500">管理上值得優先注意的幾件事。</p>
-            </div>
+        <article class="dashboard-card p-4 md:p-5">
+          <div class="text-sm font-semibold text-slate-500 md:text-base">校隊人數</div>
+          <div class="mt-2 text-[2.7rem] font-black leading-none text-[#4f7df7] md:text-[3.45rem]">
+            {{ stats.schoolTeamMembers }}
+            <span class="ml-1 text-xl font-semibold text-slate-400 md:text-2xl">人</span>
           </div>
-          <div class="space-y-3 p-4 sm:p-5">
+        </article>
+
+        <article class="dashboard-card p-4 md:p-5">
+          <div class="text-sm font-semibold text-slate-500 md:text-base">球員人數</div>
+          <div class="mt-2 text-[2.7rem] font-black leading-none text-[#22c55e] md:text-[3.45rem]">
+            {{ stats.communityMembers }}
+            <span class="ml-1 text-xl font-semibold text-slate-400 md:text-2xl">人</span>
+          </div>
+        </article>
+
+        <article class="dashboard-card p-4 md:p-5">
+          <div class="text-sm font-semibold text-slate-500 md:text-base">今日請假人數</div>
+          <div class="mt-2 text-[2.7rem] font-black leading-none text-[#ef4444] md:text-[3.45rem]">
+            {{ stats.todayLeaves }}
+            <span class="ml-1 text-xl font-semibold text-slate-400 md:text-2xl">人</span>
+          </div>
+        </article>
+      </section>
+
+      <section>
+        <article class="dashboard-card p-5 md:p-6">
+          <div class="text-[1.05rem] font-black text-slate-950">待辦清單 (To-Do List)</div>
+          <div class="mt-5 space-y-4">
             <div
-              v-for="item in pendingItems"
+              v-for="item in todoItems"
               :key="item.key"
-              :class="item.surfaceClass"
-              class="min-h-[108px] rounded-2xl border p-4"
+              class="flex items-center justify-between gap-3 text-slate-900"
             >
-              <div class="flex items-center justify-between gap-3">
-                <div class="flex items-start gap-3">
-                  <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-sm font-black text-slate-700 shadow-sm">
-                    {{ item.icon }}
-                  </div>
-                  <div>
-                  <div class="text-sm font-black text-slate-800">{{ item.title }}</div>
-                  <div class="mt-1 text-xs font-medium text-slate-500">{{ item.description }}</div>
-                  </div>
-                </div>
-                <div :class="item.countClass" class="rounded-2xl px-3 py-1.5 text-sm font-black">
-                  {{ item.count }}
-                </div>
+              <div class="min-w-0 pr-2">
+                <div class="truncate text-[1.02rem] font-bold">{{ item.displayTitle }}</div>
               </div>
               <router-link
                 v-if="item.to"
                 :to="item.to"
-                class="mt-3 inline-flex items-center text-xs font-black text-primary transition-colors hover:text-primary-hover"
+                class="shrink-0 rounded-xl border-[1.5px] border-slate-700 bg-white px-3.5 py-1 text-sm font-bold text-slate-800 transition-all hover:bg-slate-800 hover:text-white"
               >
-                前往查看
+                {{ item.actionLabel }}
               </router-link>
             </div>
-            <div
-              v-if="pendingItems.length === 0 && !isLoading"
-              class="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-8 text-center"
-            >
-              <div class="text-base font-black text-slate-700">目前沒有待處理事項</div>
-              <div class="mt-2 text-sm font-medium text-slate-500">首頁很乾淨，代表目前節奏穩定。</div>
+            <div v-if="todoItems.length === 0" class="text-base font-black text-slate-700">
+              目前沒有待辦事項。
             </div>
           </div>
-        </div>
-      </section>
-
-      <section class="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <div class="rounded-[26px] border border-slate-200 bg-white shadow-[0_14px_36px_rgba(15,23,42,0.05)]">
-          <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-            <div>
-              <h3 class="text-lg font-black text-slate-800">本週行程</h3>
-              <p class="mt-1 text-xs font-medium text-slate-500">未來 7 天的練習、比賽與活動安排。</p>
-            </div>
-            <router-link
-              v-if="canViewAttendance"
-              to="/attendance"
-              class="text-xs font-black text-primary hover:text-primary-hover"
-            >
-              查看更多
-            </router-link>
-          </div>
-          <div class="space-y-3 p-4 sm:p-5">
-            <div
-              v-for="event in weeklySchedule"
-              :key="event.id"
-              class="flex min-h-[102px] items-center gap-4 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 transition-colors hover:bg-white"
-            >
-              <div class="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl bg-slate-900 text-white">
-                <div class="text-[11px] font-bold uppercase tracking-wide">{{ monthLabel(event.date) }}</div>
-                <div class="text-xl font-black leading-none">{{ dayjs(event.date).format('DD') }}</div>
-              </div>
-              <div class="min-w-0 flex-1">
-                <div class="flex flex-wrap items-center gap-2">
-                  <span class="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-black text-primary">
-                    {{ event.event_type || '活動' }}
-                  </span>
-                  <span class="text-xs font-medium text-slate-400">{{ formatWeekday(event.date) }}</span>
-                </div>
-                <div class="mt-2 truncate text-sm font-black text-slate-800">
-                  {{ event.title || `${event.event_type || '球隊活動'}安排` }}
-                </div>
-                <div class="mt-1 text-xs font-medium text-slate-500">{{ event.date }}</div>
-              </div>
-            </div>
-            <div
-              v-if="weeklySchedule.length === 0 && !isLoading"
-              class="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-10 text-center"
-            >
-              <div class="text-base font-black text-slate-700">本週暫無安排活動</div>
-              <div class="mt-2 text-sm font-medium text-slate-500">可以趁這個空檔安排練習、測試賽或團隊活動。</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="flex flex-col gap-6">
-          <div
-            :class="announcementsSectionClass"
-            class="rounded-[26px] border border-slate-200 bg-white shadow-[0_14px_36px_rgba(15,23,42,0.05)]"
-          >
-            <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-              <div>
-                <h3 class="text-lg font-black text-slate-800">最新公告</h3>
-                <p class="mt-1 text-xs font-medium text-slate-500">重要公告與球隊訊息更新。</p>
-              </div>
-              <router-link
-                v-if="canViewAnnouncements"
-                to="/announcements"
-                class="text-xs font-black text-primary hover:text-primary-hover"
-              >
-                全部公告
-              </router-link>
-            </div>
-            <div class="space-y-3 p-4 sm:p-5">
-              <div
-                v-for="announcement in recentAnnouncements"
-                :key="announcement.id"
-                class="min-h-[136px] cursor-pointer rounded-2xl border border-slate-100 bg-gradient-to-r from-amber-50/70 via-white to-slate-50 p-4 transition-all hover:border-primary/30 hover:shadow-sm"
-                @click="goToAnnouncements"
-              >
-                <div class="flex items-center justify-between gap-3">
-                  <div class="flex items-center gap-2">
-                    <span
-                      v-if="announcement.is_pinned"
-                      class="rounded-full bg-red-500 px-2 py-1 text-[10px] font-black text-white"
-                    >
-                      置頂
-                    </span>
-                    <span
-                      v-else
-                      class="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-black text-primary"
-                    >
-                      公告
-                    </span>
-                  </div>
-                  <span class="text-[11px] font-medium text-slate-400">
-                    {{ dayjs(announcement.created_at).format('MM/DD HH:mm') }}
-                  </span>
-                </div>
-                <div class="mt-3 line-clamp-1 text-sm font-black text-slate-800">{{ announcement.title }}</div>
-                <div class="mt-1 line-clamp-2 text-xs font-medium leading-5 text-slate-500">
-                  {{ announcement.content }}
-                </div>
-              </div>
-              <div
-                v-if="recentAnnouncements.length === 0 && !isLoading"
-                class="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-8 text-center"
-              >
-                <div class="text-base font-black text-slate-700">目前沒有最新公告</div>
-                <div class="mt-2 text-sm font-medium text-slate-500">可以發布近期練習提醒、集合通知或最新消息。</div>
-              </div>
-            </div>
-          </div>
-
-          <div
-            :class="leaveSectionClass"
-            class="rounded-[26px] border border-slate-200 bg-white shadow-[0_14px_36px_rgba(15,23,42,0.05)]"
-          >
-            <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-              <div>
-                <h3 class="text-lg font-black text-slate-800">近期請假動態</h3>
-                <p class="mt-1 text-xs font-medium text-slate-500">先掌握近期人力異動與請假安排。</p>
-              </div>
-              <router-link
-                v-if="canViewLeaveRequests"
-                to="/leave-requests"
-                class="text-xs font-black text-primary hover:text-primary-hover"
-              >
-                請假列表
-              </router-link>
-            </div>
-            <div class="space-y-3 p-4 sm:p-5">
-              <div
-                v-for="leave in recentLeaves"
-                :key="leave.id"
-                class="flex min-h-[92px] items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50/70 p-4"
-              >
-                <div class="flex min-w-0 items-center gap-3">
-                  <div class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100">
-                    <img
-                      v-if="leave.team_members?.avatar_url"
-                      :src="leave.team_members.avatar_url"
-                      class="h-full w-full object-cover"
-                    />
-                    <span v-else class="text-sm font-black text-slate-400">
-                      {{ leave.team_members?.name?.charAt(0) || '?' }}
-                    </span>
-                  </div>
-                  <div class="min-w-0">
-                    <div class="truncate text-sm font-black text-slate-800">
-                      {{ maskName(leave.team_members?.name) }}
-                    </div>
-                    <div class="mt-1 text-xs font-medium text-slate-500">
-                      {{ formatLeaveRange(leave.start_date, leave.end_date) }}
-                    </div>
-                  </div>
-                </div>
-                <span
-                  class="rounded-full border px-2.5 py-1 text-[11px] font-black"
-                  :class="leave.leave_type === '事假' ? 'border-orange-200 bg-orange-50 text-primary' : 'border-red-200 bg-red-50 text-red-600'"
-                >
-                  {{ leave.leave_type }}
-                </span>
-              </div>
-              <div
-                v-if="recentLeaves.length === 0 && !isLoading"
-                class="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-8 text-center"
-              >
-                <div class="text-base font-black text-slate-700">近期沒有人員請假</div>
-                <div class="mt-2 text-sm font-medium text-slate-500">球隊人力狀況穩定，今天看起來不錯。</div>
-              </div>
-            </div>
-          </div>
-        </div>
+        </article>
       </section>
     </div>
   </div>
@@ -400,44 +119,40 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { supabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
 
+type LinkTarget = string | { path: string; query?: Record<string, string> }
+
 type QuickAction = {
   key: string
   title: string
-  description: string
-  to: string | { path: string; query?: Record<string, string> }
+  subtitle?: string
+  to: LinkTarget
   icon: string
-  badge: string
-  badgeClass: string
-  iconClass: string
-  surfaceClass: string
 }
-
 type PendingItem = {
   key: string
   title: string
   description: string
   count: string
-  to?: string | { path: string; query?: Record<string, string> }
-  icon: string
-  countClass: string
-  surfaceClass: string
+  to?: LinkTarget
 }
 
-const router = useRouter()
+type WeatherSnapshot = {
+  location: string
+  summary: string
+  currentTemp: number | null
+  maxTemp: number | null
+  minTemp: number | null
+  rainProbability: number | null
+  windSpeedMps: number | null
+}
+
 const authStore = useAuthStore()
 const permissionsStore = usePermissionsStore()
-
-const isLoading = ref(true)
-const recentLeaves = ref<any[]>([])
-const recentAnnouncements = ref<any[]>([])
-const weeklySchedule = ref<any[]>([])
-const todayEvent = ref<any>(null)
 
 const stats = reactive({
   totalMembers: 0,
@@ -446,6 +161,9 @@ const stats = reactive({
   todayLeaves: 0
 })
 
+const recentAnnouncements = ref<any[]>([])
+const todayEvent = ref<any>(null)
+
 const pendingCounts = reactive({
   joinInquiries: 0,
   unpaidFees: 0,
@@ -453,17 +171,19 @@ const pendingCounts = reactive({
   weeklyEvents: 0
 })
 
-const roleNameMap: Record<string, string> = {
-  ADMIN: '系統管理員',
-  MANAGER: '管理員',
-  HEAD_COACH: '總教練',
-  COACH: '教練',
-  MEMBER: '球員',
-  PARENT: '家長'
-}
+const today = dayjs()
+const todayStr = today.format('YYYY-MM-DD')
+const xinzhuangCoords = { latitude: 25.0359, longitude: 121.45 }
 
-const weekdayMap = ['週日', '週一', '週二', '週三', '週四', '週五', '週六']
-const monthMap = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
+const weatherState = reactive<WeatherSnapshot>({
+  location: 'Xinzhuang',
+  summary: '讀取天氣中',
+  currentTemp: null,
+  maxTemp: null,
+  minTemp: null,
+  rainProbability: null,
+  windSpeedMps: null
+})
 
 const canViewAttendance = computed(() => permissionsStore.can('attendance', 'VIEW'))
 const canViewPlayers = computed(() => permissionsStore.can('players', 'VIEW'))
@@ -471,322 +191,42 @@ const canViewFees = computed(() => permissionsStore.can('fees', 'VIEW'))
 const canViewAnnouncements = computed(() => permissionsStore.can('announcements', 'VIEW'))
 const canViewJoinInquiries = computed(() => permissionsStore.can('join_inquiries', 'VIEW'))
 const canViewLeaveRequests = computed(() => permissionsStore.can('leave_requests', 'VIEW'))
-const currentRole = computed(() => authStore.profile?.role || '')
-const roleGroup = computed(() => {
-  if (['ADMIN', 'MANAGER'].includes(currentRole.value)) return 'manager'
-  if (['HEAD_COACH', 'COACH'].includes(currentRole.value)) return 'coach'
-  return 'member'
-})
-const roleLabel = computed(() => roleNameMap[currentRole.value] || '球隊夥伴')
-const roleBadgeClass = computed(() => {
-  if (roleGroup.value === 'manager') return 'border-rose-200 bg-rose-50 text-rose-700'
-  if (roleGroup.value === 'coach') return 'border-emerald-200 bg-emerald-50 text-emerald-700'
-  return 'border-blue-200 bg-blue-50 text-blue-700'
-})
-const dashboardModeTitle = computed(() => {
-  if (roleGroup.value === 'manager') return '今天先看待處理事項與營運節奏'
-  if (roleGroup.value === 'coach') return '今天先掌握出勤、請假與訓練安排'
-  return '今天先確認行程、公告與球隊最新狀態'
-})
-const dashboardNarrative = computed(() => {
-  if (roleGroup.value === 'manager') {
-    return '首頁會優先把待確認的收費、入隊申請和重要管理項目放在前面，方便你快速巡檢。'
-  }
-  if (roleGroup.value === 'coach') {
-    return '首頁會把出勤節奏、請假動態和本週行程放在較前面，讓你更快進入帶隊狀態。'
-  }
-  return '首頁會優先呈現本週行程、最新公告和常用入口，讓你一打開就知道接下來要注意什麼。'
-})
-const priorityChips = computed(() => {
-  if (roleGroup.value === 'manager') return ['待辦優先', '收費巡檢', '入隊跟進', '全隊節奏']
-  if (roleGroup.value === 'coach') return ['出勤優先', '請假掌握', '訓練安排', '現場節奏']
-  return ['本週行程', '最新公告', '快速操作', '球隊狀態']
-})
-const quickSectionClass = computed(() => (roleGroup.value === 'manager' ? 'xl:order-2' : 'xl:order-1'))
-const pendingSectionClass = computed(() => (roleGroup.value === 'manager' ? 'xl:order-1' : 'xl:order-2'))
-const announcementsSectionClass = computed(() => (roleGroup.value === 'coach' ? 'xl:order-2' : 'xl:order-1'))
-const leaveSectionClass = computed(() => (roleGroup.value === 'coach' ? 'xl:order-1' : 'xl:order-2'))
 
-const today = dayjs()
+const userName = computed(() => authStore.profile?.nickname || authStore.profile?.name || '球隊夥伴')
 const todayLabel = computed(() => today.format('YYYY 年 MM 月 DD 日'))
-const todayWeekday = computed(() => formatWeekday(today.format('YYYY-MM-DD')))
-
-const getPriorityValue = (map: Record<string, number>, key: string) => map[key] || 99
+const todayWeekday = computed(() => `週${'日一二三四五六'[today.day()]}`)
 
 const greetingText = computed(() => {
-  const name = authStore.profile?.nickname || authStore.profile?.name || '今天的球隊夥伴'
-
-  if (today.hour() < 12) return `${name}，早安，先掌握今天的球隊節奏。`
-  if (today.hour() < 18) return `${name}，下午好，今天的重要事項都在這裡。`
-  return `${name}，晚上好，來看看今天還有哪些事要收尾。`
+  if (today.hour() < 12) return `${userName.value}，早安。`
+  if (today.hour() < 18) return `${userName.value}，下午好。`
+  return `${userName.value}，晚上好。`
 })
 
-const heroEventTitle = computed(() => {
-  if (todayEvent.value) {
-    return todayEvent.value.title || todayEvent.value.event_type || '今日有球隊活動'
+const weatherCard = computed(() => {
+  const maxTemp = weatherState.maxTemp ?? weatherState.currentTemp ?? 26
+  const minTemp = weatherState.minTemp ?? weatherState.currentTemp ?? 22
+  const rainProbability = weatherState.rainProbability ?? 20
+  const windSpeed = weatherState.windSpeedMps ?? 2
+
+  return {
+    location: weatherState.location,
+    summary: weatherState.summary,
+    temperature: `${Math.round(minTemp)}°C / ${Math.round(maxTemp)}°C`,
+    rain: `降雨機率: ${Math.round(rainProbability)}%`,
+    wind: `風速: ${windSpeed.toFixed(1)}m/s`
   }
-
-  return '今日暫無活動'
-})
-
-const heroEventSubtitle = computed(() => {
-  if (todayEvent.value) {
-    return `${todayEvent.value.date} ${todayEvent.value.event_type || '球隊活動'}`
-  }
-
-  return '可先查看本週行程或處理待辦事項'
-})
-
-const todayReminderTitle = computed(() => {
-  if (todayEvent.value) return `今天有 ${todayEvent.value.event_type || '球隊活動'}`
-  if (recentAnnouncements.value.length > 0) return '先查看最新公告'
-  return '今天先確認本週節奏'
-})
-
-const todayReminderBody = computed(() => {
-  if (todayEvent.value) {
-    return `${todayEvent.value.title || '已安排今日活動'}，建議先確認出勤、請假與現場分工。`
-  }
-  if (recentAnnouncements.value.length > 0) {
-    return `公告「${recentAnnouncements.value[0].title}」可能有今天需要注意的訊息。`
-  }
-  return '目前沒有今天的活動提醒，可以先查看本週行程與待處理事項。'
-})
-
-const weatherReminderTitle = computed(() => {
-  if (todayEvent.value) return '出發前先看天氣與補水'
-  return '今天也別忘了看天氣'
-})
-
-const weatherReminderBody = computed(() => {
-  if (todayEvent.value) {
-    return '目前首頁尚未串接即時天氣，若今天有活動，建議出門前確認降雨機率、氣溫與是否需要雨具。'
-  }
-  return '目前首頁尚未串接即時天氣服務，建議出門前查看 Google 天氣或氣象資訊。'
-})
-
-const gatherInfoTitle = computed(() => {
-  if (todayEvent.value) return todayEvent.value.title || '今日活動已安排'
-  return '今日暫無集合資訊'
-})
-
-const gatherInfoBody = computed(() => {
-  if (todayEvent.value) {
-    return `${todayEvent.value.date} ${todayEvent.value.event_type || '球隊活動'}，若需要集合地點與集合時間，請到行事曆或公告確認。`
-  }
-  return '今天沒有偵測到活動；若臨時有集合安排，建議透過公告或行事曆同步通知。'
-})
-
-const focusCards = computed(() => {
-  const cards = [
-    {
-      key: 'today-leaves',
-      title: '今日請假',
-      value: `${stats.todayLeaves} 人`,
-      description: stats.todayLeaves > 0 ? '今天有人員請假，建議留意出勤安排。' : '今天暫時沒有人請假，出勤狀況穩定。',
-      icon: '假',
-      iconClass: stats.todayLeaves > 0 ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'
-    },
-    {
-      key: 'members',
-      title: '現役球員',
-      value: `${stats.totalMembers} 人`,
-      description: `校隊 ${stats.schoolTeamMembers} 人，社區球員 ${stats.communityMembers} 人。`,
-      icon: '隊',
-      iconClass: 'bg-blue-50 text-blue-600'
-    },
-    {
-      key: 'weekly-events',
-      title: '本週活動',
-      value: `${pendingCounts.weeklyEvents} 場`,
-      description: pendingCounts.weeklyEvents > 0 ? '本週已有安排活動，記得提早確認人力。' : '這週尚未排定活動，可以安排新的練習。',
-      icon: '程',
-      iconClass: 'bg-amber-50 text-amber-700'
-    }
-  ]
-
-  const priorityMap =
-    roleGroup.value === 'manager'
-      ? { 'weekly-events': 1, 'today-leaves': 2, members: 3 }
-      : roleGroup.value === 'coach'
-        ? { 'today-leaves': 1, 'weekly-events': 2, members: 3 }
-        : { 'weekly-events': 1, members: 2, 'today-leaves': 3 }
-
-  return cards.sort((a, b) => getPriorityValue(priorityMap, a.key) - getPriorityValue(priorityMap, b.key))
-})
-
-const quickActions = computed<QuickAction[]>(() => {
-  const actions: QuickAction[] = [
-    {
-      key: 'calendar',
-      title: '查看行事曆',
-      description: '查看球隊活動、練習與近期重要日期。',
-      to: '/calendar',
-      icon: '曆',
-      badge: '行程',
-      badgeClass: 'bg-blue-50 text-blue-600',
-      iconClass: 'bg-blue-50 text-blue-600',
-      surfaceClass: 'border-blue-100 bg-blue-50/50'
-    }
-  ]
-
-  if (canViewLeaveRequests.value) {
-    actions.unshift({
-      key: 'leave-requests',
-      title: '我要請假',
-      description: '快速送出請假申請，讓教練與管理者即時掌握。',
-      to: '/leave-requests',
-      icon: '假',
-      badge: '常用',
-      badgeClass: 'bg-primary/10 text-primary',
-      iconClass: 'bg-amber-50 text-primary',
-      surfaceClass: 'border-amber-100 bg-amber-50/50'
-    })
-  }
-
-  if (canViewAttendance.value) {
-    actions.push({
-      key: 'attendance',
-      title: '點名系統',
-      description: '前往查看或建立今日點名活動。',
-      to: '/attendance',
-      icon: '點',
-      badge: '出勤',
-      badgeClass: 'bg-emerald-50 text-emerald-600',
-      iconClass: 'bg-emerald-50 text-emerald-600',
-      surfaceClass: 'border-emerald-100 bg-emerald-50/50'
-    })
-  }
-
-  if (canViewPlayers.value) {
-    actions.push({
-      key: 'players',
-      title: '球員名單',
-      description: '查看完整球員資料、背號與分組資訊。',
-      to: '/players',
-      icon: '員',
-      badge: '名單',
-      badgeClass: 'bg-slate-100 text-slate-600',
-      iconClass: 'bg-slate-100 text-slate-600',
-      surfaceClass: 'border-slate-200 bg-slate-50/60'
-    })
-  }
-
-  if (canViewFees.value) {
-    actions.push({
-      key: 'fees',
-      title: '收費管理',
-      description: '處理匯款回報、月費與季費收費資訊。',
-      to: '/fees',
-      icon: '費',
-      badge: '收費',
-      badgeClass: 'bg-amber-50 text-amber-700',
-      iconClass: 'bg-amber-50 text-amber-700',
-      surfaceClass: 'border-amber-100 bg-amber-50/50'
-    })
-  }
-
-  if (canViewAnnouncements.value) {
-    actions.push({
-      key: 'announcements',
-      title: '系統公告',
-      description: '發布或查看球隊公告與通知內容。',
-      to: '/announcements',
-      icon: '告',
-      badge: '公告',
-      badgeClass: 'bg-rose-50 text-rose-600',
-      iconClass: 'bg-rose-50 text-rose-600',
-      surfaceClass: 'border-rose-100 bg-rose-50/50'
-    })
-  }
-
-  if (canViewJoinInquiries.value) {
-    actions.push({
-      key: 'join-inquiries',
-      title: '入隊申請',
-      description: '查看新家長詢問與潛在新球員資料。',
-      to: '/join-inquiries',
-      icon: '招',
-      badge: '招募',
-      badgeClass: 'bg-violet-50 text-violet-600',
-      iconClass: 'bg-violet-50 text-violet-600',
-      surfaceClass: 'border-violet-100 bg-violet-50/50'
-    })
-  }
-
-  const priorityMap =
-    roleGroup.value === 'manager'
-      ? {
-          fees: 1,
-          'join-inquiries': 2,
-          announcements: 3,
-          attendance: 4,
-          players: 5,
-          'leave-requests': 6,
-          calendar: 7
-        }
-      : roleGroup.value === 'coach'
-        ? {
-            attendance: 1,
-            'leave-requests': 2,
-            calendar: 3,
-            players: 4,
-            announcements: 5,
-            fees: 6,
-            'join-inquiries': 7
-          }
-        : {
-            calendar: 1,
-            'leave-requests': 2,
-            announcements: 3,
-            players: 4,
-            attendance: 5,
-            fees: 6,
-            'join-inquiries': 7
-          }
-
-  return actions.sort((a, b) => getPriorityValue(priorityMap, a.key) - getPriorityValue(priorityMap, b.key))
 })
 
 const pendingItems = computed<PendingItem[]>(() => {
   const items: PendingItem[] = []
 
-  if (canViewJoinInquiries.value) {
-    items.push({
-      key: 'join-inquiries',
-      title: '入隊申請待跟進',
-      description: '尚未完成的新入隊詢問，需要回覆家長或更新狀態。',
-      count: `${pendingCounts.joinInquiries} 筆`,
-      to: '/join-inquiries',
-      icon: '招',
-      countClass: pendingCounts.joinInquiries > 0 ? 'bg-violet-50 text-violet-600' : 'bg-slate-100 text-slate-500',
-      surfaceClass: 'border-violet-100 bg-violet-50/50'
-    })
-  }
-
-  if (canViewFees.value) {
-    items.push({
-      key: 'fees',
-      title: '匯款回報待確認',
-      description: '尚未標記為已繳的回報，建議盡快核對。',
-      count: `${pendingCounts.unpaidFees} 筆`,
-      to: { path: '/fees', query: { tab: 'quarterly' } },
-      icon: '費',
-      countClass: pendingCounts.unpaidFees > 0 ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-500',
-      surfaceClass: 'border-amber-100 bg-amber-50/50'
-    })
-  }
-
-  if (canViewLeaveRequests.value) {
+  if (canViewLeaveRequests.value && pendingCounts.upcomingLeaves > 0) {
     items.push({
       key: 'leave-requests',
       title: '近期請假提醒',
-      description: '未來 7 天內已有請假安排的人員數量。',
+      description: `${pendingCounts.upcomingLeaves} 筆待留意，建議先確認本週出勤狀況。`,
       count: `${pendingCounts.upcomingLeaves} 筆`,
-      to: '/leave-requests',
-      icon: '假',
-      countClass: pendingCounts.upcomingLeaves > 0 ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-500',
-      surfaceClass: 'border-red-100 bg-red-50/50'
+      to: '/leave-requests'
     })
   }
 
@@ -794,67 +234,121 @@ const pendingItems = computed<PendingItem[]>(() => {
     items.push({
       key: 'attendance',
       title: todayEvent.value ? '今日點名已建立' : '今日點名待建立',
-      description: todayEvent.value
-        ? '今天已有點名活動，可直接進入點名系統查看。'
-        : '今天尚未建立點名活動，若有練習或比賽可先建立。',
+      description: todayEvent.value ? '今天已有點名活動，可直接前往處理。' : '今天尚未建立點名活動，若有練習或比賽可先建立。',
       count: todayEvent.value ? '已建立' : '待建立',
-      to: '/attendance',
-      icon: '點',
-      countClass: todayEvent.value ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500',
-      surfaceClass: 'border-emerald-100 bg-emerald-50/50'
+      to: '/attendance'
     })
   }
 
-  const priorityMap =
-    roleGroup.value === 'manager'
-      ? { fees: 1, 'join-inquiries': 2, attendance: 3, 'leave-requests': 4 }
-      : roleGroup.value === 'coach'
-        ? { attendance: 1, 'leave-requests': 2, 'join-inquiries': 3, fees: 4 }
-        : { 'leave-requests': 1, attendance: 2, fees: 3, 'join-inquiries': 4 }
+  if (canViewFees.value && pendingCounts.unpaidFees > 0) {
+    items.push({
+      key: 'fees',
+      title: '匯款回報待確認',
+      description: `${pendingCounts.unpaidFees} 筆尚未標記為已繳，建議盡快核對。`,
+      count: `${pendingCounts.unpaidFees} 筆`,
+      to: { path: '/fees', query: { tab: 'quarterly' } }
+    })
+  }
 
-  return items.sort((a, b) => getPriorityValue(priorityMap, a.key) - getPriorityValue(priorityMap, b.key))
+  if (canViewJoinInquiries.value && pendingCounts.joinInquiries > 0) {
+    items.push({
+      key: 'join-inquiries',
+      title: '入隊申請待跟進',
+      description: `${pendingCounts.joinInquiries} 筆新詢問仍待回覆或更新狀態。`,
+      count: `${pendingCounts.joinInquiries} 筆`,
+      to: '/join-inquiries'
+    })
+  }
+
+  const priorityMap = { fees: 1, 'join-inquiries': 2, attendance: 3, 'leave-requests': 4 }
+  return items.sort((a, b) => (priorityMap[a.key as keyof typeof priorityMap] || 99) - (priorityMap[b.key as keyof typeof priorityMap] || 99))
 })
 
-const maskName = (name: string) => {
-  if (!name) return '未知'
-  if (name.length <= 1) return name
-  if (name.length === 2) return `${name[0]}*`
-  return `${name[0]}${'*'.repeat(name.length - 2)}${name[name.length - 1]}`
+const todoItems = computed(() =>
+  pendingItems.value.slice(0, 3).map(item => ({
+    ...item,
+    displayTitle: `[${todoPrefix(item.key)}] ${item.title.replace('待建立', '(待建立)').replace('已建立', '(已確認)')}`,
+    actionLabel: todoActionLabel(item.key)
+  }))
+)
+
+const weatherCodeToSummary = (code: number | null, isDay = true) => {
+  if (code == null) return 'Weather Unavailable'
+  if (code === 0) return isDay ? 'Sunny' : 'Clear'
+  if ([1].includes(code)) return isDay ? 'Mostly Sunny' : 'Mostly Clear'
+  if ([2].includes(code)) return 'Partly Cloudy'
+  if ([3].includes(code)) return 'Cloudy'
+  if ([45, 48].includes(code)) return 'Foggy'
+  if ([51, 53, 55, 56, 57].includes(code)) return 'Drizzle'
+  if ([61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return 'Rain Showers'
+  if ([71, 73, 75, 77, 85, 86].includes(code)) return 'Snow'
+  if ([95, 96, 99].includes(code)) return 'Thunderstorm'
+  return 'Partly Cloudy'
 }
 
-const formatWeekday = (dateString: string) => {
-  const day = dayjs(dateString).day()
-  return weekdayMap[day] || ''
+const formatWindMps = (kmh: number | null | undefined) => {
+  if (kmh == null || Number.isNaN(kmh)) return null
+  return Math.round((kmh / 3.6) * 10) / 10
 }
 
-const monthLabel = (dateString: string) => {
-  const monthIndex = dayjs(dateString).month()
-  return monthMap[monthIndex] || ''
-}
+const fetchWeatherData = async () => {
+  try {
+    const url = new URL('https://api.open-meteo.com/v1/forecast')
+    url.searchParams.set('latitude', String(xinzhuangCoords.latitude))
+    url.searchParams.set('longitude', String(xinzhuangCoords.longitude))
+    url.searchParams.set('current', 'temperature_2m,weather_code,is_day,wind_speed_10m')
+    url.searchParams.set('daily', 'temperature_2m_max,temperature_2m_min,precipitation_probability_max')
+    url.searchParams.set('forecast_days', '1')
+    url.searchParams.set('timezone', 'Asia/Taipei')
 
-const formatLeaveRange = (startDate: string, endDate: string) => {
-  if (!startDate || !endDate) return '-'
-  return startDate === endDate ? startDate : `${startDate} ~ ${endDate}`
-}
+    const response = await fetch(url.toString())
+    if (!response.ok) throw new Error(`Weather request failed: ${response.status}`)
 
-const goToAnnouncements = () => {
-  if (canViewAnnouncements.value) {
-    router.push('/announcements')
+    const payload = await response.json()
+    const current = payload.current || {}
+    const daily = payload.daily || {}
+
+    weatherState.summary = weatherCodeToSummary(current.weather_code ?? null, Boolean(current.is_day))
+    weatherState.currentTemp = typeof current.temperature_2m === 'number' ? current.temperature_2m : null
+    weatherState.maxTemp = Array.isArray(daily.temperature_2m_max) ? daily.temperature_2m_max[0] ?? null : null
+    weatherState.minTemp = Array.isArray(daily.temperature_2m_min) ? daily.temperature_2m_min[0] ?? null : null
+    weatherState.rainProbability = Array.isArray(daily.precipitation_probability_max) ? daily.precipitation_probability_max[0] ?? null : null
+    weatherState.windSpeedMps = formatWindMps(current.wind_speed_10m ?? null)
+  } catch (error) {
+    console.error('Error fetching weather data:', error)
+    weatherState.summary = 'Weather Unavailable'
+    weatherState.currentTemp = 26
+    weatherState.maxTemp = 30
+    weatherState.minTemp = 26
+    weatherState.rainProbability = 20
+    weatherState.windSpeedMps = 2
   }
 }
 
-const fetchDashboardData = async () => {
-  isLoading.value = true
+const todoPrefix = (key: string) => {
+  if (key === 'leave-requests') return '請假'
+  if (key === 'attendance') return '點名'
+  if (key === 'fees') return '收費'
+  if (key === 'join-inquiries') return '招募'
+  return '提醒'
+}
 
+const todoActionLabel = (key: string) => {
+  if (key === 'leave-requests') return '審核'
+  if (key === 'attendance') return '去點名'
+  if (key === 'fees') return '確認'
+  if (key === 'join-inquiries') return '查看'
+  return '前往'
+}
+
+const fetchDashboardData = async () => {
   try {
-    const todayStr = dayjs().format('YYYY-MM-DD')
-    const weekEndStr = dayjs().add(6, 'day').format('YYYY-MM-DD')
+    const weekEndStr = today.add(6, 'day').format('YYYY-MM-DD')
 
     const memberPromise = supabase
       .from('team_members')
-      .select('role', { count: 'exact' })
+      .select('role, status')
       .in('role', ['球員', '校隊'])
-      .neq('status', '離隊')
 
     const todayLeavesPromise = canViewLeaveRequests.value
       ? supabase
@@ -867,37 +361,19 @@ const fetchDashboardData = async () => {
     const announcementsPromise = canViewAnnouncements.value
       ? supabase
           .from('announcements')
-          .select('*')
+          .select('id, title, content, created_at, is_pinned')
           .order('is_pinned', { ascending: false })
           .order('created_at', { ascending: false })
-          .limit(4)
+          .limit(3)
       : Promise.resolve({ data: [] as any[], error: null } as any)
 
-    const recentLeavesPromise = canViewLeaveRequests.value
-      ? supabase
-          .from('leave_requests')
-          .select('id, user_id, leave_type, start_date, end_date, team_members(name, avatar_url)')
-          .gte('end_date', todayStr)
-          .order('start_date', { ascending: true })
-          .limit(5)
-      : Promise.resolve({ data: [] as any[], error: null } as any)
-
-    const weeklyEventsPromise = supabase
+    const todayEventPromise = supabase
       .from('attendance_events')
       .select('id, title, date, event_type, created_at')
-      .gte('date', todayStr)
-      .lte('date', weekEndStr)
-      .order('date', { ascending: true })
+      .eq('date', todayStr)
       .order('created_at', { ascending: true })
-
-    const todayEventPromise = canViewAttendance.value
-      ? supabase
-          .from('attendance_events')
-          .select('id, title, date, event_type')
-          .eq('date', todayStr)
-          .limit(1)
-          .maybeSingle()
-      : Promise.resolve({ data: null, error: null } as any)
+      .limit(1)
+      .maybeSingle()
 
     const joinPromise = canViewJoinInquiries.value
       ? supabase
@@ -921,67 +397,205 @@ const fetchDashboardData = async () => {
           .lte('start_date', weekEndStr)
       : Promise.resolve({ count: 0, error: null } as any)
 
-    const [
-      membersRes,
-      todayLeavesRes,
-      announcementsRes,
-      recentLeavesRes,
-      weeklyEventsRes,
-      todayEventRes,
-      joinRes,
-      feesRes,
-      upcomingLeavesRes
-    ] = await Promise.all([
-      memberPromise,
-      todayLeavesPromise,
-      announcementsPromise,
-      recentLeavesPromise,
-      weeklyEventsPromise,
-      todayEventPromise,
-      joinPromise,
-      feesPromise,
-      upcomingLeavesPromise
-    ])
+    const [membersRes, todayLeavesRes, announcementsRes, todayEventRes, joinRes, feesRes, upcomingLeavesRes] =
+      await Promise.all([
+        memberPromise,
+        todayLeavesPromise,
+        announcementsPromise,
+        todayEventPromise,
+        joinPromise,
+        feesPromise,
+        upcomingLeavesPromise
+      ])
 
     if (membersRes.error) throw membersRes.error
     if (todayLeavesRes?.error) throw todayLeavesRes.error
     if (announcementsRes?.error) throw announcementsRes.error
-    if (recentLeavesRes?.error) throw recentLeavesRes.error
-    if (weeklyEventsRes.error) throw weeklyEventsRes.error
     if (todayEventRes?.error) throw todayEventRes.error
     if (joinRes?.error) throw joinRes.error
     if (feesRes?.error) throw feesRes.error
     if (upcomingLeavesRes?.error) throw upcomingLeavesRes.error
 
-    const members = membersRes.data || []
-
-    stats.totalMembers = membersRes.count || 0
+    const members = (membersRes.data || []).filter((member: any) => member.status !== '離隊')
+    stats.totalMembers = members.length
     stats.schoolTeamMembers = members.filter((member: any) => member.role === '校隊').length
     stats.communityMembers = members.filter((member: any) => member.role === '球員').length
     stats.todayLeaves = todayLeavesRes?.count || 0
 
     recentAnnouncements.value = announcementsRes?.data || []
-    recentLeaves.value = recentLeavesRes?.data || []
-    weeklySchedule.value = weeklyEventsRes.data || []
     todayEvent.value = todayEventRes?.data || null
-
-    pendingCounts.weeklyEvents = weeklySchedule.value.length
     pendingCounts.joinInquiries = joinRes?.count || 0
     pendingCounts.unpaidFees = feesRes?.count || 0
     pendingCounts.upcomingLeaves = upcomingLeavesRes?.count || 0
   } catch (error) {
     console.error('Error fetching dashboard data:', error)
-  } finally {
-    isLoading.value = false
   }
 }
 
 onMounted(() => {
-  fetchDashboardData()
+  void Promise.allSettled([fetchDashboardData(), fetchWeatherData()])
 })
 </script>
 
 <style scoped>
+.dashboard-card {
+  position: relative;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top left, rgba(216, 143, 34, 0.06), transparent 36%),
+    linear-gradient(180deg, #ffffff 0%, #fcfcfb 100%);
+  box-shadow:
+    0 14px 28px rgba(15, 23, 42, 0.07),
+    0 2px 4px rgba(15, 23, 42, 0.03);
+}
+
+.dashboard-card-soft {
+  background: #ffffff;
+  border: 4px solid #fad2d2;
+}
+
+.dashboard-card-darkline::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 4px;
+  border-radius: 24px 24px 0 0;
+  background: linear-gradient(90deg, #374151 0%, #111827 100%);
+}
+
+.weather-illustration {
+  position: relative;
+  width: 98px;
+  height: 76px;
+}
+
+.weather-illustration-compact {
+  width: 74px;
+  height: 58px;
+}
+
+.weather-illustration-compact .weather-sun {
+  top: 5px;
+  left: 31px;
+  width: 26px;
+  height: 26px;
+  box-shadow: 0 0 0 6px rgba(246, 178, 58, 0.14);
+}
+
+.weather-illustration-compact .weather-cloud-front {
+  left: 8px;
+  bottom: 7px;
+  width: 40px;
+  height: 18px;
+}
+
+.weather-illustration-compact .weather-cloud-front::before {
+  left: 2px;
+  bottom: 5px;
+  width: 16px;
+  height: 16px;
+}
+
+.weather-illustration-compact .weather-cloud-front::after {
+  left: 17px;
+  bottom: 8px;
+  width: 20px;
+  height: 20px;
+}
+
+.weather-illustration-compact .weather-cloud-back {
+  right: 4px;
+  bottom: 14px;
+  width: 22px;
+  height: 12px;
+}
+
+.weather-illustration-compact .weather-cloud-back::before {
+  left: 1px;
+  bottom: 3px;
+  width: 10px;
+  height: 10px;
+}
+
+.weather-illustration-compact .weather-cloud-back::after {
+  left: 8px;
+  bottom: 4px;
+  width: 13px;
+  height: 13px;
+}
+
+.weather-sun {
+  position: absolute;
+  top: 6px;
+  left: 42px;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: #f6b23a;
+  box-shadow: 0 0 0 8px rgba(246, 178, 58, 0.14);
+}
+
+.weather-cloud {
+  position: absolute;
+  border: 4px solid #0f172a;
+  background: #fff;
+  border-radius: 999px;
+}
+
+.weather-cloud::before,
+.weather-cloud::after {
+  content: "";
+  position: absolute;
+  border: 4px solid #0f172a;
+  background: #fff;
+  border-radius: 999px;
+}
+
+.weather-cloud-front {
+  left: 10px;
+  bottom: 10px;
+  width: 52px;
+  height: 24px;
+}
+
+.weather-cloud-front::before {
+  left: 4px;
+  bottom: 8px;
+  width: 21px;
+  height: 21px;
+}
+
+.weather-cloud-front::after {
+  left: 22px;
+  bottom: 11px;
+  width: 26px;
+  height: 26px;
+}
+
+.weather-cloud-back {
+  right: 6px;
+  bottom: 18px;
+  width: 30px;
+  height: 16px;
+  opacity: 0.85;
+}
+
+.weather-cloud-back::before {
+  left: 2px;
+  bottom: 5px;
+  width: 14px;
+  height: 14px;
+}
+
+.weather-cloud-back::after {
+  left: 11px;
+  bottom: 7px;
+  width: 17px;
+  height: 17px;
+}
+
 .animate-fade-in {
   animation: fadeIn 0.45s ease-out;
 }
@@ -996,5 +610,22 @@ onMounted(() => {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.btn-folded {
+  position: relative;
+  background: linear-gradient(-45deg, transparent 15px, #475569 0);
+  border-radius: 12px;
+}
+
+.btn-folded::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  border-left: 16px solid #64748b;
+  border-bottom: 16px solid transparent;
+  box-shadow: -2px -2px 4px rgba(0, 0, 0, 0.15);
+  border-top-left-radius: 4px;
 }
 </style>
