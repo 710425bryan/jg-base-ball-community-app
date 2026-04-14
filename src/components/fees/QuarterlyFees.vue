@@ -5,17 +5,35 @@
       
       <!-- 左側：篩選與設定工具區 -->
       <div class="w-full lg:w-auto flex flex-col sm:flex-row gap-4 sm:gap-6 items-start sm:items-end">
-        <div class="w-full sm:w-auto flex flex-col gap-1.5">
-          <label class="text-xs font-bold text-gray-500">結算季度</label>
-          <el-select 
-            v-model="selectedQuarter" 
-            placeholder="選擇季度" 
-            class="!w-full sm:!w-48" 
-            size="large" 
-            @change="fetchData"
-          >
-            <el-option v-for="q in generatedQuarters" :key="q" :label="q" :value="q" />
-          </el-select>
+        <div class="w-full flex flex-col gap-1.5">
+          <label class="text-xs font-bold text-gray-500">結算年月區間</label>
+          <div class="w-full flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
+            <el-date-picker
+              v-model="selectedStartMonth"
+              type="month"
+              value-format="YYYY-MM"
+              class="!w-full sm:!w-40"
+              size="large"
+              @change="handleStartMonthChange"
+            />
+            <span class="hidden sm:flex items-center text-gray-400 font-bold pb-2">至</span>
+            <el-date-picker
+              v-model="selectedEndMonth"
+              type="month"
+              value-format="YYYY-MM"
+              class="!w-full sm:!w-40"
+              size="large"
+              @change="handleEndMonthChange"
+            />
+            <button
+              type="button"
+              @click="resetToCurrentQuarter"
+              class="w-full sm:w-auto bg-gray-100 text-gray-600 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-200 transition-colors"
+            >
+              帶入本季區間
+            </button>
+          </div>
+          <p class="text-[11px] font-medium text-gray-400">目前結算區間：{{ selectedPeriodLabel }}</p>
         </div>
         
         <div class="w-full sm:w-auto flex flex-col gap-1.5">
@@ -167,13 +185,14 @@
               <th class="py-3 px-4 text-left font-bold text-gray-500 text-sm whitespace-nowrap">球員姓名</th>
               <th class="py-3 px-4 text-left font-bold text-gray-500 text-sm whitespace-nowrap">匯款明細 / 項目</th>
               <th class="py-3 px-4 text-center font-bold text-gray-800 text-sm whitespace-nowrap">應繳金額</th>
+              <th class="py-3 px-4 text-center font-bold text-gray-500 text-sm whitespace-nowrap">匯款日期</th>
               <th class="py-3 px-4 text-center font-bold text-gray-500 text-sm whitespace-nowrap">操作紀錄</th>
               <th class="py-3 px-4 text-center font-bold text-gray-500 text-sm whitespace-nowrap">繳費狀態</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
             <tr v-if="filteredFeesList.length === 0" class="hover:bg-gray-50/50">
-              <td colspan="5" class="py-8 text-center text-gray-400 font-bold">
+              <td colspan="6" class="py-8 text-center text-gray-400 font-bold">
                 沒有符合條件的球員紀錄
               </td>
             </tr>
@@ -204,6 +223,9 @@
                   class="!w-28 font-mono font-bold"
                   @change="markChanged(fee)"
                 />
+              </td>
+              <td class="py-3 px-4 text-center">
+                <span class="text-sm font-mono text-gray-500">{{ fee.remittance_date || '-' }}</span>
               </td>
               <td class="py-3 px-4 text-center">
                  <button @click="openEditDialog(fee)" class="text-blue-500 font-bold text-sm px-3 py-1.5 rounded hover:bg-blue-50 transition-colors">
@@ -247,17 +269,36 @@ const highlightMemberId = computed(() => route.query.highlight_member_id as stri
 const isLoading = ref(false)
 const { width } = useWindowSize()
 
-const generatedQuarters = computed(() => {
-  const currentYear = dayjs().year()
-  const quarters: string[] = []
-  const startYear = Math.max(2026, currentYear - 1)
-  for (let y = startYear; y <= currentYear + 1; y++) {
-    for (let q = 1; q <= 4; q++) { quarters.push(`${y}-Q${q}`) }
+const getQuarterMonthRange = (date = dayjs()) => {
+  const quarterStartMonth = Math.floor(date.month() / 3) * 3
+  const start = date.startOf('year').month(quarterStartMonth).startOf('month')
+  const end = start.add(2, 'month')
+  return {
+    startMonth: start.format('YYYY-MM'),
+    endMonth: end.format('YYYY-MM')
   }
-  return quarters
-})
+}
 
-const selectedQuarter = ref(`${dayjs().year()}-Q${Math.floor(dayjs().month() / 3) + 1}`)
+const initialQuarterRange = getQuarterMonthRange()
+const selectedStartMonth = ref(initialQuarterRange.startMonth)
+const selectedEndMonth = ref(initialQuarterRange.endMonth)
+
+const selectedPeriodLabel = computed(() => {
+  const start = dayjs(`${selectedStartMonth.value}-01`)
+  const end = dayjs(`${selectedEndMonth.value}-01`)
+  const isQuarterRange =
+    start.isValid() &&
+    end.isValid() &&
+    start.year() === end.year() &&
+    end.diff(start, 'month') === 2 &&
+    start.month() % 3 === 0
+
+  if (isQuarterRange) {
+    return `${start.year()}-Q${Math.floor(start.month() / 3) + 1}`
+  }
+
+  return `${selectedStartMonth.value} ~ ${selectedEndMonth.value}`
+})
 
 const feesList = ref<any[]>([])
 const currentPlayers = ref<any[]>([])
@@ -301,6 +342,29 @@ const markChanged = (fee: any) => {
 const formatTimestamp = (timestamp: string) => {
   if (!timestamp) return '-'
   return dayjs(timestamp).format('YYYY-MM-DD HH:mm')
+}
+
+const normalizeMonthRange = () => {
+  if (selectedEndMonth.value < selectedStartMonth.value) {
+    selectedEndMonth.value = selectedStartMonth.value
+  }
+}
+
+const handleStartMonthChange = () => {
+  normalizeMonthRange()
+  fetchData()
+}
+
+const handleEndMonthChange = () => {
+  normalizeMonthRange()
+  fetchData()
+}
+
+const resetToCurrentQuarter = () => {
+  const currentQuarterRange = getQuarterMonthRange()
+  selectedStartMonth.value = currentQuarterRange.startMonth
+  selectedEndMonth.value = currentQuarterRange.endMonth
+  fetchData()
 }
 
 watch([isLoading, playerRemittances], ([newLoading, newRemittances]) => {
@@ -366,7 +430,7 @@ const fetchData = async () => {
     const { data: existingFees, error: fErr } = await supabase
       .from('quarterly_fees')
       .select('*')
-      .eq('year_quarter', selectedQuarter.value)
+      .eq('year_quarter', selectedPeriodLabel.value)
       
     if (fErr) throw fErr
     
@@ -447,7 +511,7 @@ const fetchRemittances = async (players: any[]) => {
         const isPlayer = extractedIds.some(id => pIds.includes(id))
         
         // 只看尚未付款，且必須要是該季度的回報
-        return isPlayer && fee.status !== 'paid' && fee.year_quarter === selectedQuarter.value
+        return isPlayer && fee.status !== 'paid' && fee.year_quarter === selectedPeriodLabel.value
       }).map(fee => {
         let extractedIds: string[] = []
         if (Array.isArray(fee.member_ids) && fee.member_ids.length > 0) extractedIds = fee.member_ids
@@ -477,7 +541,7 @@ const saveAll = async () => {
       const payload: any = {
         member_id: f.member_id,
         member_ids: [f.member_id], // 為了向下相容保留舊陣列格式
-        year_quarter: selectedQuarter.value,
+        year_quarter: selectedPeriodLabel.value,
         amount: f.amount,
         payment_items: f.payment_items,
         other_item_note: f.payment_items.includes('加購其他項目:') ? f.other_item_note : null,
@@ -592,7 +656,7 @@ const exportCSV = () => {
     return
   }
 
-  const headers = ['球員姓名', '項目與明細', '應繳金額', '是否繳交流水']
+  const headers = ['球員姓名', '項目與明細', '應繳金額', '匯款日期', '是否繳交流水']
   const rows = [headers]
 
   filteredFeesList.value.forEach(fee => {
@@ -608,6 +672,7 @@ const exportCSV = () => {
       fee.member_name,
       itemsStr,
       fee.amount.toString(),
+      fee.remittance_date || '-',
       fee.is_paid ? '已繳' : '未繳'
     ])
   })
@@ -620,7 +685,7 @@ const exportCSV = () => {
   const url = URL.createObjectURL(blob)
   
   link.setAttribute('href', url)
-  link.setAttribute('download', `球員季費結算表_${selectedQuarter.value}.csv`)
+  link.setAttribute('download', `球員季費結算表_${selectedPeriodLabel.value}.csv`)
   link.style.visibility = 'hidden'
   document.body.appendChild(link)
   link.click()
