@@ -87,7 +87,7 @@
         </article>
       </section>
 
-      <section>
+      <section class="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
         <article class="dashboard-card p-5 md:p-6">
           <div class="text-[1.05rem] font-black text-slate-950">待辦清單 (To-Do List)</div>
           <div class="mt-5 space-y-4">
@@ -112,16 +112,77 @@
             </div>
           </div>
         </article>
+
+        <article v-if="canViewMatches" class="dashboard-card p-5 md:p-6">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <div class="text-[1.05rem] font-black text-slate-950">賽程表</div>
+              <div class="mt-1 text-xs font-semibold text-slate-500">顯示最接近的三筆未來賽事</div>
+            </div>
+            <router-link
+              to="/match-records"
+              class="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-900 hover:text-white"
+            >
+              查看全部
+            </router-link>
+          </div>
+
+          <div class="mt-5 space-y-3">
+            <button
+              v-for="match in upcomingMatches"
+              :key="match.id"
+              type="button"
+              class="w-full rounded-2xl border border-slate-200/80 bg-white px-4 py-3 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              @click="openUpcomingMatch(match.id)"
+            >
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="rounded-full bg-[#fcead8] px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-[#b5762a]">
+                      {{ match.category_group || '賽事' }}
+                    </span>
+                    <span v-if="match.match_level" class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-600">
+                      {{ match.match_level }}
+                    </span>
+                  </div>
+                  <div class="mt-2 line-clamp-1 text-base font-black text-slate-900">{{ match.match_name }}</div>
+                  <div class="mt-1 text-sm font-bold text-slate-700">中港熊戰 vs {{ match.opponent || '待確認' }}</div>
+                </div>
+                <div class="shrink-0 text-right">
+                  <div class="text-sm font-black text-slate-900">{{ formatUpcomingMatchDate(match.match_date) }}</div>
+                  <div class="mt-1 text-xs font-semibold text-slate-500">{{ match.match_time || '時間待確認' }}</div>
+                </div>
+              </div>
+              <div class="mt-3 line-clamp-1 text-xs font-semibold text-slate-500">{{ match.location || '地點待確認' }}</div>
+            </button>
+
+            <div
+              v-if="upcomingMatches.length === 0"
+              class="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm font-bold text-slate-500"
+            >
+              目前沒有未來賽事
+            </div>
+          </div>
+        </article>
       </section>
     </div>
+
+    <MatchDetailDialog
+      v-model="upcomingMatchDialogVisible"
+      :match-id="selectedUpcomingMatchId"
+      :readonly="true"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import dayjs from 'dayjs'
+import { ElMessage } from 'element-plus'
 import { supabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/auth'
+import MatchDetailDialog from '@/components/match-records/MatchDetailDialog.vue'
+import { useMatchesStore } from '@/stores/matches'
 import { usePermissionsStore } from '@/stores/permissions'
 import {
   createEmptyDashboardPendingCounts,
@@ -136,6 +197,7 @@ import {
   isSupabaseRpcUnavailable,
   markSupabaseRpcUnavailable
 } from '@/utils/supabaseRpc'
+import type { MatchRecord } from '@/types/match'
 
 type LinkTarget = string | { path: string; query?: Record<string, string> }
 
@@ -157,13 +219,22 @@ type WeatherSnapshot = {
   windSpeedMps: number | null
 }
 
+type UpcomingMatchSummary = Pick<
+  MatchRecord,
+  'id' | 'match_name' | 'opponent' | 'match_date' | 'match_time' | 'location' | 'category_group' | 'match_level'
+>
+
 const authStore = useAuthStore()
+const matchesStore = useMatchesStore()
 const permissionsStore = usePermissionsStore()
 
 const stats = reactive(createEmptyDashboardStats())
 
 const recentAnnouncements = ref<DashboardAnnouncement[]>([])
 const todayEvent = ref<DashboardEvent | null>(null)
+const upcomingMatches = ref<UpcomingMatchSummary[]>([])
+const selectedUpcomingMatchId = ref<string | null>(null)
+const upcomingMatchDialogVisible = ref(false)
 
 const pendingCounts = reactive(createEmptyDashboardPendingCounts())
 
@@ -186,6 +257,7 @@ const canViewAnnouncements = computed(() => permissionsStore.can('announcements'
 const canViewFees = computed(() => permissionsStore.can('fees', 'VIEW'))
 const canViewJoinInquiries = computed(() => permissionsStore.can('join_inquiries', 'VIEW'))
 const canViewLeaveRequests = computed(() => permissionsStore.can('leave_requests', 'VIEW'))
+const canViewMatches = computed(() => permissionsStore.can('matches', 'VIEW'))
 
 const userName = computed(() => authStore.profile?.nickname || authStore.profile?.name || '球隊夥伴')
 const todayLabel = computed(() => today.format('YYYY 年 MM 月 DD 日'))
@@ -211,6 +283,37 @@ const weatherCard = computed(() => {
     wind: `風速: ${windSpeed.toFixed(1)}m/s`
   }
 })
+
+const getUpcomingMatchTimestamp = (match: UpcomingMatchSummary) => {
+  if (!match.match_date) return Number.POSITIVE_INFINITY
+
+  const startTime = match.match_time?.match(/\d{1,2}:\d{2}/)?.[0] || '23:59'
+  const value = dayjs(`${match.match_date}T${startTime}`).valueOf()
+  return Number.isNaN(value) ? Number.POSITIVE_INFINITY : value
+}
+
+const formatUpcomingMatchDate = (matchDate: string) => dayjs(matchDate).format('MM/DD ddd')
+
+const openUpcomingMatch = async (matchId: string) => {
+  selectedUpcomingMatchId.value = matchId
+  upcomingMatchDialogVisible.value = true
+
+  if (matchesStore.matches.some((match) => match.id === matchId)) {
+    return
+  }
+
+  try {
+    await matchesStore.fetchMatches()
+    if (!matchesStore.matches.some((match) => match.id === matchId)) {
+      upcomingMatchDialogVisible.value = false
+      ElMessage.warning('找不到這筆比賽資料')
+    }
+  } catch (error) {
+    console.error('Error fetching match detail:', error)
+    upcomingMatchDialogVisible.value = false
+    ElMessage.error('讀取比賽資料失敗，請稍後再試')
+  }
+}
 
 const pendingItems = computed<PendingItem[]>(() => {
   const items: PendingItem[] = []
@@ -317,6 +420,34 @@ const fetchWeatherData = async () => {
     weatherState.minTemp = 26
     weatherState.rainProbability = 20
     weatherState.windSpeedMps = 2
+  }
+}
+
+const fetchUpcomingMatches = async () => {
+  if (!canViewMatches.value) {
+    upcomingMatches.value = []
+    return
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('matches')
+      .select('id, match_name, opponent, match_date, match_time, location, category_group, match_level')
+      .gte('match_date', today.format('YYYY-MM-DD'))
+      .order('match_date', { ascending: true })
+      .order('match_time', { ascending: true })
+      .limit(20)
+
+    if (error) throw error
+
+    const nowValue = dayjs().valueOf()
+    upcomingMatches.value = ((data || []) as UpcomingMatchSummary[])
+      .filter((match) => getUpcomingMatchTimestamp(match) >= nowValue)
+      .sort((a, b) => getUpcomingMatchTimestamp(a) - getUpcomingMatchTimestamp(b))
+      .slice(0, 3)
+  } catch (error) {
+    console.error('Error fetching upcoming matches:', error)
+    upcomingMatches.value = []
   }
 }
 
@@ -496,7 +627,7 @@ const fetchDashboardData = async () => {
 }
 
 onMounted(() => {
-  void Promise.allSettled([fetchDashboardData(), fetchWeatherData()])
+  void Promise.allSettled([fetchDashboardData(), fetchWeatherData(), fetchUpcomingMatches()])
 })
 </script>
 

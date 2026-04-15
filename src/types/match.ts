@@ -41,6 +41,7 @@ export interface BattingStat {
 
 export interface MatchRecord {
   id: string;
+  google_calendar_event_id?: string | null;
   match_name: string;
   opponent: string;
   match_date: string; // YYYY-MM-DD

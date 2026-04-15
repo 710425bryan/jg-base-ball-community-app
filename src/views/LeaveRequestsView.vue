@@ -405,10 +405,24 @@
           </p>
         </div>
 
+        <div v-if="settingsForm.support_message" class="bg-amber-50 p-4 rounded-xl text-sm text-amber-700 space-y-2 border border-amber-200">
+          <p class="font-bold">啟用前請先確認</p>
+          <p class="leading-relaxed">{{ settingsForm.support_message }}</p>
+        </div>
+
         <div v-if="settingsForm.receive_notifications" class="space-y-3 animate-fade-in">
           <div class="bg-green-50 p-4 rounded-xl text-sm text-green-700 space-y-2 border border-green-100 flex items-center gap-2">
             <el-icon class="text-green-500 text-xl"><CircleCheckFilled /></el-icon>
             <span class="font-bold">此裝置已成功綁定推播通知！</span>
+          </div>
+
+          <div class="bg-white p-4 rounded-xl text-sm text-gray-600 space-y-2 border border-green-100">
+            <p v-if="settingsForm.platform_label">
+              <span class="font-bold text-gray-700">目前裝置：</span>{{ settingsForm.platform_label }}
+            </p>
+            <p v-if="settingsForm.provider_label">
+              <span class="font-bold text-gray-700">推播供應商：</span>{{ settingsForm.provider_label }}
+            </p>
           </div>
           
           <div class="bg-gray-50 p-4 rounded-xl text-sm text-gray-500 space-y-2 border border-gray-100">
@@ -502,8 +516,161 @@ const rules = {
 
 const settingsForm = reactive({
   receive_notifications: false,
-  web_push_sub: null as any
+  web_push_sub: null as PushSubscriptionJSON | null,
+  current_endpoint: '',
+  subscription_id: '',
+  provider_label: '',
+  platform_label: '',
+  support_message: '',
+  is_supported: true
 })
+
+type PushSupportState = {
+  isSupported: boolean
+  supportMessage: string
+  isIOS: boolean
+  isStandalone: boolean
+}
+
+type WebPushSubscriptionRow = {
+  id: string
+  endpoint: string
+  subscription: PushSubscriptionJSON
+  enabled: boolean
+  platform: string | null
+}
+
+const getPushSupportState = (): PushSupportState => {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    return {
+      isSupported: false,
+      supportMessage: '目前環境無法使用 Web Push 通知。',
+      isIOS: false,
+      isStandalone: false
+    }
+  }
+
+  const hasCoreSupport =
+    'serviceWorker' in navigator &&
+    'PushManager' in window &&
+    typeof Notification !== 'undefined'
+
+  const isIOS =
+    /iP(hone|ad|od)/i.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+
+  const isStandalone =
+    window.matchMedia?.('(display-mode: standalone)').matches === true ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true
+
+  if (!hasCoreSupport) {
+    return {
+      isSupported: false,
+      supportMessage: '此瀏覽器不支援 Web Push 通知。',
+      isIOS,
+      isStandalone
+    }
+  }
+
+  if (isIOS && !isStandalone) {
+    return {
+      isSupported: false,
+      supportMessage: 'iPhone 請先從 Safari 的分享選單選擇「加入主畫面」，並改從主畫面開啟系統後，再啟用推播通知。',
+      isIOS,
+      isStandalone
+    }
+  }
+
+  return {
+    isSupported: true,
+    supportMessage: '',
+    isIOS,
+    isStandalone
+  }
+}
+
+const getCurrentPlatformLabel = (state = getPushSupportState()) => {
+  if (typeof navigator === 'undefined') return '目前裝置'
+
+  const ua = navigator.userAgent || ''
+  if (state.isIOS) {
+    return state.isStandalone ? 'iPhone / iPad（主畫面 App）' : 'iPhone / iPad（瀏覽器）'
+  }
+  if (/Android/i.test(ua)) return 'Android'
+  if (/Windows/i.test(ua)) return 'Windows'
+  if (/Macintosh|Mac OS X/i.test(ua)) return 'macOS'
+  if (/Linux/i.test(ua)) return 'Linux'
+  return '目前裝置'
+}
+
+const detectPushProvider = (endpoint?: string | null) => {
+  if (!endpoint) return ''
+  if (endpoint.includes('push.apple.com')) return 'Apple Web Push'
+  if (endpoint.includes('fcm.googleapis.com')) return 'FCM Web Push'
+  if (endpoint.includes('updates.push.services.mozilla.com')) return 'Mozilla Web Push'
+  return 'Web Push'
+}
+
+const resetPushSettingsState = (state = getPushSupportState()) => {
+  settingsForm.receive_notifications = false
+  settingsForm.web_push_sub = null
+  settingsForm.current_endpoint = ''
+  settingsForm.subscription_id = ''
+  settingsForm.provider_label = ''
+  settingsForm.platform_label = getCurrentPlatformLabel(state)
+  settingsForm.support_message = state.supportMessage
+  settingsForm.is_supported = state.isSupported
+}
+
+const getPushRegistration = async () => {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
+    return null
+  }
+
+  const existingRegistration = await navigator.serviceWorker.getRegistration()
+  if (existingRegistration) {
+    return existingRegistration
+  }
+
+  return navigator.serviceWorker.ready
+}
+
+const loadCurrentDevicePushState = async () => {
+  const userId = authStore.user?.id
+  const supportState = getPushSupportState()
+  resetPushSettingsState(supportState)
+
+  if (!userId || !supportState.isSupported) {
+    return
+  }
+
+  const registration = await getPushRegistration()
+  const currentSubscription = await registration?.pushManager.getSubscription()
+
+  if (!currentSubscription) {
+    return
+  }
+
+  const endpoint = currentSubscription.endpoint || currentSubscription.toJSON().endpoint || ''
+  settingsForm.web_push_sub = currentSubscription.toJSON()
+  settingsForm.current_endpoint = endpoint
+  settingsForm.provider_label = detectPushProvider(endpoint)
+
+  const { data, error } = await supabase
+    .from('web_push_subscriptions')
+    .select('id, endpoint, subscription, enabled, platform')
+    .eq('user_id', userId)
+    .eq('endpoint', endpoint)
+    .maybeSingle<WebPushSubscriptionRow>()
+
+  if (error) throw error
+
+  if (data?.enabled) {
+    settingsForm.receive_notifications = true
+    settingsForm.subscription_id = data.id
+    settingsForm.platform_label = data.platform || settingsForm.platform_label
+  }
+}
 
 // --- 權限判斷 ---
 const isAdminOrManager = computed(() => {
@@ -878,28 +1045,7 @@ const openSettingsModal = async () => {
   isSettingsOpen.value = true
   isFetchingSettings.value = true
   try {
-    const userId = authStore.user?.id
-    if (!userId) return
-
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('web_push_sub')
-      .eq('id', userId)
-      .single()
-    if (error) throw error
-
-    // 檢查目前瀏覽器是否有訂閱以及 DB 裡是否有舊的 JSON
-    const registration = await navigator.serviceWorker?.getRegistration()
-    let currentSub = registration ? await registration.pushManager.getSubscription() : null
-
-    if (currentSub && data && data.web_push_sub) {
-      settingsForm.receive_notifications = true
-      settingsForm.web_push_sub = data.web_push_sub
-    } else {
-      settingsForm.receive_notifications = false
-      settingsForm.web_push_sub = null
-    }
-
+    await loadCurrentDevicePushState()
   } catch (error: any) {
     ElMessage.error('讀取設定失敗：' + error.message)
   } finally {
@@ -919,21 +1065,39 @@ const urlB64ToUint8Array = (base64String: string) => {
 }
 
 const handleTogglePush = async (val: boolean | string | number) => {
-  if (val) {
+  if (Boolean(val)) {
     // 開啟推播：請求權限並註冊
     isFetchingSettings.value = true
     try {
-      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-        throw new Error('此瀏覽器不支援推播通知！')
+      const userId = authStore.user?.id
+      if (!userId) {
+        throw new Error('請先登入後再設定推播通知。')
       }
 
-      const permission = await Notification.requestPermission()
+      const supportState = getPushSupportState()
+      settingsForm.support_message = supportState.supportMessage
+      settingsForm.platform_label = getCurrentPlatformLabel(supportState)
+      settingsForm.is_supported = supportState.isSupported
+
+      if (!supportState.isSupported || typeof Notification === 'undefined') {
+        throw new Error(supportState.supportMessage || '此裝置目前無法啟用推播通知。')
+      }
+
+      const permission =
+        Notification.permission === 'granted'
+          ? 'granted'
+          : await Notification.requestPermission()
+
       if (permission !== 'granted') {
         settingsForm.receive_notifications = false
         throw new Error('您封鎖了通知權限，請從瀏覽器設定解開。')
       }
 
-      const registration = await navigator.serviceWorker.ready
+      const registration = await getPushRegistration()
+      if (!registration) {
+        throw new Error('目前找不到可用的 Service Worker，請重新整理後再試一次。')
+      }
+
       let subscription = await registration.pushManager.getSubscription()
 
       if (!subscription) {
@@ -944,16 +1108,37 @@ const handleTogglePush = async (val: boolean | string | number) => {
       }
 
       const subJSON = subscription.toJSON()
+      const endpoint = subscription.endpoint || subJSON.endpoint || ''
+      if (!endpoint) {
+        throw new Error('推播訂閱缺少 endpoint，請稍後再試。')
+      }
+
+      const platformLabel = getCurrentPlatformLabel(supportState)
+      const providerLabel = detectPushProvider(endpoint)
       settingsForm.web_push_sub = subJSON
+      settingsForm.current_endpoint = endpoint
+      settingsForm.provider_label = providerLabel
+      settingsForm.platform_label = platformLabel
 
-      // 儲存進 DB
-      const { error } = await supabase.from('profiles').update({ 
-        web_push_sub: subJSON,
-        receive_notifications: true
-      }).eq('id', authStore.user?.id)
+      const { data, error } = await supabase
+        .from('web_push_subscriptions')
+        .upsert({
+          user_id: userId,
+          endpoint,
+          subscription: subJSON,
+          platform: platformLabel,
+          user_agent: navigator.userAgent,
+          enabled: true
+        }, {
+          onConflict: 'endpoint'
+        })
+        .select('id')
+        .single()
+
       if (error) throw error
+      settingsForm.subscription_id = data.id
 
-      ElMessage.success('推播裝置綁定成功！')
+      ElMessage.success(`此裝置推播綁定成功${providerLabel ? `：${providerLabel}` : '！'}`)
     } catch (e: any) {
       settingsForm.receive_notifications = false
       ElMessage.error(e.message)
@@ -961,22 +1146,48 @@ const handleTogglePush = async (val: boolean | string | number) => {
       isFetchingSettings.value = false
     }
   } else {
-    // 關閉推播：清空 DB
+    // 關閉推播：只解除目前裝置
     isFetchingSettings.value = true
     try {
-      const registration = await navigator.serviceWorker?.ready
-      const subscription = await registration?.pushManager.getSubscription()
-      if (subscription) {
-        await subscription.unsubscribe()
+      const userId = authStore.user?.id
+      if (!userId) {
+        throw new Error('請先登入後再設定推播通知。')
       }
 
-      settingsForm.web_push_sub = null
-      const { error } = await supabase.from('profiles').update({ 
-        web_push_sub: null,
-        receive_notifications: false
-      }).eq('id', authStore.user?.id)
-      if (error) throw error
-      ElMessage.info('已關閉推播通知')
+      const registration = await getPushRegistration()
+      const subscription = await registration?.pushManager.getSubscription()
+      const endpoint =
+        subscription?.endpoint ||
+        settingsForm.current_endpoint ||
+        settingsForm.web_push_sub?.endpoint ||
+        ''
+
+      let unsubscribeError: Error | null = null
+      if (subscription) {
+        try {
+          await subscription.unsubscribe()
+        } catch (error: any) {
+          unsubscribeError = error
+        }
+      }
+
+      if (endpoint) {
+        const { error } = await supabase
+          .from('web_push_subscriptions')
+          .delete()
+          .eq('user_id', userId)
+          .eq('endpoint', endpoint)
+
+        if (error) throw error
+      }
+
+      resetPushSettingsState()
+
+      if (unsubscribeError) {
+        ElMessage.warning('伺服器已停用這台裝置的推播，但本機訂閱解除失敗，請重新整理後再確認。')
+      } else {
+        ElMessage.info('已關閉此裝置的推播通知')
+      }
     } catch (e: any) {
       ElMessage.error('關閉推播時發生錯誤：' + e.message)
       settingsForm.receive_notifications = true

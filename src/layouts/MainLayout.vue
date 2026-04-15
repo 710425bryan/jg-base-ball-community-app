@@ -694,11 +694,6 @@ watch(() => authStore.profile?.role, (newRole) => {
     return;
   }
 
-  // 現在只要登入就啟動監聽，內部會有 `can()` 判斷
-  if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-    void Notification.requestPermission();
-  }
-
   startListening();
   clearScheduledNotificationFeedLoad();
   scheduleNotificationFeedLoad();

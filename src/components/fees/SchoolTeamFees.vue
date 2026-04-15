@@ -19,22 +19,27 @@
         />
       </div>
 
-      <!-- 本月上課日期選取 -->
       <div class="w-full sm:w-auto flex flex-col gap-1.5 border-l-0 sm:border-l border-gray-200 pl-0 sm:pl-4">
-        <label class="text-xs font-bold text-gray-500">本月上課日期 (可複選)</label>
-        <div class="flex gap-2 items-center">
-          <el-date-picker
-            v-model="classDates"
-            type="dates"
-            value-format="YYYY-MM-DD"
-            placeholder="選擇上課日期"
-            class="!w-full sm:!w-64"
-            size="large"
-            @change="fetchData"
-            :clearable="false"
-            :disabled-date="disabledDate"
-          />
-        </div>
+        <label class="text-xs font-bold text-gray-500">本月堂數</label>
+        <el-input-number
+          v-model="monthlyTotalSessions"
+          :min="0"
+          :step="1"
+          size="large"
+          class="!w-full sm:!w-32"
+          :disabled="isLoading"
+          @change="handleMonthlyTotalSessionsChange"
+        />
+      </div>
+
+      <div class="w-full sm:w-auto flex flex-col gap-1.5 border-l-0 sm:border-l border-gray-200 pl-0 sm:pl-4">
+        <span class="text-xs font-bold text-gray-500">月份統計說明</span>
+        <p class="text-xs text-gray-500 leading-relaxed max-w-sm">
+          請假天數改為依照所選月份自動統計，不需要另外勾選日期；本月堂數由全隊共用，預設 4 堂，若實際不同可在這裡一次調整。
+        </p>
+        <p v-if="hasMonthlyTotalMismatch" class="text-[11px] text-amber-600 leading-relaxed max-w-sm">
+          這個月份的舊資料堂數不一致，已先統一顯示為 4；存檔後會覆蓋成相同堂數。
+        </p>
       </div>
       </div>
 
@@ -65,6 +70,32 @@
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
           一鍵存檔 <span v-if="hasChanges">({{ pendingChanges.length }})</span>
         </button>
+      </div>
+    </div>
+
+    <div class="bg-white p-5 md:p-6 rounded-2xl border border-gray-100 shadow-sm">
+      <div class="flex flex-col gap-1 mb-4">
+        <p class="text-xs font-bold uppercase tracking-[0.24em] text-primary/70">{{ selectedMonth }} 月費總結</p>
+        <div class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+          <h3 class="text-lg font-black text-gray-800">校隊月費摘要</h3>
+          <p class="text-xs text-gray-400">摘要依目前選定月份全部球員即時統計</p>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div
+          v-for="card in schoolTeamSummaryCards"
+          :key="card.key"
+          :class="card.cardClass"
+          class="rounded-2xl border p-4 md:p-5 shadow-sm"
+        >
+          <p :class="card.labelClass" class="text-sm font-bold">{{ card.label }}</p>
+          <p :class="card.amountClass" class="mt-3 text-3xl font-black tracking-tight">
+            {{ formatCurrency(card.amount) }}
+          </p>
+          <p :class="card.descriptionClass" class="mt-2 text-xs leading-relaxed">
+            {{ card.description }}
+          </p>
+        </div>
       </div>
     </div>
 
@@ -168,12 +199,15 @@
 
     <!-- Data Table -->
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden" v-loading="isLoading">
+      <div class="px-4 py-3 text-xs text-gray-400 border-b border-gray-100 bg-gray-50/60">
+        請假天數會依照所選月份統計全部請假日期；本月堂數是月份共用值，預設 4 堂，調整後會同步整張表。
+      </div>
       <div class="overflow-x-auto">
         <table class="w-full min-w-[800px]">
           <thead>
             <tr class="bg-gray-50/80 border-b border-gray-100">
               <th class="py-3 px-4 text-left font-bold text-gray-500 text-sm whitespace-nowrap">球員姓名</th>
-              <th class="py-3 px-4 text-center font-bold text-gray-500 text-sm whitespace-nowrap">本月練球紀錄 (總計 / 請假)</th>
+              <th class="py-3 px-4 text-center font-bold text-gray-500 text-sm whitespace-nowrap">本月堂數 / 請假天數</th>
               <!-- <th class="py-3 px-4 text-center font-bold text-gray-500 text-sm whitespace-nowrap">單次費率</th> -->
               <th class="py-3 px-4 text-center font-bold text-gray-500 text-sm whitespace-nowrap">應收 (扣除請假)</th>
               <th class="py-3 px-4 text-center font-bold text-gray-500 text-sm whitespace-nowrap">手動應扣/減免</th>
@@ -201,20 +235,21 @@
               </td>
               <td class="py-3 px-4">
                 <div class="text-center font-bold text-gray-600 flex items-center justify-center">
-                  <el-input-number 
-                    v-model="fee.total_sessions" 
-                    :min="0" :step="1" 
-                    size="small" 
-                    class="!w-24 font-mono font-bold mr-2"
-                    @change="markChanged(fee)"
-                  />
+                  <span class="inline-flex min-w-[3.5rem] justify-center rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 font-mono font-bold text-gray-800 mr-2">
+                    {{ monthlyTotalSessions }}
+                  </span>
                   /
-                  <span class="text-blue-500 ml-2" title="請假次數">{{ fee.leave_sessions }}</span>
+                  <el-tooltip
+                    :content="fee.counted_leave_dates?.length ? `請假日期：${fee.counted_leave_dates.join('、')}` : '本月沒有請假紀錄'"
+                    placement="top"
+                  >
+                    <span class="text-blue-500 ml-2 cursor-help" title="請假次數">{{ fee.leave_sessions }}</span>
+                  </el-tooltip>
                 </div>
               </td>
               <!-- <td class="py-3 px-4 text-center font-mono text-gray-500 text-sm">${{ fee.per_session_fee }}</td> -->
               <td class="py-3 px-4 text-center font-mono text-gray-800 font-bold tracking-wider">
-                ${{ (fee.total_sessions - fee.leave_sessions) * fee.per_session_fee }}
+                {{ formatCurrency(getFeeReceivableAmount(fee)) }}
               </td>
               <td class="py-3 px-4">
                 <div class="flex justify-center flex-col items-center">
@@ -229,7 +264,7 @@
                 </div>
               </td>
               <td class="py-3 px-4 text-center font-mono font-black text-lg tracking-wider" :class="getPayableClass(fee)">
-                ${{ ((fee.total_sessions - fee.leave_sessions) * fee.per_session_fee) - fee.deduction_amount }}
+                {{ formatCurrency(getFeePayableAmount(fee)) }}
               </td>
               <td class="py-3 px-4">
                 <div class="flex justify-center">
@@ -253,7 +288,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch, nextTick } from 'vue'
+import { ref, onMounted, computed, watch, watchEffect, nextTick } from 'vue'
 import { supabase } from '@/services/supabase'
 import { ElMessage, ElMessageBox, ElNotification } from 'element-plus'
 import { Loading, BellFilled, Edit, Delete, Check, Calendar } from '@element-plus/icons-vue'
@@ -261,13 +296,25 @@ import dayjs from 'dayjs'
 import { useWindowSize } from '@vueuse/core'
 import { useRoute } from 'vue-router'
 
+const emit = defineEmits<{
+  (e: 'summary-change', payload: {
+    scope: 'monthly'
+    periodLabel: string
+    total: number
+    paid: number
+    unpaid: number
+    isReady: boolean
+  }): void
+}>()
+
 const selectedMonth = ref(dayjs().subtract(1, 'month').format('YYYY-MM'))
+const monthlyTotalSessions = ref(4)
+const hasMonthlyTotalMismatch = ref(false)
 const isLoading = ref(false)
 const isCalculating = ref(false)
 const feesList = ref<any[]>([])
 const schoolTeamRemittances = ref<any[]>([])
 const currentSchoolTeamMembers = ref<any[]>([])
-const classDates = ref<string[]>([])
 
 const drawerVisible = ref(false)
 const drawerSize = computed(() => {
@@ -325,30 +372,141 @@ watch([isLoading, schoolTeamRemittances], ([newLoading, newRemittances]) => {
   }
 })
 
-const disabledDate = (time: Date) => {
-  if (!selectedMonth.value) return false
-  const monthString = dayjs(selectedMonth.value).format('YYYY-MM')
-  return dayjs(time).format('YYYY-MM') !== monthString
+const getMonthBounds = (monthValue: string) => ({
+  startOfMonth: dayjs(monthValue).startOf('month').format('YYYY-MM-DD'),
+  endOfMonth: dayjs(monthValue).endOf('month').format('YYYY-MM-DD')
+})
+
+const getDefaultTotalSessions = (monthValue: string) => {
+  if (!monthValue) return 0
+  return 4
 }
 
-const setDefaultClassDates = () => {
-  if (!selectedMonth.value) return
-  const month = dayjs(selectedMonth.value)
-  const daysInMonth = month.daysInMonth()
-  const stSats = []
-  for (let i = 1; i <= daysInMonth; i++) {
-    const curDay = month.date(i)
-    if (curDay.day() === 6) { // 6 means Saturday in dayjs by default
-      stSats.push(curDay.format('YYYY-MM-DD'))
-    }
+const enumerateDates = (startDate: string, endDate: string) => {
+  const dates: string[] = []
+  let cursor = dayjs(startDate)
+  const lastDay = dayjs(endDate)
+
+  while (cursor.isBefore(lastDay) || cursor.isSame(lastDay, 'day')) {
+    dates.push(cursor.format('YYYY-MM-DD'))
+    cursor = cursor.add(1, 'day')
   }
-  classDates.value = stSats
+
+  return dates
 }
 
 const onMonthChange = () => {
-  setDefaultClassDates()
   fetchData()
 }
+
+const syncMonthlyTotalToFees = () => {
+  feesList.value.forEach((fee) => {
+    fee.total_sessions = monthlyTotalSessions.value
+  })
+}
+
+const markAllFeesChanged = () => {
+  feesList.value.forEach((fee) => {
+    if (!pendingChanges.value.includes(fee.member_id)) {
+      pendingChanges.value.push(fee.member_id)
+    }
+  })
+}
+
+const handleMonthlyTotalSessionsChange = (value: number | undefined) => {
+  monthlyTotalSessions.value = Math.max(0, Number(value ?? 0))
+  syncMonthlyTotalToFees()
+
+  if (feesList.value.length > 0) {
+    markAllFeesChanged()
+  }
+}
+
+const formatCurrency = (amount: number) => {
+  const normalizedAmount = Number(amount) || 0
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0
+  }).format(normalizedAmount)
+}
+
+const getFeeReceivableAmount = (fee: any) => {
+  return (monthlyTotalSessions.value - fee.leave_sessions) * fee.per_session_fee
+}
+
+const getFeePayableAmount = (fee: any) => {
+  return getFeeReceivableAmount(fee) - fee.deduction_amount
+}
+
+const schoolTeamFeeSummary = computed(() => {
+  return feesList.value.reduce((summary, fee) => {
+    const amount = getFeePayableAmount(fee)
+
+    summary.total += amount
+    if (fee.is_paid) {
+      summary.paid += amount
+    } else {
+      summary.unpaid += amount
+    }
+
+    return summary
+  }, {
+    total: 0,
+    paid: 0,
+    unpaid: 0
+  })
+})
+
+const schoolTeamSummaryCards = computed(() => {
+  const summary = schoolTeamFeeSummary.value
+
+  return [
+    {
+      key: 'total',
+      label: '本月應繳總額',
+      amount: summary.total,
+      description: '目前選定月份全部球員',
+      cardClass: 'border-primary/20 bg-gradient-to-br from-primary/10 via-amber-50 to-white',
+      labelClass: 'text-primary',
+      amountClass: 'text-gray-900',
+      descriptionClass: 'text-gray-500'
+    },
+    {
+      key: 'paid',
+      label: '本月已繳總額',
+      amount: summary.paid,
+      description: '目前選定月份已繳球員',
+      cardClass: 'border-emerald-100 bg-emerald-50/80',
+      labelClass: 'text-emerald-700',
+      amountClass: 'text-emerald-700',
+      descriptionClass: 'text-emerald-600/80'
+    },
+    {
+      key: 'unpaid',
+      label: '本月未繳總額',
+      amount: summary.unpaid,
+      description: '目前選定月份未繳球員',
+      cardClass: 'border-amber-100 bg-amber-50/80',
+      labelClass: 'text-amber-700',
+      amountClass: 'text-amber-700',
+      descriptionClass: 'text-amber-600/80'
+    }
+  ]
+})
+
+watchEffect(() => {
+  const summary = schoolTeamFeeSummary.value
+
+  emit('summary-change', {
+    scope: 'monthly',
+    periodLabel: selectedMonth.value,
+    total: summary.total,
+    paid: summary.paid,
+    unpaid: summary.unpaid,
+    isReady: !isLoading.value
+  })
+})
 
 const markChanged = (fee: any) => {
   if (!pendingChanges.value.includes(fee.member_id)) {
@@ -357,7 +515,7 @@ const markChanged = (fee: any) => {
 }
 
 const getPayableClass = (fee: any) => {
-  const amount = ((fee.total_sessions - fee.leave_sessions) * fee.per_session_fee) - fee.deduction_amount
+  const amount = getFeePayableAmount(fee)
   if (amount < 0) return 'text-red-500' // 負數代表系統欠球員(預付額度)或應退
   if (amount === 0) return 'text-gray-400'
   return 'text-primary'
@@ -372,11 +530,11 @@ const calculateFees = async () => {
   if (!selectedMonth.value) return
   isLoading.value = true
   isCalculating.value = true
+  hasMonthlyTotalMismatch.value = false
   pendingChanges.value = []
   
   try {
-    const startOfMonth = dayjs(selectedMonth.value).startOf('month').format('YYYY-MM-DD')
-    const endOfMonth = dayjs(selectedMonth.value).endOf('month').format('YYYY-MM-DD')
+    const { startOfMonth, endOfMonth } = getMonthBounds(selectedMonth.value)
 
     // 1. 撈取校隊名單
     const { data: membersData, error: membersErr } = await supabase
@@ -417,7 +575,7 @@ const calculateFees = async () => {
 
     const feeSettingMap = new Map(feeSettings?.map(f => [f.member_id, f.per_session_fee]))
 
-    // 舊版點名事件邏輯已移除，改由 classDates 長度控制 baseTotalSessions
+    // 共用堂數預設為 4；若已有一致的舊資料則沿用舊值
 
     // 撈取該月請假紀錄 (關聯假單系統)
     const { data: leaves, error: leavesErr } = await supabase
@@ -427,28 +585,28 @@ const calculateFees = async () => {
       .gte('end_date', startOfMonth)
     if (leavesErr) throw leavesErr
 
-    // 依照該月份「指定日期」來算請假次數
+    // 依照整個月份來統計請假日期，避免漏掉未手動勾選的日期
     const leaveMap = new Map()
     const preciseLeaveMap = new Map<string, Record<string, boolean>>()
     
-    // 確保用來當作母數的次數與實際選取日期相符
-    let computedBaseSessions = classDates.value ? classDates.value.length : 0
+    // 共用堂數先帶入預設值 4
+    const computedBaseSessions = getDefaultTotalSessions(selectedMonth.value)
 
     members.forEach(member => {
       const p_leaves = leaves?.filter(l => l.user_id === member.id) || []
       
-      let leaveCount = 0
       const dateLeaveRecord: Record<string, boolean> = {}
 
-      if (classDates.value) {
-        classDates.value.forEach(d => {
-          const isLeave = p_leaves.some(l => {
-            return d >= l.start_date && d <= l.end_date
-          })
-          dateLeaveRecord[d] = isLeave
-          if (isLeave) leaveCount++
+      p_leaves.forEach(l => {
+        const rangeStart = l.start_date > startOfMonth ? l.start_date : startOfMonth
+        const rangeEnd = l.end_date < endOfMonth ? l.end_date : endOfMonth
+
+        enumerateDates(rangeStart, rangeEnd).forEach(date => {
+          dateLeaveRecord[date] = true
         })
-      }
+      })
+
+      const leaveCount = Object.keys(dateLeaveRecord).length
 
       leaveMap.set(member.id, leaveCount)
       preciseLeaveMap.set(member.id, dateLeaveRecord)
@@ -462,7 +620,18 @@ const calculateFees = async () => {
       .eq('year_month', selectedMonth.value)
     if (existingErr) throw existingErr
 
-    const existingFeeMap = new Map(existingFees?.map(f => [f.member_id, f]))
+    const existingFeeRows = existingFees || []
+    const existingFeeMap = new Map(existingFeeRows.map(f => [f.member_id, f]))
+    const storedMonthlyTotals = Array.from(new Set(
+      existingFeeRows
+        .map((fee: any) => fee.total_sessions)
+        .filter((value: any): value is number => typeof value === 'number' && !Number.isNaN(value))
+    ))
+
+    hasMonthlyTotalMismatch.value = storedMonthlyTotals.length > 1
+    monthlyTotalSessions.value = storedMonthlyTotals.length === 1
+      ? storedMonthlyTotals[0]
+      : computedBaseSessions
 
     // 組裝
     feesList.value = members.map(m => {
@@ -505,7 +674,7 @@ const calculateFees = async () => {
         member_id: m.id,
         member_name: m.name,
         month: selectedMonth.value,
-        total_sessions: computedBaseSessions, // 改為根據日期的數量作為總次數
+        total_sessions: monthlyTotalSessions.value,
         leave_sessions: leave_sessions,
         per_session_fee: per_session_fee,
         deduction_amount: existing ? existing.deduction_amount : 0,
@@ -513,9 +682,15 @@ const calculateFees = async () => {
         has_leave_overlap,
         is_discounted: isDiscounted,
         sibling_ids: m.sibling_ids,
-        detailed_leaves: preciseLeaveMap.get(m.id)
+        detailed_leaves: preciseLeaveMap.get(m.id),
+        counted_leave_dates: Object.keys(preciseLeaveMap.get(m.id) || {}).sort()
       }
     })
+
+    if (hasMonthlyTotalMismatch.value) {
+      syncMonthlyTotalToFees()
+      markAllFeesChanged()
+    }
 
   } catch (e: any) {
     ElMessage.error('試算失敗: ' + e.message)
@@ -536,10 +711,10 @@ const saveAll = async () => {
       .map(f => ({
         member_id: f.member_id,
         year_month: f.month,
-        total_sessions: f.total_sessions,
+        total_sessions: monthlyTotalSessions.value,
         leave_sessions: f.leave_sessions,
         per_session_fee: f.per_session_fee,
-        payable_amount: ((f.total_sessions - f.leave_sessions) * f.per_session_fee) - f.deduction_amount,
+        payable_amount: getFeePayableAmount(f),
         deduction_amount: f.deduction_amount,
         status: f.is_paid ? 'paid' : 'unpaid',
         updated_at: new Date().toISOString()
@@ -551,6 +726,7 @@ const saveAll = async () => {
 
     if (error) throw error
     ElMessage.success('存檔成功')
+    hasMonthlyTotalMismatch.value = false
     pendingChanges.value = []
     
   } catch(e: any) {
@@ -568,46 +744,26 @@ const exportCSV = () => {
     return;
   }
 
-  const sortedDates = [...(classDates.value || [])].sort((a,b) => dayjs(a).valueOf() - dayjs(b).valueOf());
-  const dateHeaders = sortedDates.map(d => dayjs(d).format('M/D'));
-
-  // CSV 表頭
-  const headers = ['姓名', ...dateHeaders, '應扣', '應收', '應繳'];
+  const headers = ['姓名', '月份', '總堂數', '請假天數', '請假日期', '單堂費用', '應扣', '應收', '應繳'];
   const rows = [headers];
 
-  // 資料列
   feesList.value.forEach(fee => {
-    const row = [];
-    row.push(fee.member_name);
+    const attendedSessions = monthlyTotalSessions.value - fee.leave_sessions;
+    const amountToReceive = getFeeReceivableAmount(fee);
+    const payable = getFeePayableAmount(fee);
+    const leaveDates = (fee.counted_leave_dates || []).join('、') || '-';
 
-    const preciseLeaves = fee.detailed_leaves || {};
-
-    sortedDates.forEach((date: string) => {
-      // 判斷該日是否請假
-      let isLeave = false;
-      if (preciseLeaves[date]) {
-        isLeave = true;
-      }
-
-      if (isLeave) {
-        row.push('/'); // 呈現請假斜線
-      } else {
-        row.push(fee.per_session_fee); // 出席則顯示單次費率
-      }
-    });
-
-    row.push(fee.deduction_amount.toString());
-
-    // 應收 (不含應扣)
-    const attendedSessions = fee.total_sessions - fee.leave_sessions;
-    const amountToReceive = attendedSessions * fee.per_session_fee;
-    row.push(amountToReceive.toString());
-
-    // 應繳 (應收 - 應扣)
-    const payable = amountToReceive - fee.deduction_amount;
-    row.push(payable.toString());
-
-    rows.push(row);
+    rows.push([
+      fee.member_name,
+      fee.month,
+      monthlyTotalSessions.value.toString(),
+      fee.leave_sessions.toString(),
+      leaveDates,
+      fee.per_session_fee.toString(),
+      fee.deduction_amount.toString(),
+      amountToReceive.toString(),
+      payable.toString()
+    ]);
   });
 
   // 加入 BOM (\uFEFF) 讓 Excel 支援預設 UTF-8 打開不亂碼
@@ -797,7 +953,6 @@ const handleDeleteRemittance = async (id: string) => {
 }
 
 onMounted(() => {
-  setDefaultClassDates()
   fetchData()
 })
 </script>

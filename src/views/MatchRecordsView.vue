@@ -8,6 +8,7 @@ import MatchDetailDialog from '@/components/match-records/MatchDetailDialog.vue'
 import MatchFormDialog from '@/components/match-records/MatchFormDialog.vue'
 import SyncCalendarDialog from '@/components/match-records/SyncCalendarDialog.vue'
 import dayjs from 'dayjs'
+import type { MatchRecord } from '@/types/match'
 
 const matchesStore = useMatchesStore()
 
@@ -31,6 +32,15 @@ const formMode = ref<'add' | 'edit'>('add')
 onMounted(() => {
   matchesStore.fetchMatches()
 })
+
+const getMatchSortValue = (match: MatchRecord) => {
+  if (!match.match_date) return Number.POSITIVE_INFINITY
+
+  const startTime = match.match_time?.match(/\d{1,2}:\d{2}/)?.[0] || '00:00'
+  const value = dayjs(`${match.match_date}T${startTime}`).valueOf()
+
+  return Number.isNaN(value) ? Number.POSITIVE_INFINITY : value
+}
 
 const filteredMatches = computed(() => {
   let result = matchesStore.matches
@@ -68,7 +78,10 @@ const filteredMatches = computed(() => {
     result = result.filter(m => m.match_date && m.match_date.startsWith(selectedMonth.value))
   }
 
-  return result
+  return [...result].sort((a, b) => {
+    const diff = getMatchSortValue(a) - getMatchSortValue(b)
+    return activeMainTab.value === 'future' ? diff : -diff
+  })
 })
 
 const groups = computed(() => {
@@ -242,6 +255,7 @@ const handleSyncCalendar = () => {
         <MatchesGrid 
           v-if="viewMode === 'grid'" 
           :matches="filteredMatches" 
+          :sort-direction="activeMainTab === 'future' ? 'asc' : 'desc'"
           @view="handleViewMatch" 
           @edit="handleEditMatch" 
         />

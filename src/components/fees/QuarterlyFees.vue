@@ -67,6 +67,32 @@
       </div>
     </div>
 
+    <div class="bg-white p-5 md:p-6 rounded-2xl border border-gray-100 shadow-sm">
+      <div class="flex flex-col gap-1 mb-4">
+        <p class="text-xs font-bold uppercase tracking-[0.24em] text-primary/70">{{ selectedPeriodLabel }} 區間總結</p>
+        <div class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+          <h3 class="text-lg font-black text-gray-800">球員季費摘要</h3>
+          <p class="text-xs text-gray-400">摘要依目前結算區間全部球員即時統計</p>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div
+          v-for="card in quarterlySummaryCards"
+          :key="card.key"
+          :class="card.cardClass"
+          class="rounded-2xl border p-4 md:p-5 shadow-sm"
+        >
+          <p :class="card.labelClass" class="text-sm font-bold">{{ card.label }}</p>
+          <p :class="card.amountClass" class="mt-3 text-3xl font-black tracking-tight">
+            {{ formatCurrency(card.amount) }}
+          </p>
+          <p :class="card.descriptionClass" class="mt-2 text-xs leading-relaxed">
+            {{ card.description }}
+          </p>
+        </div>
+      </div>
+    </div>
+
     <!-- 收到的匯款回報區塊 (精簡橫幅) -->
     <div class="bg-blue-50 border border-blue-100 rounded-2xl p-4 md:p-5 shadow-sm mb-2 flex flex-col sm:flex-row items-center justify-between gap-4">
       <div class="flex items-center gap-3 w-full sm:w-auto">
@@ -254,7 +280,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, computed, watch, watchEffect } from 'vue'
 import { supabase } from '@/services/supabase'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { BellFilled, Calendar, Check, Delete } from '@element-plus/icons-vue'
@@ -266,6 +292,17 @@ import {
   normalizeSiblingIds,
   resolveLinkedMemberIds
 } from '@/utils/siblingGroups'
+
+const emit = defineEmits<{
+  (e: 'summary-change', payload: {
+    scope: 'quarterly'
+    periodLabel: string
+    total: number
+    paid: number
+    unpaid: number
+    isReady: boolean
+  }): void
+}>()
 
 const route = useRoute()
 const highlightFeeId = computed(() => route.query.highlight_fee_id as string | undefined)
@@ -382,6 +419,88 @@ const handlePaidToggle = (fee: any) => {
   })
   markChanged(fee)
 }
+
+const formatCurrency = (amount: number) => {
+  const normalizedAmount = Number(amount) || 0
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0
+  }).format(normalizedAmount)
+}
+
+const getQuarterlyFeeAmount = (fee: any) => {
+  return Number(fee.amount) || 0
+}
+
+const quarterlyFeeSummary = computed(() => {
+  return feesList.value.reduce((summary, fee) => {
+    const amount = getQuarterlyFeeAmount(fee)
+
+    summary.total += amount
+    if (fee.is_paid) {
+      summary.paid += amount
+    } else {
+      summary.unpaid += amount
+    }
+
+    return summary
+  }, {
+    total: 0,
+    paid: 0,
+    unpaid: 0
+  })
+})
+
+const quarterlySummaryCards = computed(() => {
+  const summary = quarterlyFeeSummary.value
+
+  return [
+    {
+      key: 'total',
+      label: '本期應繳總額',
+      amount: summary.total,
+      description: '目前結算區間全部球員',
+      cardClass: 'border-primary/20 bg-gradient-to-br from-primary/10 via-amber-50 to-white',
+      labelClass: 'text-primary',
+      amountClass: 'text-gray-900',
+      descriptionClass: 'text-gray-500'
+    },
+    {
+      key: 'paid',
+      label: '本期已繳總額',
+      amount: summary.paid,
+      description: '目前結算區間已繳球員',
+      cardClass: 'border-emerald-100 bg-emerald-50/80',
+      labelClass: 'text-emerald-700',
+      amountClass: 'text-emerald-700',
+      descriptionClass: 'text-emerald-600/80'
+    },
+    {
+      key: 'unpaid',
+      label: '本期未繳總額',
+      amount: summary.unpaid,
+      description: '目前結算區間未繳球員',
+      cardClass: 'border-amber-100 bg-amber-50/80',
+      labelClass: 'text-amber-700',
+      amountClass: 'text-amber-700',
+      descriptionClass: 'text-amber-600/80'
+    }
+  ]
+})
+
+watchEffect(() => {
+  const summary = quarterlyFeeSummary.value
+
+  emit('summary-change', {
+    scope: 'quarterly',
+    periodLabel: selectedPeriodLabel.value,
+    total: summary.total,
+    paid: summary.paid,
+    unpaid: summary.unpaid,
+    isReady: !isLoading.value
+  })
+})
 
 const formatTimestamp = (timestamp: string) => {
   if (!timestamp) return '-'

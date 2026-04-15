@@ -84,25 +84,33 @@
             <h3 class="text-3xl font-black text-slate-800 uppercase tracking-wider">賽程表</h3>
             <span class="text-primary font-bold hover:underline cursor-pointer">查看全部</span>
           </div>
-          <div class="flex flex-col gap-4">
-            <!-- Game Card -->
-            <div class="bg-gray-50 border border-gray-100 rounded-lg p-5 flex items-center justify-between shadow-sm hover:border-primary/50 transition-colors group cursor-pointer">
-              <div class="flex items-center gap-4">
-                <div class="flex flex-col items-center justify-center bg-white p-3 rounded-md border border-gray-100 shadow-sm w-16">
-                  <span class="text-xs font-bold text-gray-400 uppercase">Aug</span>
-                  <span class="text-2xl font-black text-slate-800">18</span>
+          <div class="flex flex-col gap-4" v-loading="isLoadingUpcomingMatches">
+            <button
+              v-for="match in upcomingMatches"
+              :key="match.id"
+              type="button"
+              class="bg-gray-50 border border-gray-100 rounded-lg p-5 flex items-center justify-between shadow-sm hover:border-primary/50 transition-colors group cursor-pointer text-left"
+              @click="openUpcomingMatch(match.id)"
+            >
+              <div class="flex items-center gap-4 min-w-0">
+                <div class="flex flex-col items-center justify-center bg-white p-3 rounded-md border border-gray-100 shadow-sm w-16 shrink-0">
+                  <span class="text-xs font-bold text-gray-400 uppercase">{{ formatScheduleMonth(match.match_date) }}</span>
+                  <span class="text-2xl font-black text-slate-800">{{ formatScheduleDay(match.match_date) }}</span>
                 </div>
-                <div>
-                  <div class="text-sm font-bold text-gray-500 mb-1">Home • 18:30</div>
-                  <div class="font-black text-lg text-slate-800 group-hover:text-primary transition-colors">vs Dragons</div>
+                <div class="min-w-0">
+                  <div class="text-sm font-bold text-gray-500 mb-1 line-clamp-1">{{ formatScheduleMeta(match) }}</div>
+                  <div class="font-black text-lg text-slate-800 group-hover:text-primary transition-colors line-clamp-1">
+                    {{ formatScheduleOpponent(match) }}
+                  </div>
+                  <div v-if="match.location" class="mt-1 text-xs font-semibold text-gray-400 line-clamp-1">{{ match.location }}</div>
                 </div>
               </div>
-              <button class="bg-slate-800 text-white p-2 rounded-full hidden sm:block">
+              <span class="bg-slate-800 text-white p-2 rounded-full hidden sm:flex shrink-0 items-center justify-center">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-              </button>
-            </div>
+              </span>
+            </button>
             <!-- Game Card 2 -->
-            <div class="bg-gray-50 border border-gray-100 rounded-lg p-5 flex items-center justify-between shadow-sm hover:border-primary/50 transition-colors group cursor-pointer">
+            <div v-if="false" class="bg-gray-50 border border-gray-100 rounded-lg p-5 flex items-center justify-between shadow-sm hover:border-primary/50 transition-colors group cursor-pointer">
               <div class="flex items-center gap-4">
                 <div class="flex flex-col items-center justify-center bg-white p-3 rounded-md border border-gray-100 shadow-sm w-16">
                   <span class="text-xs font-bold text-gray-400 uppercase">Aug</span>
@@ -118,7 +126,7 @@
               </button>
             </div>
             <!-- Game Card 3 -->
-            <div class="bg-gray-50 border border-gray-100 rounded-lg p-5 flex items-center justify-between shadow-sm hover:border-primary/50 transition-colors group cursor-pointer">
+            <div v-if="false" class="bg-gray-50 border border-gray-100 rounded-lg p-5 flex items-center justify-between shadow-sm hover:border-primary/50 transition-colors group cursor-pointer">
               <div class="flex items-center gap-4">
                 <div class="flex flex-col items-center justify-center bg-white p-3 rounded-md border border-gray-100 shadow-sm w-16">
                   <span class="text-xs font-bold text-gray-400 uppercase">Aug</span>
@@ -132,6 +140,12 @@
               <button class="bg-slate-800 text-white p-2 rounded-full hidden sm:block">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
               </button>
+            </div>
+            <div
+              v-if="!isLoadingUpcomingMatches && upcomingMatches.length === 0"
+              class="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-5 py-10 text-center text-sm font-bold text-gray-400"
+            >
+              目前沒有未來賽事
             </div>
           </div>
         </div>
@@ -326,6 +340,12 @@
         </div>
       </template>
     </el-dialog>
+
+    <MatchDetailDialog
+      v-model="upcomingMatchDialogVisible"
+      :match-id="selectedUpcomingMatchId"
+      :readonly="true"
+    />
   </div>
 </template>
 
@@ -335,13 +355,26 @@ import { supabase } from '@/services/supabase'
 import { ElMessage } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
+import MatchDetailDialog from '@/components/match-records/MatchDetailDialog.vue'
+import { useMatchesStore } from '@/stores/matches'
+import type { MatchRecord } from '@/types/match'
+
+type UpcomingMatchCard = Pick<
+  MatchRecord,
+  'id' | 'match_name' | 'opponent' | 'match_date' | 'match_time' | 'location' | 'category_group'
+>
 
 const isJoinModalOpen = ref(false)
 const isSubmitting = ref(false)
 const joinFormRef = ref()
+const matchesStore = useMatchesStore()
 
 const isAnnouncementModalOpen = ref(false)
 const selectedAnnouncement = ref<any>(null)
+const upcomingMatches = ref<UpcomingMatchCard[]>([])
+const isLoadingUpcomingMatches = ref(false)
+const selectedUpcomingMatchId = ref<string | null>(null)
+const upcomingMatchDialogVisible = ref(false)
 
 const openAnnouncement = (item: any) => {
   selectedAnnouncement.value = item
@@ -399,6 +432,77 @@ const fetchTodayAttendance = async () => {
     console.error('Error fetching today attendance:', error)
   } finally {
     isLoadingAttendance.value = false
+  }
+}
+
+const getUpcomingMatchTimestamp = (match: UpcomingMatchCard) => {
+  if (!match.match_date) return Number.POSITIVE_INFINITY
+
+  const startTime = match.match_time?.match(/\d{1,2}:\d{2}/)?.[0] || '23:59'
+  const value = dayjs(`${match.match_date}T${startTime}`).valueOf()
+  return Number.isNaN(value) ? Number.POSITIVE_INFINITY : value
+}
+
+const formatScheduleMonth = (matchDate: string) => dayjs(matchDate).format('MMM').toUpperCase()
+
+const formatScheduleDay = (matchDate: string) => dayjs(matchDate).format('DD')
+
+const formatScheduleMeta = (match: UpcomingMatchCard) => {
+  const startTime = match.match_time?.match(/\d{1,2}:\d{2}/)?.[0] || '時間待定'
+  return `${match.match_name || '比賽'} • ${startTime}`
+}
+
+const formatScheduleOpponent = (match: UpcomingMatchCard) => {
+  if (match.opponent) return `vs ${match.opponent}`
+  return match.match_name || '對手待確認'
+}
+
+const fetchUpcomingMatches = async () => {
+  isLoadingUpcomingMatches.value = true
+
+  try {
+    const todayStr = dayjs().format('YYYY-MM-DD')
+    const { data, error } = await supabase
+      .from('matches')
+      .select('id, match_name, opponent, match_date, match_time, location, category_group')
+      .gte('match_date', todayStr)
+      .order('match_date', { ascending: true })
+      .order('match_time', { ascending: true })
+      .limit(20)
+
+    if (error) throw error
+
+    const nowValue = dayjs().valueOf()
+    upcomingMatches.value = ((data || []) as UpcomingMatchCard[])
+      .filter((match) => getUpcomingMatchTimestamp(match) >= nowValue)
+      .sort((a, b) => getUpcomingMatchTimestamp(a) - getUpcomingMatchTimestamp(b))
+      .slice(0, 3)
+  } catch (error) {
+    console.error('Failed to fetch upcoming matches:', error)
+    upcomingMatches.value = []
+  } finally {
+    isLoadingUpcomingMatches.value = false
+  }
+}
+
+const openUpcomingMatch = async (matchId: string) => {
+  selectedUpcomingMatchId.value = matchId
+  upcomingMatchDialogVisible.value = true
+
+  if (matchesStore.matches.some((match) => match.id === matchId)) {
+    return
+  }
+
+  try {
+    await matchesStore.fetchMatches()
+    if (!matchesStore.matches.some((match) => match.id === matchId)) {
+      upcomingMatchDialogVisible.value = false
+      ElMessage.warning('找不到這筆比賽資料')
+    }
+  } catch (error) {
+    console.error('Error fetching match detail:', error)
+    upcomingMatchDialogVisible.value = false
+    ElMessage.error('讀取比賽資料失敗，請稍後再試')
   }
 }
 
@@ -472,6 +576,7 @@ const handleOpenJoin = () => {
 onMounted(() => {
   fetchAnnouncements()
   fetchTodayAttendance()
+  fetchUpcomingMatches()
   window.addEventListener('openJoinModal', handleOpenJoin)
 })
 

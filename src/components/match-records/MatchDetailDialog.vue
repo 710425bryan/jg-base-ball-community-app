@@ -10,6 +10,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 const props = defineProps<{
   modelValue: boolean
   matchId: string | null
+  readonly?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -97,7 +98,7 @@ const isGreatAvg = (s: any) => {
            <el-icon class="text-xl"><ArrowLeft /></el-icon>
          </button>
          <!-- Right Actions -->
-         <div class="flex items-center gap-2 pointer-events-auto">
+         <div v-if="!props.readonly" class="flex items-center gap-2 pointer-events-auto">
             <button @click="emit('edit')" class="bg-primary hover:bg-primary/90 rounded-full w-10 h-10 flex items-center justify-center text-white shadow shadow-primary/30 transition-colors tooltip" title="編輯紀錄">
               <el-icon class="text-xl"><Edit /></el-icon>
             </button>

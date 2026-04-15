@@ -14,6 +14,63 @@
         </div>
       </div>
       
+      <div
+        v-if="hasAccess"
+        class="overflow-hidden origin-top transform-gpu transition-all duration-300 ease-out"
+        :class="isSummaryCollapsed ? 'max-h-0 opacity-0 -translate-y-2 pointer-events-none' : 'max-h-[22rem] md:max-h-[14rem] opacity-100 translate-y-0'"
+      >
+        <div class="grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 pt-0.5 sm:pt-1">
+          <div class="rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/10 via-amber-50 to-white px-3 py-3 sm:px-4 sm:py-4 shadow-sm">
+            <p class="text-[10px] sm:text-xs font-bold uppercase tracking-[0.16em] sm:tracking-[0.24em] text-primary/70">校隊月費</p>
+            <p class="mt-2 sm:mt-3 text-[clamp(1.25rem,6vw,1.7rem)] md:text-3xl leading-none font-black text-slate-900">{{ formatCurrency(monthlySummary.total) }}</p>
+            <p class="mt-1.5 sm:mt-2 text-[10px] sm:text-xs text-gray-500 leading-tight">
+              期間：{{ monthlySummary.periodLabel || '尚未載入' }}
+            </p>
+          </div>
+          <div class="rounded-2xl border border-sky-100 bg-sky-50/80 px-3 py-3 sm:px-4 sm:py-4 shadow-sm">
+            <p class="text-[10px] sm:text-xs font-bold uppercase tracking-[0.16em] sm:tracking-[0.24em] text-sky-700">球員季費</p>
+            <p class="mt-2 sm:mt-3 text-[clamp(1.25rem,6vw,1.7rem)] md:text-3xl leading-none font-black text-sky-800">{{ formatCurrency(quarterlySummary.total) }}</p>
+            <p class="mt-1.5 sm:mt-2 text-[10px] sm:text-xs text-sky-700/80 leading-tight">
+              期間：{{ quarterlySummary.periodLabel || '尚未載入' }}
+            </p>
+          </div>
+          <div class="col-span-2 lg:col-span-1 rounded-2xl border border-emerald-100 bg-emerald-50/80 px-3 py-3 sm:px-4 sm:py-4 shadow-sm">
+            <p class="text-[10px] sm:text-xs font-bold uppercase tracking-[0.16em] sm:tracking-[0.24em] text-emerald-700">全部加總</p>
+            <p class="mt-2 sm:mt-3 text-[clamp(1.45rem,6.2vw,1.95rem)] md:text-3xl leading-none font-black text-emerald-700">{{ formatCurrency(combinedFeeSummary.total) }}</p>
+            <p class="mt-1.5 sm:mt-2 text-[10px] sm:text-xs text-emerald-700/80 leading-tight">
+              依校隊月費與球員季費目前各自選定期間加總
+            </p>
+          </div>
+        </div>
+
+        <p class="mt-2 text-[10px] sm:text-[11px] text-gray-400 leading-tight sm:leading-relaxed">
+          <span class="sm:hidden">手機版先提供兩邊目前期間的快速合計，方便先看總額再往下操作。</span>
+          <span class="hidden sm:inline">校隊月費與球員季費的繳費時間可以不同，所以上方會分開顯示各自期間金額，並另外提供目前兩邊選定期間的合計供你快速對帳。</span>
+        </p>
+      </div>
+
+      <button
+        v-if="hasAccess"
+        type="button"
+        @click="expandSummaryPanel"
+        class="w-full overflow-hidden rounded-2xl border border-emerald-100 bg-emerald-50/90 shadow-sm transition-all duration-300 ease-out text-left"
+        :class="isSummaryCollapsed ? 'max-h-24 opacity-100 translate-y-0 mt-0.5 sm:mt-1 px-3 py-3 sm:px-4 sm:py-3.5' : 'max-h-0 opacity-0 -translate-y-2 pointer-events-none px-0 py-0 border-transparent shadow-none'"
+        :aria-expanded="!isSummaryCollapsed"
+      >
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <p class="text-[10px] sm:text-xs font-bold uppercase tracking-[0.16em] sm:tracking-[0.24em] text-emerald-700">全部加總</p>
+            <p class="mt-1 text-[10px] sm:text-xs text-emerald-700/80 leading-tight break-words">
+              {{ collapsedSummaryPeriods }}
+            </p>
+          </div>
+          <div class="shrink-0 text-right">
+            <p class="text-lg sm:text-xl font-black leading-none text-emerald-700">{{ formatCurrency(combinedFeeSummary.total) }}</p>
+            <p class="mt-1 text-[10px] sm:text-xs text-emerald-700/70">點擊展開總覽</p>
+          </div>
+        </div>
+      </button>
+
       <!-- Tabs -->
       <div class="overflow-x-auto custom-scrollbar pt-2">
         <div class="flex gap-2 min-w-max">
@@ -35,7 +92,7 @@
     </div>
 
     <!-- Content Area -->
-    <div class="flex-1 overflow-y-auto min-h-0 p-4 md:p-6 pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:pb-6 relative custom-scrollbar">
+    <div ref="contentScrollContainer" class="flex-1 overflow-y-auto min-h-0 p-4 md:p-6 pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:pb-6 relative custom-scrollbar">
       <div class="max-w-6xl mx-auto min-h-full">
         <!-- Not authorized -->
         <div v-if="!hasAccess" class="flex flex-col items-center justify-center min-h-[50vh] text-center">
@@ -46,10 +103,15 @@
         
         <!-- Tab Contents -->
         <template v-else>
-          <!-- 延遲載入元件以提高效能，並在切換時保持實例 -->
-          <keep-alive>
-            <component :is="currentComponent" />
-          </keep-alive>
+          <div v-show="activeTab === 'monthly'">
+            <SchoolTeamFees @summary-change="handleMonthlySummaryChange" />
+          </div>
+          <div v-show="activeTab === 'quarterly'">
+            <QuarterlyFees @summary-change="handleQuarterlySummaryChange" />
+          </div>
+          <div v-show="activeTab === 'settings'">
+            <FeeSettings />
+          </div>
         </template>
       </div>
     </div>
@@ -57,9 +119,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { useRoute } from 'vue-router'
 import { usePermissionsStore } from '@/stores/permissions'
 import { Money, Lock } from '@element-plus/icons-vue'
 
@@ -69,10 +130,16 @@ import QuarterlyFees from '@/components/fees/QuarterlyFees.vue'
 import FeeSettings from '@/components/fees/FeeSettings.vue'
 
 const route = useRoute()
-const router = useRouter()
-const authStore = useAuthStore()
 const permissionsStore = usePermissionsStore()
 const hasAccess = computed(() => permissionsStore.can('fees', 'VIEW'))
+
+type FeeSummarySnapshot = {
+  periodLabel: string
+  total: number
+  paid: number
+  unpaid: number
+  isReady: boolean
+}
 
 const tabs = [
   { id: 'monthly', name: '校隊月費結算' },
@@ -81,6 +148,21 @@ const tabs = [
 ]
 
 const activeTab = ref('monthly')
+const contentScrollContainer = ref<HTMLElement | null>(null)
+const contentScrollTop = ref(0)
+const isSummaryCollapsed = ref(false)
+const createEmptySummary = (): FeeSummarySnapshot => ({
+  periodLabel: '',
+  total: 0,
+  paid: 0,
+  unpaid: 0,
+  isReady: false
+})
+
+const monthlySummary = ref<FeeSummarySnapshot>(createEmptySummary())
+const quarterlySummary = ref<FeeSummarySnapshot>(createEmptySummary())
+const SUMMARY_COLLAPSE_SCROLL_TOP = 32
+const SUMMARY_EXPAND_SCROLL_TOP = 8
 
 watch(() => route.query.tab, (newTab) => {
   if (newTab === 'monthly' || newTab === 'quarterly' || newTab === 'settings') {
@@ -88,13 +170,75 @@ watch(() => route.query.tab, (newTab) => {
   }
 }, { immediate: true })
 
-const currentComponent = computed(() => {
-  switch (activeTab.value) {
-    case 'monthly': return SchoolTeamFees
-    case 'quarterly': return QuarterlyFees
-    case 'settings': return FeeSettings
-    default: return SchoolTeamFees
+const formatCurrency = (amount: number) => {
+  const normalizedAmount = Number(amount) || 0
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0
+  }).format(normalizedAmount)
+}
+
+const handleMonthlySummaryChange = (summary: FeeSummarySnapshot) => {
+  monthlySummary.value = summary
+}
+
+const handleQuarterlySummaryChange = (summary: FeeSummarySnapshot) => {
+  quarterlySummary.value = summary
+}
+
+const combinedFeeSummary = computed(() => ({
+  total: monthlySummary.value.total + quarterlySummary.value.total,
+  paid: monthlySummary.value.paid + quarterlySummary.value.paid,
+  unpaid: monthlySummary.value.unpaid + quarterlySummary.value.unpaid,
+  isReady: monthlySummary.value.isReady || quarterlySummary.value.isReady
+}))
+
+const collapsedSummaryPeriods = computed(() => {
+  const monthLabel = monthlySummary.value.periodLabel || '尚未載入'
+  const quarterLabel = quarterlySummary.value.periodLabel || '尚未載入'
+
+  return `月費 ${monthLabel}｜季費 ${quarterLabel}`
+})
+
+const syncSummaryCollapseState = (nextScrollTop: number) => {
+  contentScrollTop.value = nextScrollTop
+
+  if (contentScrollTop.value > SUMMARY_COLLAPSE_SCROLL_TOP) {
+    isSummaryCollapsed.value = true
+  } else if (contentScrollTop.value <= SUMMARY_EXPAND_SCROLL_TOP) {
+    isSummaryCollapsed.value = false
   }
+}
+
+const handleContentScroll = () => {
+  syncSummaryCollapseState(contentScrollContainer.value?.scrollTop ?? 0)
+}
+
+const attachContentScrollListener = () => {
+  if (!contentScrollContainer.value) return
+
+  contentScrollContainer.value.addEventListener('scroll', handleContentScroll, { passive: true })
+  handleContentScroll()
+}
+
+const detachContentScrollListener = () => {
+  if (!contentScrollContainer.value) return
+
+  contentScrollContainer.value.removeEventListener('scroll', handleContentScroll)
+}
+
+const expandSummaryPanel = () => {
+  isSummaryCollapsed.value = false
+}
+
+onMounted(async () => {
+  await nextTick()
+  attachContentScrollListener()
+})
+
+onBeforeUnmount(() => {
+  detachContentScrollListener()
 })
 </script>
 
