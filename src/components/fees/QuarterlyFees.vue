@@ -145,7 +145,7 @@
                <button @click="markAsPaid(r)" class="flex items-center gap-1 text-xs text-green-600 font-bold hover:bg-green-100 hover:text-green-700 px-2.5 py-1.5 rounded transition-colors bg-green-50 shadow-sm border border-green-200/50">
                  <el-icon><Check /></el-icon> 確認款項
                </button>
-               <button @click="handleDeleteRemittance(r.id)" class="flex items-center justify-center text-red-500 font-bold hover:bg-red-100 w-7 h-7 rounded transition-colors bg-red-50">
+               <button @click="handleDeleteRemittance(r)" class="flex items-center justify-center text-red-500 font-bold hover:bg-red-100 w-7 h-7 rounded transition-colors bg-red-50">
                  <el-icon><Delete /></el-icon>
                </button>
              </div>
@@ -292,6 +292,14 @@ import {
   normalizeSiblingIds,
   resolveLinkedMemberIds
 } from '@/utils/siblingGroups'
+import {
+  buildQuarterlyFamilyKey,
+  FULL_QUARTERLY_FEE_AMOUNT,
+  getExpectedQuarterlyAmount,
+  groupQuarterlyFeeRecordsByPayment,
+  selectLatestQuarterlyRecord,
+  sumQuarterlyFeeGroupAmount
+} from '@/utils/quarterlyFeeFamilies'
 
 const emit = defineEmits<{
   (e: 'summary-change', payload: {
@@ -375,6 +383,8 @@ const editForm = ref({
   other_item_note: ''
 })
 
+const DEFAULT_QUARTERLY_PAYMENT_ITEM = '學費(季繳$6000/3000)'
+
 const cloneFeeValue = <T,>(value: T): T => {
   if (Array.isArray(value)) {
     return [...value] as T
@@ -383,20 +393,22 @@ const cloneFeeValue = <T,>(value: T): T => {
   return value
 }
 
-const isSharedFamilyRecord = (fee: any) =>
-  Boolean(fee.record_id && Array.isArray(fee.linked_member_ids) && fee.linked_member_ids.length > 1)
-
 const markChanged = (fee: any) => {
   if (!pendingChanges.value.includes(fee.member_id)) {
     pendingChanges.value.push(fee.member_id)
   }
 }
 
-const syncSharedRecordRows = (fee: any, updates: Record<string, unknown>) => {
-  if (!isSharedFamilyRecord(fee)) return
+const applyUpdatesToFamilyRows = (
+  fee: any,
+  updates: Record<string, unknown>,
+  options: { skipSelf?: boolean } = {}
+) => {
+  if (!fee.family_key) return
 
   feesList.value.forEach((item) => {
-    if (item.record_id !== fee.record_id || item.member_id === fee.member_id) return
+    if (item.family_key !== fee.family_key) return
+    if (options.skipSelf && item.member_id === fee.member_id) return
 
     Object.entries(updates).forEach(([key, value]) => {
       item[key] = cloneFeeValue(value)
@@ -407,16 +419,13 @@ const syncSharedRecordRows = (fee: any, updates: Record<string, unknown>) => {
 }
 
 const handleAmountChange = (fee: any) => {
-  syncSharedRecordRows(fee, {
-    amount: fee.amount
-  })
   markChanged(fee)
 }
 
 const handlePaidToggle = (fee: any) => {
-  syncSharedRecordRows(fee, {
+  applyUpdatesToFamilyRows(fee, {
     is_paid: fee.is_paid
-  })
+  }, { skipSelf: true })
   markChanged(fee)
 }
 
@@ -560,6 +569,30 @@ watch([isLoading, playerRemittances], ([newLoading, newRemittances]) => {
   }
 })
 
+const buildQuarterlyPayload = (fee: any, now: string) => ({
+  member_id: fee.member_id,
+  member_ids: [...fee.linked_member_ids],
+  year_quarter: selectedPeriodLabel.value,
+  amount: Number(fee.amount) || 0,
+  payment_items: Array.isArray(fee.payment_items) ? [...fee.payment_items] : [],
+  other_item_note: fee.payment_items.includes('加購其他項目:') ? fee.other_item_note : null,
+  payment_method: fee.payment_method,
+  account_last_5: ['銀行轉帳', '郵局無摺', 'ATM存款'].includes(fee.payment_method) ? fee.account_last_5 : null,
+  remittance_date: fee.remittance_date,
+  status: fee.is_paid ? 'paid' : 'unpaid',
+  paid_at: fee.is_paid ? now : null,
+  updated_at: now
+})
+
+const refreshRemittances = async () => {
+  if (!currentPlayers.value.length) {
+    playerRemittances.value = []
+    return
+  }
+
+  await fetchRemittances(currentPlayers.value, buildSiblingGroupMap(currentPlayers.value))
+}
+
 const fetchData = async () => {
   isLoading.value = true
   pendingChanges.value = []
@@ -568,7 +601,7 @@ const fetchData = async () => {
   try {
     const { data: membersData, error: mErr } = await supabase
       .from('team_members')
-      .select('id, name, status, sibling_ids, is_primary_payer, role')
+      .select('id, name, status, sibling_ids, is_primary_payer, is_half_price, role')
       .in('role', ['球員'])
       
     if (mErr) throw mErr
@@ -592,7 +625,8 @@ const fetchData = async () => {
       
     if (fErr) throw fErr
     
-    const recordsMap = new Map<string, { record: any; linkedMemberIds: string[] }>()
+    const exactRecordMap = new Map<string, { record: any; linkedMemberIds: string[] }>()
+    const familyRecordMap = new Map<string, Array<{ record: any; linkedMemberIds: string[] }>>()
     const sortedExistingFees = [...(existingFees || [])].sort((left, right) => {
       const rightTime = new Date(right.updated_at || right.created_at || 0).getTime()
       const leftTime = new Date(left.updated_at || left.created_at || 0).getTime()
@@ -601,56 +635,68 @@ const fetchData = async () => {
 
     sortedExistingFees.forEach((record) => {
       const linkedMemberIds = resolveLinkedMemberIds(record, siblingGroupMap)
+      const familyKey = buildQuarterlyFamilyKey(linkedMemberIds)
+      const familyRecords = familyRecordMap.get(familyKey) || []
 
-      linkedMemberIds.forEach((memberId) => {
-        if (!recordsMap.has(memberId)) {
-          recordsMap.set(memberId, {
-            record,
-            linkedMemberIds
-          })
-        }
+      familyRecords.push({
+        record,
+        linkedMemberIds
       })
+      familyRecordMap.set(familyKey, familyRecords)
+
+      if (record.member_id && !exactRecordMap.has(record.member_id)) {
+        exactRecordMap.set(record.member_id, {
+          record,
+          linkedMemberIds
+        })
+      }
     })
 
-    feesList.value = members.map(m => {
-      const recordEntry = recordsMap.get(m.id)
-      const record = recordEntry?.record
-      const linkedMemberIds = recordEntry?.linkedMemberIds || [m.id]
-      let baseAmount = 6000
-      let isDiscounted = false
-      if (m.sibling_ids && m.sibling_ids.length > 0) {
-        if (!m.is_primary_payer) {
-          const siblings = m.sibling_ids
-            .map((sId: string) => members.find(x => x.id === sId))
-            .filter((sibling): sibling is any => Boolean(sibling))
-          const hasPrimarySibling = siblings.some((s: any) => s.is_primary_payer)
-          if (hasPrimarySibling) isDiscounted = true
-          else {
-            for (const s of siblings) {
-              if (m.id > s.id) { isDiscounted = true; break; }
-            }
-          }
-        }
-        if (isDiscounted) baseAmount = 3000
-      }
-      
-
+    feesList.value = members.map((member) => {
+      const linkedMemberIds = siblingGroupMap.get(member.id) || [member.id]
+      const familyKey = buildQuarterlyFamilyKey(linkedMemberIds)
+      const ownRecordEntry = exactRecordMap.get(member.id)
+      const familyRecordEntries = familyRecordMap.get(familyKey) || []
+      const fallbackRecordEntry = ownRecordEntry || familyRecordEntries[0]
+      const exactCoveredMemberIds = new Set(
+        familyRecordEntries
+          .map(({ record }) => record.member_id)
+          .filter((recordMemberId): recordMemberId is string => linkedMemberIds.includes(recordMemberId))
+      )
+      const hasFullFamilyCoverage = exactCoveredMemberIds.size >= linkedMemberIds.length
+      const expectedAmount = getExpectedQuarterlyAmount(member, members, siblingGroupMap)
+      const baseRecord = ownRecordEntry?.record || fallbackRecordEntry?.record || null
+      const storedAmount = Number(ownRecordEntry?.record?.amount)
+      const hasFamilyPricingRule = linkedMemberIds.length > 1 || Boolean(member.is_half_price)
+      const shouldUseExpectedAmount =
+        !ownRecordEntry ||
+        !hasFullFamilyCoverage ||
+        (hasFamilyPricingRule && storedAmount !== expectedAmount)
+      const rowAmount = shouldUseExpectedAmount
+        ? expectedAmount
+        : Number.isFinite(storedAmount)
+          ? storedAmount
+          : expectedAmount
 
       return {
-        member_id: m.id,
-        member_name: m.name,
-        record_id: record ? record.id : null,
-        record_member_id: record?.member_id || null,
-        record_member_ids: Array.isArray(record?.member_ids) ? [...record.member_ids] : [],
-        linked_member_ids: linkedMemberIds,
-        amount: record ? record.amount : baseAmount,
-        payment_items: record && Array.isArray(record.payment_items) ? [...record.payment_items] : (isDiscounted ? ['學費(季繳$6000/3000)'] : ['學費(季繳$6000/3000)']),
-        other_item_note: record ? record.other_item_note : '',
-        payment_method: record ? record.payment_method : '銀行轉帳',
-        account_last_5: record ? record.account_last_5 : '',
-        remittance_date: record ? record.remittance_date : dayjs().format('YYYY-MM-DD'),
-        is_paid: record ? record.status === 'paid' : false,
-        is_discounted: isDiscounted
+        member_id: member.id,
+        member_name: member.name,
+        family_key: familyKey,
+        record_id: ownRecordEntry?.record?.id || null,
+        record_member_id: ownRecordEntry?.record?.member_id || member.id,
+        record_member_ids: Array.isArray(baseRecord?.member_ids) ? [...baseRecord.member_ids] : [...linkedMemberIds],
+        linked_member_ids: [...linkedMemberIds],
+        amount: rowAmount,
+        payment_items: Array.isArray(baseRecord?.payment_items) && baseRecord.payment_items.length > 0
+          ? [...baseRecord.payment_items]
+          : [DEFAULT_QUARTERLY_PAYMENT_ITEM],
+        other_item_note: baseRecord?.other_item_note || '',
+        payment_method: baseRecord?.payment_method || '銀行轉帳',
+        account_last_5: baseRecord?.account_last_5 || '',
+        remittance_date: baseRecord?.remittance_date || dayjs().format('YYYY-MM-DD'),
+        is_paid: baseRecord ? baseRecord.status === 'paid' : false,
+        is_discounted: expectedAmount < FULL_QUARTERLY_FEE_AMOUNT,
+        expected_amount: expectedAmount
       }
     })
 
@@ -667,8 +713,11 @@ const fetchRemittances = async (
   siblingGroupMap = buildSiblingGroupMap(players)
 ) => {
   try {
-    const pIds = new Set(players.map(m => m.id))
-    if (pIds.size === 0) return
+    const playerIds = new Set(players.map((player) => player.id))
+    if (playerIds.size === 0) {
+      playerRemittances.value = []
+      return
+    }
 
     const { data, error } = await supabase
       .from('quarterly_fees')
@@ -678,26 +727,39 @@ const fetchRemittances = async (
       
     if (error) throw error
     
-    if (data) {
-      playerRemittances.value = data.filter(fee => {
-        const extractedIds = resolveLinkedMemberIds(fee, siblingGroupMap)
-        
-        // 分類：確保是目前的球員 (role==='球員')
-        const isPlayer = extractedIds.some(id => pIds.has(id))
-        
-        // 只看尚未付款，且必須要是該季度的回報
-        return isPlayer && fee.status !== 'paid' && fee.year_quarter === selectedPeriodLabel.value
-      }).map(fee => {
-        const extractedIds = resolveLinkedMemberIds(fee, siblingGroupMap)
-        
-        const names = extractedIds.map(id => players.find(m => m.id === id)?.name).filter(Boolean).join(', ')
+    const relevantRecords = (data || []).filter((fee) => {
+      const extractedIds = resolveLinkedMemberIds(fee, siblingGroupMap)
+      const isPlayer = extractedIds.some((id) => playerIds.has(id))
+
+      return isPlayer && fee.status !== 'paid' && fee.year_quarter === selectedPeriodLabel.value
+    })
+
+    playerRemittances.value = groupQuarterlyFeeRecordsByPayment(relevantRecords, siblingGroupMap)
+      .map((group) => {
+        const latestRecord = selectLatestQuarterlyRecord(group.records)
+        const memberNames = group.linkedMemberIds
+          .map((id) => players.find((player) => player.id === id)?.name)
+          .filter(Boolean)
+          .join(', ')
+
         return {
-          ...fee,
-          member_names: names || '未知球員',
-          extracted_member_ids: extractedIds
+          ...(latestRecord || {}),
+          id: String(latestRecord?.id || group.groupKey),
+          record_ids: group.records.map((record: any) => record.id).filter(Boolean),
+          group_key: group.groupKey,
+          member_names: memberNames || '未知球員',
+          extracted_member_ids: [...group.linkedMemberIds],
+          amount: sumQuarterlyFeeGroupAmount(group.records),
+          payment_items: Array.isArray(latestRecord?.payment_items) ? [...latestRecord.payment_items] : [],
+          created_at: latestRecord?.created_at || null,
+          updated_at: latestRecord?.updated_at || latestRecord?.created_at || null
         }
       })
-    }
+      .sort((left, right) => {
+        const rightTime = new Date(right.updated_at || right.created_at || 0).getTime()
+        const leftTime = new Date(left.updated_at || left.created_at || 0).getTime()
+        return rightTime - leftTime
+      })
   } catch (err) {
     console.error('未能取得匯款紀錄', err)
   }
@@ -709,63 +771,41 @@ const saveAll = async () => {
   
   try {
     const changedFees = feesList.value.filter(f => pendingChanges.value.includes(f.member_id))
-    const processedRecordIds = new Set<string>()
+    const processedMemberIds = new Set<string>()
     const now = new Date().toISOString()
 
-    for (const f of changedFees) {
-      if (f.record_id && processedRecordIds.has(f.record_id)) {
+    for (const fee of changedFees) {
+      if (processedMemberIds.has(fee.member_id)) {
         continue
       }
 
-      if (f.record_id) {
-        processedRecordIds.add(f.record_id)
-      }
+      processedMemberIds.add(fee.member_id)
+      const payload = buildQuarterlyPayload(fee, now)
 
-      const shouldExpandMemberIds = isSharedFamilyRecord(f)
-      const payload: any = {
-        member_id: f.record_member_id || f.member_id,
-        member_ids: shouldExpandMemberIds
-          ? [...f.linked_member_ids]
-          : [f.member_id],
-        year_quarter: selectedPeriodLabel.value,
-        amount: f.amount,
-        payment_items: f.payment_items,
-        other_item_note: f.payment_items.includes('加購其他項目:') ? f.other_item_note : null,
-        payment_method: f.payment_method,
-        account_last_5: ['銀行轉帳', '郵局無摺', 'ATM存款'].includes(f.payment_method) ? f.account_last_5 : null,
-        remittance_date: f.remittance_date,
-        updated_at: now
-      }
-      
-      payload.status = f.is_paid ? 'paid' : 'unpaid'
-      if (f.is_paid) payload.paid_at = now
-      else payload.paid_at = null
-
-      if (f.record_id) {
-        // 更新現有紀錄
-        const { error } = await supabase.from('quarterly_fees').update(payload).eq('id', f.record_id)
+      if (fee.record_id) {
+        const { error } = await supabase.from('quarterly_fees').update(payload).eq('id', fee.record_id)
         if (error) throw error
-
-        if (shouldExpandMemberIds) {
-          feesList.value.forEach((item) => {
-            if (item.record_id !== f.record_id) return
-            item.record_member_id = payload.member_id
-            item.record_member_ids = [...payload.member_ids]
-            item.linked_member_ids = [...payload.member_ids]
-          })
-        }
       } else {
-        // 新增紀錄（第一次觸發該季繳費）
-        const { data, error } = await supabase.from('quarterly_fees').insert([payload]).select('id')
+        const { data, error } = await supabase
+          .from('quarterly_fees')
+          .insert([payload])
+          .select('id, member_id, member_ids')
+
         if (error) throw error
+
         if (data && data.length > 0) {
-          f.record_id = data[0].id
-          f.record_member_id = payload.member_id
-          f.record_member_ids = [...payload.member_ids]
+          fee.record_id = data[0].id
+          fee.record_member_id = data[0].member_id
+          fee.record_member_ids = Array.isArray(data[0].member_ids) ? [...data[0].member_ids] : [...payload.member_ids]
         }
       }
+
+      fee.linked_member_ids = [...payload.member_ids]
+      fee.family_key = buildQuarterlyFamilyKey(payload.member_ids)
+      fee.amount = payload.amount
     }
 
+    await refreshRemittances()
     ElMessage.success('存檔成功')
     pendingChanges.value = []
   } catch (err: any) {
@@ -778,18 +818,11 @@ const saveAll = async () => {
 
 const markAsPaid = async (remittance: any) => {
   try {
-    const { error } = await supabase
-      .from('quarterly_fees')
-      .update({ status: 'paid', paid_at: new Date().toISOString() })
-      .eq('id', remittance.id)
-      
-    if (error) throw error
-    
-    // 同步更新當前列表狀態
     let synced = false
+
     if (remittance.extracted_member_ids && remittance.extracted_member_ids.length > 0) {
       remittance.extracted_member_ids.forEach((id: string) => {
-        const feeItem = feesList.value.find(f => f.member_id === id)
+        const feeItem = feesList.value.find((fee) => fee.member_id === id)
         if (feeItem && !feeItem.is_paid) {
           feeItem.is_paid = true
           handlePaidToggle(feeItem)
@@ -799,24 +832,39 @@ const markAsPaid = async (remittance: any) => {
     }
 
     if (synced) {
-      await saveAll() // 自動觸發一次儲存
+      await saveAll()
+    } else if (Array.isArray(remittance.record_ids) && remittance.record_ids.length > 0) {
+      const now = new Date().toISOString()
+      const { error } = await supabase
+        .from('quarterly_fees')
+        .update({ status: 'paid', paid_at: now })
+        .in('id', remittance.record_ids)
+
+      if (error) throw error
+
+      await refreshRemittances()
     }
     
     ElMessage.success('款項確認成功，已標記為已繳納')
-    
-    // 從抽屜清單移除
     playerRemittances.value = playerRemittances.value.filter(r => r.id !== remittance.id)
   } catch (err: any) {
     ElMessage.error('確認失敗: ' + err.message)
   }
 }
 
-const handleDeleteRemittance = async (id: string) => {
+const handleDeleteRemittance = async (remittance: any) => {
   try {
     await ElMessageBox.confirm('確定要刪除這筆回報表單嗎？', '刪除確認', { type: 'warning' })
-    await supabase.from('quarterly_fees').delete().eq('id', id)
+
+    const recordIds = Array.isArray(remittance.record_ids) && remittance.record_ids.length > 0
+      ? remittance.record_ids
+      : [remittance.id]
+
+    const { error } = await supabase.from('quarterly_fees').delete().in('id', recordIds)
+    if (error) throw error
+
     ElMessage.success('已刪除紀錄')
-    fetchRemittances(currentPlayers.value)
+    await fetchData()
   } catch (err: any) {
     if (err !== 'cancel') ElMessage.error(err.message)
   }
@@ -844,14 +892,13 @@ const saveRemittanceEdit = () => {
     feeItem.payment_method = editForm.value.payment_method
     feeItem.payment_items = [...editForm.value.payment_items]
     feeItem.other_item_note = editForm.value.other_item_note
-    syncSharedRecordRows(feeItem, {
-      amount: feeItem.amount,
+    applyUpdatesToFamilyRows(feeItem, {
       remittance_date: feeItem.remittance_date,
       account_last_5: feeItem.account_last_5,
       payment_method: feeItem.payment_method,
       payment_items: [...feeItem.payment_items],
       other_item_note: feeItem.other_item_note
-    })
+    }, { skipSelf: true })
     markChanged(feeItem)
   }
   editDialogVisible.value = false

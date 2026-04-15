@@ -201,6 +201,12 @@ import { Bell, ArrowDown } from '@element-plus/icons-vue';
 import { configureNotificationFeedFallbackFetcher, useNotificationFeed } from '@/composables/useNotificationFeed';
 import { useVersionCheck } from '@/composables/useVersionCheck';
 import { buildNotificationFeedItemId, type NotificationFeedItem, type NotificationFeedRow } from '@/types/dashboard';
+import { buildSiblingGroupMap, normalizeSiblingIds } from '@/utils/siblingGroups'
+import {
+  groupQuarterlyFeeRecordsByPayment,
+  selectLatestQuarterlyRecord,
+  sumQuarterlyFeeGroupAmount
+} from '@/utils/quarterlyFeeFamilies'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import 'dayjs/locale/zh-tw'
@@ -334,6 +340,103 @@ const maybeShowBrowserNotification = (
   };
 };
 
+const normalizeQuarterlyMembers = (members: any[]) =>
+  normalizeSiblingIds(
+    members.map((member) => ({
+      ...member,
+      sibling_ids: Array.isArray(member.sibling_ids) ? [...member.sibling_ids] : []
+    }))
+  )
+
+const fetchQuarterlyRelatedMembers = async (memberIds: string[]) => {
+  const uniqueIds = [...new Set(memberIds)].filter(Boolean)
+  if (uniqueIds.length === 0) {
+    return []
+  }
+
+  const { data: directMembers, error: directMembersError } = await supabase
+    .from('team_members')
+    .select('id, name, role, sibling_ids')
+    .in('id', uniqueIds)
+
+  if (directMembersError) throw directMembersError
+
+  const additionalSiblingIds = [...new Set(
+    (directMembers || []).flatMap((member: any) => Array.isArray(member.sibling_ids) ? member.sibling_ids : [])
+  )]
+    .filter((id) => !uniqueIds.includes(id))
+
+  if (additionalSiblingIds.length === 0) {
+    return directMembers || []
+  }
+
+  const { data: siblingMembers, error: siblingMembersError } = await supabase
+    .from('team_members')
+    .select('id, name, role, sibling_ids')
+    .in('id', additionalSiblingIds)
+
+  if (siblingMembersError) throw siblingMembersError
+
+  return [...(directMembers || []), ...(siblingMembers || [])]
+}
+
+const buildQuarterlyFeeNotificationGroups = (records: any[], members: any[]) => {
+  const normalizedMembers = normalizeQuarterlyMembers(members)
+  const siblingGroupMap = buildSiblingGroupMap(normalizedMembers)
+  const nameMap = new Map(normalizedMembers.map((member) => [member.id, member.name]))
+  const roleMap = new Map(normalizedMembers.map((member) => [member.id, member.role]))
+
+  return groupQuarterlyFeeRecordsByPayment(records, siblingGroupMap)
+    .map((group) => {
+      const latestRecord = selectLatestQuarterlyRecord(group.records)
+      const highlightMemberId = group.linkedMemberIds[0] || latestRecord?.member_id || null
+      const memberNames = group.linkedMemberIds.map((id) => nameMap.get(id)).filter(Boolean)
+      const roleName = highlightMemberId ? roleMap.get(highlightMemberId) || '球員' : '球員'
+
+      return {
+        id: String(latestRecord?.id || group.groupKey),
+        year_quarter: latestRecord?.year_quarter || '-',
+        payment_method: latestRecord?.payment_method || '-',
+        amount: sumQuarterlyFeeGroupAmount(group.records),
+        created_at: latestRecord?.created_at || new Date().toISOString(),
+        highlightMemberId,
+        memberName: memberNames.length > 0 ? memberNames.join(', ') : '未知球員',
+        isSchoolTeam: roleName === '校隊'
+      }
+    })
+    .sort((left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime())
+}
+
+const buildQuarterlyFeeNotificationLink = (fee: {
+  id: string
+  isSchoolTeam: boolean
+  highlightMemberId: string | null
+}) => `/fees?tab=${fee.isSchoolTeam ? 'monthly' : 'quarterly'}&highlight_fee_id=${fee.id}&highlight_member_id=${fee.highlightMemberId || ''}`
+
+const buildQuarterlyFeeNotificationBody = (fee: {
+  year_quarter: string
+  payment_method: string
+  amount: number
+}) => `季度: ${fee.year_quarter} | 方式: ${fee.payment_method} | 金額: $${fee.amount}`
+
+const buildRealtimeQuarterlyFeeBufferKey = (record: any) => JSON.stringify({
+  yearQuarter: record.year_quarter || '',
+  memberIds: [...new Set((Array.isArray(record.member_ids) && record.member_ids.length > 0
+    ? record.member_ids
+    : record.member_id
+      ? [record.member_id]
+      : []
+  ).filter(Boolean))].sort((left, right) => String(left).localeCompare(String(right))),
+  status: record.status || '',
+  paymentMethod: record.payment_method || '',
+  remittanceDate: record.remittance_date || '',
+  accountLast5: record.account_last_5 || '',
+  paymentItems: Array.from(new Set<string>(
+    (record.payment_items || []).filter((item: unknown): item is string => typeof item === 'string' && item.trim().length > 0)
+  )).sort((left, right) => left.localeCompare(right)),
+  otherItemNote: record.other_item_note || ''
+})
+
 const fetchNotificationFeedLegacy = async (limit: number): Promise<NotificationFeedRow[]> => {
   const role = authStore.profile?.role
   if (!role) return []
@@ -382,61 +485,34 @@ const fetchNotificationFeedLegacy = async (limit: number): Promise<NotificationF
   if (permissionsStore.can('fees', 'VIEW')) {
     promises.push(
       supabase.from('quarterly_fees')
-        .select('id, member_id, member_ids, year_quarter, payment_method, amount, created_at')
+        .select('id, member_id, member_ids, year_quarter, payment_method, amount, created_at, status, remittance_date, account_last_5, payment_items, other_item_note')
         .order('created_at', { ascending: false })
-        .limit(Math.max(limit, 5))
+        .limit(Math.max(limit, 12))
         .then(async (res) => {
           if (res.error) throw res.error
 
           if (res.data) {
-            let allIds: string[] = []
-            res.data.forEach((fee: any) => {
-              if (fee.member_ids && fee.member_ids.length > 0) allIds.push(...fee.member_ids)
-              else if (fee.member_id) allIds.push(fee.member_id)
-            })
-
-            const uniqueIds = [...new Set(allIds)].filter(Boolean)
-            let nameMap: Record<string, string> = {}
-            let roleMap: Record<string, string> = {}
-
-            if (uniqueIds.length > 0) {
-              const { data: membersData, error: membersError } = await supabase
-                .from('team_members')
-                .select('id, name, role')
-                .in('id', uniqueIds)
-
-              if (membersError) throw membersError
-
-              nameMap = (membersData || []).reduce(
-                (acc: Record<string, string>, current: any) => ({ ...acc, [current.id]: current.name }),
-                {}
+            const uniqueIds = [...new Set(
+              res.data.flatMap((fee: any) =>
+                Array.isArray(fee.member_ids) && fee.member_ids.length > 0
+                  ? fee.member_ids
+                  : fee.member_id
+                    ? [fee.member_id]
+                    : []
               )
-              roleMap = (membersData || []).reduce(
-                (acc: Record<string, string>, current: any) => ({ ...acc, [current.id]: current.role }),
-                {}
-              )
+            )].filter(Boolean)
+
+            const membersData = uniqueIds.length > 0
+              ? await fetchQuarterlyRelatedMembers(uniqueIds)
+              : []
+
+            return {
+              type: 'fee' as const,
+              data: buildQuarterlyFeeNotificationGroups(res.data, membersData)
             }
-
-            res.data.forEach((fee: any) => {
-              let names: string[] = []
-              let roleName = '球員'
-
-              if (fee.member_ids && fee.member_ids.length > 0) {
-                names = fee.member_ids.map((id: string) => nameMap[id]).filter(Boolean)
-                roleName = roleMap[fee.member_ids[0]] || '球員'
-                fee.highlightMemberId = fee.member_ids[0]
-              } else if (fee.member_id) {
-                if (nameMap[fee.member_id]) names.push(nameMap[fee.member_id])
-                roleName = roleMap[fee.member_id] || '球員'
-                fee.highlightMemberId = fee.member_id
-              }
-
-              fee.memberName = names.length > 0 ? names.join(', ') : '未知球員'
-              fee.isSchoolTeam = roleName === '校隊'
-            })
           }
 
-          return { type: 'fee' as const, data: res.data }
+          return { type: 'fee' as const, data: [] }
         })
     )
   }
@@ -480,9 +556,9 @@ const fetchNotificationFeedLegacy = async (limit: number): Promise<NotificationF
         id: String(fee.id),
         source: 'fee' as const,
         title: `[新增匯款] 收到 ${fee.memberName} 的繳費登記`,
-        body: `季度: ${fee.year_quarter} | 方式: ${fee.payment_method} | 金額: $${fee.amount}`,
+        body: buildQuarterlyFeeNotificationBody(fee),
         created_at: fee.created_at,
-        link: `/fees?tab=${fee.isSchoolTeam ? 'monthly' : 'quarterly'}&highlight_fee_id=${fee.id}&highlight_member_id=${fee.highlightMemberId || ''}`,
+        link: buildQuarterlyFeeNotificationLink(fee),
         highlight_member_id: fee.highlightMemberId || null
       })))
     }
@@ -500,6 +576,86 @@ let realtimeChannel: any = null;
 let teamMemberChannel: any = null;
 let joinInquiriesChannel: any = null;
 let quarterlyFeesChannel: any = null;
+const quarterlyFeeNotificationBuffer = new Map<string, any[]>();
+const quarterlyFeeNotificationBufferTimers = new Map<string, number>();
+
+const clearQuarterlyFeeNotificationBuffer = () => {
+  quarterlyFeeNotificationBufferTimers.forEach((timerId) => {
+    window.clearTimeout(timerId);
+  });
+  quarterlyFeeNotificationBufferTimers.clear();
+  quarterlyFeeNotificationBuffer.clear();
+};
+
+const flushQuarterlyFeeNotificationBuffer = async (bufferKey: string) => {
+  const bufferedRecords = quarterlyFeeNotificationBuffer.get(bufferKey) || [];
+  quarterlyFeeNotificationBuffer.delete(bufferKey);
+
+  const timerId = quarterlyFeeNotificationBufferTimers.get(bufferKey);
+  if (timerId) {
+    window.clearTimeout(timerId);
+    quarterlyFeeNotificationBufferTimers.delete(bufferKey);
+  }
+
+  if (bufferedRecords.length === 0) {
+    return;
+  }
+
+  const uniqueIds = [...new Set(
+    bufferedRecords.flatMap((record: any) =>
+      Array.isArray(record.member_ids) && record.member_ids.length > 0
+        ? record.member_ids
+        : record.member_id
+          ? [record.member_id]
+          : []
+    )
+  )].filter(Boolean);
+
+  const membersData = uniqueIds.length > 0
+    ? await fetchQuarterlyRelatedMembers(uniqueIds)
+    : [];
+
+  const groupedFees = buildQuarterlyFeeNotificationGroups(bufferedRecords, membersData);
+  const groupedFee = groupedFees[0];
+  if (!groupedFee) {
+    return;
+  }
+
+  const newNoteLink = buildQuarterlyFeeNotificationLink(groupedFee);
+  const newNote: NotificationFeedItem = {
+    id: buildNotificationFeedItemId('fee', String(groupedFee.id)),
+    source: 'fee',
+    title: `[新增匯款] 收到 ${groupedFee.memberName} 的繳費登記`,
+    body: buildQuarterlyFeeNotificationBody(groupedFee),
+    createdAt: groupedFee.created_at || new Date().toISOString(),
+    link: newNoteLink,
+    highlightMemberId: groupedFee.highlightMemberId || null
+  };
+
+  upsertNotification(newNote);
+
+  maybeShowBrowserNotification(newNote.title, newNote.body, () => {
+    router.push(newNoteLink);
+  });
+};
+
+const queueQuarterlyFeeNotification = (record: any) => {
+  const bufferKey = buildRealtimeQuarterlyFeeBufferKey(record);
+  const bufferedRecords = quarterlyFeeNotificationBuffer.get(bufferKey) || [];
+  bufferedRecords.push(record);
+  quarterlyFeeNotificationBuffer.set(bufferKey, bufferedRecords);
+
+  const existingTimerId = quarterlyFeeNotificationBufferTimers.get(bufferKey);
+  if (existingTimerId) {
+    window.clearTimeout(existingTimerId);
+  }
+
+  const nextTimerId = window.setTimeout(() => {
+    void flushQuarterlyFeeNotificationBuffer(bufferKey);
+  }, 450);
+
+  quarterlyFeeNotificationBufferTimers.set(bufferKey, nextTimerId);
+};
 
 const startListening = () => {
   if (realtimeChannel || teamMemberChannel || joinInquiriesChannel) return;
@@ -621,44 +777,10 @@ const startListening = () => {
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'quarterly_fees' },
-      async (payload) => {
+      (payload) => {
         // 限 ADMIN, MANAGER 接收
         if (!permissionsStore.can('fees', 'VIEW')) return;
-
-        let targetIds = payload.new.member_ids || [];
-        if (!targetIds.length && payload.new.member_id) {
-          targetIds = [payload.new.member_id];
-        }
-
-        let membersName = '未知球員';
-        let memberRole = '球員';
-        if (targetIds.length > 0) {
-          const { data } = await supabase.from('team_members').select('name, role').in('id', targetIds);
-          if (data && data.length > 0) {
-            membersName = data.map(d => d.name).join(', ');
-            memberRole = data[0].role;
-          }
-        }
-
-        const isSchoolTeam = memberRole === '校隊';
-        const feeTab = isSchoolTeam ? 'monthly' : 'quarterly';
-        const highlightMemberId = targetIds.length > 0 ? String(targetIds[0]) : '';
-
-        const newNoteLink = `/fees?tab=${feeTab}&highlight_fee_id=${payload.new.id}&highlight_member_id=${highlightMemberId}`;
-        const newNote: NotificationFeedItem = {
-          id: buildNotificationFeedItemId('fee', String(payload.new.id)),
-          source: 'fee',
-          title: `[新增匯款] 收到 ${membersName} 的繳費登記`,
-          body: `季度: ${payload.new.year_quarter || '-'}\n方式: ${payload.new.payment_method}\n金額: $${payload.new.amount}`,
-          createdAt: payload.new.created_at || new Date().toISOString(),
-          link: newNoteLink,
-          highlightMemberId: highlightMemberId || null
-        };
-        upsertNotification(newNote);
-
-        maybeShowBrowserNotification(newNote.title, newNote.body, () => {
-          router.push(newNoteLink);
-        });
+        queueQuarterlyFeeNotification(payload.new);
       }
     )
     .subscribe((status) => {
@@ -667,6 +789,7 @@ const startListening = () => {
 };
 
 const stopListening = () => {
+  clearQuarterlyFeeNotificationBuffer();
   if (realtimeChannel) {
     supabase.removeChannel(realtimeChannel);
     realtimeChannel = null;
@@ -702,6 +825,7 @@ watch(() => authStore.profile?.role, (newRole) => {
 
 onUnmounted(() => {
   clearScheduledNotificationFeedLoad();
+  clearQuarterlyFeeNotificationBuffer();
   stopListening();
   resetNotificationFeed();
   configureNotificationFeedFallbackFetcher(null);
