@@ -437,6 +437,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { supabase } from '@/services/supabase'
 import { compressImage } from '@/utils/imageCompressor'
+import { resolvePrimaryPayerSyncValue } from '@/utils/playerSync'
 import { normalizeSiblingIds } from '@/utils/siblingGroups'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
@@ -728,6 +729,7 @@ const syncFromGoogleSheet = async () => {
 
     const headers = csvData[0].map(h => h.trim());
     const primaryPayerIndex = headers.findIndex(h => h === '是否為主要繳費人' || h.includes('主要繳費人'));
+    const hasPrimaryPayerColumn = primaryPayerIndex !== -1
 
     const inserts: any[] = [];
     const updates: any[] = [];
@@ -773,17 +775,11 @@ const syncFromGoogleSheet = async () => {
       const portrait_auth_str = row[19] || '';
       const portrait_auth = portrait_auth_str.includes('同意') || portrait_auth_str.includes('已充分閱讀');
       
-      let is_primary_payer = false;
-      if (primaryPayerIndex !== -1 && row.length > primaryPayerIndex) {
-        is_primary_payer = row[primaryPayerIndex]?.trim() === '是';
-      }
-      
       const basePayload: any = {
         name,
         role: roleMapped,
         birth_date,
         is_early_enrollment,
-        is_primary_payer,
         sibling_ids,
         national_id,
         throwing_hand,
@@ -809,11 +805,27 @@ const syncFromGoogleSheet = async () => {
       const existingMember = existingMap.get(name);
       if (existingMember) {
         // 更新時：保留原本的 is_half_price，不覆蓋
-        const payload = { ...basePayload, id: existingMember.id };
+        const payload = {
+          ...basePayload,
+          id: existingMember.id,
+          is_primary_payer: resolvePrimaryPayerSyncValue({
+            hasPrimaryPayerColumn,
+            rawPrimaryPayerValue: row[primaryPayerIndex],
+            fallbackValue: existingMember.is_primary_payer
+          })
+        };
         updates.push(payload);
       } else {
         // 新增時：is_half_price 預設為 false
-        inserts.push({ ...basePayload, is_half_price: false });
+        inserts.push({
+          ...basePayload,
+          is_half_price: false,
+          is_primary_payer: resolvePrimaryPayerSyncValue({
+            hasPrimaryPayerColumn,
+            rawPrimaryPayerValue: row[primaryPayerIndex],
+            fallbackValue: false
+          })
+        });
       }
     }
     
