@@ -34,6 +34,12 @@ type ProfileIdRow = {
   id: string;
 };
 
+export type PushTargetAudienceOptions = {
+  feature?: string | null;
+  action?: string | null;
+  targetRoles?: string[] | null;
+};
+
 export type PushDispatchSummary = {
   total_targets: number;
   dispatched_count: number;
@@ -52,13 +58,19 @@ export const detectPushProvider = (endpoint?: string | null) => {
 
 export const getEligiblePushTargetUserIds = async (
   supabase: SupabaseClient,
-  targetRoles?: string[] | null,
+  options: PushTargetAudienceOptions = {},
 ) => {
+  const feature = options.feature?.trim() || "leave_requests";
+  const action = options.action?.trim() || "EDIT";
+  const targetRoles = Array.isArray(options.targetRoles) && options.targetRoles.length > 0
+    ? options.targetRoles
+    : null;
+
   const { data: permissionRows, error: permissionError } = await supabase
     .from("app_role_permissions")
     .select("role_key")
-    .eq("feature", "leave_requests")
-    .eq("action", "EDIT");
+    .eq("feature", feature)
+    .eq("action", action);
 
   if (permissionError) {
     throw permissionError;
@@ -71,8 +83,8 @@ export const getEligiblePushTargetUserIds = async (
     }
   }
 
-  const filteredRoles = targetRoles && targetRoles.length > 0
-    ? [...eligibleRoles].filter((role) => targetRoles.includes(role))
+  const filteredRoles = targetRoles
+    ? [...eligibleRoles].filter((role) => role === "ADMIN" || targetRoles.includes(role))
     : [...eligibleRoles];
 
   if (filteredRoles.length === 0) {

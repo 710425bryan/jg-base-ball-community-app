@@ -352,6 +352,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { supabase } from '@/services/supabase'
+import { buildPushEventKey, dispatchPushNotification } from '@/utils/pushNotifications'
 import { ElMessage } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
@@ -530,14 +531,25 @@ const submitJoinForm = async () => {
 
   isSubmitting.value = true
   try {
-    const { error } = await supabase.from('join_inquiries').insert({
+    const { data, error } = await supabase.from('join_inquiries').insert({
       parent_name: joinForm.parent_name,
       phone: joinForm.phone,
       child_age_or_grade: joinForm.child_age_or_grade,
       message: joinForm.message
-    })
+    }).select('id, parent_name').single()
 
     if (error) throw error
+
+    void dispatchPushNotification({
+      title: `[入隊詢問] 收到來自 ${data.parent_name} 的聯絡`,
+      body: `電話: ${joinForm.phone}。請盡快與家長聯繫！`,
+      url: '/join-inquiries',
+      feature: 'join_inquiries',
+      action: 'VIEW',
+      eventKey: buildPushEventKey('join_inquiry', data.id)
+    }).catch((pushErr) => {
+      console.warn('入隊詢問推播傳送失敗', pushErr)
+    })
     
     ElMessage.success('送出成功！教練團會盡快與您聯繫。')
     isJoinModalOpen.value = false

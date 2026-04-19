@@ -2,15 +2,15 @@
   <div class="fixed inset-0 bg-background text-text flex flex-col w-full overflow-hidden">
     <!-- Topbar -->
     <header class="flex-none bg-white/95 backdrop-blur-md text-text border-b border-gray-200 pt-[env(safe-area-inset-top)] shadow-sm z-50" style="background-color: rgba(255, 255, 255, 0.95);">
-      <div class="h-16 flex items-center px-4 max-w-7xl mx-auto w-full">
+      <div class="h-16 flex items-center px-3 sm:px-4 max-w-7xl mx-auto w-full">
         <!-- Left: Logo -->
         <div 
           @click="router.push('/')"
-          class="font-extrabold text-xl tracking-wider text-primary flex items-center gap-2 shrink-0 md:w-56 drop-shadow-[0_0_8px_rgba(216,143,34,0.4)] cursor-pointer hover:opacity-80 transition-opacity"
+          class="font-extrabold text-base tracking-wide text-primary flex items-center gap-1.5 shrink-0 min-w-0 sm:gap-2 sm:text-xl sm:tracking-wider md:w-56 drop-shadow-[0_0_8px_rgba(216,143,34,0.4)] cursor-pointer hover:opacity-80 transition-opacity"
           title="回首頁"
         >
-          <img src="/少棒元素_20260324_232837_0000.png" alt="Logo" class="w-8 h-8 object-contain" />
-          中港熊戰棒球隊
+          <img src="/少棒元素_20260324_232837_0000.png" alt="Logo" class="h-7 w-7 object-contain sm:h-8 sm:w-8" />
+          <span class="truncate">中港熊戰棒球隊</span>
         </div>
 
         <!-- Center: Desktop Menu -->
@@ -41,12 +41,12 @@
         </div>
 
         <!-- Right: Actions -->
-        <div class="shrink-0 flex items-center justify-end md:w-auto gap-4">
+        <div class="shrink-0 flex items-center justify-end md:w-auto gap-2 sm:gap-4">
           
           <!-- Notification Bell -->
           <el-popover ref="notificationPopover" placement="bottom-end" :width="320" trigger="click" :show-arrow="false" popper-style="padding: 0; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);">
             <template #reference>
-              <button @click="handleNotificationBellClick" class="relative p-2 text-gray-400 hover:text-primary transition-colors focus:outline-none rounded-full hover:bg-gray-50 flex items-center justify-center">
+              <button @click="handleNotificationBellClick" class="relative flex items-center justify-center rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-50 hover:text-primary focus:outline-none sm:p-2">
                 <el-icon class="text-[22px]"><Bell /></el-icon>
                 <span v-if="notifications.length > 0" class="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-red-500 border-2 border-white"></span>
               </button>
@@ -88,7 +88,7 @@
           </button>
           
           <!-- Mobile Hamburger -->
-          <button @click="isMobileMenuOpen = !isMobileMenuOpen" class="p-1 lg:hidden text-gray-600 hover:text-primary transition-colors focus:outline-none rounded-lg ml-2">
+          <button @click="isMobileMenuOpen = !isMobileMenuOpen" class="ml-1 rounded-lg p-1 text-gray-600 transition-colors hover:text-primary focus:outline-none lg:hidden sm:ml-2">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
@@ -202,6 +202,11 @@ import { configureNotificationFeedFallbackFetcher, useNotificationFeed } from '@
 import { useVersionCheck } from '@/composables/useVersionCheck';
 import { buildNotificationFeedItemId, type NotificationFeedItem, type NotificationFeedRow } from '@/types/dashboard';
 import { buildSiblingGroupMap, normalizeSiblingIds } from '@/utils/siblingGroups'
+import {
+  buildGroupedPushEventKey,
+  buildPushEventKey,
+  dispatchPushNotification
+} from '@/utils/pushNotifications'
 import {
   groupQuarterlyFeeRecordsByPayment,
   selectLatestQuarterlyRecord,
@@ -637,6 +642,20 @@ const flushQuarterlyFeeNotificationBuffer = async (bufferKey: string) => {
   maybeShowBrowserNotification(newNote.title, newNote.body, () => {
     router.push(newNoteLink);
   });
+
+  void dispatchPushNotification({
+    title: newNote.title,
+    body: newNote.body,
+    url: newNoteLink,
+    feature: 'fees',
+    action: 'VIEW',
+    eventKey: buildGroupedPushEventKey(
+      'quarterly_fee',
+      bufferedRecords.map((record: any) => record.id || bufferKey)
+    )
+  }).catch((error) => {
+    console.warn('季費推播傳送失敗', error)
+  });
 };
 
 const queueQuarterlyFeeNotification = (record: any) => {
@@ -718,18 +737,25 @@ const startListening = () => {
         };
         upsertNotification(newNote);
 
-        if (typeof Notification === 'undefined') {
-          return;
-        }
-
-        if (Notification.permission === 'granted') {
+        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
           console.log('[推播觸發] Notification.permission 是 granted, 準備彈出橫幅...');
           maybeShowBrowserNotification('收到新球員名單', newNote.title, () => {
             router.push('/players');
           });
-        } else {
+        } else if (typeof Notification !== 'undefined') {
           console.log('[推播阻擋] 雖然收到了 Socket 更新，但目前權限狀態是：', Notification.permission);
         }
+
+        void dispatchPushNotification({
+          title: newNote.title,
+          body: newNote.body,
+          url: '/players',
+          feature: 'players',
+          action: 'VIEW',
+          eventKey: buildPushEventKey('team_member', payload.new.id)
+        }).catch((error) => {
+          console.warn('球員通知推播傳送失敗', error)
+        });
       }
     )
     .subscribe((status, err) => {
@@ -764,6 +790,17 @@ const startListening = () => {
 
           maybeShowBrowserNotification('收到新的入隊詢問', newNote.title, () => {
             router.push('/join-inquiries');
+          });
+
+          void dispatchPushNotification({
+            title: newNote.title,
+            body: newNote.body,
+            url: '/join-inquiries',
+            feature: 'join_inquiries',
+            action: 'VIEW',
+            eventKey: buildPushEventKey('join_inquiry', payload.new.id)
+          }).catch((error) => {
+            console.warn('入隊詢問推播傳送失敗', error)
           });
         }
     )

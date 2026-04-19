@@ -287,6 +287,7 @@ import { BellFilled, Calendar, Check, Delete } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 import { useRoute } from 'vue-router'
 import { useWindowSize } from '@vueuse/core'
+import { buildPushEventKey, dispatchPushNotification } from '@/utils/pushNotifications'
 import {
   buildSiblingGroupMap,
   normalizeSiblingIds,
@@ -797,6 +798,17 @@ const saveAll = async () => {
           fee.record_id = data[0].id
           fee.record_member_id = data[0].member_id
           fee.record_member_ids = Array.isArray(data[0].member_ids) ? [...data[0].member_ids] : [...payload.member_ids]
+
+          void dispatchPushNotification({
+            title: `[新增匯款] 收到 ${fee.member_name} 的繳費登記`,
+            body: `${selectedPeriodLabel.value}，金額 ${payload.amount} 元`,
+            url: `/fees?member_id=${fee.member_id}`,
+            feature: 'fees',
+            action: 'VIEW',
+            eventKey: buildPushEventKey('quarterly_fee', data[0].id)
+          }).catch((pushError) => {
+            console.warn('季費推播傳送失敗', pushError)
+          })
         }
       }
 

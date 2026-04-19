@@ -451,6 +451,7 @@
 import { ref, reactive, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { supabase } from '@/services/supabase'
+import { buildGroupedPushEventKey, dispatchPushNotification } from '@/utils/pushNotifications'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -985,7 +986,10 @@ const submitForm = async () => {
         if (recordsToInsert.length === 0) throw new Error('所選期限內沒有符合該星期的日期')
       }
 
-      const { error } = await supabase.from('leave_requests').insert(recordsToInsert)
+      const { data: insertedLeaveRequests, error } = await supabase
+        .from('leave_requests')
+        .insert(recordsToInsert)
+        .select('id')
 
       if (error) throw error
       
@@ -1001,12 +1005,16 @@ const submitForm = async () => {
         else if (form.leave_mode === '連續多日') bodyDate = `日期：${form.date_range[0]} ~ ${form.date_range[1]}`
         else if (form.leave_mode === '固定週期') bodyDate = `週期請假：共 ${recordsToInsert.length} 天`
         
-        await supabase.functions.invoke('send-push-notification', {
-          body: {
-            title,
-            body: `${bodyDate}\n原因：${finalReason || '無'}`,
-            url: '/leave-requests'
-          }
+        await dispatchPushNotification({
+          title,
+          body: `${bodyDate}\n原因：${finalReason || '無'}`,
+          url: '/leave-requests',
+          feature: 'leave_requests',
+          action: 'VIEW',
+          eventKey: buildGroupedPushEventKey(
+            'leave_request',
+            (insertedLeaveRequests || []).map((record) => record.id)
+          )
         })
       } catch (pushErr) {
         console.warn('推播傳送失敗', pushErr)

@@ -100,6 +100,8 @@
 - 若修的是 Supabase 寫入流程，留意 `upsert`、唯一鍵、批次資料去重與 RLS
 - 若改到球員、請假、收費、賽事等核心流程，需檢查是否影響通知、彙總或關聯資料
 - Google 表單 / Google Sheet 同步不得覆蓋 `team_members.is_primary_payer` 與 `team_members.is_half_price`；這兩個欄位視為系統內手動維護欄位。同步既有球員時必須保留資料庫現值，新增球員時兩者皆預設為 `false`
+- 球員、請假、繳費、入隊詢問等事件若需要手機推播，前端與表單入口應統一走 `src/utils/pushNotifications.ts`；收件對象必須依 `feature` + `action` 權限決定，不可再把所有推播綁死在 `leave_requests`
+- 若同一事件可能同時從表單提交、Realtime 監聽或多個入口觸發，必須提供穩定 `eventKey`，並由 `send-push-notification` 搭配 `push_dispatch_events` 做去重，避免重複推播
 
 ## 8. 驗證規則
 

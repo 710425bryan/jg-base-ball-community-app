@@ -43,14 +43,14 @@
         </article>
       </section>
 
-      <section class="grid gap-3 md:gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <article class="dashboard-card p-4 md:p-5">
-          <div class="text-sm font-semibold text-slate-500 md:text-base">球隊總人數</div>
-          <div class="mt-2 text-[2.7rem] font-black leading-none text-slate-950 md:text-[3.45rem]">
+      <section class="grid grid-cols-[minmax(0,1fr)_42%] gap-3 sm:grid-cols-[minmax(0,1fr)_230px] md:gap-4 md:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
+        <article class="dashboard-card min-w-0 p-4 md:p-5">
+          <div class="text-[0.82rem] font-semibold text-slate-500 md:text-base">球隊總人數</div>
+          <div class="mt-2 text-[2.35rem] font-black leading-none text-slate-950 md:text-[3.45rem]">
             {{ stats.totalMembers }}
-            <span class="ml-1 text-xl font-semibold text-slate-400 md:text-2xl">人</span>
+            <span class="ml-1 text-lg font-semibold text-slate-400 md:text-2xl">人</span>
           </div>
-          <div class="mt-4 flex flex-wrap gap-3 text-xs font-semibold text-slate-500 md:text-sm">
+          <div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] font-semibold leading-tight text-slate-500 md:mt-4 md:gap-x-4 md:gap-y-2 md:text-sm">
             <span class="flex items-center gap-1.5">
               <span class="h-2.5 w-2.5 rounded-full bg-[#60a5fa]"></span>
               校隊: {{ stats.schoolTeamMembers }}
@@ -62,27 +62,11 @@
           </div>
         </article>
 
-        <article class="dashboard-card p-4 md:p-5">
-          <div class="text-sm font-semibold text-slate-500 md:text-base">校隊人數</div>
-          <div class="mt-2 text-[2.7rem] font-black leading-none text-[#4f7df7] md:text-[3.45rem]">
-            {{ stats.schoolTeamMembers }}
-            <span class="ml-1 text-xl font-semibold text-slate-400 md:text-2xl">人</span>
-          </div>
-        </article>
-
-        <article class="dashboard-card p-4 md:p-5">
-          <div class="text-sm font-semibold text-slate-500 md:text-base">球員人數</div>
-          <div class="mt-2 text-[2.7rem] font-black leading-none text-[#22c55e] md:text-[3.45rem]">
-            {{ stats.communityMembers }}
-            <span class="ml-1 text-xl font-semibold text-slate-400 md:text-2xl">人</span>
-          </div>
-        </article>
-
-        <article class="dashboard-card p-4 md:p-5">
-          <div class="text-sm font-semibold text-slate-500 md:text-base">今日請假人數</div>
-          <div class="mt-2 text-[2.7rem] font-black leading-none text-[#ef4444] md:text-[3.45rem]">
+        <article class="dashboard-card min-w-0 p-4 md:p-5">
+          <div class="text-[0.82rem] font-semibold text-slate-500 md:text-base">今日請假人數</div>
+          <div class="mt-2 text-[2.35rem] font-black leading-none text-[#ef4444] md:text-[3.45rem]">
             {{ stats.todayLeaves }}
-            <span class="ml-1 text-xl font-semibold text-slate-400 md:text-2xl">人</span>
+            <span class="ml-1 text-lg font-semibold text-slate-400 md:text-2xl">人</span>
           </div>
         </article>
       </section>

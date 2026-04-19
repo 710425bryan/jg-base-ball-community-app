@@ -70,7 +70,10 @@ serve(async (req) => {
 
     const insertedRecord = result && result.record ? result.record : null;
 
-    const eligibleUserIds = await getEligiblePushTargetUserIds(supabase);
+    const eligibleUserIds = await getEligiblePushTargetUserIds(supabase, {
+      feature: "leave_requests",
+      action: "VIEW",
+    });
     const subscriptions = await fetchEnabledPushSubscriptions(supabase, eligibleUserIds);
     const highlightUrl = insertedRecord?.id
       ? `/leave-requests?highlight_leave_id=${insertedRecord.id}`

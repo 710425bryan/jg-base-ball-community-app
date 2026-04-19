@@ -14,8 +14,12 @@
           
           <div class="px-8 py-10 flex flex-col items-center">
             
-            <div class="w-24 h-24 mb-6 bg-slate-800 rounded-2xl flex items-center justify-center shadow-lg border border-primary/20">
-              <span class="text-4xl drop-shadow-lg">🐻</span>
+            <div class="mb-6 flex h-[180px] w-[180px] items-center justify-center rounded-[2.25rem] shadow-[0_14px_28px_rgba(15,23,42,0.12)]">
+              <img
+                src="/少棒元素_20260324_232837_0000.png"
+                alt="中港熊戰棒球隊 Logo"
+                class="h-[160px] w-[160px] object-contain drop-shadow-md"
+              />
             </div>
 
             <div class="text-center mb-8 w-full">
