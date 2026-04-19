@@ -1,62 +1,48 @@
 import { describe, expect, it } from 'vitest'
-import { resolvePrimaryPayerSyncValue } from './playerSync'
+import { dedupePlayerSyncRows, getProtectedFeeFlagsPayloadForGoogleFormSync } from './playerSync'
 
 describe('playerSync', () => {
-  it('keeps the existing primary payer flag when the form does not include the column', () => {
-    expect(resolvePrimaryPayerSyncValue({
-      hasPrimaryPayerColumn: false,
-      rawPrimaryPayerValue: undefined,
-      fallbackValue: true
-    })).toBe(true)
-
-    expect(resolvePrimaryPayerSyncValue({
-      hasPrimaryPayerColumn: false,
-      rawPrimaryPayerValue: undefined,
-      fallbackValue: false
-    })).toBe(false)
+  it('preserves existing members protected fee flags during Google Form sync', () => {
+    expect(getProtectedFeeFlagsPayloadForGoogleFormSync(true)).toEqual({})
   })
 
-  it('keeps the existing primary payer flag when the form cell is blank', () => {
-    expect(resolvePrimaryPayerSyncValue({
-      hasPrimaryPayerColumn: true,
-      rawPrimaryPayerValue: '   ',
-      fallbackValue: true
-    })).toBe(true)
-
-    expect(resolvePrimaryPayerSyncValue({
-      hasPrimaryPayerColumn: true,
-      rawPrimaryPayerValue: '',
-      fallbackValue: false
-    })).toBe(false)
+  it('defaults new members protected fee flags during Google Form sync', () => {
+    expect(getProtectedFeeFlagsPayloadForGoogleFormSync(false)).toEqual({
+      is_primary_payer: false,
+      is_half_price: false
+    })
   })
 
-  it('syncs true when the form explicitly marks the player as the primary payer', () => {
-    expect(resolvePrimaryPayerSyncValue({
-      hasPrimaryPayerColumn: true,
-      rawPrimaryPayerValue: '是',
-      fallbackValue: false
-    })).toBe(true)
+  it('deduplicates sync rows by key and keeps the latest row data', () => {
+    const { rows, duplicateCount } = dedupePlayerSyncRows(
+      [
+        { id: 'member-1', name: '小明', role: '球員' },
+        { id: 'member-2', name: '小華', role: '球員' },
+        { id: 'member-1', name: '小明', role: '校隊' }
+      ],
+      (row) => row.id
+    )
+
+    expect(duplicateCount).toBe(1)
+    expect(rows).toEqual([
+      { id: 'member-1', name: '小明', role: '校隊' },
+      { id: 'member-2', name: '小華', role: '球員' }
+    ])
   })
 
-  it('syncs false when the form explicitly provides a non-primary-payer value', () => {
-    expect(resolvePrimaryPayerSyncValue({
-      hasPrimaryPayerColumn: true,
-      rawPrimaryPayerValue: '否',
-      fallbackValue: true
-    })).toBe(false)
-  })
+  it('does not merge rows when the dedupe key is blank', () => {
+    const { rows, duplicateCount } = dedupePlayerSyncRows(
+      [
+        { name: '未命名-1' },
+        { name: '未命名-2' }
+      ],
+      () => ''
+    )
 
-  it('defaults new members to false when the form omits or leaves the value blank', () => {
-    expect(resolvePrimaryPayerSyncValue({
-      hasPrimaryPayerColumn: false,
-      rawPrimaryPayerValue: undefined,
-      fallbackValue: false
-    })).toBe(false)
-
-    expect(resolvePrimaryPayerSyncValue({
-      hasPrimaryPayerColumn: true,
-      rawPrimaryPayerValue: ' ',
-      fallbackValue: false
-    })).toBe(false)
+    expect(duplicateCount).toBe(0)
+    expect(rows).toEqual([
+      { name: '未命名-1' },
+      { name: '未命名-2' }
+    ])
   })
 })

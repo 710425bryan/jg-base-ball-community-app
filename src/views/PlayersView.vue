@@ -437,7 +437,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { supabase } from '@/services/supabase'
 import { compressImage } from '@/utils/imageCompressor'
-import { resolvePrimaryPayerSyncValue } from '@/utils/playerSync'
+import { dedupePlayerSyncRows, getProtectedFeeFlagsPayloadForGoogleFormSync } from '@/utils/playerSync'
 import { normalizeSiblingIds } from '@/utils/siblingGroups'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
@@ -727,10 +727,6 @@ const syncFromGoogleSheet = async () => {
       existingMap.set(m.name?.trim(), m);
     });
 
-    const headers = csvData[0].map(h => h.trim());
-    const primaryPayerIndex = headers.findIndex(h => h === '是否為主要繳費人' || h.includes('主要繳費人'));
-    const hasPrimaryPayerColumn = primaryPayerIndex !== -1
-
     const inserts: any[] = [];
     const updates: any[] = [];
     const syncRows: Array<{ name: string; siblingNames: string[]; roleMapped: string }> = [];
@@ -804,38 +800,49 @@ const syncFromGoogleSheet = async () => {
 
       const existingMember = existingMap.get(name);
       if (existingMember) {
-        // 更新時：保留原本的 is_half_price，不覆蓋
+        // Google 表單同步不得覆蓋手動維護的主要繳費人/半價優惠設定。
         const payload = {
           ...basePayload,
           id: existingMember.id,
-          is_primary_payer: resolvePrimaryPayerSyncValue({
-            hasPrimaryPayerColumn,
-            rawPrimaryPayerValue: row[primaryPayerIndex],
-            fallbackValue: existingMember.is_primary_payer
-          })
+          ...getProtectedFeeFlagsPayloadForGoogleFormSync(true)
         };
         updates.push(payload);
       } else {
-        // 新增時：is_half_price 預設為 false
+        // 新增時：主要繳費人與半價優惠都維持系統預設，後續再由系統內手動調整。
         inserts.push({
           ...basePayload,
-          is_half_price: false,
-          is_primary_payer: resolvePrimaryPayerSyncValue({
-            hasPrimaryPayerColumn,
-            rawPrimaryPayerValue: row[primaryPayerIndex],
-            fallbackValue: false
-          })
+          ...getProtectedFeeFlagsPayloadForGoogleFormSync(false)
         });
       }
     }
+
+    const { rows: dedupedUpdates, duplicateCount: duplicateUpdateCount } = dedupePlayerSyncRows(
+      updates,
+      (payload) => payload.id
+    )
+    const { rows: dedupedInserts, duplicateCount: duplicateInsertCount } = dedupePlayerSyncRows(
+      inserts,
+      (payload) => payload.name
+    )
+    const { rows: dedupedSyncRows } = dedupePlayerSyncRows(
+      syncRows,
+      (row) => row.name
+    )
+    const duplicateRowCount = duplicateUpdateCount + duplicateInsertCount
+
+    if (duplicateRowCount > 0) {
+      console.warn(
+        `[Player Sync] Detected ${duplicateRowCount} duplicate row(s) in Google Sheet. Using the last occurrence for each player.`
+      )
+    }
     
-    if (updates.length > 0) {
-      const { error } = await supabase.from('team_members').upsert(updates, { onConflict: 'id' });
+    if (dedupedUpdates.length > 0) {
+      const { error } = await supabase.from('team_members').upsert(dedupedUpdates, { onConflict: 'id' });
       if (error) throw error;
     }
     
-    if (inserts.length > 0) {
-      const { error } = await supabase.from('team_members').insert(inserts);
+    if (dedupedInserts.length > 0) {
+      const { error } = await supabase.from('team_members').insert(dedupedInserts);
       if (error) throw error;
     }
 
@@ -844,7 +851,7 @@ const syncFromGoogleSheet = async () => {
       refreshedMembers.map((member) => [member.name?.trim(), member])
     )
 
-    syncRows.forEach((row) => {
+    dedupedSyncRows.forEach((row) => {
       const member = memberByName.get(row.name)
       if (!member) return
 
@@ -857,7 +864,11 @@ const syncFromGoogleSheet = async () => {
 
     await persistNormalizedSiblingIds(refreshedMembers)
     
-    ElMessage.success(`同步完成！新增 ${inserts.length} 筆，更新 ${updates.length} 筆資料`);
+    ElMessage.success(
+      duplicateRowCount > 0
+        ? `同步完成！新增 ${dedupedInserts.length} 筆，更新 ${dedupedUpdates.length} 筆資料；偵測到 ${duplicateRowCount} 筆重複列，已以最後一筆為準`
+        : `同步完成！新增 ${dedupedInserts.length} 筆，更新 ${dedupedUpdates.length} 筆資料`
+    );
     await fetchData();
   } catch (err: any) {
     if (err !== 'cancel') {
