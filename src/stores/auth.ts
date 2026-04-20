@@ -4,6 +4,9 @@ import { supabase } from '@/services/supabase'
 import type { User, Session } from '@supabase/supabase-js'
 import { usePermissionsStore } from './permissions'
 
+const LAST_SEEN_SYNC_INTERVAL_MS = 5 * 60 * 1000
+const lastSeenSyncCache = new Map<string, number>()
+
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const session = ref<Session | null>(null)
@@ -21,6 +24,33 @@ export const useAuthStore = defineStore('auth', () => {
     const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single()
     if (error) throw error
     profile.value = data || null
+  }
+
+  const maybeTouchLastSeen = async (userId: string) => {
+    const cachedLastSeenAt = lastSeenSyncCache.get(userId) ?? 0
+    const profileLastSeenAt = profile.value?.last_seen_at ? new Date(profile.value.last_seen_at).getTime() : 0
+    const newestKnownSeenAt = Math.max(cachedLastSeenAt, profileLastSeenAt)
+
+    if (newestKnownSeenAt && Date.now() - newestKnownSeenAt < LAST_SEEN_SYNC_INTERVAL_MS) {
+      return
+    }
+
+    const nextSeenAt = new Date().toISOString()
+    const { error } = await supabase.rpc('touch_profile_last_seen')
+
+    if (error) {
+      console.warn('Failed to touch profile last seen', error)
+      return
+    }
+
+    lastSeenSyncCache.set(userId, Date.now())
+
+    if (profile.value?.id === userId) {
+      profile.value = {
+        ...profile.value,
+        last_seen_at: nextSeenAt
+      }
+    }
   }
 
   const syncAuthContext = async (
@@ -51,6 +81,8 @@ export const useAuthStore = defineStore('auth', () => {
     if (permissionsStore.currentRole !== nextRole) {
       await permissionsStore.fetchPermissions(nextRole)
     }
+
+    void maybeTouchLastSeen(user.value.id)
   }
 
   const registerAuthStateListener = () => {

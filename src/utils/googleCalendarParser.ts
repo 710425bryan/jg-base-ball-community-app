@@ -59,6 +59,10 @@ export interface CalendarSyncItem {
   payload: MatchRecordInput
 }
 
+export interface CalendarSyncOptions {
+  minimumMatchDate?: string
+}
+
 const collapseWhitespace = (value: string) => value.replace(/\s+/g, ' ').trim()
 
 const normalizeTitleKey = (value: string) => collapseWhitespace(value).toLowerCase()
@@ -133,6 +137,8 @@ const formatDateTimeInTimeZone = (date: Date, timeZone: string) => {
     time: `${partMap.get('hour')}:${partMap.get('minute')}`
   }
 }
+
+const getTodayDateInTimeZone = (timeZone: string) => formatDateTimeInTimeZone(new Date(), timeZone).date
 
 const parseICalDateTime = (rawValue: string, timeZone?: string) => {
   if (!rawValue) {
@@ -478,42 +484,51 @@ const findFallbackExistingMatch = (existingMatches: MatchRecord[], parsedMatch: 
   }) || null
 }
 
-export const planCalendarSync = (existingMatches: MatchRecord[], parsedMatches: ParsedMatch[]): CalendarSyncItem[] =>
-  parsedMatches.map((parsedMatch) => {
-    const payload = createMatchRecordInput(parsedMatch)
+export const planCalendarSync = (
+  existingMatches: MatchRecord[],
+  parsedMatches: ParsedMatch[],
+  options: CalendarSyncOptions = {}
+): CalendarSyncItem[] => {
+  const minimumMatchDate = options.minimumMatchDate || getTodayDateInTimeZone(TAIPEI_TIME_ZONE)
 
-    const matchedByUid =
-      parsedMatch.id
-        ? existingMatches.find((match) => match.google_calendar_event_id === parsedMatch.id) || null
-        : null
+  return parsedMatches
+    .filter((parsedMatch) => parsedMatch.date >= minimumMatchDate)
+    .map((parsedMatch) => {
+      const payload = createMatchRecordInput(parsedMatch)
 
-    const existingMatch = matchedByUid || findFallbackExistingMatch(existingMatches, parsedMatch)
+      const matchedByUid =
+        parsedMatch.id
+          ? existingMatches.find((match) => match.google_calendar_event_id === parsedMatch.id) || null
+          : null
 
-    if (!existingMatch) {
-      return {
-        action: 'create',
-        existingMatchId: null,
-        parsedMatch,
-        payload
+      const existingMatch = matchedByUid || findFallbackExistingMatch(existingMatches, parsedMatch)
+
+      if (!existingMatch) {
+        return {
+          action: 'create',
+          existingMatchId: null,
+          parsedMatch,
+          payload
+        }
       }
-    }
 
-    if (isSyncPayloadEqual(existingMatch, payload)) {
+      if (isSyncPayloadEqual(existingMatch, payload)) {
+        return {
+          action: 'skip',
+          existingMatchId: existingMatch.id,
+          parsedMatch,
+          payload
+        }
+      }
+
       return {
-        action: 'skip',
+        action: 'update',
         existingMatchId: existingMatch.id,
         parsedMatch,
         payload
       }
-    }
-
-    return {
-      action: 'update',
-      existingMatchId: existingMatch.id,
-      parsedMatch,
-      payload
-    }
-  })
+    })
+}
 
 export const parseMatchRecord = (event: ParsedICalEvent): ParsedMatch => {
   const rawTitle = collapseWhitespace(decodeICalText(event.summary || ''))

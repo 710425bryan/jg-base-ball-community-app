@@ -34,6 +34,16 @@ const router = createRouter({
           component: () => import('../views/CalendarView.vue')
         },
         {
+          path: 'profile',
+          name: 'ProfileSettings',
+          component: () => import('../views/ProfileSettingsView.vue')
+        },
+        {
+          path: 'my-payments',
+          name: 'MyPayments',
+          component: () => import('../views/MyPaymentsView.vue')
+        },
+        {
           path: 'leave-requests',
           name: 'LeaveRequests',
           component: () => import('../views/LeaveRequestsView.vue'),

@@ -2,11 +2,11 @@
   <div class="fixed inset-0 bg-background text-text flex flex-col w-full overflow-hidden">
     <!-- Topbar -->
     <header class="flex-none bg-white/95 backdrop-blur-md text-text border-b border-gray-200 pt-[env(safe-area-inset-top)] shadow-sm z-50" style="background-color: rgba(255, 255, 255, 0.95);">
-      <div class="h-16 flex items-center px-3 sm:px-4 max-w-7xl mx-auto w-full">
+      <div class="h-16 flex items-center gap-2 px-3 sm:px-4 max-w-7xl mx-auto w-full">
         <!-- Left: Logo -->
         <div 
           @click="router.push('/')"
-          class="font-extrabold text-base tracking-wide text-primary flex items-center gap-1.5 shrink-0 min-w-0 sm:gap-2 sm:text-xl sm:tracking-wider md:w-56 drop-shadow-[0_0_8px_rgba(216,143,34,0.4)] cursor-pointer hover:opacity-80 transition-opacity"
+          class="font-extrabold text-base tracking-wide text-primary flex items-center gap-1.5 shrink-0 min-w-0 sm:gap-2 sm:text-xl sm:tracking-wider lg:w-44 xl:w-52 drop-shadow-[0_0_8px_rgba(216,143,34,0.4)] cursor-pointer hover:opacity-80 transition-opacity"
           title="回首頁"
         >
           <img src="/少棒元素_20260324_232837_0000.png" alt="Logo" class="h-7 w-7 object-contain sm:h-8 sm:w-8" />
@@ -14,18 +14,18 @@
         </div>
 
         <!-- Center: Desktop Menu -->
-        <div class="flex-1 flex justify-center mx-2 overflow-hidden">
-          <nav class="hidden lg:flex gap-5 xl:gap-8 nav-desktop items-center px-1">
-            <router-link to="/dashboard" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">後台大廳</router-link>
-            <router-link to="/calendar" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">行事曆</router-link>
-            <router-link v-if="permissionsStore.can('matches', 'VIEW')" to="/match-records" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">比賽紀錄</router-link>
-            <router-link v-if="permissionsStore.can('leave_requests', 'VIEW')" to="/leave-requests" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">請假系統</router-link>
-            <router-link v-if="permissionsStore.can('attendance', 'VIEW')" to="/attendance" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">點名系統</router-link>
-            <router-link v-if="permissionsStore.can('players', 'VIEW')" to="/players" class="whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">球員名單</router-link>
+        <div class="flex-1 min-w-0 flex justify-center mx-1 xl:mx-2 overflow-hidden">
+          <nav class="hidden lg:flex gap-4 xl:gap-6 2xl:gap-8 nav-desktop items-center px-1 min-w-0">
+            <router-link to="/dashboard" class="whitespace-nowrap text-[13px] xl:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">後台大廳</router-link>
+            <router-link to="/calendar" class="whitespace-nowrap text-[13px] xl:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">行事曆</router-link>
+            <router-link v-if="permissionsStore.can('matches', 'VIEW')" to="/match-records" class="whitespace-nowrap text-[13px] xl:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">比賽紀錄</router-link>
+            <router-link v-if="permissionsStore.can('leave_requests', 'VIEW')" to="/leave-requests" class="whitespace-nowrap text-[13px] xl:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">請假系統</router-link>
+            <router-link v-if="permissionsStore.can('attendance', 'VIEW')" to="/attendance" class="whitespace-nowrap text-[13px] xl:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">點名系統</router-link>
+            <router-link v-if="permissionsStore.can('players', 'VIEW')" to="/players" class="whitespace-nowrap text-[13px] xl:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">球員名單</router-link>
             
             <!-- 更多選單 (不常用收納區) -->
             <el-dropdown trigger="hover" placement="bottom" v-if="permissionsStore.can('join_inquiries') || permissionsStore.can('announcements') || permissionsStore.can('fees') || permissionsStore.can('users')">
-              <div class="cursor-pointer whitespace-nowrap text-[13px] lg:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide flex items-center gap-1 pt-0.5 outline-none">
+              <div class="cursor-pointer whitespace-nowrap text-[13px] xl:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide flex items-center gap-1 pt-0.5 outline-none">
                 更多 <el-icon class="text-xs transition-transform duration-300 el-dropdown-link-icon"><ArrowDown /></el-icon>
               </div>
               <template #dropdown>
@@ -33,7 +33,7 @@
                   <el-dropdown-item v-if="permissionsStore.can('join_inquiries', 'VIEW')" @click="router.push('/join-inquiries')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">入隊申請</el-dropdown-item>
                   <el-dropdown-item v-if="permissionsStore.can('announcements', 'VIEW')" @click="router.push('/announcements')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">系統公告</el-dropdown-item>
                   <el-dropdown-item v-if="permissionsStore.can('fees', 'VIEW')" @click="router.push('/fees')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">收費管理</el-dropdown-item>
-                  <el-dropdown-item v-if="permissionsStore.can('users', 'VIEW')" @click="router.push('/users')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5" divided>設定</el-dropdown-item>
+                  <el-dropdown-item v-if="permissionsStore.can('users', 'VIEW')" @click="router.push('/users')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5" divided>使用者名單</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
@@ -41,7 +41,7 @@
         </div>
 
         <!-- Right: Actions -->
-        <div class="shrink-0 flex items-center justify-end md:w-auto gap-2 sm:gap-4">
+        <div class="shrink-0 flex items-center justify-end md:w-auto gap-2 sm:gap-3">
           
           <!-- Notification Bell -->
           <el-popover ref="notificationPopover" placement="bottom-end" :width="320" trigger="click" :show-arrow="false" popper-style="padding: 0; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);">
@@ -73,19 +73,33 @@
           </el-popover>
 
           <!-- User Profile (Desktop Only) -->
-          <div class="hidden md:flex flex-col items-end justify-center mr-2 lg:mr-4">
-            <span class="text-sm font-extrabold text-gray-800 leading-tight">{{ authStore.profile?.name || '使用者' }}</span>
-            <div class="flex items-center gap-1.5 mt-0.5">
-              <span class="text-[10px] text-gray-500 font-bold bg-gray-100/80 px-1.5 py-0.5 rounded border border-gray-200 leading-none" title="系統版本">v{{ appVersion }}</span>
-              <span class="text-xs text-primary font-bold">{{ translateRole(authStore.profile?.role) }}</span>
-            </div>
+          <div class="hidden md:block">
+            <el-dropdown trigger="hover" placement="bottom-end">
+              <button type="button" class="flex items-center gap-3 min-w-0 rounded-2xl px-2 py-1.5 hover:bg-gray-50 transition-colors">
+                <div class="w-10 h-10 rounded-full overflow-hidden border border-gray-200 bg-gray-50 shrink-0">
+                  <img v-if="authStore.profile?.avatar_url" :src="authStore.profile.avatar_url" class="w-full h-full object-cover" alt="使用者大頭照" />
+                  <div v-else class="w-full h-full flex items-center justify-center text-sm font-black text-gray-400">
+                    {{ currentUserDisplayName.charAt(0) }}
+                  </div>
+                </div>
+                <div class="flex flex-col items-end justify-center min-w-0">
+                  <span class="text-sm font-extrabold text-gray-800 leading-tight truncate max-w-[9rem]">{{ currentUserDisplayName }}</span>
+                  <div class="flex items-center gap-1.5 mt-0.5">
+                    <span class="text-[10px] text-gray-500 font-bold bg-gray-100/80 px-1.5 py-0.5 rounded border border-gray-200 leading-none" title="系統版本">v{{ appVersion }}</span>
+                    <span class="text-xs text-primary font-bold truncate max-w-[6rem]">{{ translateRole(authStore.profile?.role) }}</span>
+                  </div>
+                </div>
+                <el-icon class="text-gray-400 shrink-0"><ArrowDown /></el-icon>
+              </button>
+              <template #dropdown>
+                <el-dropdown-menu class="!p-1.5 !rounded-xl min-w-[180px] shadow-xl border-gray-100">
+                  <el-dropdown-item @click="router.push('/profile')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">個人設定</el-dropdown-item>
+                  <el-dropdown-item @click="router.push('/my-payments')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">繳費資訊</el-dropdown-item>
+                  <el-dropdown-item @click="handleSignOut" class="!rounded-lg !font-bold !text-red-500 hover:!text-red-600 !py-2.5" divided>登出</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </div>
-
-          <!-- Desktop Sign Out -->
-          <button @click="handleSignOut" class="hidden lg:flex items-center gap-1.5 text-gray-400 hover:text-red-500 font-bold transition-colors text-sm px-3 py-1.5 rounded-lg hover:bg-red-50">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-            登出
-          </button>
           
           <!-- Mobile Hamburger -->
           <button @click="isMobileMenuOpen = !isMobileMenuOpen" class="ml-1 rounded-lg p-1 text-gray-600 transition-colors hover:text-primary focus:outline-none lg:hidden sm:ml-2">
@@ -112,13 +126,23 @@
     <div v-if="isMobileMenuOpen" class="lg:hidden absolute top-16 left-0 w-full max-h-[calc(100vh-4rem)] overflow-y-auto bg-white border-b border-gray-100 z-40 shadow-xl animate-fade-in-down">
       <nav class="flex flex-col py-2">
          <!-- Mobile User Info & Version -->
-         <div class="px-6 pb-4 pt-2 border-b border-gray-100 flex items-center justify-between mb-1 bg-gray-50/30">
-           <div class="flex flex-col">
-             <span class="text-sm font-extrabold text-gray-800">{{ authStore.profile?.name || '使用者' }}</span>
-             <span class="text-xs text-primary font-bold mt-0.5">{{ translateRole(authStore.profile?.role) }}</span>
+         <div class="px-6 pb-4 pt-2 border-b border-gray-100 flex items-center justify-between mb-1 bg-gray-50/30 gap-3">
+           <div class="flex items-center gap-3 min-w-0">
+             <div class="w-11 h-11 rounded-full overflow-hidden border border-gray-200 bg-white shadow-sm shrink-0">
+               <img v-if="authStore.profile?.avatar_url" :src="authStore.profile.avatar_url" class="w-full h-full object-cover" alt="使用者大頭照" />
+               <div v-else class="w-full h-full flex items-center justify-center text-sm font-black text-gray-400">
+                 {{ currentUserDisplayName.charAt(0) }}
+               </div>
+             </div>
+             <div class="flex flex-col min-w-0">
+               <span class="text-sm font-extrabold text-gray-800 truncate">{{ currentUserDisplayName }}</span>
+               <span class="text-xs text-primary font-bold mt-0.5">{{ translateRole(authStore.profile?.role) }}</span>
+             </div>
            </div>
            <span class="text-[10px] text-gray-500 font-bold bg-white px-2 py-1 rounded-md border border-gray-200 shadow-sm tracking-wide">v{{ appVersion }}</span>
          </div>
+         <router-link to="/profile" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">個人設定</router-link>
+         <router-link to="/my-payments" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">繳費資訊</router-link>
          <router-link to="/dashboard" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">後台大廳</router-link>
          <router-link to="/calendar" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">行事曆</router-link>
          <router-link v-if="permissionsStore.can('matches', 'VIEW')" to="/match-records" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">比賽紀錄</router-link>
@@ -128,7 +152,7 @@
          <router-link v-if="permissionsStore.can('join_inquiries', 'VIEW')" to="/join-inquiries" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">入隊申請</router-link>
          <router-link v-if="permissionsStore.can('announcements', 'VIEW')" to="/announcements" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">系統公告</router-link>
          <router-link v-if="permissionsStore.can('fees', 'VIEW')" to="/fees" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">收費管理</router-link>
-         <router-link v-if="permissionsStore.can('users', 'VIEW')" to="/users" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">設定</router-link>
+         <router-link v-if="permissionsStore.can('users', 'VIEW')" to="/users" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">使用者名單</router-link>
          <button @click="handleSignOut" class="text-left px-6 py-5 text-red-500 hover:bg-red-50 font-bold w-full transition-colors flex items-center gap-2 uppercase tracking-widest text-sm">
            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
            登出系統
@@ -184,7 +208,7 @@
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
-        <span class="font-bold tracking-wide">設定</span>
+        <span class="font-bold tracking-wide">使用者名單</span>
       </router-link>
       </div>
     </nav>
@@ -192,7 +216,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onUnmounted } from 'vue';
+import { computed, ref, watch, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { usePermissionsStore } from '@/stores/permissions';
@@ -234,6 +258,7 @@ const {
 const { hasUpdateAvailable, refreshApp } = useVersionCheck();
 const isMobileMenuOpen = ref(false);
 const notificationPopover = ref<any>(null);
+const currentUserDisplayName = computed(() => authStore.profile?.nickname || authStore.profile?.name || '使用者');
 
 const handleNotificationClick = (link: string | undefined) => {
   if (link) {

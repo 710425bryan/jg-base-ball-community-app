@@ -33,7 +33,7 @@
         </button>
 
         <router-link v-if="authStore.isAuthenticated" to="/dashboard" class="flex flex-col items-end group cursor-pointer text-white hover:text-secondary transition-colors text-right">
-          <span class="font-bold tracking-widest text-sm leading-tight group-hover:text-secondary transition-colors">{{ authStore.profile?.name || '管理員' }}</span>
+          <span class="font-bold tracking-widest text-sm leading-tight group-hover:text-secondary transition-colors">{{ authStore.profile?.nickname || authStore.profile?.name || '管理員' }}</span>
           <span class="text-[10px] text-gray-400 font-bold tracking-widest uppercase truncate max-w-[80px] mt-0.5">{{ getRoleName(authStore.profile?.role) }}</span>
         </router-link>
         <button v-else @click="showLogin = true" class="text-white hover:text-secondary transition-colors font-bold tracking-widest uppercase cursor-pointer bg-transparent border-none p-0 outline-none">

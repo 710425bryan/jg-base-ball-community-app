@@ -15,9 +15,10 @@
 當 AI 接到任務時，請依照以下順序建立上下文：
 
 1. 先讀本檔 `AGENT.md`
-2. 再讀與任務直接相關的檔案
-3. 若涉及路由、權限、登入、資料同步，再補讀對應的 `router`、`stores`、`services`、`utils`
-4. 不要一次大量掃描全部檔案，避免引入無關上下文
+2. 若任務可能命中 repo 內既有 AI skills，補讀 `AI_SKILLS.md` 與對應 `.codex/skills/*/SKILL.md`
+3. 再讀與任務直接相關的檔案
+4. 若涉及路由、權限、登入、資料同步，再補讀對應的 `router`、`stores`、`services`、`utils`
+5. 不要一次大量掃描全部檔案，避免引入無關上下文
 
 ## 3. 全域工作規則
 
@@ -54,6 +55,7 @@
 - `public/`：靜態資產。可直接提供給前端使用。
 - `dev-dist/`：建置產物或測試產物，預設不要手動修改。
 - `scripts/`：一次性或維運型腳本。
+- `.codex/skills/`：本 repo 的可重用 Codex skills。若任務明確落在權限、球員同步、推播或賽事日曆同步，先讀對應 `SKILL.md` 再擴大上下文。
 - `check_db.ts`、`check_db2.ts`：資料庫檢查腳本，非正式產品流程。
 - `vite.config.ts`：Vite、PWA、版本輸出行為。
 - `package.json`：套件與可用指令定義。

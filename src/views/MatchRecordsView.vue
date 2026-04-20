@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { Search, Filter, Calendar, Grid, Document, CopyDocument, TopRight, Plus } from '@element-plus/icons-vue'
+import { Search, Filter, Calendar, Plus } from '@element-plus/icons-vue'
 import { useMatchesStore } from '@/stores/matches'
 import MatchesGrid from '@/components/match-records/MatchesGrid.vue'
 import MatchesTable from '@/components/match-records/MatchesTable.vue'
 import MatchDetailDialog from '@/components/match-records/MatchDetailDialog.vue'
 import MatchFormDialog from '@/components/match-records/MatchFormDialog.vue'
 import SyncCalendarDialog from '@/components/match-records/SyncCalendarDialog.vue'
+import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
 import dayjs from 'dayjs'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import type { MatchRecord } from '@/types/match'
 
 const matchesStore = useMatchesStore()
@@ -34,12 +36,31 @@ onMounted(() => {
 })
 
 const getMatchSortValue = (match: MatchRecord) => {
-  if (!match.match_date) return Number.POSITIVE_INFINITY
+  if (!match.match_date) return null
 
   const startTime = match.match_time?.match(/\d{1,2}:\d{2}/)?.[0] || '00:00'
   const value = dayjs(`${match.match_date}T${startTime}`).valueOf()
 
-  return Number.isNaN(value) ? Number.POSITIVE_INFINITY : value
+  return Number.isNaN(value) ? null : value
+}
+
+const compareMatchesBySchedule = (a: MatchRecord, b: MatchRecord, direction: 'asc' | 'desc') => {
+  const aValue = getMatchSortValue(a)
+  const bValue = getMatchSortValue(b)
+
+  if (aValue === null && bValue === null) {
+    return a.match_name.localeCompare(b.match_name, 'zh-Hant')
+  }
+
+  if (aValue === null) return direction === 'asc' ? 1 : -1
+  if (bValue === null) return direction === 'asc' ? -1 : 1
+
+  const diff = aValue - bValue
+  if (diff !== 0) {
+    return direction === 'asc' ? diff : -diff
+  }
+
+  return a.match_name.localeCompare(b.match_name, 'zh-Hant')
 }
 
 const filteredMatches = computed(() => {
@@ -79,8 +100,8 @@ const filteredMatches = computed(() => {
   }
 
   return [...result].sort((a, b) => {
-    const diff = getMatchSortValue(a) - getMatchSortValue(b)
-    return activeMainTab.value === 'future' ? diff : -diff
+    const direction = activeMainTab.value === 'future' ? 'asc' : 'desc'
+    return compareMatchesBySchedule(a, b, direction)
   })
 })
 
@@ -109,6 +130,40 @@ const handleAddMatch = () => {
   selectedMatchId.value = null
   formMode.value = 'add'
   formDialogVisible.value = true
+}
+
+const handleDeleteMatch = async (id: string) => {
+  const targetMatch = matchesStore.matches.find((match) => match.id === id)
+  if (!targetMatch) return
+
+  try {
+    await ElMessageBox.confirm(
+      `確定要刪除「${targetMatch.match_name}」嗎？此操作無法復原。`,
+      '刪除比賽紀錄',
+      {
+        type: 'error',
+        confirmButtonText: '刪除',
+        confirmButtonClass: 'el-button--danger',
+        cancelButtonText: '取消'
+      }
+    )
+
+    await matchesStore.deleteMatch(id)
+
+    if (selectedMatchId.value === id) {
+      selectedMatchId.value = null
+      detailDialogVisible.value = false
+      formDialogVisible.value = false
+    }
+
+    ElMessage.success('已刪除比賽紀錄')
+  } catch (error: any) {
+    if (error === 'cancel' || error === 'close') {
+      return
+    }
+
+    ElMessage.error(`刪除失敗：${error?.message || '請稍後再試'}`)
+  }
 }
 
 const handleSyncCalendar = () => {
@@ -185,17 +240,7 @@ const handleSyncCalendar = () => {
           </div>
         </el-popover>
 
-        <!-- 切換顯示模式 -->
-        <div class="bg-gray-100 p-1 rounded-lg shadow-inner shrink-0 hidden md:flex items-center">
-          <button @click="viewMode = 'grid'" :class="['px-3 py-1.5 rounded-md text-sm font-bold transition-all flex items-center gap-1.5', viewMode === 'grid' ? 'bg-white text-primary shadow-sm' : 'text-gray-400 hover:text-gray-600']">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
-            <span class="hidden sm:inline">網格</span>
-          </button>
-          <button @click="viewMode = 'table'" :class="['px-3 py-1.5 rounded-md text-sm font-bold transition-all flex items-center gap-1.5', viewMode === 'table' ? 'bg-white text-primary shadow-sm' : 'text-gray-400 hover:text-gray-600']">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
-            <span class="hidden sm:inline">表格</span>
-          </button>
-        </div>
+        <ViewModeSwitch v-model="viewMode" class="shrink-0" />
 
         <!-- Tool Buttons -->
         <div class="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0">
@@ -258,12 +303,14 @@ const handleSyncCalendar = () => {
           :sort-direction="activeMainTab === 'future' ? 'asc' : 'desc'"
           @view="handleViewMatch" 
           @edit="handleEditMatch" 
+          @delete="handleDeleteMatch"
         />
         <MatchesTable 
           v-else 
           :matches="filteredMatches" 
           @view="handleViewMatch" 
           @edit="handleEditMatch" 
+          @delete="handleDeleteMatch"
         />
       </template>
     </div>

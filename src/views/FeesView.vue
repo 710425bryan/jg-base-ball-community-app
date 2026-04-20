@@ -103,6 +103,7 @@
         
         <!-- Tab Contents -->
         <template v-else>
+          <ProfilePaymentSubmissionInbox class="mb-6" />
           <div v-show="activeTab === 'monthly'">
             <SchoolTeamFees @summary-change="handleMonthlySummaryChange" />
           </div>
@@ -128,6 +129,7 @@ import { Money, Lock } from '@element-plus/icons-vue'
 import SchoolTeamFees from '@/components/fees/SchoolTeamFees.vue'
 import QuarterlyFees from '@/components/fees/QuarterlyFees.vue'
 import FeeSettings from '@/components/fees/FeeSettings.vue'
+import ProfilePaymentSubmissionInbox from '@/components/fees/ProfilePaymentSubmissionInbox.vue'
 
 const route = useRoute()
 const permissionsStore = usePermissionsStore()

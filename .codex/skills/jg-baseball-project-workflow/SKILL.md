@@ -1,0 +1,46 @@
+---
+name: jg-baseball-project-workflow
+description: "Project-specific workflow for jg-base-ball-community-app. Use when Codex is asked to modify this repo's Vue 3 + Vite + TypeScript + Supabase app, especially page or component changes, Pinia stores, router, services, composables, utils, migrations, Edge Functions, PWA behavior, or repo-wide validation. Trigger on requests about 本專案、社區棒球管理系統、Supabase、Google Sheet 同步、Google Calendar 同步、推播通知、權限、或此 codebase 的一般功能修改。"
+---
+
+# JG Baseball Project Workflow
+
+## Overview
+
+用這個 skill 當成此 repo 的預設工作入口。先用最小上下文定位任務，再只修改必要原始碼，維持既有 Vue + Supabase 資料流與專案風格。
+
+## 啟動流程
+
+1. 先讀 `AGENT.md`。
+2. 再讀與任務直接相關的檔案。
+3. 若任務牽涉路由、登入、權限、同步、推播，再補讀對應的 `router`、`stores`、`services`、`utils` 或 `supabase/functions`。
+4. 先辨識目標檔案是原始碼、產物、腳本、還是 migration，確認真的該編輯才動手。
+
+## 編輯邊界
+
+- 把頁面專屬邏輯留在 `src/views/`。
+- 把可重用 UI 放在 `src/components/`。
+- 把可測試邏輯優先放在 `src/utils/` 或 `src/composables/`。
+- 把外部資料存取與 Supabase 溝通集中在 `src/services/`。
+- 把資料庫變更做成新的 `supabase_*_migration.sql`，不要直接覆寫既有 migration。
+- 把 `public/version.json`、`dev-dist/`、`dist/` 視為產物，除非任務明確是建置或 PWA 輸出。
+
+## 固定守則
+
+- 保留 `createWebHashHistory()`，除非任務已明確包含部署相容性評估。
+- 保留 `src/services/supabase.ts` 既有的 token refresh 與休眠恢復保護。
+- 不要擴散 `national_id`、`guardian_phone`、`contact_line_id` 等敏感欄位。
+- 顯示球員資料時，先確認是否該走 `team_members_safe` 等安全讀取路徑。
+- 延續現有繁體中文文案與命名，不要因個人偏好大改風格。
+- 改到球員、請假、收費、賽事等核心流程時，順手檢查是否影響同步、通知、彙總或關聯資料。
+
+## 驗證
+
+- 依任務範圍選最貼近的檢查：`pnpm exec vue-tsc --noEmit`、`pnpm exec vitest run <target>`、`pnpm build`。
+- 不要假設其他 script 存在，先以 `package.json` 為準。
+- 改到資料庫寫入、同步或通知時，補最接近修改面的測試或至少做流程 sanity check。
+
+## 回報方式
+
+- 清楚說明改了什麼、為什麼這樣改、怎麼驗證、是否還有風險。
+- 若任務其實更像權限、球員同步、推播或賽事日曆同步，轉讀對應 skill 後再繼續工作。

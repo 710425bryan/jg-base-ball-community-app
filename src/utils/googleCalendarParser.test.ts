@@ -132,7 +132,9 @@ END:VCALENDAR`)
       })
     ]
 
-    const syncPlan = planCalendarSync(existingMatches, [createParsed, legacyParsed, skipParsed])
+    const syncPlan = planCalendarSync(existingMatches, [createParsed, legacyParsed, skipParsed], {
+      minimumMatchDate: '2026-01-01'
+    })
 
     expect(syncPlan).toHaveLength(3)
 
@@ -145,5 +147,33 @@ END:VCALENDAR`)
 
     expect(syncPlan[2].action).toBe('skip')
     expect(syncPlan[2].existingMatchId).toBe('skip-1')
+  })
+
+  it('ignores matches scheduled before the minimum sync date', () => {
+    const pastParsed = parseMatchRecord({
+      id: 'uid-past@google.com',
+      summary: 'U10 八德迷你棒球 中港熊戰 vs 台中小道奇',
+      description: '組別 / 類別：U10\n賽事等級：三級\n盃賽名稱：八德迷你棒球',
+      location: '桃園市八德區大勇國民小學, 334台灣桃園市八德區自強街60號',
+      startRaw: '20260419T050000Z',
+      endRaw: '20260419T070000Z'
+    })
+
+    const upcomingParsed = parseMatchRecord({
+      id: 'uid-upcoming@google.com',
+      summary: 'U10 八德迷你棒球 中港熊戰 vs 台中小道奇',
+      description: '組別 / 類別：U10\n賽事等級：三級\n盃賽名稱：八德迷你棒球',
+      location: '桃園市八德區大勇國民小學, 334台灣桃園市八德區自強街60號',
+      startRaw: '20260501T050000Z',
+      endRaw: '20260501T070000Z'
+    })
+
+    const syncPlan = planCalendarSync([], [pastParsed, upcomingParsed], {
+      minimumMatchDate: '2026-04-20'
+    })
+
+    expect(syncPlan).toHaveLength(1)
+    expect(syncPlan[0].parsedMatch.id).toBe('uid-upcoming@google.com')
+    expect(syncPlan[0].payload.match_date).toBe('2026-05-01')
   })
 })

@@ -1,0 +1,7 @@
+interface:
+  display_name: "JG Auth Permissions"
+  short_description: "Role-based routes and access checks in this repo."
+  default_prompt: "Use $jg-baseball-auth-permissions to add or adjust a protected page or action."
+
+policy:
+  allow_implicit_invocation: true

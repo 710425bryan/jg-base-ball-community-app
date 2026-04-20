@@ -1,0 +1,7 @@
+interface:
+  display_name: "JG Baseball Workflow"
+  short_description: "Vue and Supabase workflow for this repo."
+  default_prompt: "Use $jg-baseball-project-workflow to implement a change in jg-base-ball-community-app."
+
+policy:
+  allow_implicit_invocation: true

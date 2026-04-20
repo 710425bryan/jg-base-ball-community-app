@@ -1,0 +1,7 @@
+interface:
+  display_name: "JG Push Notifications"
+  short_description: "Push events, recipient targeting, and dedupe flow."
+  default_prompt: "Use $jg-baseball-push-notifications to add or update a notification event."
+
+policy:
+  allow_implicit_invocation: true

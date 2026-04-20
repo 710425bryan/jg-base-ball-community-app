@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import type { MatchRecord } from '@/types/match'
-import { VideoCamera, Operation, DocumentCopy, Bell } from '@element-plus/icons-vue'
+import { Delete, Operation, DocumentCopy, Bell } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 
@@ -12,6 +11,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'view', id: string): void
   (e: 'edit', id: string): void
+  (e: 'delete', id: string): void
 }>()
 
 const isFuture = (date: string) => dayjs(date).isAfter(dayjs(), 'day')
@@ -104,9 +104,9 @@ const handleNotifyLine = (m: MatchRecord) => {
       </el-table-column>
 
       <!-- Actions -->
-      <el-table-column width="140" align="right" fixed="right">
+      <el-table-column label="操作" width="180" align="right" fixed="right">
         <template #default="{ row }">
-          <div class="flex items-center justify-end space-x-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity" @click.stop>
+          <div class="flex items-center justify-end space-x-1" @click.stop>
              <el-tooltip content="發送推播通知" placement="top">
                <el-button @click.stop="handleNotifyLine(row)" circle size="small" class="!border-none hover:!bg-blue-50 hover:!text-blue-500 text-gray-400">
                  <el-icon><Bell /></el-icon>
@@ -120,6 +120,11 @@ const handleNotifyLine = (m: MatchRecord) => {
              <el-tooltip content="編輯" placement="top">
                <el-button @click.stop="emit('edit', row.id)" circle size="small" class="!border-none hover:!bg-orange-50 hover:!text-orange-500 text-gray-400">
                  <el-icon><Operation /></el-icon>
+               </el-button>
+             </el-tooltip>
+             <el-tooltip content="刪除" placement="top">
+               <el-button @click.stop="emit('delete', row.id)" circle size="small" class="!border-none hover:!bg-red-50 hover:!text-red-500 text-gray-400">
+                 <el-icon><Delete /></el-icon>
                </el-button>
              </el-tooltip>
           </div>

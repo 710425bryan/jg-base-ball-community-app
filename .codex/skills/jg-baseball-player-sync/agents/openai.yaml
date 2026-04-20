@@ -1,0 +1,7 @@
+interface:
+  display_name: "JG Player Sync"
+  short_description: "Roster sync rules, dedupe, and fee flag safety."
+  default_prompt: "Use $jg-baseball-player-sync to change the roster sync flow safely."
+
+policy:
+  allow_implicit_invocation: true

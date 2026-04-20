@@ -1,0 +1,53 @@
+# AI Skills Index
+
+本檔用來說明此 repo 內可共用的 AI skills，方便提交到 GitHub 後由其他開發人員與 AI / Agent 一起使用。
+
+## 位置
+
+- skills 目錄：`.codex/skills/`
+- 每個 skill 的主檔：`<skill-name>/SKILL.md`
+
+## 使用原則
+
+- 若使用 Codex，任務命中對應情境時，優先讀該 skill 的 `SKILL.md` 再開始修改。
+- 若使用其他 AI 工具，這些 skill 不一定會自動觸發，但仍可把 `SKILL.md` 當成專案工作規範與提示模板。
+- skill 內容屬於專案知識的一部分，應跟程式碼一起版本化維護。
+- 若功能流程、資料流或安全規則變更，請同步更新對應 skill。
+
+## Skills
+
+### `jg-baseball-project-workflow`
+
+- 路徑：`.codex/skills/jg-baseball-project-workflow/SKILL.md`
+- 用途：本專案通用工作入口，適合大多數 Vue / Supabase 功能修改。
+- 典型情境：頁面調整、store / service / composable / utils 修改、migration、Edge Function、PWA 問題。
+
+### `jg-baseball-auth-permissions`
+
+- 路徑：`.codex/skills/jg-baseball-auth-permissions/SKILL.md`
+- 用途：登入、角色、路由守衛、權限控制。
+- 典型情境：新增受保護頁面、調整 `router meta`、按鈕顯示權限、敏感資料可見性。
+
+### `jg-baseball-player-sync`
+
+- 路徑：`.codex/skills/jg-baseball-player-sync/SKILL.md`
+- 用途：球員同步、Google Form / Sheet 匯入、去重與收費旗標保護。
+- 典型情境：調整 roster sync、修改 `team_members` 匯入邏輯、保留 `is_primary_payer` / `is_half_price`。
+
+### `jg-baseball-push-notifications`
+
+- 路徑：`.codex/skills/jg-baseball-push-notifications/SKILL.md`
+- 用途：推播入口、收件對象權限、事件去重。
+- 典型情境：新增通知事件、調整 `eventKey`、修改 `send-push-notification` 與 `push_dispatch_events` 流程。
+
+### `jg-baseball-match-calendar-sync`
+
+- 路徑：`.codex/skills/jg-baseball-match-calendar-sync/SKILL.md`
+- 用途：Google Calendar / iCal 賽事同步與 parser 規則。
+- 典型情境：調整 `google_calendar_event_id` fallback、修改比賽匯入、更新 sync UI。
+
+## 維護建議
+
+- 新增 skill 前，先確認能否併入既有 skill，避免過度切碎。
+- skill 名稱保持穩定，避免頻繁 rename 造成引用混亂。
+- 若只是一兩次性任務，不一定要建新 skill。

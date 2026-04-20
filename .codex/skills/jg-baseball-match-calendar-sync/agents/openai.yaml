@@ -1,0 +1,7 @@
+interface:
+  display_name: "JG Match Calendar Sync"
+  short_description: "Google Calendar match sync and parser workflow."
+  default_prompt: "Use $jg-baseball-match-calendar-sync to change Google Calendar match sync."
+
+policy:
+  allow_implicit_invocation: true

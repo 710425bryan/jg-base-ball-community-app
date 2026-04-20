@@ -15,6 +15,7 @@ const onAuthStateChangeMock = vi.fn()
 const signOutMock = vi.fn()
 const signInWithOtpMock = vi.fn()
 const verifyOtpMock = vi.fn()
+const rpcMock = vi.fn()
 const profileSingleMock = vi.fn()
 const profileEqMock = vi.fn(() => ({
   single: profileSingleMock,
@@ -52,7 +53,8 @@ vi.mock('@/services/supabase', () => ({
       signInWithOtp: signInWithOtpMock,
       verifyOtp: verifyOtpMock
     },
-    from: fromMock
+    from: fromMock,
+    rpc: rpcMock
   }
 }))
 
@@ -60,6 +62,7 @@ describe('auth store initialization', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.resetModules()
+    rpcMock.mockResolvedValue({ data: null, error: null })
     setActivePinia(createPinia())
   })
 
@@ -130,6 +133,7 @@ describe('auth store initialization', () => {
 
     expect(profileSingleMock).toHaveBeenCalledTimes(1)
     expect(fetchPermissionsSpy).toHaveBeenCalledTimes(1)
+    expect(rpcMock).toHaveBeenCalledWith('touch_profile_last_seen')
     expect(onAuthStateChangeMock).toHaveBeenCalledTimes(1)
 
     expect(hasAuthStateCallback).toBe(true)
