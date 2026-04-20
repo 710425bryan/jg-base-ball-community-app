@@ -2,22 +2,24 @@ import { ref } from 'vue'
 
 const hasUpdateAvailable = ref(false)
 const currentVersion = __APP_VERSION__
+const isVersionCheckEnabled = !import.meta.env.DEV
 
 let hasStartedVersionPolling = false
 let intervalId: number | null = null
 let initialTimeoutId: number | null = null
+let isRefreshingApp = false
 
 const checkForUpdate = async () => {
-  // 避免在檢查剛果中產生無限迴圈，或是剛更新馬上又檢查
-  if (hasUpdateAvailable.value) return
+  if (!isVersionCheckEnabled || hasUpdateAvailable.value) return
 
   try {
-    const response = await fetch(`/version.json?t=${Date.now()}`)
+    const response = await fetch(`/version.json?t=${Date.now()}`, {
+      cache: 'no-store'
+    })
     if (!response.ok) return
 
     const data = await response.json()
 
-    // 比對伺服器的版號與當前載入的版號
     if (data && data.version && data.version !== currentVersion) {
       hasUpdateAvailable.value = true
       console.log(`[VersionCheck] 發現新版本: ${data.version} (目前: ${currentVersion})`)
@@ -30,42 +32,84 @@ const checkForUpdate = async () => {
 const handleVisibilityChange = () => {
   if (typeof document === 'undefined') return
 
-  // 當使用者切換回此分頁時，主動檢查一次
   if (document.visibilityState === 'visible') {
     void checkForUpdate()
   }
 }
 
 const ensureVersionPollingStarted = () => {
-  if (hasStartedVersionPolling || typeof window === 'undefined' || typeof document === 'undefined') {
+  if (
+    !isVersionCheckEnabled ||
+    hasStartedVersionPolling ||
+    typeof window === 'undefined' ||
+    typeof document === 'undefined'
+  ) {
     return
   }
 
   hasStartedVersionPolling = true
 
-  // 首次進入過 10 秒後檢查一次
   initialTimeoutId = window.setTimeout(() => {
     void checkForUpdate()
   }, 10000)
 
-  // 之後每隔 5 分鐘檢查一次
   intervalId = window.setInterval(() => {
     void checkForUpdate()
   }, 5 * 60 * 1000)
 
-  // 監聽網頁可見度變化
   document.addEventListener('visibilitychange', handleVisibilityChange)
 }
 
-const refreshApp = () => {
-  if (typeof window === 'undefined') return
+const activateWaitingServiceWorker = async (registration: ServiceWorkerRegistration) => {
+  const waitingWorker = registration.waiting
+  if (!waitingWorker || typeof navigator === 'undefined') return false
 
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then((registrations) => {
-      registrations.forEach((registration) => {
-        registration.update()
-      })
-    })
+  return new Promise<boolean>((resolve) => {
+    let resolved = false
+
+    const finish = (didActivate: boolean) => {
+      if (resolved) return
+      resolved = true
+      navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange)
+      resolve(didActivate)
+    }
+
+    const handleControllerChange = () => {
+      finish(true)
+      window.location.reload()
+    }
+
+    navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange)
+    waitingWorker.postMessage({ type: 'SKIP_WAITING' })
+
+    window.setTimeout(() => {
+      finish(false)
+    }, 4000)
+  })
+}
+
+const refreshApp = async () => {
+  if (typeof window === 'undefined' || isRefreshingApp) return
+
+  isRefreshingApp = true
+  hasUpdateAvailable.value = false
+
+  try {
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations()
+      let activatedWaitingWorker = false
+
+      for (const registration of registrations) {
+        await registration.update()
+        activatedWaitingWorker = await activateWaitingServiceWorker(registration) || activatedWaitingWorker
+      }
+
+      if (activatedWaitingWorker) {
+        return
+      }
+    }
+  } catch (err) {
+    console.warn('[VersionCheck] 重新整理更新版本失敗', err)
   }
 
   window.location.reload()

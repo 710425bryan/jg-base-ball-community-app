@@ -1,6 +1,6 @@
 {
   "name": "web",
-  "version": "1.0.26",
+  "version": "1.0.27",
   "private": true,
   "type": "module",
   "scripts": {
@@ -36,6 +36,7 @@
     "@vue/test-utils": "2.4.6",
     "autoprefixer": "10.4.27",
     "core-js": "3.48.0",
+    "jsdom": "26.1.0",
     "msw": "2.12.10",
     "postcss": "^8.4.31",
     "postcss-preset-env": "11.2.0",

@@ -18,6 +18,7 @@ export interface DashboardAnnouncement {
   content: string | null
   createdAt: string
   isPinned: boolean
+  imageUrl?: string | null
 }
 
 export interface DashboardEvent {
