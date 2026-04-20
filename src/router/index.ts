@@ -44,6 +44,11 @@ const router = createRouter({
           component: () => import('../views/MyPaymentsView.vue')
         },
         {
+          path: 'my-leave-requests',
+          name: 'MyLeaveRequests',
+          component: () => import('../views/MyLeaveRequestsView.vue')
+        },
+        {
           path: 'leave-requests',
           name: 'LeaveRequests',
           component: () => import('../views/LeaveRequestsView.vue'),

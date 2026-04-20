@@ -11,7 +11,7 @@
 
       <div class="flex items-center gap-3">
         <!-- 齒輪按鈕 (推播設定用) -->
-        <button v-if="isAdminOrManager" @click="openSettingsModal" class="bg-white border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50 p-2.5 rounded-xl shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-gray-200" title="通知推播設定">
+        <button v-if="canOpenPushSettings" @click="openSettingsModal" class="bg-white border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50 p-2.5 rounded-xl shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-gray-200" title="通知推播設定">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" /></svg>
         </button>
 
@@ -121,7 +121,7 @@
               <el-table-column label="操作" width="60" align="right" fixed="right">
                 <template #default="{ row }">
                   <!-- 只有自己或是管理員可以刪除 -->
-                   <button v-if="row.user_id === authStore.user?.id || isAdminOrManager" @click="confirmDelete(row)" class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all" title="刪除紀錄">
+                   <button v-if="canDeleteLeaveRecord(row.user_id)" @click="confirmDelete(row)" class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all" title="刪除紀錄">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                   </button>
                 </template>
@@ -273,19 +273,24 @@
         <div class="flex gap-4 w-full flex-col sm:flex-row">
           <el-form-item label="請假類別" prop="leave_type" class="font-bold flex-1 mb-0 sm:mb-4">
             <el-select v-model="form.leave_type" size="large" class="w-full">
-              <el-option label="事假" value="事假" />
-              <el-option label="病假" value="病假" />
-              <el-option label="公假" value="公假" />
-              <el-option label="其他" value="其他" />
+              <el-option
+                v-for="option in LEAVE_TYPE_OPTIONS"
+                :key="option"
+                :label="option"
+                :value="option"
+              />
             </el-select>
           </el-form-item>
         </div>
 
         <el-form-item label="請假模式" prop="leave_mode" class="font-bold mb-5">
           <el-radio-group v-model="form.leave_mode" class="w-full flex custom-segmented">
-            <el-radio-button label="單日請假" class="flex-1" />
-            <el-radio-button label="連續多日" class="flex-1" />
-            <el-radio-button label="固定週期" class="flex-1" />
+            <el-radio-button
+              v-for="option in LEAVE_MODE_OPTIONS"
+              :key="option"
+              :label="option"
+              class="flex-1"
+            />
           </el-radio-group>
         </el-form-item>
 
@@ -326,13 +331,13 @@
           <div class="bg-purple-50/40 rounded-xl p-4 border border-purple-100 flex flex-col gap-4 mb-4">
             <el-form-item label="固定星期請假" class="font-bold text-primary mb-0 custom-week-selector">
               <el-checkbox-group v-model="form.recurring_days" size="default" class="w-full flex justify-between sm:justify-start gap-1 sm:gap-2">
-                <el-checkbox-button :label="1">一</el-checkbox-button>
-                <el-checkbox-button :label="2">二</el-checkbox-button>
-                <el-checkbox-button :label="3">三</el-checkbox-button>
-                <el-checkbox-button :label="4">四</el-checkbox-button>
-                <el-checkbox-button :label="5">五</el-checkbox-button>
-                <el-checkbox-button :label="6">六</el-checkbox-button>
-                <el-checkbox-button :label="0">日</el-checkbox-button>
+                <el-checkbox-button
+                  v-for="option in LEAVE_WEEKDAY_OPTIONS"
+                  :key="option.value"
+                  :label="option.value"
+                >
+                  {{ option.label }}
+                </el-checkbox-button>
               </el-checkbox-group>
             </el-form-item>
 
@@ -401,7 +406,7 @@
             <el-switch v-model="settingsForm.receive_notifications" active-color="var(--color-primary)" @change="handleTogglePush" />
           </div>
           <p class="text-sm text-gray-500 leading-relaxed">
-            開啟後，將綁定「目前這台裝置與瀏覽器」。當有新請假申請時，系統會直接推播到這台裝置上。
+            開啟後，將綁定「目前這台裝置與瀏覽器」。瀏覽器不會在安裝或登入時自動跳出通知授權，請在這裡手動開啟。當有新請假申請時，系統會直接推播到這台裝置上。
           </p>
         </div>
 
@@ -449,9 +454,23 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, computed, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '@/services/supabase'
-import { buildGroupedPushEventKey, dispatchPushNotification } from '@/utils/pushNotifications'
+import {
+  buildGroupedPushEventKey,
+  describePushDispatchIssue,
+  dispatchPushNotification
+} from '@/utils/pushNotifications'
+import type { LeaveRequestFormState } from '@/types/leaveRequests'
+import {
+  buildLeaveNotificationDateLabel,
+  buildLeaveRequestRecords,
+  createDefaultLeaveRequestFormState,
+  LEAVE_MODE_OPTIONS,
+  LEAVE_TYPE_OPTIONS,
+  LEAVE_WEEKDAY_OPTIONS,
+  leaveRequestBaseRules
+} from '@/utils/leaveRequests'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -472,6 +491,7 @@ const activeTab = ref('list')
 const isModalOpen = ref(false)
 const isSettingsOpen = ref(false)
 const route = useRoute()
+const router = useRouter()
 
 // --- Web Push Key ---
 const VAPID_PUBLIC_KEY = 'BIrzQ2oSy_bdMkLjQMDZCnBMzpkFzNHYa1QlcFKNQ3OCjDsMLeKC-2WazmnkSFUK7nwSlM3n8XFahxUxNrLMCmg'
@@ -498,21 +518,14 @@ const dateShortcuts = [
 ]
 
 // --- 表單狀態 ---
-const form = reactive({
+const form = reactive<LeaveRequestFormState & { user_id: string }>({
   user_id: '',
-  leave_type: '事假',
-  leave_mode: '單日請假',
-  date_single: dayjs().format('YYYY-MM-DD'),
-  date_range: [dayjs().format('YYYY-MM-DD'), dayjs().format('YYYY-MM-DD')] as [string, string],
-  recurring_days: [] as number[],
-  recurring_range: [dayjs().format('YYYY-MM-DD'), dayjs().add(1, 'month').format('YYYY-MM-DD')] as [string, string],
-  time_range: null as [string, string] | null,
-  reason: ''
+  ...createDefaultLeaveRequestFormState()
 })
 
 const rules = {
   user_id: [{ required: true, message: '請選擇請假人員', trigger: 'change' }],
-  leave_type: [{ required: true, message: '請選擇假別', trigger: 'change' }]
+  ...leaveRequestBaseRules
 }
 
 const settingsForm = reactive({
@@ -677,6 +690,26 @@ const loadCurrentDevicePushState = async () => {
 const isAdminOrManager = computed(() => {
   return permissionsStore.can('leave_requests', 'EDIT')
 })
+
+const canOpenPushSettings = computed(() => {
+  return permissionsStore.can('leave_requests', 'VIEW')
+})
+
+const linkedMemberIds = computed(() => {
+  if (Array.isArray(authStore.profile?.linked_team_member_ids)) {
+    return authStore.profile.linked_team_member_ids.filter(Boolean)
+  }
+
+  return [] as string[]
+})
+
+const defaultSelfMemberId = computed(() => {
+  return linkedMemberIds.value[0] || authStore.user?.id || ''
+})
+
+const canDeleteLeaveRecord = (memberId: string) => {
+  return isAdminOrManager.value || linkedMemberIds.value.includes(memberId)
+}
 
 // --- 月曆邏輯 ---
 const calendarDate = ref(new Date())
@@ -911,124 +944,79 @@ watch([isLoading, highlightLeaveId], ([newLoading, newId]) => {
 
 // --- 表單操作 ---
 const openCreateModal = () => {
-  form.user_id = isAdminOrManager.value ? '' : authStore.user?.id || ''
-  form.leave_type = '事假'
-  form.leave_mode = '單日請假'
-  form.date_single = dayjs().format('YYYY-MM-DD')
-  form.date_range = [dayjs().format('YYYY-MM-DD'), dayjs().format('YYYY-MM-DD')]
-  form.recurring_days = []
-  form.recurring_range = [dayjs().format('YYYY-MM-DD'), dayjs().add(1, 'month').format('YYYY-MM-DD')]
-  form.time_range = null
-  form.reason = ''
+  Object.assign(form, createDefaultLeaveRequestFormState(), {
+    user_id: isAdminOrManager.value ? '' : defaultSelfMemberId.value
+  })
   if(formRef.value) formRef.value.clearValidate()
   isModalOpen.value = true
 }
 
 const submitForm = async () => {
   if (!formRef.value) return
-  await formRef.value.validate(async (valid: boolean) => {
-    if (!valid) return
+  try {
+    await formRef.value.validate()
+  } catch {
+    return
+  }
 
-    // 前端驗證日期必填
-    if (form.leave_mode === '單日請假' && !form.date_single) return ElMessage.warning('請選擇請假日期')
-    if (form.leave_mode === '連續多日' && (!form.date_range || form.date_range.length !== 2)) return ElMessage.warning('請選擇日期區間')
+  isSubmitting.value = true
+  try {
+    const recordsToInsert = buildLeaveRequestRecords({
+      memberId: form.user_id,
+      form
+    })
 
-    isSubmitting.value = true
+    const { data: insertedLeaveRequests, error } = await supabase
+      .from('leave_requests')
+      .insert(recordsToInsert.map((record) => ({
+        user_id: record.member_id,
+        leave_type: record.leave_type,
+        start_date: record.start_date,
+        end_date: record.end_date,
+        reason: record.reason
+      })))
+      .select('id')
+
+    if (error) throw error
+
     try {
-      let recordsToInsert = []
+      let playerName = '未知球員'
+      const playerRecord = team_members_list.value.find(p => p.id === form.user_id)
+      if (playerRecord) playerName = playerRecord.name
 
-      // 組合詳細時間與備註
-      let finalReason = form.reason
-      if (form.time_range && form.time_range.length === 2 && form.time_range[0]) {
-        const timeText = `[時段: ${form.time_range[0]} - ${form.time_range[1]}]`
-        finalReason = finalReason ? `${timeText}\n${finalReason}` : timeText
+      const pushResult = await dispatchPushNotification({
+        title: `[新增假單] ${playerName} 的${form.leave_type}`,
+        body: `${buildLeaveNotificationDateLabel({
+          leaveMode: form.leave_mode,
+          form,
+          recordCount: recordsToInsert.length
+        })}\n原因：${recordsToInsert[0]?.reason || '無'}`,
+        url: '/leave-requests',
+        feature: 'leave_requests',
+        action: 'VIEW',
+        eventKey: buildGroupedPushEventKey(
+          'leave_request',
+          (insertedLeaveRequests || []).map((record) => record.id)
+        )
+      })
+
+      const pushIssue = describePushDispatchIssue(pushResult)
+      if (pushIssue) {
+        ElMessage.warning(`假單已送出，但${pushIssue}`)
       }
-
-      if (form.leave_mode === '單日請假') {
-        recordsToInsert.push({
-          user_id: form.user_id,
-          leave_type: form.leave_type,
-          start_date: form.date_single,
-          end_date: form.date_single,
-          reason: finalReason || null
-        })
-      } else if (form.leave_mode === '連續多日') {
-        recordsToInsert.push({
-          user_id: form.user_id,
-          leave_type: form.leave_type,
-          start_date: form.date_range[0],
-          end_date: form.date_range[1],
-          reason: finalReason || null
-        })
-      } else if (form.leave_mode === '固定週期') {
-        if (!form.recurring_range || form.recurring_range.length !== 2) throw new Error('請選擇生效期限')
-        if (!form.recurring_days || form.recurring_days.length === 0) throw new Error('請至少選擇一天固定星期')
-        
-        let curr = dayjs(form.recurring_range[0])
-        let end = dayjs(form.recurring_range[1])
-        const daysMask = form.recurring_days
-        
-        // 防呆迴圈 (最多限制 180 天以內，或更少)
-        let loops = 0
-        while ((curr.isBefore(end) || curr.isSame(end, 'day')) && loops < 365) {
-          if (daysMask.includes(curr.day())) {
-            recordsToInsert.push({
-              user_id: form.user_id,
-              leave_type: form.leave_type,
-              start_date: curr.format('YYYY-MM-DD'),
-              end_date: curr.format('YYYY-MM-DD'),
-              reason: finalReason || null
-            })
-          }
-          curr = curr.add(1, 'day')
-          loops++
-        }
-        if (recordsToInsert.length === 0) throw new Error('所選期限內沒有符合該星期的日期')
-      }
-
-      const { data: insertedLeaveRequests, error } = await supabase
-        .from('leave_requests')
-        .insert(recordsToInsert)
-        .select('id')
-
-      if (error) throw error
-      
-      // --- Trigger PWA Push Notifications to Admins ---
-      try {
-        let playerName = '未知球員'
-        const playerRecord = team_members_list.value.find(p => p.id === form.user_id)
-        if (playerRecord) playerName = playerRecord.name
-
-        const title = `[新增假單] ${playerName} 的${form.leave_type}`
-        let bodyDate = ''
-        if (form.leave_mode === '單日請假') bodyDate = `日期：${form.date_single}`
-        else if (form.leave_mode === '連續多日') bodyDate = `日期：${form.date_range[0]} ~ ${form.date_range[1]}`
-        else if (form.leave_mode === '固定週期') bodyDate = `週期請假：共 ${recordsToInsert.length} 天`
-        
-        await dispatchPushNotification({
-          title,
-          body: `${bodyDate}\n原因：${finalReason || '無'}`,
-          url: '/leave-requests',
-          feature: 'leave_requests',
-          action: 'VIEW',
-          eventKey: buildGroupedPushEventKey(
-            'leave_request',
-            (insertedLeaveRequests || []).map((record) => record.id)
-          )
-        })
-      } catch (pushErr) {
-        console.warn('推播傳送失敗', pushErr)
-      }
-
-      ElMessage.success('新增假單成功！')
-      isModalOpen.value = false
-      fetchData()
-    } catch (error: any) {
-      ElMessage.error('報錯：' + error.message)
-    } finally {
-      isSubmitting.value = false
+    } catch (pushErr) {
+      console.warn('推播傳送失敗', pushErr)
+      ElMessage.warning('假單已送出，但通知發送失敗，請稍後確認接收裝置或推播設定。')
     }
-  })
+
+    ElMessage.success('新增假單成功！')
+    isModalOpen.value = false
+    fetchData()
+  } catch (error: any) {
+    ElMessage.error('報錯：' + error.message)
+  } finally {
+    isSubmitting.value = false
+  }
 }
 
 // --- 刪除操作 ---
@@ -1059,6 +1047,21 @@ const openSettingsModal = async () => {
   } finally {
     isFetchingSettings.value = false
   }
+}
+
+const openPushSettingsFromRouteQuery = async () => {
+  if (route.query.open_push_settings !== '1' || !canOpenPushSettings.value) {
+    return
+  }
+
+  await openSettingsModal()
+
+  const nextQuery = { ...route.query }
+  delete nextQuery.open_push_settings
+
+  void router.replace({
+    query: nextQuery
+  })
 }
 
 const urlB64ToUint8Array = (base64String: string) => {
@@ -1211,6 +1214,7 @@ let realtimeChannel: any
 // --- 初始掛載 ---
 onMounted(() => {
   fetchData()
+  void openPushSettingsFromRouteQuery()
 
   // 監聽 leave_requests 資料表變更
   realtimeChannel = supabase.channel('leave-requests-changes')
@@ -1219,6 +1223,13 @@ onMounted(() => {
     })
     .subscribe()
 })
+
+watch(
+  () => route.query.open_push_settings,
+  () => {
+    void openPushSettingsFromRouteQuery()
+  }
+)
 
 onUnmounted(() => {
   if (realtimeChannel) {

@@ -10,6 +10,17 @@ export type PushNotificationDispatchOptions = {
   eventKey?: string
 }
 
+export type PushNotificationDispatchResult = {
+  success?: boolean
+  skipped?: boolean
+  reason?: string
+  total_targets?: number
+  dispatched_count?: number
+  expired_count?: number
+  failed_count?: number
+  provider_counts?: Record<string, number>
+}
+
 export const buildPushEventKey = (scope: string, id: string | number) => `${scope}:${String(id)}`
 
 export const buildGroupedPushEventKey = (
@@ -34,7 +45,7 @@ export const dispatchPushNotification = async ({
   targetRoles,
   eventKey
 }: PushNotificationDispatchOptions) => {
-  const { data, error } = await supabase.functions.invoke('send-push-notification', {
+  const { data, error } = await supabase.functions.invoke<PushNotificationDispatchResult>('send-push-notification', {
     body: {
       title,
       body,
@@ -51,4 +62,26 @@ export const dispatchPushNotification = async ({
   }
 
   return data
+}
+
+export const describePushDispatchIssue = (
+  result?: PushNotificationDispatchResult | null
+) => {
+  if (!result) {
+    return '通知派送結果不明，請稍後再確認接收裝置。'
+  }
+
+  if (result.skipped && result.reason === 'duplicate_event') {
+    return '這筆通知事件已處理過，系統略過了重複推播。'
+  }
+
+  if ((result.total_targets ?? 0) === 0) {
+    return '目前沒有已啟用推播的接收裝置，請確認接收人已在「請假系統」開啟通知推播設定。'
+  }
+
+  if ((result.dispatched_count ?? 0) === 0 && ((result.failed_count ?? 0) > 0 || (result.expired_count ?? 0) > 0)) {
+    return '相關裝置這次沒有成功收到推播，可能是訂閱失效或裝置暫時不可用。'
+  }
+
+  return null
 }

@@ -95,6 +95,8 @@
                 <el-dropdown-menu class="!p-1.5 !rounded-xl min-w-[180px] shadow-xl border-gray-100">
                   <el-dropdown-item @click="router.push('/profile')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">個人設定</el-dropdown-item>
                   <el-dropdown-item @click="router.push('/my-payments')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">繳費資訊</el-dropdown-item>
+                  <el-dropdown-item @click="router.push('/my-leave-requests')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">我的假單</el-dropdown-item>
+                  <el-dropdown-item v-if="permissionsStore.can('leave_requests', 'VIEW')" @click="openPushSettingsFromMenu" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">通知設定</el-dropdown-item>
                   <el-dropdown-item @click="handleSignOut" class="!rounded-lg !font-bold !text-red-500 hover:!text-red-600 !py-2.5" divided>登出</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
@@ -143,6 +145,8 @@
          </div>
          <router-link to="/profile" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">個人設定</router-link>
          <router-link to="/my-payments" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">繳費資訊</router-link>
+         <router-link to="/my-leave-requests" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">我的假單</router-link>
+         <button v-if="permissionsStore.can('leave_requests', 'VIEW')" @click="openPushSettingsFromMenu" class="text-left px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide w-full transition-colors">通知設定</button>
          <router-link to="/dashboard" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">後台大廳</router-link>
          <router-link to="/calendar" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">行事曆</router-link>
          <router-link v-if="permissionsStore.can('matches', 'VIEW')" to="/match-records" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">比賽紀錄</router-link>
@@ -290,6 +294,16 @@ const handleSignOut = async () => {
   isMobileMenuOpen.value = false;
   await authStore.signOut();
   router.push('/');
+};
+
+const openPushSettingsFromMenu = () => {
+  isMobileMenuOpen.value = false;
+  void router.push({
+    path: '/leave-requests',
+    query: {
+      open_push_settings: '1'
+    }
+  });
 };
 
 type IdleDeadlineLike = {
