@@ -65,7 +65,7 @@ export default defineConfig({
       manifest: {
         name: '中港熊戰棒球隊',
         short_name: '中港熊戰',
-        theme_color: '#ffffff',
+        theme_color: 'rgba(255, 255, 255, 0.95)',
         icons: [
           {
             src: '/少棒元素_20260324_232837_0000.png',

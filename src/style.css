@@ -9,15 +9,24 @@
   --color-secondary: #facc15; /* Yellow-400 */
   --color-secondary-hover: #eab308; /* Yellow-500 */
   --color-background: #f8fafc; /* Light slate 50 for global app background */
+  --color-header-surface: rgba(255, 255, 255, 0.95);
   --color-surface: #ffffff; /* White for cards/panels */
   --color-text: #1e293b; /* Slate 800 */
   --color-text-muted: #64748b; /* Slate 500 */
 }
 
+html,
 body {
+  background-color: var(--color-header-surface);
+}
+
+#app {
   font-family: var(--font-body);
-  background-color: var(--color-background);
+  background-color: var(--color-header-surface);
   color: var(--color-text);
+}
+
+body {
   margin: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

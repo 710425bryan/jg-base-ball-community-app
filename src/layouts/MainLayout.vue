@@ -1,7 +1,7 @@
 <template>
   <div class="fixed inset-0 bg-background text-text flex flex-col w-full overflow-hidden">
     <!-- Topbar -->
-    <header class="flex-none bg-white/95 backdrop-blur-md text-text border-b border-gray-200 pt-[env(safe-area-inset-top)] shadow-sm z-50" style="background-color: rgba(255, 255, 255, 0.95);">
+    <header class="flex-none bg-white/95 backdrop-blur-md text-text border-b border-gray-200 pt-[env(safe-area-inset-top)] shadow-sm z-50" style="background-color: var(--color-header-surface);">
       <div class="h-16 flex items-center gap-2 px-3 sm:px-4 max-w-7xl mx-auto w-full">
         <!-- Left: Logo -->
         <div 
