@@ -2,64 +2,98 @@
   <Teleport to="body">
     <Transition name="modal-fade">
       <div v-if="modelValue" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
-        <!-- Backdrop -->
         <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" @click="$emit('update:modelValue', false)"></div>
-        
-        <!-- Modal Content -->
-        <div class="bg-white rounded-3xl overflow-hidden shadow-2xl relative w-full max-w-sm z-10 animate-modal-pop">
-          <!-- Close button -->
-          <button @click="$emit('update:modelValue', false)" class="absolute top-5 right-5 text-gray-400 hover:text-gray-800 transition-colors z-20 bg-gray-100 hover:bg-gray-200 rounded-full p-1">
-             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+
+        <div class="relative z-10 w-full max-w-sm overflow-hidden rounded-3xl bg-white shadow-2xl animate-modal-pop">
+          <button
+            type="button"
+            @click="$emit('update:modelValue', false)"
+            class="absolute right-5 top-5 z-20 rounded-full bg-gray-100 p-1 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-800"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
-          
-          <div class="px-8 py-10 flex flex-col items-center">
-            
+
+          <div class="flex flex-col items-center px-8 py-10">
             <div class="mb-6 flex h-[180px] w-[180px] items-center justify-center rounded-[2.25rem] shadow-[0_14px_28px_rgba(15,23,42,0.12)]">
-              <img
-                src="/少棒元素_20260324_232837_0000.png"
-                alt="中港熊戰棒球隊 Logo"
-                class="h-[160px] w-[160px] object-contain drop-shadow-md"
-              />
+              <img src="/logo.jpg" alt="中港熊讚社區棒球 Logo" class="h-[160px] w-[160px] object-contain drop-shadow-md" />
             </div>
 
-            <div class="text-center mb-8 w-full">
-              <h2 class="text-2xl font-black text-primary mb-1 tracking-tight">球隊入口登入</h2>
-              <p class="text-gray-500 font-medium text-sm">請輸入電子信箱以獲取認證碼</p>
+            <div class="mb-8 w-full text-center">
+              <h2 class="mb-1 text-2xl font-black tracking-tight text-primary">會員登入</h2>
+              <p class="text-sm font-medium text-gray-500">輸入你的 email，我們會寄送一次性驗證碼給你。</p>
             </div>
-            
-            <form v-if="!isEmailSent" @submit.prevent="handleLogin" class="space-y-4 w-full">
+
+            <form v-if="!isEmailSent" class="w-full space-y-4" @submit.prevent="handleLogin">
               <div>
-                <input v-model="email" type="email" required class="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all text-gray-800 placeholder-gray-400 font-medium" placeholder="your@email.com" />
+                <input
+                  v-model="email"
+                  type="email"
+                  required
+                  class="w-full rounded-xl border border-gray-200 bg-gray-50 px-5 py-3.5 font-medium text-gray-800 outline-none transition-all placeholder:text-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/50"
+                  placeholder="your@email.com"
+                />
               </div>
-              
-              <button type="submit" :disabled="isLoading" class="w-full py-3.5 mt-2 bg-primary hover:bg-primary-hover active:scale-[0.98] disabled:opacity-70 disabled:active:scale-100 text-white font-bold rounded-xl shadow-[0_8px_20px_rgba(216,143,34,0.3)] transition-all flex items-center justify-center gap-2 tracking-wider">
-                <span v-if="isLoading">發送中...</span>
-                <span v-else>發送登入信件</span>
-                <svg v-if="!isLoading" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+
+              <button
+                type="submit"
+                :disabled="isLoading"
+                class="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3.5 font-bold tracking-wider text-white shadow-[0_8px_20px_rgba(216,143,34,0.3)] transition-all hover:bg-primary-hover active:scale-[0.98] disabled:opacity-70 disabled:active:scale-100"
+              >
+                <span v-if="isLoading">送出中...</span>
+                <span v-else>寄送登入驗證碼</span>
+                <svg v-if="!isLoading" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path
+                    fill-rule="evenodd"
+                    d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
               </button>
-              
-              <!-- Mock Login button removed -->
             </form>
 
-            <div v-else class="text-center py-2 animate-fade-in w-full">
-              <div class="w-14 h-14 bg-green-50 text-green-500 rounded-full mx-auto flex items-center justify-center mb-4 shadow-sm">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+            <div v-else class="w-full animate-fade-in py-2 text-center">
+              <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-50 text-green-500 shadow-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
               </div>
-              <h3 class="text-lg font-bold text-gray-800 mb-2">信件已發出！</h3>
-              <p class="text-gray-500 font-medium leading-relaxed text-xs mb-6">我們已將登入驗證碼寄至<br/><span class="text-primary font-bold text-sm mt-1 inline-block">{{ email }}</span></p>
-              
-              <form @submit.prevent="handleVerifyOtp" class="space-y-4">
-                <input v-model="otpCode" type="text" maxlength="8" required class="w-full px-5 py-3 bg-gray-50/80 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all text-center tracking-widest text-xl text-gray-800 placeholder-gray-400 font-bold" placeholder="輸入 8 碼驗證" />
-                
-                <button type="submit" :disabled="isVerifying || otpCode.length !== 8" class="w-full py-3 bg-primary hover:bg-primary-hover active:scale-[0.98] disabled:opacity-70 disabled:active:scale-100 text-white font-bold rounded-xl shadow-[0_8px_20px_rgba(216,143,34,0.3)] transition-all flex items-center justify-center gap-2">
+              <h3 class="mb-2 text-lg font-bold text-gray-800">驗證碼已寄出</h3>
+              <p class="mb-6 text-xs font-medium leading-relaxed text-gray-500">
+                請到你的信箱收取 8 碼驗證碼
+                <br />
+                <span class="mt-1 inline-block text-sm font-bold text-primary">{{ email }}</span>
+              </p>
+
+              <form class="space-y-4" @submit.prevent="handleVerifyOtp">
+                <input
+                  v-model="otpCode"
+                  type="text"
+                  maxlength="8"
+                  required
+                  class="w-full rounded-xl border border-gray-200 bg-gray-50/80 px-5 py-3 text-center text-xl font-bold tracking-widest text-gray-800 outline-none transition-all placeholder:text-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/50"
+                  placeholder="輸入 8 碼驗證碼"
+                />
+
+                <button
+                  type="submit"
+                  :disabled="isVerifying || otpCode.length !== 8"
+                  class="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 font-bold text-white shadow-[0_8px_20px_rgba(216,143,34,0.3)] transition-all hover:bg-primary-hover active:scale-[0.98] disabled:opacity-70 disabled:active:scale-100"
+                >
                   <span v-if="isVerifying">驗證中...</span>
-                  <span v-else>立即登入</span>
+                  <span v-else>完成登入</span>
                 </button>
               </form>
 
-              <button @click="isEmailSent = false; otpCode = ''" type="button" class="text-xs font-bold text-gray-400 hover:text-primary transition-colors mt-6 underline decoration-dotted underline-offset-2">重新輸入信箱</button>
+              <button
+                type="button"
+                class="mt-6 text-xs font-bold text-gray-400 underline decoration-dotted underline-offset-2 transition-colors hover:text-primary"
+                @click="isEmailSent = false; otpCode = ''"
+              >
+                重新輸入 email
+              </button>
             </div>
-
           </div>
         </div>
       </div>
@@ -69,9 +103,10 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
 import { ElMessage } from 'element-plus'
+import { useRouter } from 'vue-router'
+
+import { useAuthStore } from '@/stores/auth'
 
 const props = defineProps<{ modelValue: boolean }>()
 const emit = defineEmits(['update:modelValue'])
@@ -84,27 +119,27 @@ const isLoading = ref(false)
 const isEmailSent = ref(false)
 const isVerifying = ref(false)
 
-// Reset state when modal opens
-watch(() => props.modelValue, (newVal) => {
-  if (newVal) {
+watch(
+  () => props.modelValue,
+  (newValue) => {
+    if (!newValue) return
     email.value = ''
     otpCode.value = ''
     isEmailSent.value = false
   }
-})
-
-// Mock login handler removed
+)
 
 const handleLogin = async () => {
   if (!email.value) return
   isLoading.value = true
+
   try {
     await authStore.sendMagicLink(email.value)
     isEmailSent.value = true
-    ElMessage.success('登入魔術連結已寄出！')
-  } catch (err: any) {
-    console.error('登入失敗:', err)
-    ElMessage.error(err?.message || '發信失敗，請稍後再試。')
+    ElMessage.success('登入驗證碼已寄出')
+  } catch (error: any) {
+    console.error('登入失敗:', error)
+    ElMessage.error(error?.message || '寄送驗證碼失敗，請稍後再試')
   } finally {
     isLoading.value = false
   }
@@ -113,14 +148,15 @@ const handleLogin = async () => {
 const handleVerifyOtp = async () => {
   if (otpCode.value.length !== 8) return
   isVerifying.value = true
+
   try {
     await authStore.verifyOtpCode(email.value, otpCode.value)
-    ElMessage.success('登入成功，歡迎回來！')
+    ElMessage.success('登入成功，正在前往後台')
     emit('update:modelValue', false)
-    router.push('/dashboard')
-  } catch (err: any) {
-    console.error('OTP 驗證失敗:', err)
-    ElMessage.error(err?.message || '驗證碼錯誤或已過期。')
+    void router.push('/dashboard')
+  } catch (error: any) {
+    console.error('OTP 驗證失敗:', error)
+    ElMessage.error(error?.message || '驗證碼錯誤，請重新輸入')
   } finally {
     isVerifying.value = false
     otpCode.value = ''
@@ -133,6 +169,7 @@ const handleVerifyOtp = async () => {
 .modal-fade-leave-active {
   transition: opacity 0.3s ease;
 }
+
 .modal-fade-enter-from,
 .modal-fade-leave-to {
   opacity: 0;
@@ -147,6 +184,7 @@ const handleVerifyOtp = async () => {
     opacity: 0;
     transform: scale(0.95) translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
