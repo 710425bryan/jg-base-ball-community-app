@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 
@@ -84,7 +86,7 @@ describe('auth store initialization', () => {
       data: {
         id: 'user-1',
         role: 'MANAGER',
-        name: '管理員'
+        name: 'Manager User'
       },
       error: null
     })
@@ -145,5 +147,41 @@ describe('auth store initialization', () => {
     expect(fetchPermissionsSpy).toHaveBeenCalledTimes(1)
     expect(authStore.user?.id).toBe('user-1')
     expect(permissionsStore.currentRole).toBe('MANAGER')
+  })
+
+  it('uses can_request_magic_link rpc before sending the otp email', async () => {
+    rpcMock.mockImplementation((fn: string) => {
+      if (fn === 'can_request_magic_link') {
+        return Promise.resolve({
+          data: true,
+          error: null
+        })
+      }
+
+      return Promise.resolve({
+        data: null,
+        error: null
+      })
+    })
+
+    signInWithOtpMock.mockResolvedValue({
+      data: null,
+      error: null
+    })
+
+    const { useAuthStore } = await import('@/stores/auth')
+    const authStore = useAuthStore()
+
+    await authStore.sendMagicLink(' Test@Example.com ')
+
+    expect(rpcMock).toHaveBeenCalledWith('can_request_magic_link', {
+      p_email: 'test@example.com'
+    })
+    expect(signInWithOtpMock).toHaveBeenCalledWith({
+      email: 'test@example.com',
+      options: {
+        emailRedirectTo: window.location.origin
+      }
+    })
   })
 })

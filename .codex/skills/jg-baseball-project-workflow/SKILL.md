@@ -44,3 +44,9 @@ description: "Project-specific workflow for jg-base-ball-community-app. Use when
 
 - 清楚說明改了什麼、為什麼這樣改、怎麼驗證、是否還有風險。
 - 若任務其實更像權限、球員同步、推播或賽事日曆同步，轉讀對應 skill 後再繼續工作。
+## 2026-04 Security Update
+
+- 本專案的安全邊界以 DB policy / RLS / `security definer` RPC 為主，前端顯示控制只是輔助。
+- 變更公開首頁、登入前流程、或任何匿名可達頁面時，預設只能讀公開安全 RPC；不要直接查受保護 raw table。
+- 權限相關功能若新增 `feature/action`，要同步更新 DB helper、migration、前端 store、AI 文件。
+- `team_members_safe` 是預設展示名單來源；只有真的需要完整個資時才查 `team_members`，並確認 DB 權限與畫面權限一致。

@@ -350,143 +350,101 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
-import { supabase } from '@/services/supabase'
-import { buildPushEventKey, dispatchPushNotification } from '@/utils/pushNotifications'
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
-import MatchDetailDialog from '@/components/match-records/MatchDetailDialog.vue'
-import { useMatchesStore } from '@/stores/matches'
-import type { MatchRecord } from '@/types/match'
 
-type UpcomingMatchCard = Pick<
-  MatchRecord,
-  'id' | 'match_name' | 'opponent' | 'match_date' | 'match_time' | 'location' | 'category_group'
->
+import MatchDetailDialog from '@/components/match-records/MatchDetailDialog.vue'
+import { getPublicLandingSnapshot } from '@/services/publicLanding'
+import { supabase } from '@/services/supabase'
+import { useAuthStore } from '@/stores/auth'
+import { useMatchesStore } from '@/stores/matches'
+import { usePermissionsStore } from '@/stores/permissions'
+import type { PublicLandingAnnouncement, PublicLandingEvent, PublicLandingMatch } from '@/types/publicLanding'
+import { buildPushEventKey, dispatchPushNotification } from '@/utils/pushNotifications'
+
+const authStore = useAuthStore()
+const permissionsStore = usePermissionsStore()
+const matchesStore = useMatchesStore()
 
 const isJoinModalOpen = ref(false)
 const isSubmitting = ref(false)
 const joinFormRef = ref()
-const matchesStore = useMatchesStore()
 
 const isAnnouncementModalOpen = ref(false)
-const selectedAnnouncement = ref<any>(null)
-const upcomingMatches = ref<UpcomingMatchCard[]>([])
-const isLoadingUpcomingMatches = ref(false)
+const selectedAnnouncement = ref<PublicLandingAnnouncement | null>(null)
+const latestAnnouncements = ref<PublicLandingAnnouncement[]>([])
+
+const isLoadingAttendance = ref(true)
+const isLoadingUpcomingMatches = ref(true)
+const todayEvent = ref<PublicLandingEvent | null>(null)
+const todayLeaveNames = ref<string[]>([])
+const upcomingMatches = ref<PublicLandingMatch[]>([])
+
 const selectedUpcomingMatchId = ref<string | null>(null)
 const upcomingMatchDialogVisible = ref(false)
 
-const openAnnouncement = (item: any) => {
+const canViewUpcomingMatchDetails = computed(
+  () => authStore.isAuthenticated && permissionsStore.can('matches', 'VIEW')
+)
+
+const openAnnouncement = (item: PublicLandingAnnouncement) => {
   selectedAnnouncement.value = item
   isAnnouncementModalOpen.value = true
 }
 
-const isLoadingAttendance = ref(true)
-const todayEvent = ref<any>(null)
-const todayLeaveNames = ref<string[]>([])
-
 const maskName = (name: string) => {
-  if (!name) return '未知'
+  if (name.includes('*')) return name
+  if (!name) return '未提供'
   if (name.length <= 1) return name
-  if (name.length === 2) return name[0] + '*'
-  return name[0] + '*'.repeat(name.length - 2) + name[name.length - 1]
+  if (name.length === 2) return `${name[0]}*`
+  return `${name[0]}${'*'.repeat(name.length - 2)}${name[name.length - 1]}`
 }
 
-const fetchTodayAttendance = async () => {
+const loadPublicLandingSnapshot = async () => {
   isLoadingAttendance.value = true
-  try {
-    const todayStr = dayjs().format('YYYY-MM-DD')
-    const { data: evData } = await supabase.from('attendance_events')
-      .select('*')
-      .eq('date', todayStr)
-      .limit(1)
-      .maybeSingle()
-    
-    if (evData) {
-      todayEvent.value = evData
-      
-      const { data: tLeaves } = await supabase.from('leave_requests')
-        .select('id, team_members(name)')
-        .lte('start_date', todayStr)
-        .gte('end_date', todayStr)
-      const formalLeaveNames = (tLeaves || []).map((l: any) => l.team_members?.name).filter(Boolean)
-        
-      const { data: rLeaves } = await supabase.from('attendance_records')
-        .select('member_id')
-        .eq('event_id', evData.id)
-        .eq('status', '請假')
-      
-      let rollCallLeaveNames: string[] = []
-      if (rLeaves && rLeaves.length > 0) {
-        const memberIds = rLeaves.map(r => r.member_id)
-        const { data: members } = await supabase.from('team_members')
-          .select('name')
-          .in('id', memberIds)
-        if (members) rollCallLeaveNames = members.map(m => m.name).filter(Boolean)
-      }
+  isLoadingUpcomingMatches.value = true
 
-      const allLeaveNames = [...formalLeaveNames, ...rollCallLeaveNames]
-      todayLeaveNames.value = Array.from(new Set(allLeaveNames))
-    }
+  try {
+    const snapshot = await getPublicLandingSnapshot(dayjs().format('YYYY-MM-DD'))
+    todayEvent.value = snapshot.todayEvent
+    todayLeaveNames.value = snapshot.todayLeaveNames
+    upcomingMatches.value = snapshot.upcomingMatches
+    latestAnnouncements.value = snapshot.latestAnnouncements
   } catch (error) {
-    console.error('Error fetching today attendance:', error)
+    console.error('Error fetching public landing snapshot:', error)
+    todayEvent.value = null
+    todayLeaveNames.value = []
+    upcomingMatches.value = []
+    latestAnnouncements.value = []
   } finally {
     isLoadingAttendance.value = false
+    isLoadingUpcomingMatches.value = false
   }
-}
-
-const getUpcomingMatchTimestamp = (match: UpcomingMatchCard) => {
-  if (!match.match_date) return Number.POSITIVE_INFINITY
-
-  const startTime = match.match_time?.match(/\d{1,2}:\d{2}/)?.[0] || '23:59'
-  const value = dayjs(`${match.match_date}T${startTime}`).valueOf()
-  return Number.isNaN(value) ? Number.POSITIVE_INFINITY : value
 }
 
 const formatScheduleMonth = (matchDate: string) => dayjs(matchDate).format('MMM').toUpperCase()
 
 const formatScheduleDay = (matchDate: string) => dayjs(matchDate).format('DD')
 
-const formatScheduleMeta = (match: UpcomingMatchCard) => {
-  const startTime = match.match_time?.match(/\d{1,2}:\d{2}/)?.[0] || '時間待定'
-  return `${match.match_name || '比賽'} • ${startTime}`
+const formatScheduleMeta = (match: PublicLandingMatch) => {
+  const normalizedTime = match.match_time?.match(/\d{1,2}:\d{2}/)?.[0] ?? '時間待定'
+  const label = match.match_name?.trim() || '賽程'
+  return `${label} · ${normalizedTime}`
 }
 
-const formatScheduleOpponent = (match: UpcomingMatchCard) => {
-  if (match.opponent) return `vs ${match.opponent}`
-  return match.match_name || '對手待確認'
-}
-
-const fetchUpcomingMatches = async () => {
-  isLoadingUpcomingMatches.value = true
-
-  try {
-    const todayStr = dayjs().format('YYYY-MM-DD')
-    const { data, error } = await supabase
-      .from('matches')
-      .select('id, match_name, opponent, match_date, match_time, location, category_group')
-      .gte('match_date', todayStr)
-      .order('match_date', { ascending: true })
-      .order('match_time', { ascending: true })
-      .limit(20)
-
-    if (error) throw error
-
-    const nowValue = dayjs().valueOf()
-    upcomingMatches.value = ((data || []) as UpcomingMatchCard[])
-      .filter((match) => getUpcomingMatchTimestamp(match) >= nowValue)
-      .sort((a, b) => getUpcomingMatchTimestamp(a) - getUpcomingMatchTimestamp(b))
-      .slice(0, 3)
-  } catch (error) {
-    console.error('Failed to fetch upcoming matches:', error)
-    upcomingMatches.value = []
-  } finally {
-    isLoadingUpcomingMatches.value = false
-  }
+const formatScheduleOpponent = (match: PublicLandingMatch) => {
+  if (match.opponent?.trim()) return `vs ${match.opponent.trim()}`
+  return match.match_name?.trim() || '對手待確認'
 }
 
 const openUpcomingMatch = async (matchId: string) => {
+  if (!canViewUpcomingMatchDetails.value) {
+    ElMessage.info('需要登入並具備比賽檢視權限，才能查看完整比賽內容。')
+    return
+  }
+
   selectedUpcomingMatchId.value = matchId
   upcomingMatchDialogVisible.value = true
 
@@ -496,14 +454,15 @@ const openUpcomingMatch = async (matchId: string) => {
 
   try {
     await matchesStore.fetchMatches()
+
     if (!matchesStore.matches.some((match) => match.id === matchId)) {
       upcomingMatchDialogVisible.value = false
-      ElMessage.warning('找不到這筆比賽資料')
+      ElMessage.warning('找不到這場比賽資料。')
     }
   } catch (error) {
     console.error('Error fetching match detail:', error)
     upcomingMatchDialogVisible.value = false
-    ElMessage.error('讀取比賽資料失敗，請稍後再試')
+    ElMessage.error('載入比賽資料失敗，請稍後再試。')
   }
 }
 
@@ -521,63 +480,54 @@ const joinRules = {
 
 const submitJoinForm = async () => {
   if (!joinFormRef.value) return
-  
+
   try {
     const valid = await joinFormRef.value.validate()
     if (!valid) return
-  } catch(err) {
+  } catch {
     return
   }
 
   isSubmitting.value = true
+
   try {
-    const { data, error } = await supabase.from('join_inquiries').insert({
-      parent_name: joinForm.parent_name,
-      phone: joinForm.phone,
-      child_age_or_grade: joinForm.child_age_or_grade,
-      message: joinForm.message
-    }).select('id, parent_name').single()
+    const { data, error } = await supabase
+      .from('join_inquiries')
+      .insert({
+        parent_name: joinForm.parent_name,
+        phone: joinForm.phone,
+        child_age_or_grade: joinForm.child_age_or_grade,
+        message: joinForm.message
+      })
+      .select('id, parent_name')
+      .single()
 
     if (error) throw error
 
     void dispatchPushNotification({
-      title: `[入隊詢問] 收到來自 ${data.parent_name} 的聯絡`,
-      body: `電話: ${joinForm.phone}。請盡快與家長聯繫！`,
+      title: `[入隊詢問] 收到 ${data.parent_name} 的聯絡表單`,
+      body: `電話：${joinForm.phone}，請到後台查看完整內容。`,
       url: '/join-inquiries',
       feature: 'join_inquiries',
       action: 'VIEW',
       eventKey: buildPushEventKey('join_inquiry', data.id)
     }).catch((pushErr) => {
-      console.warn('入隊詢問推播傳送失敗', pushErr)
+      console.warn('Join inquiry push notification failed', pushErr)
     })
-    
-    ElMessage.success('送出成功！教練團會盡快與您聯繫。')
+
+    ElMessage.success('表單已送出，我們會盡快和你聯絡。')
     isJoinModalOpen.value = false
-    Object.assign(joinForm, { parent_name: '', phone: '', child_age_or_grade: '', message: '' })
+    Object.assign(joinForm, {
+      parent_name: '',
+      phone: '',
+      child_age_or_grade: '',
+      message: ''
+    })
   } catch (error: any) {
-    console.error(error)
-    ElMessage.error('送出失敗：' + error.message)
+    console.error('Failed to submit join inquiry:', error)
+    ElMessage.error(`送出失敗：${error?.message || '請稍後再試'}`)
   } finally {
     isSubmitting.value = false
-  }
-}
-
-// 取得最新公告
-const latestAnnouncements = ref<any[]>([])
-
-const fetchAnnouncements = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('announcements')
-      .select('*')
-      .order('is_pinned', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(3)
-    
-    if (error) throw error
-    latestAnnouncements.value = data || []
-  } catch(err) {
-    console.error('Failed to fetch announcements:', err)
   }
 }
 
@@ -586,9 +536,7 @@ const handleOpenJoin = () => {
 }
 
 onMounted(() => {
-  fetchAnnouncements()
-  fetchTodayAttendance()
-  fetchUpcomingMatches()
+  void loadPublicLandingSnapshot()
   window.addEventListener('openJoinModal', handleOpenJoin)
 })
 
@@ -651,3 +599,4 @@ onUnmounted(() => {
   }
 }
 </style>
+

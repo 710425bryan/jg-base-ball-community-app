@@ -134,3 +134,11 @@
 - 這份文件是專案現況規則，不是抽象模板
 - 當專案結構、資料流或部署方式改變時，應同步更新本檔
 - 若新增重要目錄、建置流程、資料同步規則或安全邊界，請一併補到本檔
+## Security Boundary Update (2026-04)
+
+- `permissionsStore.can()`、按鈕顯示、router guard 只算前端 UX 控制，不算資料安全邊界。
+- 任何受保護資料若能被 API / Supabase 直接讀取，必須同步補 DB 端 RLS、policy、或 `security definer` RPC。
+- 公開頁面不可直接查受保護 raw table；請優先使用公開安全 RPC，例如 `get_public_landing_snapshot()`。
+- 登入前的 email 存在性 / 可登入性檢查，不可匿名直查 `profiles`；必須走 `can_request_magic_link()` 這類只回 boolean 的 RPC。
+- `team_members_safe` 是非敏感讀取的預設路徑；若流程需要 `national_id`、`guardian_phone`、`contact_line_id` 等敏感欄位，必須改走 `team_members` 並確認有對應 DB 權限。
+- 權限功能若新增或調整 `feature/action`，要一起更新三層：DB helper / RLS、前端 permission store、AI 文件與 skill。

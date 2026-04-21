@@ -36,3 +36,8 @@ description: "Player roster sync workflow for jg-base-ball-community-app. Use wh
 - 跑 `pnpm exec vitest run src/utils/playerSync.test.ts`。
 - 需要時再補 `pnpm exec vue-tsc --noEmit`。
 - 若同步入口有資料庫寫入，確認既有成員的兩個保護欄位沒有被意外重設。
+## 2026-04 Security Update
+
+- Google 表單 / Sheet 同步寫入仍直接落在 `team_members`，因此 DB 端必須由 `players` feature 的 RLS 控制。
+- 同步流程可以寫完整欄位，但展示流程預設應優先讀 `team_members_safe`；只有編輯或敏感資料維護流程才查 `team_members`。
+- 若同步需求新增敏感欄位，請一起確認 `team_members_safe` 是否需要排除，避免公開或低權限頁面誤讀到個資。

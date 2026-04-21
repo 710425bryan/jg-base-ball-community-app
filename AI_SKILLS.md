@@ -51,3 +51,10 @@
 - 新增 skill 前，先確認能否併入既有 skill，避免過度切碎。
 - skill 名稱保持穩定，避免頻繁 rename 造成引用混亂。
 - 若只是一兩次性任務，不一定要建新 skill。
+## Security Boundary Update
+
+- 前端 `permissionsStore.can()` 與路由守衛不能取代 DB 權限；skill 若牽涉敏感資料，必須檢查 RLS / RPC 是否同步到位。
+- 公開頁面預設只能讀公開安全摘要，不能直接查 `profiles`、`team_members`、`leave_requests`、`announcements`、`attendance_*`、`matches` 等 raw table。
+- email 登入前檢查必須走 `can_request_magic_link()`；不要再匿名 `select profiles`.
+- `team_members_safe` 現在是去敏感欄位的預設讀路徑；若實作需要完整個資，必須明確確認 `players:EDIT` 與 DB policy。
+- 之後若 skill 指引有提到權限或敏感資料讀取，請把 DB helper / policy 名稱一起寫清楚，例如 `has_app_permission()`、`has_any_app_permission()`、`get_public_landing_snapshot()`。

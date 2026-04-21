@@ -124,18 +124,17 @@ export const useAuthStore = defineStore('auth', () => {
 
   const sendMagicLink = async (email: string) => {
     // 登入前安全檢查：確認該信箱是否存在於使用者名單 (profiles) 中，若無則不發送信件並接阻擋
-    const { data: userProfile, error: profileError } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('email', email)
-      .maybeSingle()
+    const normalizedEmail = email.trim().toLowerCase()
+    const { data: canRequest, error: permissionError } = await supabase.rpc('can_request_magic_link', {
+      p_email: normalizedEmail
+    })
 
-    if (profileError || !userProfile) {
+    if (permissionError || !canRequest) {
       throw new Error('此信箱不存在於系統使用者名單中，無法登入。')
     }
 
     const { error } = await supabase.auth.signInWithOtp({ 
-      email,
+      email: normalizedEmail,
       options: {
         emailRedirectTo: window.location.origin
       }

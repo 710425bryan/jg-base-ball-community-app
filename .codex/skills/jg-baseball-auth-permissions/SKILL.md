@@ -42,3 +42,10 @@ description: "Role-based auth and permission workflow for jg-base-ball-community
 - 至少驗證一條「有權限可進入」與一條「無權限被擋下」的路徑。
 - 跑 `pnpm exec vue-tsc --noEmit`。
 - 若有對 store 或 guard 行為補測試，優先針對修改點跑對應 vitest。
+## 2026-04 Security Update
+
+- `permissionsStore.can()` 只能控制畫面與互動，不代表資料庫已安全；變更權限時要先確認 DB 端是否也有 `has_app_permission()` / RLS 對應。
+- `profiles`、`team_members`、`leave_requests`、`announcements`、`attendance_*`、`matches`、`fees` 相關表已改成 feature/action 驅動的 RLS；新增功能時要沿用同一套命名與檢查。
+- 公開頁面請改走公開 RPC，例如 `get_public_landing_snapshot()`；不要在匿名情境直查 raw table。
+- 登入前的 email 驗證要走 `can_request_magic_link()`，不要再匿名 `select profiles`.
+- `team_members_safe` 僅供非敏感讀取；若要讀 `national_id`、`guardian_phone`、`contact_line_id`，必須改查 `team_members` 並確認 `players:EDIT` 或其他必要權限。

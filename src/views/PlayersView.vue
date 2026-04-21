@@ -907,8 +907,9 @@ const fetchData = async () => {
   isLoading.value = true
   try {
     // 使用安全視圖：server 端已依權限 mask 敏感欄位（national_id / guardian_phone / contact_line_id）
+    const sourceTable = canEditPlayers.value ? 'team_members' : 'team_members_safe'
     const { data, error } = await supabase
-      .from('team_members_safe')
+      .from(sourceTable)
       .select('*')
       .order('role')
       .order('name')

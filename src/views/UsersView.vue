@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full flex flex-col relative animate-fade-in p-2 md:p-6 pb-0 md:pb-6">
+  <div class="h-full flex flex-col relative animate-fade-in p-2 md:p-6 pb-0 md:pb-6 overflow-hidden">
     <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4 shrink-0">
       <div>
         <h2 class="text-3xl font-extrabold text-primary tracking-tight flex items-center gap-2">
@@ -32,7 +32,7 @@
           <span class="font-bold">目前沒有使用者資料</span>
         </div>
 
-        <div v-else class="flex-1 min-h-0 overflow-y-auto pb-2 pr-1">
+        <div v-else class="flex-1 min-h-0 overflow-y-auto pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:pb-2 pr-1 custom-scrollbar">
           <section v-for="group in groupedUsers" :key="group.roleKey" class="mb-6 last:mb-0">
             <div class="flex items-center justify-between gap-3 mb-3 px-1">
               <div class="flex items-center gap-3 min-w-0">
