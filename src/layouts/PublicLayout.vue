@@ -3,7 +3,7 @@
     <header class="sticky top-0 z-40 flex h-20 items-center justify-between border-b-4 border-primary bg-slate-900 px-4 text-white shadow-lg sm:px-6 md:px-12">
       <div class="flex min-w-0 items-center gap-3 sm:gap-4">
         <div class="flex h-12 w-12 items-center justify-center">
-          <img src="/logo.jpg" alt="Logo" class="h-full w-full object-contain drop-shadow-md" />
+          <img src="/少棒元素_20260324_232837_0000.png" alt="Logo" class="h-full w-full object-contain drop-shadow-md" />
         </div>
         <div class="min-w-0">
           <h1 class="max-w-[8.5rem] truncate text-lg font-black uppercase leading-none tracking-widest text-primary sm:max-w-none sm:text-2xl">
@@ -62,7 +62,7 @@
           v-if="authStore.isAuthenticated"
           type="button"
           @click="goToDashboard"
-          class="flex min-h-11 min-w-[92px] max-w-[132px] items-center justify-end rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-right text-white transition-colors touch-manipulation active:scale-[0.98] active:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary/70 sm:min-h-0 sm:min-w-0 sm:max-w-none sm:border-0 sm:bg-transparent sm:px-0 sm:py-0"
+          class="flex min-h-11 min-w-[92px] max-w-[132px] items-center justify-end rounded-xl px-3 py-2 text-right text-white transition-colors touch-manipulation active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary/70 sm:min-h-0 sm:min-w-0 sm:max-w-none sm:px-0 sm:py-0"
         >
           <span class="flex min-w-0 flex-col items-end">
             <span class="truncate text-sm font-bold leading-tight tracking-widest">
