@@ -1,8 +1,32 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import PublicLayout from '../layouts/PublicLayout.vue'
 import MainLayout from '../layouts/MainLayout.vue'
+import PushEntryView from '../views/PushEntryView.vue'
 import { useAuthStore } from '../stores/auth'
 import { usePermissionsStore } from '../stores/permissions'
+
+const CHUNK_RELOAD_SESSION_KEY = 'router:chunk-reload-target'
+
+const isDynamicImportError = (error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error)
+
+  return [
+    'Failed to fetch dynamically imported module',
+    'Importing a module script failed',
+    'ChunkLoadError',
+    'Unable to preload CSS'
+  ].some((pattern) => message.includes(pattern))
+}
+
+const getFallbackFullPath = () => {
+  if (typeof window === 'undefined') return '/dashboard'
+
+  const hashPath = window.location.hash.startsWith('#')
+    ? window.location.hash.slice(1)
+    : window.location.hash
+
+  return hashPath || '/dashboard'
+}
 
 const router = createRouter({
   history: createWebHashHistory(), // 必須符合舊版WebView設定
@@ -15,6 +39,11 @@ const router = createRouter({
           path: '',
           name: 'Landing',
           component: () => import('../views/LandingView.vue')
+        },
+        {
+          path: 'push-entry',
+          name: 'PushEntry',
+          component: PushEntryView
         }
       ]
     },
@@ -131,6 +160,37 @@ router.beforeEach(async (to, from, next) => {
   } else {
     // 落入這裡的包含 dashboard、calendar 等無特別要求 meta.feature 的頁面
     next()
+  }
+})
+
+router.onError((error, to) => {
+  console.error('Router navigation failed:', error)
+
+  if (!isDynamicImportError(error) || typeof window === 'undefined') {
+    return
+  }
+
+  const targetFullPath =
+    typeof to?.fullPath === 'string' && to.fullPath
+      ? to.fullPath
+      : getFallbackFullPath()
+
+  const lastReloadTarget = window.sessionStorage.getItem(CHUNK_RELOAD_SESSION_KEY)
+  if (lastReloadTarget === targetFullPath) {
+    window.sessionStorage.removeItem(CHUNK_RELOAD_SESSION_KEY)
+    return
+  }
+
+  window.sessionStorage.setItem(CHUNK_RELOAD_SESSION_KEY, targetFullPath)
+  window.location.assign(`${window.location.origin}/#${targetFullPath}`)
+})
+
+router.afterEach((to) => {
+  if (typeof window === 'undefined') return
+
+  const lastReloadTarget = window.sessionStorage.getItem(CHUNK_RELOAD_SESSION_KEY)
+  if (lastReloadTarget === to.fullPath) {
+    window.sessionStorage.removeItem(CHUNK_RELOAD_SESSION_KEY)
   }
 })
 

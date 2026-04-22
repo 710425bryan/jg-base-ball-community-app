@@ -1,3 +1,27 @@
+const normalizeTargetPath = (rawTarget) => {
+  let nextTarget = typeof rawTarget === 'string' ? rawTarget.trim() : '';
+
+  if (!nextTarget) {
+    return '/dashboard';
+  }
+
+  if (nextTarget.startsWith('/#')) {
+    nextTarget = nextTarget.slice(2);
+  } else if (nextTarget.startsWith('#')) {
+    nextTarget = nextTarget.slice(1);
+  }
+
+  if (!nextTarget.startsWith('/')) {
+    nextTarget = '/' + nextTarget;
+  }
+
+  if (nextTarget.startsWith('//') || nextTarget.startsWith('/push-entry')) {
+    return '/dashboard';
+  }
+
+  return nextTarget;
+};
+
 self.addEventListener('push', function(event) {
   if (event.data) {
     try {
@@ -25,25 +49,43 @@ self.addEventListener('push', function(event) {
 
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
-  
-  // 提取 Edge Function 傳來的 url (處理 object object 問題)
-  let targetPath = '/';
-  if (event.notification.data && event.notification.data.url) {
-    targetPath = event.notification.data.url;
-  }
-  
-  // 因為 Vue 是用 Hash Router，強制補上 # 前綴
-  if (!targetPath.startsWith('/')) targetPath = '/' + targetPath;
-  const urlToOpen = new URL('/#' + targetPath, self.location.origin).href;
+
+  const targetPath = normalizeTargetPath(event.notification.data && event.notification.data.url);
+  const urlToOpen = new URL(
+    '/#/push-entry?target=' + encodeURIComponent(targetPath),
+    self.location.origin
+  ).href;
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
       for (let i = 0; i < windowClients.length; i++) {
         const client = windowClients[i];
+        if (!client.url.startsWith(self.location.origin)) {
+          continue;
+        }
+
         if (client.url === urlToOpen && 'focus' in client) {
           return client.focus();
         }
+
+        if (typeof client.navigate === 'function') {
+          return client.navigate(urlToOpen)
+            .catch(() => {
+              if (clients.openWindow) {
+                return clients.openWindow(urlToOpen);
+              }
+
+              return client;
+            })
+            .then(navigatedClient => {
+              const focusTarget = navigatedClient || client;
+              if (focusTarget && 'focus' in focusTarget) {
+                return focusTarget.focus();
+              }
+            });
+        }
       }
+
       if (clients.openWindow) {
         return clients.openWindow(urlToOpen);
       }
