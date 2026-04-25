@@ -24,7 +24,7 @@
             <router-link v-if="permissionsStore.can('players', 'VIEW')" to="/players" class="whitespace-nowrap text-[13px] xl:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">球員名單</router-link>
             
             <!-- 更多選單 (不常用收納區) -->
-            <el-dropdown trigger="hover" placement="bottom" v-if="permissionsStore.can('join_inquiries') || permissionsStore.can('announcements') || permissionsStore.can('fees') || permissionsStore.can('users')">
+            <el-dropdown trigger="hover" placement="bottom" v-if="permissionsStore.can('join_inquiries') || permissionsStore.can('announcements') || permissionsStore.can('fees') || permissionsStore.can('equipment') || permissionsStore.can('users')">
               <div class="cursor-pointer whitespace-nowrap text-[13px] xl:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide flex items-center gap-1 pt-0.5 outline-none">
                 更多 <el-icon class="text-xs transition-transform duration-300 el-dropdown-link-icon"><ArrowDown /></el-icon>
               </div>
@@ -33,6 +33,7 @@
                   <el-dropdown-item v-if="permissionsStore.can('join_inquiries', 'VIEW')" @click="router.push('/join-inquiries')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">入隊申請</el-dropdown-item>
                   <el-dropdown-item v-if="permissionsStore.can('announcements', 'VIEW')" @click="router.push('/announcements')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">系統公告</el-dropdown-item>
                   <el-dropdown-item v-if="permissionsStore.can('fees', 'VIEW')" @click="router.push('/fees')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">收費管理</el-dropdown-item>
+                  <el-dropdown-item v-if="permissionsStore.can('equipment', 'VIEW')" @click="router.push('/equipment')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">裝備管理</el-dropdown-item>
                   <el-dropdown-item v-if="permissionsStore.can('users', 'VIEW')" @click="router.push('/users')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5" divided>使用者名單</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
@@ -95,6 +96,7 @@
                 <el-dropdown-menu class="!p-1.5 !rounded-xl min-w-[180px] shadow-xl border-gray-100">
                   <el-dropdown-item @click="router.push('/profile')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">個人設定</el-dropdown-item>
                   <el-dropdown-item @click="router.push('/my-payments')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">繳費資訊</el-dropdown-item>
+                  <el-dropdown-item v-if="hasLinkedTeamMembers" @click="router.push('/equipment-addons')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">裝備加購</el-dropdown-item>
                   <el-dropdown-item @click="router.push('/my-leave-requests')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">我的假單</el-dropdown-item>
                   <el-dropdown-item v-if="permissionsStore.can('leave_requests', 'VIEW')" @click="openPushSettingsFromMenu" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">通知設定</el-dropdown-item>
                   <el-dropdown-item @click="handleSignOut" class="!rounded-lg !font-bold !text-red-500 hover:!text-red-600 !py-2.5" divided>登出</el-dropdown-item>
@@ -149,6 +151,7 @@
          </div>
          <router-link to="/profile" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">個人設定</router-link>
          <router-link to="/my-payments" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">繳費資訊</router-link>
+         <router-link v-if="hasLinkedTeamMembers" to="/equipment-addons" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">裝備加購</router-link>
          <router-link to="/my-leave-requests" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">我的假單</router-link>
          <button v-if="permissionsStore.can('leave_requests', 'VIEW')" @click="openPushSettingsFromMenu" class="text-left px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide w-full transition-colors">通知設定</button>
          <router-link to="/dashboard" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">後台大廳</router-link>
@@ -160,6 +163,7 @@
          <router-link v-if="permissionsStore.can('join_inquiries', 'VIEW')" to="/join-inquiries" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">入隊申請</router-link>
          <router-link v-if="permissionsStore.can('announcements', 'VIEW')" to="/announcements" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">系統公告</router-link>
          <router-link v-if="permissionsStore.can('fees', 'VIEW')" to="/fees" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">收費管理</router-link>
+         <router-link v-if="permissionsStore.can('equipment', 'VIEW')" to="/equipment" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">裝備管理</router-link>
          <router-link v-if="permissionsStore.can('users', 'VIEW')" to="/users" @click="isMobileMenuOpen = false" class="px-6 py-4 border-b border-gray-50 text-gray-600 hover:bg-gray-50 font-bold tracking-wide">使用者名單</router-link>
          <button @click="handleSignOut" class="text-left px-6 py-5 text-red-500 hover:bg-red-50 font-bold w-full transition-colors flex items-center gap-2 uppercase tracking-widest text-sm">
            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
@@ -255,6 +259,10 @@ const { hasUpdateAvailable, refreshApp } = useVersionCheck();
 const isMobileMenuOpen = ref(false);
 const notificationPopover = ref<any>(null);
 const currentUserDisplayName = computed(() => authStore.profile?.nickname || authStore.profile?.name || '使用者');
+const hasLinkedTeamMembers = computed(() => {
+  const linkedIds = authStore.profile?.linked_team_member_ids
+  return Array.isArray(linkedIds) && linkedIds.length > 0
+});
 
 const handleNotificationClick = (link: string | undefined) => {
   if (link) {

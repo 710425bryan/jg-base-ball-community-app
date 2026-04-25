@@ -73,6 +73,11 @@ const router = createRouter({
           component: () => import('../views/MyPaymentsView.vue')
         },
         {
+          path: 'equipment-addons',
+          name: 'EquipmentAddons',
+          component: () => import('../views/EquipmentAddonsView.vue')
+        },
+        {
           path: 'my-leave-requests',
           name: 'MyLeaveRequests',
           component: () => import('../views/MyLeaveRequestsView.vue')
@@ -130,6 +135,12 @@ const router = createRouter({
           name: 'Fees',
           component: () => import('../views/FeesView.vue'),
           meta: { feature: 'fees' }
+        },
+        {
+          path: 'equipment',
+          name: 'Equipment',
+          component: () => import('../views/EquipmentView.vue'),
+          meta: { feature: 'equipment' }
         }
       ]
     },

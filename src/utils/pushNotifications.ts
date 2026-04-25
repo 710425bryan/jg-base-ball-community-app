@@ -7,6 +7,7 @@ export type PushNotificationDispatchOptions = {
   feature: string
   action?: string
   targetRoles?: string[]
+  targetUserIds?: string[]
   eventKey?: string
 }
 
@@ -43,6 +44,7 @@ export const dispatchPushNotification = async ({
   feature,
   action = 'VIEW',
   targetRoles,
+  targetUserIds,
   eventKey
 }: PushNotificationDispatchOptions) => {
   const { data, error } = await supabase.functions.invoke<PushNotificationDispatchResult>('send-push-notification', {
@@ -53,6 +55,7 @@ export const dispatchPushNotification = async ({
       feature,
       action,
       target_roles: targetRoles,
+      target_user_ids: targetUserIds,
       event_key: eventKey
     }
   })

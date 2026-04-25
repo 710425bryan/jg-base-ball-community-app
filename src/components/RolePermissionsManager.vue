@@ -343,6 +343,12 @@ const systemFeatures = [
     name: '收費管理',
     desc: '月費計算、季費/儲值管理',
     actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
+  },
+  {
+    key: 'equipment',
+    name: '裝備管理',
+    desc: '管理裝備庫存、加購申請與付款審核',
+    actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
   }
 ]
 

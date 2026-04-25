@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowRight, Calendar, Cloudy, Lightning, Location, MoonNight, PartlyCloudy, Pouring, Sunny, VideoCameraFilled } from '@element-plus/icons-vue'
+import { ArrowRight, Calendar, Cloudy, Goods, Lightning, Location, MoonNight, PartlyCloudy, Pouring, ShoppingCart, Sunny, VideoCameraFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
@@ -7,10 +7,16 @@ import { useRouter } from 'vue-router'
 import MatchDetailDialog from '@/components/match-records/MatchDetailDialog.vue'
 import { supabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/auth'
+import { useEquipmentStore } from '@/stores/equipment'
 import { useMatchesStore } from '@/stores/matches'
 import { usePermissionsStore } from '@/stores/permissions'
 import { createEmptyDashboardStats, type DashboardAnnouncement } from '@/types/dashboard'
+import type { Equipment } from '@/types/equipment'
 import type { MatchRecord } from '@/types/match'
+import {
+  getEquipmentRemainingOverallQuantity,
+  getEquipmentSizeInventoryList
+} from '@/utils/equipmentInventory'
 import {
   formatDashboardMatchDay,
   formatDashboardMatchMonth,
@@ -73,6 +79,7 @@ const RAIN_DROP_STYLES = [
 
 const router = useRouter()
 const authStore = useAuthStore()
+const equipmentStore = useEquipmentStore()
 const matchesStore = useMatchesStore()
 const permissionsStore = usePermissionsStore()
 
@@ -202,6 +209,16 @@ const upcomingMatches = computed(() => (canViewMatches.value ? getDashboardUpcom
 const recentMatches = computed(() => (canViewMatches.value ? getDashboardRecentMatches(matchesStore.matches, now.value, 4) : []))
 const featuredAnnouncement = computed(() => latestAnnouncements.value[0] ?? null)
 const supportingAnnouncements = computed(() => latestAnnouncements.value.slice(1, 3))
+const availableAddonEquipments = computed(() =>
+  equipmentStore.equipments.filter((equipment) =>
+    equipment.quick_purchase_enabled
+    && Number(equipment.purchase_price || 0) > 0
+    && getEquipmentRemainingOverallQuantity(equipment) > 0
+  )
+)
+const featuredAddonEquipment = computed(() => availableAddonEquipments.value[0] ?? null)
+const addonPreviewEquipments = computed(() => availableAddonEquipments.value.slice(0, 4))
+const isEquipmentAddonLoading = computed(() => equipmentStore.isLoading && equipmentStore.equipments.length === 0)
 
 const weatherCodeToSummary = (code: number | null, isDay = true) => {
   if (code == null) return '氣象資料更新中'
@@ -227,6 +244,12 @@ const formatHeroDateTime = (match: MatchRecord) =>
 
 const formatAnnouncementDate = (createdAt: string) => dayjs(createdAt).format('YYYY.MM.DD')
 
+const formatCurrency = (amount: number) => new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 0
+}).format(Number(amount) || 0)
+
 const getDisplayOpponent = (match: MatchRecord) => (match.match_level === '特訓課' ? '特訓課' : match.opponent || '待確認')
 
 const getMatchLocationLabel = (match: MatchRecord) => match.location || '比賽地點待確認'
@@ -249,6 +272,12 @@ const getRecentResultToneClass = (match: MatchRecord) => {
   if (result.tone === 'lose') return 'text-[#dc2626]'
   if (result.tone === 'draw') return 'text-[#64748b]'
   return 'text-[#94a3b8]'
+}
+
+const getAddonAvailabilityLabel = (equipment: Equipment) => {
+  const availableSizes = getEquipmentSizeInventoryList(equipment).filter((item) => item.remaining > 0)
+  if (availableSizes.length > 0) return `${availableSizes.length} 個尺寸可選`
+  return `可用 ${getEquipmentRemainingOverallQuantity(equipment)} 件`
 }
 
 const resetAdminStats = () => {
@@ -376,6 +405,14 @@ const fetchAnnouncementsData = async () => {
   }
 }
 
+const fetchEquipmentAddonData = async () => {
+  try {
+    await equipmentStore.loadEquipments()
+  } catch (error) {
+    console.error('Error fetching dashboard equipment add-ons:', error)
+  }
+}
+
 const openMatchDetail = async (matchId: string) => {
   selectedMatchId.value = matchId
   detailVisible.value = true
@@ -410,6 +447,10 @@ const openAnnouncements = () => {
   router.push('/announcements')
 }
 
+const openEquipmentAddons = () => {
+  router.push('/equipment-addons')
+}
+
 onMounted(() => {
   clockId = setInterval(() => {
     now.value = dayjs()
@@ -419,7 +460,8 @@ onMounted(() => {
     fetchWeatherData(),
     fetchMatchesData(),
     fetchAdminStats(),
-    fetchAnnouncementsData()
+    fetchAnnouncementsData(),
+    fetchEquipmentAddonData()
   ])
 })
 
@@ -795,6 +837,97 @@ onUnmounted(() => {
           <p class="mt-5 text-sm font-semibold text-slate-500">今日請假名單會同步反映在這裡，方便管理者快速掌握出勤狀況。</p>
         </article>
       </div>
+    </section>
+
+    <section data-test="equipment-addons-section" class="mx-auto mt-8 w-full max-w-7xl px-3 sm:px-4">
+      <div class="flex flex-col gap-3 border-b-[5px] border-primary pb-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 class="section-title text-slate-900">裝備加購 <span class="section-subtitle">ADD-ONS</span></h2>
+          <p class="mt-1 text-sm font-semibold text-slate-500">開放中的球隊裝備與商品，可以直接前往加購申請。</p>
+        </div>
+        <button
+          type="button"
+          data-test="equipment-addons-link"
+          class="self-start text-sm font-black text-primary transition-colors hover:text-[#b87515] sm:self-auto"
+          @click="openEquipmentAddons"
+        >
+          前往加購 +
+        </button>
+      </div>
+
+      <button
+        type="button"
+        class="addon-showcase-card group mt-4 w-full text-left"
+        :disabled="isEquipmentAddonLoading"
+        @click="openEquipmentAddons"
+      >
+        <div class="grid min-h-[18rem] gap-0 lg:grid-cols-[minmax(280px,0.42fr)_minmax(0,0.58fr)]">
+          <div class="relative min-h-[15rem] overflow-hidden bg-slate-900">
+            <img
+              v-if="featuredAddonEquipment?.image_url"
+              :src="featuredAddonEquipment.image_url"
+              :alt="featuredAddonEquipment.name"
+              class="h-full min-h-[15rem] w-full object-cover transition-transform duration-700 group-hover:scale-105"
+              draggable="false"
+            />
+            <div
+              v-else
+              class="flex h-full min-h-[15rem] w-full items-center justify-center bg-[radial-gradient(circle_at_top_left,rgba(216,143,34,0.34),transparent_38%),linear-gradient(135deg,#0f172a_0%,#334155_100%)] text-white"
+            >
+              <el-icon class="text-[5rem] text-white/80"><Goods /></el-icon>
+            </div>
+            <div class="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent"></div>
+            <div class="absolute bottom-4 left-4 rounded bg-primary px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-white">
+              {{ availableAddonEquipments.length > 0 ? `${availableAddonEquipments.length} 項可加購` : '裝備加購' }}
+            </div>
+          </div>
+
+          <div class="flex min-w-0 flex-col justify-between p-5 sm:p-6">
+            <div>
+              <div class="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-black text-primary">
+                <el-icon><ShoppingCart /></el-icon>
+                家長加購入口
+              </div>
+              <h3 class="mt-4 text-2xl font-black leading-tight text-slate-950 sm:text-3xl">
+                {{ featuredAddonEquipment?.name || '裝備加購申請' }}
+              </h3>
+              <p class="mt-3 line-clamp-2 text-sm font-semibold leading-6 text-slate-500">
+                {{ featuredAddonEquipment?.specs || featuredAddonEquipment?.notes || '查看目前開放申請的裝備商品，送出後由管理員審核與備貨。' }}
+              </p>
+
+              <div v-if="isEquipmentAddonLoading" class="mt-5 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm font-bold text-slate-400">
+                讀取加購商品中...
+              </div>
+
+              <div v-else-if="addonPreviewEquipments.length > 0" class="mt-5 grid gap-2 sm:grid-cols-2">
+                <div
+                  v-for="equipment in addonPreviewEquipments"
+                  :key="equipment.id"
+                  class="flex min-w-0 items-center justify-between gap-3 border-b border-slate-100 py-3 last:border-b-0 sm:last:border-b"
+                >
+                  <div class="min-w-0">
+                    <div class="truncate text-sm font-black text-slate-800">{{ equipment.name }}</div>
+                    <div class="mt-1 text-xs font-bold text-slate-400">{{ getAddonAvailabilityLabel(equipment) }}</div>
+                  </div>
+                  <div class="shrink-0 text-sm font-black text-primary">{{ formatCurrency(equipment.purchase_price) }}</div>
+                </div>
+              </div>
+
+              <div v-else class="mt-5 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm font-bold text-slate-400">
+                目前沒有開放加購商品，之後有新品會顯示在這裡。
+              </div>
+            </div>
+
+            <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <span class="text-xs font-bold text-slate-400">點擊區塊即可進入裝備加購</span>
+              <span class="inline-flex items-center justify-center gap-2 rounded-sm bg-slate-900 px-5 py-3 text-sm font-black uppercase tracking-[0.16em] text-white">
+                開始加購
+                <el-icon><ArrowRight /></el-icon>
+              </span>
+            </div>
+          </div>
+        </div>
+      </button>
     </section>
 
     <section class="mx-auto mt-8 w-full max-w-7xl px-3 sm:px-4">
@@ -1243,6 +1376,26 @@ onUnmounted(() => {
   box-shadow:
     0 18px 34px rgba(15, 23, 42, 0.07),
     0 2px 4px rgba(15, 23, 42, 0.03);
+}
+
+.addon-showcase-card {
+  overflow: hidden;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 1.35rem;
+  background: #ffffff;
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.07);
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.addon-showcase-card:hover:not(:disabled) {
+  transform: translateY(-3px);
+  border-color: rgba(216, 143, 34, 0.4);
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.11);
+}
+
+.addon-showcase-card:disabled {
+  cursor: progress;
+  opacity: 0.82;
 }
 
 .section-title {

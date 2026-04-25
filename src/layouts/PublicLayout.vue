@@ -33,32 +33,6 @@
 
       <div class="flex shrink-0 items-center gap-2 sm:gap-4">
         <button
-          v-if="hasUpdateAvailable"
-          type="button"
-          @click="refreshApp"
-          class="hidden items-center gap-1.5 rounded-full bg-[#D88F22] px-3 py-1.5 text-xs font-bold text-white shadow-sm transition-colors touch-manipulation animate-pulse sm:flex md:hover:bg-[#b87a1d]"
-          title="偵測到新版本，重新整理即可更新"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          更新
-        </button>
-
-        <button
-          v-if="hasUpdateAvailable"
-          type="button"
-          @click="refreshApp"
-          class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#D88F22] text-white shadow-sm transition-transform touch-manipulation animate-pulse active:scale-[0.98] sm:hidden"
-          aria-label="更新應用程式"
-          title="偵測到新版本，重新整理即可更新"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-        </button>
-
-        <button
           v-if="authStore.isAuthenticated"
           type="button"
           @click="goToDashboard"
@@ -84,6 +58,19 @@
         </button>
       </div>
     </header>
+
+    <button
+      v-if="hasUpdateAvailable"
+      type="button"
+      @click="refreshApp"
+      class="sticky top-20 z-30 flex w-full items-center justify-center gap-2 bg-[#D88F22] p-2 text-center text-xs font-bold text-white shadow-sm transition-colors touch-manipulation animate-fade-in-down hover:bg-[#b87a1d] sm:text-sm"
+      title="點擊以重新載入系統獲取最新功能"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 animate-bounce sm:h-5 sm:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+      <span>✨ 系統已發布新版本！請點擊此處重新整理以獲取最新功能 ✨</span>
+    </button>
 
     <main class="relative flex flex-1 flex-col">
       <router-view />
@@ -166,3 +153,15 @@ const scrollToAnnouncements = () => {
   }
 }
 </script>
+
+<style scoped>
+.animate-fade-in-down {
+  animation: fadeInDown 0.3s ease-out;
+  transform-origin: top;
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+</style>

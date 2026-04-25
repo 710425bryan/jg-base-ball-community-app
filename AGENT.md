@@ -101,9 +101,20 @@
 - 若新增同步、對帳、名單整理等資料規則，優先補單元測試
 - 若修的是 Supabase 寫入流程，留意 `upsert`、唯一鍵、批次資料去重與 RLS
 - 若改到球員、請假、收費、賽事等核心流程，需檢查是否影響通知、彙總或關聯資料
+- 若改到裝備管理或裝備加購，需同時檢查 `equipment`、`equipment_transactions`、`equipment_purchase_requests`、`equipment_payment_submissions` 的資料流、RLS、付款回報與推播連結
 - Google 表單 / Google Sheet 同步不得覆蓋 `team_members.is_primary_payer` 與 `team_members.is_half_price`；這兩個欄位視為系統內手動維護欄位。同步既有球員時必須保留資料庫現值，新增球員時兩者皆預設為 `false`
 - 球員、請假、繳費、入隊詢問等事件若需要手機推播，前端與表單入口應統一走 `src/utils/pushNotifications.ts`；收件對象必須依 `feature` + `action` 權限決定，不可再把所有推播綁死在 `leave_requests`
 - 若同一事件可能同時從表單提交、Realtime 監聽或多個入口觸發，必須提供穩定 `eventKey`，並由 `send-push-notification` 搭配 `push_dispatch_events` 做去重，避免重複推播
+
+## 7.1 裝備管理規則
+
+- 裝備後台路由為 `/equipment`，使用 feature key `equipment` 與 actions `VIEW / CREATE / EDIT / DELETE`。
+- 家長加購路由為 `/equipment-addons`，只要求登入；資料安全由 `linked_team_member_ids` 與 DB RLS 限制，不要改成需要 `equipment:VIEW`。
+- 裝備付款回報整合在 `/my-payments`，管理端審核整合在 `/fees?tab=equipment`。
+- 裝備圖片與請購處理照片使用 Supabase Storage bucket `equipments`。
+- 裝備加購流程是：加購申請 `pending` → 審核 `approved` → 備貨 `ready_for_pickup` → 領取 `picked_up` → 裝備付款回報 `pending_review` → 費用端確認 `approved` 或退回 `rejected`。
+- 裝備交易 `purchase` 產生後才會進入付款回報；不要把來源專案的 `fee_records` 或月結關帳模型直接搬進本專案。
+- 新增裝備 UI 時避免 Element Plus `size="small"`，保持手機觸控尺寸；大型裝備頁應拆成 components/stores/services/utils，不要集中成單一長檔。
 
 ## 8. 驗證規則
 

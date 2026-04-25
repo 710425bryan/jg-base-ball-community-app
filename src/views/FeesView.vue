@@ -9,7 +9,7 @@
             收費管理系統
           </h2>
           <p class="text-xs md:text-sm font-bold text-gray-500 mt-1">
-            管理校隊月費、球員季費與收費設定
+            管理校隊月費、球員季費、裝備付款與收費設定
           </p>
         </div>
       </div>
@@ -103,12 +103,16 @@
         
         <!-- Tab Contents -->
         <template v-else>
-          <ProfilePaymentSubmissionInbox class="mb-6" />
+          <ProfilePaymentSubmissionInbox v-if="activeTab !== 'equipment'" class="mb-6" />
           <div v-show="activeTab === 'monthly'">
             <SchoolTeamFees @summary-change="handleMonthlySummaryChange" />
           </div>
           <div v-show="activeTab === 'quarterly'">
             <QuarterlyFees @summary-change="handleQuarterlySummaryChange" />
+          </div>
+          <div v-show="activeTab === 'equipment'" class="space-y-6">
+            <EquipmentPaymentSubmissionInbox />
+            <EquipmentRequestReviewPanel />
           </div>
           <div v-show="activeTab === 'settings'">
             <FeeSettings />
@@ -130,6 +134,8 @@ import SchoolTeamFees from '@/components/fees/SchoolTeamFees.vue'
 import QuarterlyFees from '@/components/fees/QuarterlyFees.vue'
 import FeeSettings from '@/components/fees/FeeSettings.vue'
 import ProfilePaymentSubmissionInbox from '@/components/fees/ProfilePaymentSubmissionInbox.vue'
+import EquipmentRequestReviewPanel from '@/components/equipment/EquipmentRequestReviewPanel.vue'
+import EquipmentPaymentSubmissionInbox from '@/components/equipment/EquipmentPaymentSubmissionInbox.vue'
 
 const route = useRoute()
 const permissionsStore = usePermissionsStore()
@@ -146,6 +152,7 @@ type FeeSummarySnapshot = {
 const tabs = [
   { id: 'monthly', name: '校隊月費結算' },
   { id: 'quarterly', name: '球員季費表單' },
+  { id: 'equipment', name: '裝備請購/付款' },
   { id: 'settings', name: '校隊收費設定' }
 ]
 
@@ -167,7 +174,7 @@ const SUMMARY_COLLAPSE_SCROLL_TOP = 32
 const SUMMARY_EXPAND_SCROLL_TOP = 8
 
 watch(() => route.query.tab, (newTab) => {
-  if (newTab === 'monthly' || newTab === 'quarterly' || newTab === 'settings') {
+  if (newTab === 'monthly' || newTab === 'quarterly' || newTab === 'equipment' || newTab === 'settings') {
     activeTab.value = newTab as string
   }
 }, { immediate: true })

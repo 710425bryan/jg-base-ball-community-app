@@ -6,6 +6,7 @@ import { RouterLinkStub, flushPromises, shallowMount, type VueWrapper } from '@v
 
 const pushMock = vi.fn()
 const fetchMock = vi.fn()
+const fetchEquipmentsMock = vi.fn()
 
 const teamMembersInMock = vi.fn()
 const teamMembersSelectMock = vi.fn(() => ({
@@ -68,6 +69,17 @@ vi.mock('@/services/supabase', () => ({
     auth: {},
     from: fromMock
   }
+}))
+
+vi.mock('@/services/equipmentApi', () => ({
+  fetchEquipments: fetchEquipmentsMock,
+  fetchEquipmentMembers: vi.fn(),
+  fetchEquipmentTransactions: vi.fn(),
+  createEquipment: vi.fn(),
+  updateEquipment: vi.fn(),
+  deleteEquipment: vi.fn(),
+  createEquipmentTransaction: vi.fn(),
+  deleteEquipmentTransaction: vi.fn()
 }))
 
 vi.mock('@/components/match-records/MatchDetailDialog.vue', () => ({
@@ -141,13 +153,51 @@ const sampleAnnouncements = [
   }
 ]
 
+const sampleEquipments = [
+  {
+    id: 'equipment-1',
+    name: '練習球帽',
+    category: '服飾類',
+    specs: '兒童尺寸',
+    notes: null,
+    image_url: null,
+    purchase_price: 450,
+    quick_purchase_enabled: true,
+    total_quantity: 10,
+    purchased_by: null,
+    sizes_stock: [{ size: 'M', quantity: 6 }],
+    created_at: '2026-04-20T10:00:00.000Z',
+    updated_at: '2026-04-20T10:00:00.000Z',
+    equipment_transactions: [],
+    reserved_request_items: []
+  },
+  {
+    id: 'equipment-2',
+    name: '隊徽水壺',
+    category: '其他',
+    specs: null,
+    notes: '限量商品',
+    image_url: null,
+    purchase_price: 320,
+    quick_purchase_enabled: true,
+    total_quantity: 5,
+    purchased_by: null,
+    sizes_stock: [],
+    created_at: '2026-04-19T10:00:00.000Z',
+    updated_at: '2026-04-19T10:00:00.000Z',
+    equipment_transactions: [],
+    reserved_request_items: []
+  }
+]
+
 vi.stubGlobal('fetch', fetchMock)
 
 const mountHomeView = async ({
   role = 'MANAGER',
   permissions = [] as string[],
   matches = sampleMatches,
-  announcements = sampleAnnouncements
+  announcements = sampleAnnouncements,
+  equipments = sampleEquipments
 } = {}) => {
   setActivePinia(createPinia())
 
@@ -194,6 +244,7 @@ const mountHomeView = async ({
     data: announcements,
     error: null
   })
+  fetchEquipmentsMock.mockResolvedValue(equipments)
   fetchMock.mockResolvedValue({
     ok: true,
     json: async () => ({
@@ -288,5 +339,21 @@ describe('HomeView dashboard redesign', () => {
     })
 
     expect(wrapper.find('[data-test="news-section"]').exists()).toBe(false)
+  })
+
+  it('shows available equipment add-ons and links to the add-ons page', async () => {
+    const { wrapper } = await mountHomeView({
+      role: 'MANAGER',
+      permissions: ['matches', 'announcements']
+    })
+
+    expect(wrapper.find('[data-test="equipment-addons-section"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('裝備加購')
+    expect(wrapper.text()).toContain('練習球帽')
+    expect(wrapper.text()).toContain('隊徽水壺')
+
+    await wrapper.find('[data-test="equipment-addons-link"]').trigger('click')
+
+    expect(pushMock).toHaveBeenCalledWith('/equipment-addons')
   })
 })

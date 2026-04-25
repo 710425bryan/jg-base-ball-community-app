@@ -46,6 +46,12 @@
 - 用途：Google Calendar / iCal 賽事同步與 parser 規則。
 - 典型情境：調整 `google_calendar_event_id` fallback、修改比賽匯入、更新 sync UI。
 
+### `jg-baseball-equipment-management`
+
+- 路徑：`.codex/skills/jg-baseball-equipment-management/SKILL.md`
+- 用途：裝備管理、家長加購、請購審核、領取、裝備付款回報。
+- 典型情境：修改 `/equipment`、`/equipment-addons`、`equipment_transactions`、`equipment_purchase_requests`、`equipment_payment_submissions`、裝備 storage 或相關推播。
+
 ## 維護建議
 
 - 新增 skill 前，先確認能否併入既有 skill，避免過度切碎。

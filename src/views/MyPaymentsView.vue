@@ -244,6 +244,8 @@
               </article>
             </div>
           </section>
+
+          <MyEquipmentPaymentsPanel />
         </template>
       </div>
     </div>
@@ -413,6 +415,7 @@ import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
+import MyEquipmentPaymentsPanel from '@/components/equipment/MyEquipmentPaymentsPanel.vue'
 import {
   createMyPaymentSubmission,
   getMyPaymentRecords,
