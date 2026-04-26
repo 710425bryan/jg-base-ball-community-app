@@ -2,12 +2,58 @@ import { ref } from 'vue'
 
 const hasUpdateAvailable = ref(false)
 const currentVersion = __APP_VERSION__
-const isVersionCheckEnabled = !import.meta.env.DEV
+const isVersionCheckEnabled = true
+const DEV_UPDATE_VERSION_STORAGE_KEY = 'jg-baseball-dev-update-version'
 
 let hasStartedVersionPolling = false
 let intervalId: number | null = null
 let initialTimeoutId: number | null = null
 let isRefreshingApp = false
+
+const normalizeVersion = (version: unknown) => {
+  if (typeof version !== 'string') return null
+
+  const normalized = version.trim()
+  return normalized ? normalized : null
+}
+
+const getDevSearchParams = () => {
+  if (typeof window === 'undefined') return new URLSearchParams()
+
+  const params = new URLSearchParams(window.location.search)
+  const hashQuery = window.location.hash.split('?')[1]
+
+  if (hashQuery) {
+    new URLSearchParams(hashQuery).forEach((value, key) => {
+      params.set(key, value)
+    })
+  }
+
+  return params
+}
+
+const getDevVersionOverride = () => {
+  if (!import.meta.env.DEV || typeof window === 'undefined') return null
+
+  const params = getDevSearchParams()
+  const queryVersion = normalizeVersion(params.get('dev_update_version'))
+
+  if (queryVersion === 'clear') {
+    window.localStorage.removeItem(DEV_UPDATE_VERSION_STORAGE_KEY)
+    return null
+  }
+
+  if (queryVersion) {
+    window.localStorage.setItem(DEV_UPDATE_VERSION_STORAGE_KEY, queryVersion)
+    return queryVersion
+  }
+
+  if (params.get('dev_update') === '1') {
+    return `${currentVersion}-dev`
+  }
+
+  return normalizeVersion(window.localStorage.getItem(DEV_UPDATE_VERSION_STORAGE_KEY))
+}
 
 const checkForUpdate = async () => {
   if (!isVersionCheckEnabled || hasUpdateAvailable.value) return
@@ -19,10 +65,11 @@ const checkForUpdate = async () => {
     if (!response.ok) return
 
     const data = await response.json()
+    const latestVersion = getDevVersionOverride() || normalizeVersion(data?.version)
 
-    if (data && data.version && data.version !== currentVersion) {
+    if (latestVersion && latestVersion !== currentVersion) {
       hasUpdateAvailable.value = true
-      console.log(`[VersionCheck] 發現新版本: ${data.version} (目前: ${currentVersion})`)
+      console.log(`[VersionCheck] 發現新版本: ${latestVersion} (目前: ${currentVersion})`)
     }
   } catch (err) {
     console.warn('[VersionCheck] 版本檢查失敗', err)
@@ -51,7 +98,7 @@ const ensureVersionPollingStarted = () => {
 
   initialTimeoutId = window.setTimeout(() => {
     void checkForUpdate()
-  }, 10000)
+  }, import.meta.env.DEV ? 1000 : 10000)
 
   intervalId = window.setInterval(() => {
     void checkForUpdate()
