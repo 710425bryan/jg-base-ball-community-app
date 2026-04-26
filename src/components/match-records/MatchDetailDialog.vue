@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { Trophy, Location, Calendar, Position, Avatar, WarnTriangleFilled, ArrowLeft, ArrowRight, Delete, Edit } from '@element-plus/icons-vue'
+import { Trophy, Location, Calendar, Position, Avatar, WarnTriangleFilled, ArrowLeft, ArrowRight, Delete, Edit, Document, Timer, DataAnalysis } from '@element-plus/icons-vue'
 import { useMatchesStore } from '@/stores/matches'
 import type { MatchRecord } from '@/types/match'
 import VisualField from '@/components/match-records/VisualField.vue'
@@ -29,6 +29,14 @@ const loading = computed(() => matchesStore.loading)
 const matchData = computed(() => {
   if (!props.matchId) return null
   return matchesStore.matches.find(m => m.id === props.matchId) || null
+})
+
+const activeDetailLineup = computed(() => {
+  const currentLineup = matchData.value?.current_lineup || []
+  if (currentLineup.some((player) => String(player.name || '').trim())) {
+    return currentLineup
+  }
+  return matchData.value?.lineup || []
 })
 
 const isFuture = computed(() => {
@@ -84,6 +92,42 @@ const isGreatAvg = (s: any) => {
   const h = (s.h1||0) + (s.h2||0) + (s.h3||0) + (s.hr||0)
   return (s.ab > 0) && (h / s.ab) >= 0.3
 }
+
+const pitchingStats = computed(() => matchData.value?.pitching_stats || [])
+
+const formatIP = (outs: number) => {
+  const parsedOuts = Number(outs) || 0
+  return `${Math.floor(parsedOuts / 3)}.${parsedOuts % 3}`
+}
+
+const getEra = (s: any) => {
+  const outs = Number(s.ip) || 0
+  if (outs === 0) return '0.00'
+  return (((Number(s.er) || 0) * 7) / (outs / 3)).toFixed(2)
+}
+
+const pitchingTeamStats = computed(() => {
+  let outs = 0
+  let h = 0
+  let r = 0
+  let er = 0
+  let bb = 0
+  let so = 0
+  let np = 0
+
+  pitchingStats.value.forEach((stat: any) => {
+    outs += Number(stat.ip) || 0
+    h += Number(stat.h) || 0
+    r += Number(stat.r) || 0
+    er += Number(stat.er) || 0
+    bb += Number(stat.bb) || 0
+    so += Number(stat.so) || 0
+    np += Number(stat.np) || 0
+  })
+
+  const era = outs > 0 ? ((er * 7) / (outs / 3)).toFixed(2) : '0.00'
+  return { outs, h, r, er, bb, so, np, era }
+})
 </script>
 
 <template>
@@ -232,8 +276,8 @@ const isGreatAvg = (s: any) => {
                 <h3 class="font-extrabold text-gray-800 mb-5 flex items-center border-b border-gray-100 pb-3">
                   <el-icon class="mr-2 text-green-600 text-xl"><Trophy /></el-icon> 攻守名單
                 </h3>
-                <div v-if="matchData.lineup?.length">
-                  <VisualField :lineup="matchData.lineup" />
+                <div v-if="activeDetailLineup.length">
+                  <VisualField :lineup="activeDetailLineup" />
                 </div>
                 <div v-else class="text-center text-gray-400 font-bold py-20 italic">尚未設定打序陣容</div>
               </div>
@@ -292,6 +336,61 @@ const isGreatAvg = (s: any) => {
                   </div>
                 </div>
                 <div v-else class="text-center text-gray-400 font-bold py-10 italic">無打擊成績紀錄</div>
+              </div>
+
+              <!-- 7. Pitching Stats Board -->
+              <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm overflow-hidden flex flex-col w-full min-w-0">
+                <h3 class="font-extrabold text-gray-800 mb-4 flex items-center border-b border-gray-100 pb-3 shrink-0">
+                  <el-icon class="mr-2 text-blue-500 text-xl"><DataAnalysis /></el-icon> 團隊投手成績
+                </h3>
+                <div v-if="pitchingStats.length" class="overflow-x-auto custom-scrollbar pb-2">
+                  <el-table
+                    :data="pitchingStats"
+                    size="small"
+                    class="w-full text-xs font-medium min-w-[760px]"
+                    border
+                    :header-cell-style="{fontWeight:'black', padding:'6px 2px', textAlign:'center'}"
+                    :cell-style="{padding:'6px 2px', textAlign:'center', color: '#1f2937'}"
+                  >
+                    <el-table-column fixed label="投手" min-width="90" align="left">
+                      <template #default="{ row }">
+                        <div class="flex items-center space-x-1 pl-1">
+                          <span class="text-[10px] text-gray-400 w-4">{{ row.number }}</span>
+                          <span class="font-bold truncate">{{ row.name }}</span>
+                        </div>
+                      </template>
+                    </el-table-column>
+                    <el-table-column label="IP" width="50"><template #default="{ row }">{{ formatIP(row.ip) }}</template></el-table-column>
+                    <el-table-column prop="ab" label="AB" width="45"></el-table-column>
+                    <el-table-column prop="h" label="H" width="45"></el-table-column>
+                    <el-table-column prop="h2" label="2B" width="45"></el-table-column>
+                    <el-table-column prop="h3" label="3B" width="45"></el-table-column>
+                    <el-table-column prop="hr" label="HR" width="45"></el-table-column>
+                    <el-table-column prop="r" label="R" width="45"></el-table-column>
+                    <el-table-column prop="er" label="ER" width="45"></el-table-column>
+                    <el-table-column prop="bb" label="BB" width="45"></el-table-column>
+                    <el-table-column prop="so" label="SO" width="45"></el-table-column>
+                    <el-table-column prop="np" label="NP" width="50"></el-table-column>
+                    <el-table-column prop="go" label="GO" width="45"></el-table-column>
+                    <el-table-column prop="ao" label="AO" width="45"></el-table-column>
+                    <el-table-column label="ERA" width="60"><template #default="{ row }">{{ getEra(row) }}</template></el-table-column>
+                  </el-table>
+
+                  <div class="bg-blue-50 border-t border-blue-100 rounded-b-lg mt-2 xl:w-[760px] flex items-center justify-between px-4 py-2 text-xs">
+                    <span class="font-black text-blue-600">TEAM TOTALS</span>
+                    <div class="flex gap-4 font-bold text-gray-800">
+                      <span>IP：<span class="text-blue-600">{{ formatIP(pitchingTeamStats.outs) }}</span></span>
+                      <span>H：{{ pitchingTeamStats.h }}</span>
+                      <span>R：{{ pitchingTeamStats.r }}</span>
+                      <span>ER：{{ pitchingTeamStats.er }}</span>
+                      <span>BB：{{ pitchingTeamStats.bb }}</span>
+                      <span>SO：{{ pitchingTeamStats.so }}</span>
+                      <span>NP：{{ pitchingTeamStats.np }}</span>
+                      <span>ERA：{{ pitchingTeamStats.era }}</span>
+                    </div>
+                  </div>
+                </div>
+                <div v-else class="text-center text-gray-400 font-bold py-10 italic">無投手成績紀錄</div>
               </div>
 
             </div>

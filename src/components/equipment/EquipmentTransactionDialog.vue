@@ -139,7 +139,7 @@ watch(() => form.transaction_type, (type) => {
 
     <el-form ref="formRef" :model="form" :rules="rules" label-position="top" class="space-y-4">
       <el-form-item label="交易類型" prop="transaction_type" class="font-bold">
-        <el-radio-group v-model="form.transaction_type" class="grid w-full grid-cols-2 gap-2 md:grid-cols-4">
+        <el-radio-group v-model="form.transaction_type" class="transaction-type-group w-full">
           <el-radio-button v-for="option in typeOptions" :key="option.value" :label="option.value">
             {{ option.label }}
           </el-radio-button>
@@ -235,3 +235,25 @@ watch(() => form.transaction_type, (type) => {
     </template>
   </el-dialog>
 </template>
+
+<style scoped>
+.transaction-type-group {
+  display: flex;
+  align-items: stretch;
+}
+
+.transaction-type-group :deep(.el-radio-button) {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.transaction-type-group :deep(.el-radio-button__inner) {
+  display: flex;
+  width: 100%;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 0.75rem;
+  font-weight: 700;
+}
+</style>

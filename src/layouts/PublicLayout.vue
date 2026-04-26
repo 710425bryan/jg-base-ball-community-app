@@ -3,18 +3,24 @@
     <header class="sticky top-0 z-40 flex h-20 items-center justify-between border-b-4 border-primary bg-slate-900 px-4 text-white shadow-lg sm:px-6 md:px-12">
       <div class="flex min-w-0 items-center gap-3 sm:gap-4">
         <div class="flex h-12 w-12 items-center justify-center">
-          <img src="/少棒元素_20260324_232837_0000.png" alt="Logo" class="h-full w-full object-contain drop-shadow-md" />
+          <img src="/少棒元素_20260324_232837_0000.png" alt="中港熊戰社區棒球 Logo" class="h-full w-full object-contain drop-shadow-md" />
         </div>
         <div class="min-w-0">
-          <h1 class="max-w-[8.5rem] truncate text-lg font-black uppercase leading-none tracking-widest text-primary sm:max-w-none sm:text-2xl">
-            中港熊讚社區棒球
+          <h1 class="truncate text-lg font-black uppercase leading-none tracking-widest text-primary sm:text-2xl">
+            中港熊戰社區棒球
           </h1>
         </div>
       </div>
 
       <nav class="absolute left-1/2 hidden -translate-x-1/2 gap-10 font-bold tracking-wide md:flex">
         <router-link to="/" class="cursor-pointer uppercase text-white transition-colors hover:text-secondary">首頁</router-link>
-        <a class="cursor-pointer uppercase text-white transition-colors hover:text-secondary">賽事資訊</a>
+        <button
+          type="button"
+          @click="scrollToSchedule"
+          class="cursor-pointer border-none bg-transparent uppercase text-white transition-colors hover:text-secondary"
+        >
+          賽事資訊
+        </button>
         <button
           type="button"
           @click="scrollToAnnouncements"
@@ -52,9 +58,22 @@
           v-else
           type="button"
           @click="showLogin = true"
-          class="border-none bg-transparent p-0 font-bold uppercase tracking-widest text-white transition-colors touch-manipulation md:hover:text-secondary"
+          class="min-h-11 rounded-lg border-none bg-transparent px-2 font-bold uppercase tracking-widest text-white transition-colors touch-manipulation md:min-h-0 md:p-0 md:hover:text-secondary"
         >
           登入
+        </button>
+
+        <button
+          type="button"
+          class="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white transition-colors touch-manipulation hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary/70 md:hidden"
+          :aria-label="isMobileMenuOpen ? '關閉選單' : '開啟選單'"
+          :aria-expanded="isMobileMenuOpen"
+          @click="isMobileMenuOpen = !isMobileMenuOpen"
+        >
+          <el-icon class="text-xl">
+            <Close v-if="isMobileMenuOpen" />
+            <Menu v-else />
+          </el-icon>
         </button>
       </div>
     </header>
@@ -63,14 +82,70 @@
       v-if="hasUpdateAvailable"
       type="button"
       @click="refreshApp"
-      class="sticky top-20 z-30 flex w-full items-center justify-center gap-2 bg-[#D88F22] p-2 text-center text-xs font-bold text-white shadow-sm transition-colors touch-manipulation animate-fade-in-down hover:bg-[#b87a1d] sm:text-sm"
+      class="sticky top-20 z-40 flex h-11 w-full items-center justify-center gap-2 overflow-hidden bg-[#D88F22] px-3 text-center text-xs font-bold text-white shadow-sm transition-colors touch-manipulation animate-fade-in-down hover:bg-[#b87a1d] sm:text-sm"
       title="點擊以重新載入系統獲取最新功能"
     >
       <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 animate-bounce sm:h-5 sm:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
       </svg>
-      <span>✨ 系統已發布新版本！請點擊此處重新整理以獲取最新功能 ✨</span>
+      <span class="truncate">系統已發布新版本，點擊重新整理以取得最新功能</span>
     </button>
+
+    <nav
+      v-if="isMobileMenuOpen"
+      class="sticky z-30 border-b border-slate-800 bg-slate-950 px-4 py-4 text-white shadow-xl md:hidden"
+      :class="hasUpdateAvailable ? 'top-[7.75rem]' : 'top-20'"
+      aria-label="手機導覽"
+    >
+      <div class="grid grid-cols-2 gap-3">
+        <router-link
+          to="/"
+          class="flex min-h-12 items-center justify-center rounded-xl bg-white/5 px-3 text-sm font-bold tracking-widest transition-colors hover:bg-white/10"
+          @click="closeMobileMenu"
+        >
+          首頁
+        </router-link>
+        <button
+          type="button"
+          class="flex min-h-12 items-center justify-center rounded-xl bg-white/5 px-3 text-sm font-bold tracking-widest transition-colors hover:bg-white/10"
+          @click="scrollToSchedule"
+        >
+          賽事資訊
+        </button>
+        <button
+          type="button"
+          class="flex min-h-12 items-center justify-center rounded-xl bg-white/5 px-3 text-sm font-bold tracking-widest transition-colors hover:bg-white/10"
+          @click="scrollToAnnouncements"
+        >
+          最新公告
+        </button>
+        <button
+          type="button"
+          class="flex min-h-12 items-center justify-center rounded-xl bg-primary px-3 text-sm font-bold tracking-widest text-white transition-colors hover:bg-primary-hover"
+          @click="triggerJoinModal"
+        >
+          我要報名
+        </button>
+        <a
+          href="https://www.facebook.com/groups/203206672887263"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="flex min-h-12 items-center justify-center rounded-xl bg-white/5 px-3 text-sm font-bold tracking-widest transition-colors hover:bg-white/10"
+          @click="closeMobileMenu"
+        >
+          FB
+        </a>
+        <a
+          href="https://www.instagram.com/reel/DWIbtw4EZ55/"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="flex min-h-12 items-center justify-center rounded-xl bg-white/5 px-3 text-sm font-bold tracking-widest transition-colors hover:bg-white/10"
+          @click="closeMobileMenu"
+        >
+          IG
+        </a>
+      </div>
+    </nav>
 
     <main class="relative flex flex-1 flex-col">
       <router-view />
@@ -80,10 +155,10 @@
       <div class="mx-auto mb-12 flex max-w-7xl flex-col items-center justify-between gap-8 px-6 md:flex-row md:px-12">
         <div class="flex items-center gap-4">
           <div class="flex h-16 w-16 items-center justify-center">
-            <img src="/logo.jpg" alt="Logo" class="h-full w-full object-contain" />
+            <img src="/logo.jpg" alt="中港熊戰社區棒球 Logo" class="h-full w-full object-contain" />
           </div>
           <div>
-            <h2 class="text-2xl font-black uppercase tracking-widest text-primary">中港熊讚社區棒球</h2>
+            <h2 class="text-2xl font-black uppercase tracking-widest text-primary">中港熊戰社區棒球</h2>
             <p class="mt-1 text-sm font-medium text-slate-400">一起在球場上成長，陪孩子打出自信與團隊感。</p>
           </div>
         </div>
@@ -94,7 +169,7 @@
         </div>
       </div>
       <div class="mx-auto max-w-7xl border-t border-slate-800 pt-8 text-center text-sm font-medium text-slate-500">
-        <p>&copy; 2026 中港熊讚社區棒球. Designed for excellence. All rights reserved.</p>
+        <p>&copy; 2026 中港熊戰社區棒球. Designed for excellence. All rights reserved.</p>
       </div>
     </footer>
 
@@ -103,8 +178,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { nextTick, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { Close, Menu } from '@element-plus/icons-vue'
 
 import LoginModal from '@/components/LoginModal.vue'
 import { useVersionCheck } from '@/composables/useVersionCheck'
@@ -113,6 +189,7 @@ import { useAuthStore } from '@/stores/auth'
 const authStore = useAuthStore()
 const router = useRouter()
 const showLogin = ref(false)
+const isMobileMenuOpen = ref(false)
 const { hasUpdateAvailable, refreshApp } = useVersionCheck()
 
 const getRoleName = (role?: string) => {
@@ -127,11 +204,18 @@ const getRoleName = (role?: string) => {
 }
 
 const goToDashboard = () => {
+  isMobileMenuOpen.value = false
   if (router.currentRoute.value.path === '/dashboard') return
   void router.push('/dashboard')
 }
 
+const closeMobileMenu = () => {
+  isMobileMenuOpen.value = false
+}
+
 const triggerJoinModal = () => {
+  isMobileMenuOpen.value = false
+
   if (router.currentRoute.value.path !== '/') {
     router.push('/').then(() => {
       setTimeout(() => window.dispatchEvent(new CustomEvent('openJoinModal')), 200)
@@ -141,16 +225,33 @@ const triggerJoinModal = () => {
   }
 }
 
-const scrollToAnnouncements = () => {
+const scrollElementIntoView = (sectionId: string) => {
+  document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+const scrollToSection = async (sectionId: string) => {
+  isMobileMenuOpen.value = false
+  await nextTick()
+
   if (router.currentRoute.value.path !== '/') {
     router.push('/').then(() => {
       setTimeout(() => {
-        document.getElementById('announcements')?.scrollIntoView({ behavior: 'smooth' })
+        scrollElementIntoView(sectionId)
+        window.setTimeout(() => scrollElementIntoView(sectionId), 900)
       }, 200)
     })
   } else {
-    document.getElementById('announcements')?.scrollIntoView({ behavior: 'smooth' })
+    scrollElementIntoView(sectionId)
+    window.setTimeout(() => scrollElementIntoView(sectionId), 900)
   }
+}
+
+const scrollToSchedule = () => {
+  scrollToSection('schedule')
+}
+
+const scrollToAnnouncements = () => {
+  scrollToSection('announcements')
 }
 </script>
 

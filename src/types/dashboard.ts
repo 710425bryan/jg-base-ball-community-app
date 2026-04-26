@@ -2,7 +2,11 @@ export interface DashboardStats {
   totalMembers: number
   schoolTeamMembers: number
   communityMembers: number
+  coachMembers: number
   todayLeaves: number
+  todayLeaveRequests: number
+  todayAttendanceLeaves: number
+  todayAttendanceEvents: number
 }
 
 export interface DashboardPendingCounts {
@@ -62,7 +66,11 @@ export const createEmptyDashboardStats = (): DashboardStats => ({
   totalMembers: 0,
   schoolTeamMembers: 0,
   communityMembers: 0,
-  todayLeaves: 0
+  coachMembers: 0,
+  todayLeaves: 0,
+  todayLeaveRequests: 0,
+  todayAttendanceLeaves: 0,
+  todayAttendanceEvents: 0
 })
 
 export const createEmptyDashboardPendingCounts = (): DashboardPendingCounts => ({

@@ -47,6 +47,20 @@ type TeamMemberStatRow = {
   status: string | null
 }
 
+type LeaveRequestStatRow = {
+  user_id: string | null
+}
+
+type AttendanceRecordStatRow = {
+  member_id: string | null
+  status: string | null
+}
+
+type AttendanceEventStatRow = {
+  id: string | number
+  attendance_records: AttendanceRecordStatRow[] | null
+}
+
 type AnnouncementRow = {
   id: string | number
   title: string
@@ -57,6 +71,8 @@ type AnnouncementRow = {
 }
 
 const TEAM_LABEL = '中港熊戰'
+const MEMBER_STAT_ROLES = ['球員', '校隊', '教練']
+const INACTIVE_MEMBER_STATUSES = new Set(['離隊', '退隊'])
 const DEFAULT_WEATHER_TEMP = 26
 const DEFAULT_WEATHER_RAIN = 20
 const DEFAULT_WEATHER_WIND = 2
@@ -280,6 +296,9 @@ const getAddonAvailabilityLabel = (equipment: Equipment) => {
   return `可用 ${getEquipmentRemainingOverallQuantity(equipment)} 件`
 }
 
+const isActiveDashboardMember = (member: TeamMemberStatRow) =>
+  !INACTIVE_MEMBER_STATUSES.has(member.status || '')
+
 const resetAdminStats = () => {
   Object.assign(stats, createEmptyDashboardStats())
 }
@@ -346,29 +365,60 @@ const fetchAdminStats = async () => {
 
   try {
     const currentDate = now.value.format('YYYY-MM-DD')
-    const [membersRes, todayLeavesRes] = await Promise.all([
+    const [membersRes, todayLeaveRequestsRes, todayAttendanceEventsRes] = await Promise.all([
       supabase
         .from('team_members')
         .select('role, status')
-        .in('role', ['球員', '校隊']),
+        .in('role', MEMBER_STAT_ROLES),
       supabase
         .from('leave_requests')
-        .select('id', { count: 'exact', head: true })
+        .select('user_id')
         .lte('start_date', currentDate)
-        .gte('end_date', currentDate)
+        .gte('end_date', currentDate),
+      supabase
+        .from('attendance_events')
+        .select('id, attendance_records(member_id, status)')
+        .eq('date', currentDate)
     ])
 
     if (membersRes.error) throw membersRes.error
-    if (todayLeavesRes.error) throw todayLeavesRes.error
+    if (todayLeaveRequestsRes.error) throw todayLeaveRequestsRes.error
+    if (todayAttendanceEventsRes.error) throw todayAttendanceEventsRes.error
 
     const members = Array.isArray(membersRes.data)
-      ? (membersRes.data as TeamMemberStatRow[]).filter((member) => member.status !== '離隊')
+      ? (membersRes.data as TeamMemberStatRow[]).filter(isActiveDashboardMember)
       : []
+    const todayLeaveRequests = Array.isArray(todayLeaveRequestsRes.data)
+      ? todayLeaveRequestsRes.data as LeaveRequestStatRow[]
+      : []
+    const todayAttendanceEvents = Array.isArray(todayAttendanceEventsRes.data)
+      ? todayAttendanceEventsRes.data as AttendanceEventStatRow[]
+      : []
+    const leaveRequestMemberIds = new Set<string>()
+    const attendanceLeaveMemberIds = new Set<string>()
+
+    todayLeaveRequests.forEach((leave) => {
+      if (leave.user_id) leaveRequestMemberIds.add(leave.user_id)
+    })
+
+    todayAttendanceEvents.forEach((event) => {
+      event.attendance_records?.forEach((record) => {
+        if (record.status === '請假' && record.member_id) {
+          attendanceLeaveMemberIds.add(record.member_id)
+        }
+      })
+    })
+
+    const todayLeaveMemberIds = new Set([...leaveRequestMemberIds, ...attendanceLeaveMemberIds])
 
     stats.totalMembers = members.length
     stats.schoolTeamMembers = members.filter((member) => member.role === '校隊').length
     stats.communityMembers = members.filter((member) => member.role === '球員').length
-    stats.todayLeaves = todayLeavesRes.count || 0
+    stats.coachMembers = members.filter((member) => member.role === '教練').length
+    stats.todayLeaves = todayLeaveMemberIds.size
+    stats.todayLeaveRequests = leaveRequestMemberIds.size
+    stats.todayAttendanceLeaves = attendanceLeaveMemberIds.size
+    stats.todayAttendanceEvents = todayAttendanceEvents.length
   } catch (error) {
     console.error('Error fetching admin dashboard stats:', error)
     resetAdminStats()
@@ -812,29 +862,53 @@ onUnmounted(() => {
       <div class="grid gap-4 md:grid-cols-2">
         <article class="dashboard-card p-5 md:p-6">
           <div class="text-sm font-bold uppercase tracking-[0.22em] text-slate-400">Team Members</div>
-          <div class="mt-3 flex items-end gap-2 text-[3.25rem] font-black leading-[0.88] text-slate-950 sm:text-[3.75rem] md:text-[4.15rem]">
+          <div data-test="team-members-total" class="mt-3 flex items-end gap-2 text-[3.25rem] font-black leading-[0.88] text-slate-950 sm:text-[3.75rem] md:text-[4.15rem]">
             {{ stats.totalMembers }}
             <span class="pb-1 text-[1.4rem] font-bold leading-none text-slate-400 sm:text-[1.7rem] md:text-[2rem]">人</span>
           </div>
           <div class="mt-5 flex flex-wrap gap-3 text-sm font-semibold text-slate-500 sm:text-[15px]">
-            <span class="inline-flex items-center gap-2.5 whitespace-nowrap rounded-full bg-white/85 px-3 py-1.5 shadow-sm shadow-slate-200/70">
+            <span data-test="school-team-count" class="inline-flex items-center gap-2.5 whitespace-nowrap rounded-full bg-white/85 px-3 py-1.5 shadow-sm shadow-slate-200/70">
               <span class="h-2.5 w-2.5 shrink-0 rounded-full bg-[#60a5fa]"></span>
               校隊 {{ stats.schoolTeamMembers }}
             </span>
-            <span class="inline-flex items-center gap-2.5 whitespace-nowrap rounded-full bg-white/85 px-3 py-1.5 shadow-sm shadow-slate-200/70">
+            <span data-test="community-members-count" class="inline-flex items-center gap-2.5 whitespace-nowrap rounded-full bg-white/85 px-3 py-1.5 shadow-sm shadow-slate-200/70">
               <span class="h-2.5 w-2.5 shrink-0 rounded-full bg-[#22c55e]"></span>
               社區 {{ stats.communityMembers }}
+            </span>
+            <span data-test="coach-members-count" class="inline-flex items-center gap-2.5 whitespace-nowrap rounded-full bg-white/85 px-3 py-1.5 shadow-sm shadow-slate-200/70">
+              <span class="h-2.5 w-2.5 shrink-0 rounded-full bg-[#f59e0b]"></span>
+              教練 {{ stats.coachMembers }}
             </span>
           </div>
         </article>
 
         <article class="dashboard-card p-5 md:p-6">
           <div class="text-sm font-bold uppercase tracking-[0.22em] text-slate-400">Today Leaves</div>
-          <div class="mt-3 flex items-end gap-2 text-[3.25rem] font-black leading-[0.88] text-[#ef4444] sm:text-[3.75rem] md:text-[4.15rem]">
+          <div data-test="today-leaves-total" class="mt-3 flex items-end gap-2 text-[3.25rem] font-black leading-[0.88] text-[#ef4444] sm:text-[3.75rem] md:text-[4.15rem]">
             {{ stats.todayLeaves }}
             <span class="pb-1 text-[1.4rem] font-bold leading-none text-slate-400 sm:text-[1.7rem] md:text-[2rem]">人</span>
           </div>
-          <p class="mt-5 text-sm font-semibold text-slate-500">今日請假名單會同步反映在這裡，方便管理者快速掌握出勤狀況。</p>
+          <p class="mt-5 text-sm font-semibold leading-6 text-slate-500">
+            含請假系統與今日點名，同一成員重疊只計 1 人，方便管理者快速掌握出勤狀況。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-2 text-xs font-black text-slate-500 sm:text-sm">
+            <span data-test="today-leave-requests-count" class="inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-1.5 text-red-600">
+              請假系統 {{ stats.todayLeaveRequests }}
+            </span>
+            <span data-test="today-attendance-leaves-count" class="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-blue-600">
+              今日點名 {{ stats.todayAttendanceLeaves }}
+            </span>
+            <span data-test="today-attendance-events-count" class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-slate-600">
+              點名單 {{ stats.todayAttendanceEvents }}
+            </span>
+          </div>
+          <router-link
+            to="/attendance"
+            data-test="today-attendance-link"
+            class="mt-5 inline-flex text-sm font-black text-primary transition-colors hover:text-[#b87515]"
+          >
+            查看今天點名 +
+          </router-link>
         </article>
       </div>
     </section>

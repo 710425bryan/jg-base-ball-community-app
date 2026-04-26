@@ -21,6 +21,11 @@ const leaveRequestsSelectMock = vi.fn(() => ({
   lte: leaveRequestsLteMock
 }))
 
+const attendanceEventsEqMock = vi.fn()
+const attendanceEventsSelectMock = vi.fn(() => ({
+  eq: attendanceEventsEqMock
+}))
+
 const announcementsLimitMock = vi.fn()
 const announcementsOrderSecondMock = vi.fn(() => ({
   limit: announcementsLimitMock
@@ -42,6 +47,12 @@ const fromMock = vi.fn((table: string) => {
   if (table === 'leave_requests') {
     return {
       select: leaveRequestsSelectMock
+    }
+  }
+
+  if (table === 'attendance_events') {
+    return {
+      select: attendanceEventsSelectMock
     }
   }
 
@@ -153,6 +164,23 @@ const sampleAnnouncements = [
   }
 ]
 
+const sampleAttendanceEvents = [
+  {
+    id: 'attendance-1',
+    attendance_records: [
+      { member_id: 'school-1', status: '請假' },
+      { member_id: 'community-1', status: '請假' },
+      { member_id: 'present-1', status: '出席' }
+    ]
+  },
+  {
+    id: 'attendance-2',
+    attendance_records: [
+      { member_id: 'community-1', status: '請假' }
+    ]
+  }
+]
+
 const sampleEquipments = [
   {
     id: 'equipment-1',
@@ -197,6 +225,7 @@ const mountHomeView = async ({
   permissions = [] as string[],
   matches = sampleMatches,
   announcements = sampleAnnouncements,
+  attendanceEvents = sampleAttendanceEvents,
   equipments = sampleEquipments
 } = {}) => {
   setActivePinia(createPinia())
@@ -232,12 +261,21 @@ const mountHomeView = async ({
     data: [
       { role: '校隊', status: '在隊' },
       { role: '球員', status: '在隊' },
-      { role: '球員', status: '離隊' }
+      { role: '教練', status: '在隊' },
+      { role: '球員', status: '離隊' },
+      { role: '教練', status: '退隊' }
     ],
     error: null
   })
   leaveRequestsGteMock.mockResolvedValue({
-    count: 2,
+    data: [
+      { user_id: 'school-1' },
+      { user_id: 'leave-only-1' }
+    ],
+    error: null
+  })
+  attendanceEventsEqMock.mockResolvedValue({
+    data: attendanceEvents,
     error: null
   })
   announcementsLimitMock.mockResolvedValue({
@@ -297,6 +335,16 @@ describe('HomeView dashboard redesign', () => {
     expect(wrapper.find('[data-test="admin-stats"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('Team Members')
     expect(wrapper.text()).toContain('Today Leaves')
+    expect(wrapper.find('[data-test="team-members-total"]').text()).toContain('3')
+    expect(wrapper.find('[data-test="school-team-count"]').text()).toContain('校隊 1')
+    expect(wrapper.find('[data-test="community-members-count"]').text()).toContain('社區 1')
+    expect(wrapper.find('[data-test="coach-members-count"]').text()).toContain('教練 1')
+    expect(wrapper.find('[data-test="today-leaves-total"]').text()).toContain('3')
+    expect(wrapper.find('[data-test="today-leave-requests-count"]').text()).toContain('請假系統 2')
+    expect(wrapper.find('[data-test="today-attendance-leaves-count"]').text()).toContain('今日點名 2')
+    expect(wrapper.find('[data-test="today-attendance-events-count"]').text()).toContain('點名單 2')
+    expect(teamMembersInMock).toHaveBeenCalledWith('role', ['球員', '校隊', '教練'])
+    expect(attendanceEventsSelectMock).toHaveBeenCalledWith('id, attendance_records(member_id, status)')
   })
 
   it('hides the admin stats cards for non-admin users', async () => {

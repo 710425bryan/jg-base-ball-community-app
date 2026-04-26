@@ -1,72 +1,103 @@
 <template>
   <div class="flex-1 bg-white">
     <!-- Hero Section -->
-    <section class="relative w-full h-[600px] md:h-[700px] bg-slate-900 border-b-[12px] border-primary flex items-center justify-center overflow-hidden">
-      <!-- 帶有多重漸層與背景圖的 Hero 區塊 -->
+    <section class="relative flex min-h-[calc(100dvh-5rem)] w-full items-center overflow-hidden border-b-[12px] border-primary bg-slate-950 py-16 md:min-h-[720px] md:py-20">
       <div class="absolute inset-0 bg-[url('/hero-bg.jpg')] bg-cover bg-center bg-no-repeat opacity-40"></div>
-      
-      <!-- 斜角裝飾保持運動感 -->
-      <div class="absolute top-0 right-0 w-1/2 h-full bg-slate-800 transform skew-x-12 opacity-50 translate-x-32 origin-bottom"></div>
+      <div class="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/75 to-slate-900/20"></div>
+      <div class="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-slate-950 to-transparent"></div>
+      <div class="absolute right-[-12%] top-0 hidden h-full w-1/2 origin-bottom translate-x-10 skew-x-12 bg-slate-800/40 md:block"></div>
 
-      <div class="relative z-10 flex flex-col items-center justify-end text-center px-4 w-full h-full max-w-5xl mx-auto pb-12 md:pb-28">
-        <!-- 由於背景圖已有隊名與口號，這裡隱藏重複的標題文字，保留底部的行動呼籲按鈕即可 -->
-        
-        <div class="flex flex-col sm:flex-row gap-4 w-full sm:w-auto justify-center">
-          <button class="px-8 py-4 bg-primary text-white font-extrabold text-lg md:text-xl uppercase tracking-widest rounded-sm hover:-translate-y-1 hover:shadow-[0_15px_30px_rgba(216,143,34,0.5)] transition-all flex items-center justify-center gap-3">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" /></svg>
-            最新賽事
+      <div class="relative z-10 mx-auto flex w-full max-w-7xl flex-col items-start gap-8 px-6 text-left md:px-12">
+        <div class="max-w-3xl">
+          <div class="mb-5 inline-flex items-center gap-2 rounded-full border border-primary/40 bg-slate-950/60 px-4 py-2 text-sm font-black tracking-widest text-primary shadow-xl shadow-black/20 backdrop-blur">
+            中港國小社區棒球
+          </div>
+          <h1 class="text-4xl font-black leading-tight text-white sm:text-5xl md:text-7xl">
+            中港熊戰社區棒球
+          </h1>
+          <p class="mt-5 text-2xl font-black leading-tight text-secondary md:text-4xl">
+            新莊孩子的棒球成長基地
+          </p>
+          <p class="mt-5 max-w-2xl text-base font-medium leading-8 text-slate-100 md:text-xl md:leading-9">
+            從零基礎到上場比賽，讓孩子在汗水、紀律與團隊合作中長出自信。
+          </p>
+        </div>
+
+        <div class="grid w-full gap-3 sm:w-auto sm:grid-cols-2">
+          <button
+            type="button"
+            @click="openJoinModal"
+            class="flex min-h-14 items-center justify-center gap-3 rounded-md bg-primary px-7 py-4 text-base font-extrabold tracking-widest text-white shadow-[0_18px_36px_rgba(216,143,34,0.35)] transition-all hover:-translate-y-1 hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary/80 md:text-lg"
+          >
+            我要報名體驗
           </button>
-          <button @click="isJoinModalOpen = true" class="px-8 py-4 bg-transparent border-2 border-white text-white font-extrabold text-lg md:text-xl uppercase tracking-widest rounded-sm hover:bg-white hover:text-slate-900 transition-all">
-            加入我們
+          <button
+            type="button"
+            @click="scrollToSchedule"
+            class="flex min-h-14 items-center justify-center gap-3 rounded-md border-2 border-white/80 bg-white/5 px-7 py-4 text-base font-extrabold tracking-widest text-white backdrop-blur transition-all hover:-translate-y-1 hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary/80 md:text-lg"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" /></svg>
+            查看近期賽事
           </button>
         </div>
-        
+
         <!-- 社群連結 -->
-        <div class="mt-8 flex items-center gap-6 justify-center">
-          <a href="https://www.facebook.com/groups/203206672887263" target="_blank" title="加入 Facebook 私密社團" class="text-white/80 hover:text-[#1877F2] hover:-translate-y-1 transition-all duration-300 drop-shadow-md cursor-pointer flex items-center gap-2 font-bold tracking-widest text-sm">
+        <div class="flex flex-wrap items-center gap-5">
+          <a href="https://www.facebook.com/groups/203206672887263" target="_blank" rel="noopener noreferrer" title="加入 Facebook 私密社團" class="flex min-h-11 items-center gap-2 rounded-full bg-slate-950/50 px-4 text-sm font-bold tracking-widest text-white/85 drop-shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:text-[#1877F2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary/80">
             <svg viewBox="0 0 24 24" fill="currentColor" class="w-7 h-7"><path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.95c5.05-.5 9-4.76 9-9.95z"/></svg>
             FB 社團
           </a>
-          <a href="https://www.instagram.com/reel/DWIbtw4EZ55/" target="_blank" title="查看 Instagram 精彩 Reels" class="text-white/80 hover:text-[#E4405F] hover:-translate-y-1 transition-all duration-300 drop-shadow-md cursor-pointer flex items-center gap-2 font-bold tracking-widest text-sm">
+          <a href="https://www.instagram.com/reel/DWIbtw4EZ55/" target="_blank" rel="noopener noreferrer" title="查看 Instagram 精彩 Reels" class="flex min-h-11 items-center gap-2 rounded-full bg-slate-950/50 px-4 text-sm font-bold tracking-widest text-white/85 drop-shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:text-[#E4405F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary/80">
             <svg viewBox="0 0 24 24" fill="currentColor" class="w-7 h-7"><path d="M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.22.41a4.6 4.6 0 0 1 1.69 1.1 4.6 4.6 0 0 1 1.1 1.69c.16.42.36 1.05.41 2.22.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.25 1.8-.41 2.22a4.6 4.6 0 0 1-1.1 1.69 4.6 4.6 0 0 1-1.69 1.1c-.42.16-1.05.36-2.22.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.25-2.22-.41a4.6 4.6 0 0 1-1.69-1.1 4.6 4.6 0 0 1-1.1-1.69c-.16-.42-.36-1.05-.41-2.22C2.17 15.58 2.16 15.2 2.16 12s.01-3.58.07-4.85c.05-1.17.25-1.8.41-2.22a4.6 4.6 0 0 1 1.1-1.69 4.6 4.6 0 0 1 1.69-1.1c.42-.16 1.05-.36 2.22-.41 1.27-.06 1.65-.07 4.85-.07M12 0C8.74 0 8.33.01 7.05.07A11.83 11.83 0 0 0 3.12 1.2a6.76 6.76 0 0 0-2.43 1.58A6.76 6.76 0 0 0 .19 5.2 11.83 11.83 0 0 0 .07 7.05C.01 8.33 0 8.74 0 12s.01 3.67.07 4.95a11.83 11.83 0 0 0 1.13 3.93 6.76 6.76 0 0 0 1.58 2.43 6.76 6.76 0 0 0 2.43 1.58 11.83 11.83 0 0 0 3.93 1.13c1.28.06 1.69.07 4.95.07s3.67-.01 4.95-.07a11.83 11.83 0 0 0 3.93-1.13 6.76 6.76 0 0 0 2.43-1.58 6.76 6.76 0 0 0 1.58-2.43 11.83 11.83 0 0 0 1.13-3.93c.06-1.28.07-1.69.07-4.95s-.01-3.67-.07-4.95a11.83 11.83 0 0 0-1.13-3.93 6.76 6.76 0 0 0-1.58-2.43 6.76 6.76 0 0 0-2.43-1.58 11.83 11.83 0 0 0-3.93-1.13C15.67.01 15.26 0 12 0z"/><path d="M12 5.84A6.16 6.16 0 1 0 18.16 12 6.16 6.16 0 0 0 12 5.84zm0 10.16a4 4 0 1 1 4-4 4 4 0 0 1-4 4z"/><circle cx="15.31" cy="8.69" r="1.4"/></svg>
             最新 Reels
           </a>
         </div>
       </div>
-      
-      <div class="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-slate-900 to-transparent z-0"></div>
     </section>
 
     <!-- Content Sections -->
-    <section class="max-w-7xl mx-auto py-16 px-6 md:px-12 w-full">
+    <section class="max-w-7xl mx-auto py-12 px-6 md:py-16 md:px-12 w-full">
       <!-- 今日點名狀況 (全寬置頂區塊) -->
-      <div class="w-full mb-20 md:mb-24">
-        <div class="bg-white p-0 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-blue-100/60 overflow-hidden flex flex-col">
-          <div class="p-5 border-b border-blue-100 flex items-center justify-between bg-blue-50/30">
-            <div class="flex items-center gap-3">
-               <div class="p-2 bg-blue-100 rounded-lg text-blue-600">
-                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" /></svg>
-               </div>
-               <h3 class="font-bold text-lg text-blue-900">今日點名請假狀況 <span class="text-xs ml-2 bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full border border-blue-200">當日限定</span></h3>
+      <div class="w-full mb-14 md:mb-20">
+        <div class="overflow-hidden rounded-2xl border border-blue-100/80 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.06)]">
+          <div class="grid gap-5 border-b border-blue-100 bg-blue-50/40 p-5 md:grid-cols-[1fr_auto] md:items-center">
+            <div class="flex items-start gap-3">
+              <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" /></svg>
+              </div>
+              <div>
+                <div class="mb-1 flex flex-wrap items-center gap-2">
+                  <h2 class="text-xl font-black text-blue-950">今日訓練點名狀態</h2>
+                  <span class="rounded-full border border-blue-200 bg-blue-100 px-2.5 py-0.5 text-xs font-bold text-blue-700">當日限定</span>
+                </div>
+                <p class="text-sm font-medium leading-6 text-blue-900/70">公開資訊僅顯示遮罩姓名，方便家長快速掌握今日出席概況。</p>
+              </div>
+            </div>
+            <div v-if="todayEvent" class="rounded-xl bg-white px-4 py-3 text-left shadow-sm ring-1 ring-blue-100 md:text-right">
+              <div class="text-xs font-bold tracking-widest text-blue-500">今日請假</div>
+              <div class="mt-1 text-2xl font-black text-blue-950">{{ todayLeaveNames.length }} 人</div>
             </div>
           </div>
-          <div class="p-5" v-loading="isLoadingAttendance">
+          <div class="p-5 md:p-6" v-loading="isLoadingAttendance">
             <div v-if="!todayEvent" class="flex flex-col items-center justify-center text-gray-400 font-medium py-8">
                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                今天無訓練點名
             </div>
             <div v-else>
-               <div class="mb-4">
-                  <h4 class="font-black text-gray-800 text-xl">{{ todayEvent.title }}</h4>
-                  <span class="text-sm font-bold text-gray-500">{{ todayEvent.date }}</span>
+               <div class="mb-4 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+                  <div>
+                    <h3 class="text-2xl font-black text-slate-900">{{ todayEvent.title }}</h3>
+                    <span class="text-sm font-bold text-slate-500">{{ todayEvent.date }}</span>
+                  </div>
+                  <span class="inline-flex w-fit items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">完整請假名單</span>
                </div>
-               <div class="bg-gray-50 rounded-xl p-4 border border-gray-100">
+               <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
                   <h5 class="font-bold text-gray-700 mb-3 flex items-center gap-2">
                      <span class="w-2 h-2 rounded-full bg-red-400"></span>今日請假名單 ({{ todayLeaveNames.length }}人)
                   </h5>
-                  <div v-if="todayLeaveNames.length === 0" class="text-sm text-gray-500 font-medium tracking-wide">無人請假，全員到齊！🎉</div>
+                  <div v-if="todayLeaveNames.length === 0" class="text-sm text-gray-500 font-medium tracking-wide">無人請假，全員到齊。</div>
                   <div v-else class="flex flex-wrap gap-2">
-                     <span v-for="(name, idx) in todayLeaveNames" :key="idx" class="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-700 shadow-sm tracking-widest">
+                     <span v-for="(name, idx) in todayLeaveNames" :key="idx" class="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-bold tracking-widest text-gray-700 shadow-sm">
                        {{ maskName(name) }}
                      </span>
                   </div>
@@ -76,13 +107,13 @@
         </div>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-16">
+      <div class="grid grid-cols-1 gap-14 lg:grid-cols-3 lg:gap-16">
         
         <!-- Schedule Ticker -->
-        <div class="lg:col-span-1">
+        <div id="schedule" class="scroll-mt-24 lg:col-span-1">
           <div class="mb-8 flex items-end justify-between border-b-2 border-slate-200 pb-4">
             <h3 class="text-3xl font-black text-slate-800 uppercase tracking-wider">賽程表</h3>
-            <span class="text-primary font-bold hover:underline cursor-pointer">查看全部</span>
+            <span class="text-sm font-bold text-slate-400">最近公開賽程</span>
           </div>
           <div class="flex flex-col gap-4" v-loading="isLoadingUpcomingMatches">
             <button
@@ -109,38 +140,6 @@
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
               </span>
             </button>
-            <!-- Game Card 2 -->
-            <div v-if="false" class="bg-gray-50 border border-gray-100 rounded-lg p-5 flex items-center justify-between shadow-sm hover:border-primary/50 transition-colors group cursor-pointer">
-              <div class="flex items-center gap-4">
-                <div class="flex flex-col items-center justify-center bg-white p-3 rounded-md border border-gray-100 shadow-sm w-16">
-                  <span class="text-xs font-bold text-gray-400 uppercase">Aug</span>
-                  <span class="text-2xl font-black text-slate-800">20</span>
-                </div>
-                <div>
-                  <div class="text-sm font-bold text-gray-500 mb-1">Away • 17:00</div>
-                  <div class="font-black text-lg text-slate-800 group-hover:text-primary transition-colors">@ Monkeys</div>
-                </div>
-              </div>
-              <button class="bg-slate-800 text-white p-2 rounded-full hidden sm:block">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-              </button>
-            </div>
-            <!-- Game Card 3 -->
-            <div v-if="false" class="bg-gray-50 border border-gray-100 rounded-lg p-5 flex items-center justify-between shadow-sm hover:border-primary/50 transition-colors group cursor-pointer">
-              <div class="flex items-center gap-4">
-                <div class="flex flex-col items-center justify-center bg-white p-3 rounded-md border border-gray-100 shadow-sm w-16">
-                  <span class="text-xs font-bold text-gray-400 uppercase">Aug</span>
-                  <span class="text-2xl font-black text-slate-800">22</span>
-                </div>
-                <div>
-                  <div class="text-sm font-bold text-gray-500 mb-1">Home • 19:00</div>
-                  <div class="font-black text-lg text-slate-800 group-hover:text-primary transition-colors">vs Brothers</div>
-                </div>
-              </div>
-              <button class="bg-slate-800 text-white p-2 rounded-full hidden sm:block">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-              </button>
-            </div>
             <div
               v-if="!isLoadingUpcomingMatches && upcomingMatches.length === 0"
               class="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-5 py-10 text-center text-sm font-bold text-gray-400"
@@ -154,7 +153,7 @@
         <div id="announcements" class="lg:col-span-2 scroll-mt-24">
           <div class="mb-8 flex items-end justify-between border-b-2 border-slate-200 pb-4">
             <h3 class="text-3xl font-black text-slate-800 uppercase tracking-wider">最新公告</h3>
-            <span class="text-primary font-bold hover:underline cursor-pointer">更多公告</span>
+            <span class="text-sm font-bold text-slate-400">點選卡片查看全文</span>
           </div>
           
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6" v-if="latestAnnouncements.length > 0">
@@ -211,67 +210,74 @@
       </div>
     </section>
 
-    <!-- 社群動態 (Social Media Embeds) -->
-    <section class="py-20 bg-gray-50/50 relative overflow-hidden border-t border-gray-100/50">
-      <div class="container mx-auto px-6 relative z-10">
+    <!-- 社群動態 -->
+    <section class="relative overflow-hidden border-t border-gray-100/50 bg-slate-50 py-20">
+      <div class="container relative z-10 mx-auto px-6">
         <div class="text-center mb-10 md:mb-16">
-          <div class="inline-flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-[#1877F2]/10 to-[#E1306C]/10 rounded-full text-sm font-bold text-gray-700 mb-4 shadow-sm border border-gray-200/50">
+          <div class="mb-4 inline-flex items-center gap-2 rounded-full border border-gray-200/70 bg-white px-3 py-1 text-sm font-bold text-gray-700 shadow-sm">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
             Follow Us
           </div>
-          <h2 class="text-3xl md:text-5xl font-black text-slate-800 tracking-tight mb-4">關注我們的社群</h2>
-          <p class="text-base md:text-lg text-gray-500 max-w-2xl mx-auto font-medium">追蹤 Facebook 與 Instagram，隨時掌握球隊最新訓練動態與賽事精華！</p>
+          <h2 class="mb-4 text-3xl font-black tracking-tight text-slate-800 md:text-5xl">關注中港熊戰社群</h2>
+          <p class="mx-auto max-w-2xl text-base font-medium leading-8 text-gray-500 md:text-lg">追蹤 Facebook 與 Instagram，隨時掌握球隊訓練動態、賽事照片與精彩片段。</p>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
-          <!-- Facebook Page Plugin -->
-          <div class="bg-white rounded-2xl shadow-xl shadow-gray-200/40 border border-gray-100 overflow-hidden flex flex-col p-6 hover:-translate-y-1 transition-transform duration-300">
-            <div class="w-full flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
-               <div class="flex items-center gap-3">
-                 <div class="w-10 h-10 rounded-full bg-[#1877F2]/10 flex items-center justify-center">
-                   <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-[#1877F2]" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-                 </div>
-                 <div>
-                   <h3 class="font-extrabold text-lg text-slate-800 leading-tight">Facebook 社團</h3>
-                   <p class="text-xs text-gray-500 font-medium">中港熊戰社區棒球隊</p>
-                 </div>
-               </div>
-               <a href="https://www.facebook.com/groups/203206672887263" target="_blank" class="px-4 py-1.5 bg-[#1877F2] hover:bg-[#1877F2]/90 text-white text-xs font-bold rounded-full transition-colors hidden sm:block">加入社團</a>
-            </div>
-            <!-- FB Iframe -->
-            <div class="w-full flex-1 flex items-center justify-center bg-gray-50/50 rounded-xl overflow-hidden relative" style="min-height: 400px">
-              <div class="absolute inset-0 flex items-center justify-center opacity-50 z-0">
-                <el-icon class="is-loading text-3xl"><Loading /></el-icon>
+        <div class="mx-auto grid max-w-6xl grid-cols-1 gap-6 lg:grid-cols-2">
+          <a
+            href="https://www.facebook.com/groups/203206672887263"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="group flex min-h-[260px] flex-col justify-between overflow-hidden rounded-2xl border border-blue-100 bg-white p-6 text-left shadow-xl shadow-gray-200/40 transition-all duration-300 hover:-translate-y-1 hover:border-[#1877F2]/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1877F2]/50"
+          >
+            <div class="flex items-center justify-between gap-4">
+              <div class="flex items-center gap-3">
+                <div class="flex h-12 w-12 items-center justify-center rounded-full bg-[#1877F2]/10 text-[#1877F2]">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                </div>
+                <div>
+                  <h3 class="text-xl font-black leading-tight text-slate-900">Facebook 社團</h3>
+                  <p class="mt-1 text-sm font-medium text-slate-500">中港熊戰社區棒球隊</p>
+                </div>
               </div>
-              <!-- Facebook 會社團外掛只顯示基本資訊，因為隱私政策無法嵌入整面動態牆 -->
-              <iframe class="relative z-10" src="https://www.facebook.com/plugins/group.php?href=https%3A%2F%2Fwww.facebook.com%2Fgroups%2F203206672887263&width=500&show_social_context=true&show_metadata=false&appId" width="500" height="300" style="border:none;overflow:hidden;max-width:100%;" scrolling="no" frameborder="0" allowfullscreen="true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"></iframe>
+              <span class="hidden rounded-full bg-[#1877F2] px-4 py-2 text-sm font-bold text-white transition-colors group-hover:bg-[#166FE5] sm:inline-flex">加入社團</span>
             </div>
-          </div>
+            <div>
+              <p class="max-w-md text-base font-medium leading-8 text-slate-600">查看訓練公告、家長交流與隊務提醒，重要消息會同步在社團內更新。</p>
+              <span class="mt-6 inline-flex items-center gap-2 text-sm font-black tracking-widest text-[#1877F2]">
+                前往 Facebook
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+              </span>
+            </div>
+          </a>
 
-          <!-- Instagram Post Embed -->
-          <div class="bg-white rounded-2xl shadow-xl shadow-gray-200/40 border border-gray-100 overflow-hidden flex flex-col p-6 hover:-translate-y-1 transition-transform duration-300">
-            <div class="w-full flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
-               <div class="flex items-center gap-3">
-                 <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-[#feda75] via-[#fa7e1e] to-[#d62976] p-[1.5px] flex items-center justify-center">
-                   <div class="w-full h-full bg-white rounded-full flex items-center justify-center">
-                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-[#d62976]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.368-.2 6.792-2.618 6.981-6.98C23.986 15.668 24 15.259 24 12c0-3.259-.014-3.668-.072-4.948-.2-4.358-2.618-6.78-6.98-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
-                   </div>
-                 </div>
-                 <div>
-                   <h3 class="font-extrabold text-lg text-slate-800 leading-tight">Instagram 精彩瞬間</h3>
-                   <p class="text-xs text-gray-500 font-medium">@jg_baseball_team</p>
-                 </div>
-               </div>
-               <a href="https://www.instagram.com/reel/DWIbtw4EZ55/" target="_blank" class="px-4 py-1.5 bg-gradient-to-tr from-[#feda75] via-[#fa7e1e] to-[#d62976] hover:opacity-90 text-white text-xs font-bold rounded-full transition-opacity hidden sm:block">去追蹤最新動態</a>
-            </div>
-            <!-- IG Iframe -->
-            <div class="w-full flex-1 flex justify-center bg-gray-50/50 rounded-xl overflow-hidden relative" style="min-height: 500px">
-              <div class="absolute inset-0 flex items-center justify-center opacity-50 z-0">
-                <el-icon class="is-loading text-3xl"><Loading /></el-icon>
+          <a
+            href="https://www.instagram.com/reel/DWIbtw4EZ55/"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="group flex min-h-[260px] flex-col justify-between overflow-hidden rounded-2xl border border-pink-100 bg-white p-6 text-left shadow-xl shadow-gray-200/40 transition-all duration-300 hover:-translate-y-1 hover:border-[#E1306C]/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E1306C]/40"
+          >
+            <div class="flex items-center justify-between gap-4">
+              <div class="flex items-center gap-3">
+                <div class="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-tr from-[#feda75] via-[#fa7e1e] to-[#d62976] p-[2px]">
+                  <div class="flex h-full w-full items-center justify-center rounded-full bg-white text-[#d62976]">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.368-.2 6.792-2.618 6.981-6.98C23.986 15.668 24 15.259 24 12c0-3.259-.014-3.668-.072-4.948-.2-4.358-2.618-6.78-6.98-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+                  </div>
+                </div>
+                <div>
+                  <h3 class="text-xl font-black leading-tight text-slate-900">Instagram 精彩瞬間</h3>
+                  <p class="mt-1 text-sm font-medium text-slate-500">@jg_baseball_team</p>
+                </div>
               </div>
-              <iframe class="relative z-10 bg-white shadow-sm" src="https://www.instagram.com/p/DWIbtw4EZ55/embed" width="400" height="500" frameborder="0" scrolling="no" allowtransparency="true"></iframe>
+              <span class="hidden rounded-full bg-[#E1306C] px-4 py-2 text-sm font-bold text-white transition-opacity group-hover:opacity-90 sm:inline-flex">觀看 Reels</span>
             </div>
-          </div>
+            <div>
+              <p class="max-w-md text-base font-medium leading-8 text-slate-600">看孩子們的練習節奏、比賽片段與球場瞬間，感受中港熊戰的日常。</p>
+              <span class="mt-6 inline-flex items-center gap-2 text-sm font-black tracking-widest text-[#E1306C]">
+                前往 Instagram
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+              </span>
+            </div>
+          </a>
         </div>
       </div>
     </section>
@@ -279,7 +285,7 @@
     <!-- 公告詳細內容 Modal -->
     <el-dialog
       v-model="isAnnouncementModalOpen"
-      :title="selectedAnnouncement?.is_pinned ? '📌 置頂公告' : '📣 系統公告'"
+      :title="selectedAnnouncement?.is_pinned ? '置頂公告' : '系統公告'"
       width="90%"
       style="max-width: 600px; border-radius: 16px;"
       class="custom-dialog announcement-dialog"
@@ -352,7 +358,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Loading } from '@element-plus/icons-vue'
+import { Bell, Loading } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 
 import MatchDetailDialog from '@/components/match-records/MatchDetailDialog.vue'
@@ -388,6 +394,23 @@ const upcomingMatchDialogVisible = ref(false)
 const canViewUpcomingMatchDetails = computed(
   () => authStore.isAuthenticated && permissionsStore.can('matches', 'VIEW')
 )
+
+const scrollElementIntoView = (sectionId: string) => {
+  document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+const scrollToSection = (sectionId: string) => {
+  scrollElementIntoView(sectionId)
+  window.setTimeout(() => scrollElementIntoView(sectionId), 900)
+}
+
+const scrollToSchedule = () => {
+  scrollToSection('schedule')
+}
+
+const openJoinModal = () => {
+  isJoinModalOpen.value = true
+}
 
 const openAnnouncement = (item: PublicLandingAnnouncement) => {
   selectedAnnouncement.value = item
@@ -599,4 +622,3 @@ onUnmounted(() => {
   }
 }
 </style>
-

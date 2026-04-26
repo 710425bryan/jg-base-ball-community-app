@@ -118,19 +118,19 @@
     <!-- 系統更新提示列 (登入後專屬，接績在 Topbar 下方) -->
     <div v-if="hasUpdateAvailable" 
          @click="refreshApp" 
-         class="flex-none bg-[#D88F22] hover:bg-[#b87a1d] text-white text-xs sm:text-sm font-bold p-2 text-center flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-sm animate-fade-in-down relative z-[45]"
+         class="flex-none h-11 overflow-hidden bg-[#D88F22] hover:bg-[#b87a1d] text-white text-xs sm:text-sm font-bold px-3 text-center flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-sm animate-fade-in-down relative z-[45]"
          title="點擊以重新載入系統獲取最新功能">
       <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 sm:h-5 sm:w-5 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
       </svg>
-      <span>✨ 系統已發布新版本！請點擊此處重新整理以獲取最新功能 ✨</span>
+      <span class="truncate">系統已發布新版本，點擊重新整理以取得最新功能</span>
     </div>
 
     <!-- Mobile Hamburger Menu (Dropdown/Overlay) -->
     <div
       v-if="isMobileMenuOpen"
       class="lg:hidden absolute left-0 w-full overflow-y-auto bg-white border-b border-gray-100 z-40 shadow-xl animate-fade-in-down"
-      style="top: calc(4rem + env(safe-area-inset-top)); max-height: calc(100dvh - 4rem - env(safe-area-inset-top) - 4.5rem - env(safe-area-inset-bottom));"
+      :style="mobileMenuStyle"
     >
       <nav class="flex flex-col py-2">
          <!-- Mobile User Info & Version -->
@@ -262,6 +262,15 @@ const currentUserDisplayName = computed(() => authStore.profile?.nickname || aut
 const hasLinkedTeamMembers = computed(() => {
   const linkedIds = authStore.profile?.linked_team_member_ids
   return Array.isArray(linkedIds) && linkedIds.length > 0
+});
+const mobileMenuStyle = computed(() => {
+  const updateBarOffset = hasUpdateAvailable.value ? ' - 2.75rem' : ''
+  const updateBarTopOffset = hasUpdateAvailable.value ? ' + 2.75rem' : ''
+
+  return {
+    top: `calc(4rem + env(safe-area-inset-top)${updateBarTopOffset})`,
+    maxHeight: `calc(100dvh - 4rem${updateBarOffset} - env(safe-area-inset-top) - 4.5rem - env(safe-area-inset-bottom))`
+  }
 });
 
 const handleNotificationClick = (link: string | undefined) => {

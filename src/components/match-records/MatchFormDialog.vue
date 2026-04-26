@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
-import { Plus, Minus, Position, CloseBold, DataAnalysis, Connection, Upload, Document, Check, Delete, Loading } from '@element-plus/icons-vue'
-import type { MatchRecordInput, LineupEntry, InningLog, BattingStat } from '@/types/match'
+import { Plus, Minus, Position, DataAnalysis, Connection, Upload, Document, Check, Delete, Loading } from '@element-plus/icons-vue'
+import type { MatchRecordInput, LineupEntry, InningLog, BattingStat, PitchingStat, LineScoreData } from '@/types/match'
 import { useMatchesStore } from '@/stores/matches'
 import { supabase } from '@/services/supabase'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import dayjs from 'dayjs'
 import { onMounted } from 'vue'
 import { compressImage } from '@/utils/imageCompressor'
+import MatchLiveController from './MatchLiveController.vue'
+import { cloneLineScoreData, createDefaultLineScoreData, finalizeInningScore, getNextInning } from '@/utils/liveMatchScoreboard'
 
 const props = defineProps<{
   modelValue: boolean
@@ -23,19 +25,43 @@ const matchesStore = useMatchesStore()
 const activeTab = ref('basic')
 const submitting = ref(false)
 
+interface TeamMemberOption {
+  id: string
+  name: string
+  role: string | null
+  status: string | null
+  jersey_number?: string | null
+  avatar_url?: string | null
+}
+
+interface LiveBatterOption {
+  name: string
+  label: string
+  number?: string
+}
+
+interface LiveBatterOptionGroup {
+  label: string
+  options: LiveBatterOption[]
+}
+
 const visible = computed({
   get: () => props.modelValue,
   set: (val) => emit('update:modelValue', val)
 })
 
 // === FETCH TEAM MEMBERS FOR DROPDOWNS ===
-const allMembers = ref<any[]>([])
+const allMembers = ref<TeamMemberOption[]>([])
 const activeMembers = computed(() => allMembers.value.filter(m => m.status === '在隊' || !m.status))
 const coachOptions = computed(() => activeMembers.value.filter(m => m.role === '教練' || m.role === '管理群'))
-const playerOptions = computed(() => activeMembers.value.filter(m => m.role === '球員'))
+const playerOptions = computed(() => activeMembers.value.filter(m => m.role === '球員' || m.role === '校隊'))
 
 onMounted(async () => {
-  const { data } = await supabase.from('team_members').select('*')
+  const { data } = await supabase
+    .from('team_members_safe')
+    .select('id, name, role, status, jersey_number, avatar_url')
+    .order('role')
+    .order('name')
   if (data) allMembers.value = data
 })
 
@@ -56,8 +82,23 @@ const formData = ref<MatchRecordInput>({
   photo_url: '',
   absent_players: [],
   lineup: [],
+  current_lineup: [],
   inning_logs: [],
-  batting_stats: []
+  batting_stats: [],
+  pitching_stats: [],
+  current_batter_name: '',
+  current_inning: '一上',
+  current_b: 0,
+  current_s: 0,
+  current_o: 0,
+  base_1: false,
+  base_2: false,
+  base_3: false,
+  bat_first: true,
+  show_lineup_intro: false,
+  show_line_score: false,
+  show_3d_field: false,
+  line_score_data: createDefaultLineScoreData()
 })
 
 // Default options (mocked for now, normally fetched from API)
@@ -75,22 +116,64 @@ const selectedPlayers = computed({
   set: (val) => formData.value.players = val.join(',')
 })
 
+const cloneLineup = (lineup?: LineupEntry[]) => JSON.parse(JSON.stringify(Array.isArray(lineup) ? lineup : [])) as LineupEntry[]
+const cloneInningLogs = (logs?: InningLog[]) => JSON.parse(JSON.stringify(Array.isArray(logs) ? logs : [])) as InningLog[]
+const cloneBattingStats = (stats?: BattingStat[]) => JSON.parse(JSON.stringify(Array.isArray(stats) ? stats : [])) as BattingStat[]
+const clonePitchingStats = (stats?: PitchingStat[]) => JSON.parse(JSON.stringify(Array.isArray(stats) ? stats : [])) as PitchingStat[]
+
+const defaultLineup = () =>
+  Array.from({ length: 9 }).map((_, i) => ({
+    order: i + 1,
+    position: String(i + 1),
+    name: '',
+    number: ''
+  }))
+
+const normalizeNumber = (value: unknown, fallback = 0) => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+const normalizeBoolean = (value: unknown, fallback = false) => {
+  if (typeof value === 'boolean') return value
+  return fallback
+}
+
 // Reset or load data
 const initForm = async () => {
   activeTab.value = 'basic'
+  currentLineupMode.value = 'synced'
   if (props.mode === 'edit' && props.matchId) {
     const data = await matchesStore.matches.find(m => m.id === props.matchId)
     if (data) {
+      currentLineupMode.value = data.current_lineup?.length ? 'manual' : 'synced'
       // deep clone array fields
       formData.value = { 
         ...data,
-        absent_players: [...data.absent_players || []],
-        lineup: [...data.lineup || []],
-        inning_logs: [...data.inning_logs || []],
-        batting_stats: [...data.batting_stats || []]
+        absent_players: JSON.parse(JSON.stringify(data.absent_players || [])),
+        lineup: cloneLineup(data.lineup),
+        current_lineup: cloneLineup(data.current_lineup?.length ? data.current_lineup : data.lineup),
+        inning_logs: cloneInningLogs(data.inning_logs),
+        batting_stats: cloneBattingStats(data.batting_stats),
+        pitching_stats: clonePitchingStats(data.pitching_stats),
+        current_batter_name: data.current_batter_name || '',
+        current_inning: data.current_inning || '一上',
+        current_b: normalizeNumber(data.current_b),
+        current_s: normalizeNumber(data.current_s),
+        current_o: normalizeNumber(data.current_o),
+        base_1: normalizeBoolean(data.base_1),
+        base_2: normalizeBoolean(data.base_2),
+        base_3: normalizeBoolean(data.base_3),
+        bat_first: data.bat_first !== false,
+        show_lineup_intro: normalizeBoolean(data.show_lineup_intro),
+        show_line_score: normalizeBoolean(data.show_line_score),
+        show_3d_field: normalizeBoolean(data.show_3d_field),
+        line_score_data: cloneLineScoreData(data.line_score_data)
       }
+      currentInning.value = formData.value.current_inning || '一上'
     }
   } else {
+    const lineup = defaultLineup()
     formData.value = {
       match_name: '',
       opponent: '',
@@ -106,10 +189,26 @@ const initForm = async () => {
       note: '',
       photo_url: '',
       absent_players: [],
-      lineup: Array.from({length: 9}).map((_, i) => ({ order: i+1, position: String(i+1), name: '', number: '' })),
+      lineup,
+      current_lineup: cloneLineup(lineup),
       inning_logs: [],
-      batting_stats: []
+      batting_stats: [],
+      pitching_stats: [],
+      current_batter_name: '',
+      current_inning: '一上',
+      current_b: 0,
+      current_s: 0,
+      current_o: 0,
+      base_1: false,
+      base_2: false,
+      base_3: false,
+      bat_first: true,
+      show_lineup_intro: false,
+      show_line_score: false,
+      show_3d_field: false,
+      line_score_data: createDefaultLineScoreData()
     }
+    currentInning.value = '一上'
   }
 }
 
@@ -164,114 +263,245 @@ const handleLineupPlayerChange = (lineupEntry: LineupEntry, playerName: string) 
   }
 }
 
-// === TAB 3: INNING LOGS (RAPID TOOL & MANUAL) ===
+const availablePlayerNames = computed(() => {
+  const names = new Set<string>()
+  selectedPlayers.value.forEach((name) => names.add(name))
+  playerOptions.value.forEach((player) => names.add(player.name))
+  formData.value.lineup.forEach((player) => {
+    if (player.name) names.add(player.name)
+  })
+  formData.value.current_lineup?.forEach((player) => {
+    if (player.name) names.add(player.name)
+  })
+  return Array.from(names).filter(Boolean).sort((a, b) => a.localeCompare(b, 'zh-Hant'))
+})
+
+const currentLineupMode = ref<'synced' | 'manual'>('synced')
+
+const syncCurrentLineupFromStarting = () => {
+  formData.value.current_lineup = cloneLineup(formData.value.lineup)
+  currentLineupMode.value = 'synced'
+  ElMessage.success('已套用先發與打線為目前場上名單')
+}
+
+const addCurrentLineup = () => {
+  if (!formData.value.current_lineup) formData.value.current_lineup = []
+  formData.value.current_lineup.push({
+    order: formData.value.current_lineup.length + 1,
+    position: '預備',
+    name: '',
+    number: ''
+  })
+  currentLineupMode.value = 'manual'
+}
+
+const removeCurrentLineup = (index: number) => {
+  formData.value.current_lineup?.splice(index, 1)
+  formData.value.current_lineup?.forEach((player, idx) => player.order = idx + 1)
+  currentLineupMode.value = 'manual'
+}
+
+const moveCurrentLineup = (index: number, dir: -1 | 1) => {
+  const lineup = formData.value.current_lineup
+  if (!lineup || index + dir < 0 || index + dir >= lineup.length) return
+  const temp = lineup[index]
+  lineup[index] = lineup[index + dir]
+  lineup[index + dir] = temp
+  lineup.forEach((player, idx) => player.order = idx + 1)
+  currentLineupMode.value = 'manual'
+}
+
+const handleCurrentLineupPlayerChange = (lineupEntry: LineupEntry, playerName: string) => {
+  currentLineupMode.value = 'manual'
+  handleLineupPlayerChange(lineupEntry, playerName)
+}
+
+// === TAB 3: INNING LOGS ===
 const currentInning = ref('一上')
-const currentPlayerId = ref('')
-const manualLogText = ref('')
+const activeLogIndex = ref(-1)
 
-const btnDirs = ['左外', '中外', '右外', '游擊', '三壘', '二壘', '一壘', '投手', '捕手']
-const btnHits = [
-  { label: '一安', class: 'text-blue-500 border-blue-200 bg-blue-50 hover:bg-blue-100' },
-  { label: '二安', class: 'text-blue-500 border-blue-200 bg-blue-50 hover:bg-blue-100' },
-  { label: '三安', class: 'text-blue-500 border-blue-200 bg-blue-50 hover:bg-blue-100' },
-  { label: 'HR', class: 'text-red-500 border-red-200 bg-red-50 hover:bg-red-100' },
-  { label: '內安', class: 'text-blue-500 border-blue-200 bg-blue-50 hover:bg-blue-100' },
-  { label: '四壞', class: 'text-green-600 border-green-200 bg-green-50 hover:bg-green-100' },
-  { label: '觸身', class: 'text-green-600 border-green-200 bg-green-50 hover:bg-green-100' },
-  { label: '故意四壞', class: 'text-yellow-600 border-yellow-200 bg-yellow-50 hover:bg-yellow-100' },
-  { label: '失誤', class: 'text-orange-500 border-orange-200 bg-orange-50 hover:bg-orange-100' },
-  { label: '野選', class: 'text-orange-500 border-orange-200 bg-orange-50 hover:bg-orange-100' },
-  { label: '不死三振', class: 'text-red-500 border-red-200 bg-red-50 hover:bg-red-100' }
-]
-const btnOuts = ['空振', '站振', '飛球接殺', '平飛接殺', '滾地刺殺', '界外接殺', '雙殺打', '內野必死', '其他出局']
-const btnSpecial = [
-  { label: '盜壘成功', class: 'text-teal-600 border-teal-200 bg-teal-50 hover:bg-teal-100' },
-  { label: '盜壘刺', class: 'text-gray-500 border-gray-200 bg-gray-50 hover:bg-gray-100' },
-  { label: '高飛犧牲打', class: 'text-sky-500 border-sky-200 bg-sky-50 hover:bg-sky-100' },
-  { label: '犧牲觸擊', class: 'text-sky-500 border-sky-200 bg-sky-50 hover:bg-sky-100' },
-  { label: '牽制出局', class: 'text-gray-500 border-gray-200 bg-gray-50 hover:bg-gray-100' },
-  { label: '暴投推進', class: 'text-purple-500 border-purple-200 bg-purple-50 hover:bg-purple-100' },
-  { label: '捕逸推進', class: 'text-purple-500 border-purple-200 bg-purple-50 hover:bg-purple-100' },
-  { label: '妨礙打擊', class: 'text-red-400 border-red-200 bg-red-50 hover:bg-red-100' }
-]
-
-const appendLogText = (txt: string) => {
-  if (manualLogText.value.length > 0 && !manualLogText.value.endsWith(' ')) {
-    manualLogText.value += ' '
-  }
-  manualLogText.value += txt
-}
-
-const handlePlayerSelect = (orderStr: string) => {
-  if (!orderStr) return
-  const pName = formData.value.lineup.find(l => String(l.order) === orderStr)?.name
-  if (pName) appendLogText(pName)
-}
+const inningOptions = ['一上','一下','二上','二下','三上','三下','四上','四下','五上','五下','六上','六下','七上','七下','八上','八下','九上','九下','延長']
 
 const sortInningLogs = () => {
-  const order = ['一上','一下','二上','二下','三上','三下','四上','四下','五上','五下','六上','六下','七上','七下','八上','八下','九上','九下']
   formData.value.inning_logs.sort((a, b) => {
-    let idxA = order.indexOf(a.inning)
+    let idxA = inningOptions.indexOf(a.inning)
     if (idxA === -1) idxA = 99
-    let idxB = order.indexOf(b.inning)
+    let idxB = inningOptions.indexOf(b.inning)
     if (idxB === -1) idxB = 99
     return idxA - idxB
   })
 }
 
-const commitLog = () => {
-  if (!manualLogText.value.trim()) return
-  
-  formData.value.inning_logs.push({
-    inning: currentInning.value,
-    log: manualLogText.value.trim()
-  })
-  
-  sortInningLogs()
+const isOffensiveHalf = (inning: string) => {
+  const isTop = inning.includes('上')
+  return formData.value.bat_first !== false ? isTop : !isTop
+}
 
-  // Auto connect to Tab 4 (Stats) text parsing
-  const txt = manualLogText.value
-  let matchedPlayer = formData.value.lineup.find(l => l.name && txt.includes(l.name))
-  if (matchedPlayer && matchedPlayer.name) {
-    const pName = matchedPlayer.name
-    let statIndex = formData.value.batting_stats.findIndex(s => s.name === pName)
-    if (statIndex === -1) {
-      loadLineupToStats()
-      statIndex = formData.value.batting_stats.findIndex(s => s.name === pName)
-    }
-    if (statIndex !== -1) {
-      const s = formData.value.batting_stats[statIndex]
-      let statAdded = false
-      const abTerms = ['一安','二安','三安','HR','內安','空振','站振','飛球接殺','平飛接殺','滾地刺殺','界外接殺','雙殺打','內野必死','不死三振','失誤','野選']
-      const paTerms = ['四壞','觸身','故意四壞','高飛犧牲打','犧牲觸擊','妨礙打擊'].concat(abTerms)
-      
-      if (paTerms.some(term => txt.includes(term))) {
-         s.pa += 1
-         if (abTerms.some(term => txt.includes(term))) s.ab += 1
-         statAdded = true
-      }
-      
-      if (txt.includes('一安') || txt.includes('內安')) s.h1 += 1
-      if (txt.includes('二安')) s.h2 += 1
-      if (txt.includes('三安')) s.h3 += 1
-      if (txt.includes('HR')) { s.hr += 1; s.r += 1; s.rbi += 1; }
-      if (txt.includes('四壞') || txt.includes('故意四壞')) s.bb += 1
-      if (txt.includes('觸身')) s.hbp += 1
-      if (txt.includes('空振') || txt.includes('站振') || txt.includes('不死三振')) s.so += 1
-      if (txt.includes('盜壘成功')) s.sb += 1
-      
-      if (statAdded) ElMessage.success(`已為 ${pName} 自動試算部分打擊成績`)
-    }
+const lineupHasNamedPlayers = (lineup?: LineupEntry[]) =>
+  Array.isArray(lineup) && lineup.some((player) => String(player.name || '').trim())
+
+const activeGameLineup = computed(() =>
+  lineupHasNamedPlayers(formData.value.current_lineup)
+    ? formData.value.current_lineup || []
+    : formData.value.lineup
+)
+
+const currentPitcher = computed(() =>
+  activeGameLineup.value.find((player) => player.position === '1' && player.name)?.name || ''
+)
+
+const liveBatterOptions = computed<LiveBatterOptionGroup[]>(() => {
+  const seen = new Set<string>()
+  const groups: LiveBatterOptionGroup[] = []
+  const makeOption = (name: string, label = name, number = '') => ({
+    name,
+    label,
+    number
+  })
+  const pushGroup = (label: string, options: LiveBatterOption[]) => {
+    if (options.length) groups.push({ label, options })
+  }
+  const isPitcher = (player: LineupEntry) =>
+    player.position === '1' || String(player.remark || '').includes('投')
+
+  const pitcherOptions: LiveBatterOption[] = []
+  activeGameLineup.value.forEach((player) => {
+    if (!player.name || !isPitcher(player) || seen.has(player.name)) return
+    seen.add(player.name)
+    pitcherOptions.push(makeOption(player.name, `P ${player.name}`, player.number || ''))
+  })
+  formData.value.pitching_stats?.forEach((stat) => {
+    if (!stat.name || seen.has(stat.name)) return
+    seen.add(stat.name)
+    pitcherOptions.push(makeOption(stat.name, `P ${stat.name}`, stat.number || getStatPlayerNumber(stat.name)))
+  })
+  pushGroup('投手 (先發/後援)', pitcherOptions)
+
+  const lineupOptions: LiveBatterOption[] = []
+  activeGameLineup.value.forEach((player) => {
+    if (!player.name || seen.has(player.name)) return
+    seen.add(player.name)
+    const order = Number(player.order)
+    const orderLabel = Number.isFinite(order) && order > 0 ? `${order}棒 ` : ''
+    lineupOptions.push(makeOption(player.name, `${orderLabel}${player.name}`, player.number || ''))
+  })
+  pushGroup('打擊線與守備員', lineupOptions)
+
+  const otherOptions = availablePlayerNames.value
+    .filter((name) => name && !seen.has(name))
+    .map((name) => {
+      seen.add(name)
+      return makeOption(name, name, getStatPlayerNumber(name))
+    })
+  pushGroup('其他球員', otherOptions)
+
+  return groups
+})
+
+const findOrCreateInningLog = (inning = formData.value.current_inning || '一上') => {
+  let logIndex = formData.value.inning_logs.findIndex((log) => log.inning === inning)
+  if (logIndex === -1) {
+    formData.value.inning_logs.push({
+      inning,
+      log: '',
+      selectedPlayerId: isOffensiveHalf(inning) ? '' : currentPitcher.value
+    })
+    sortInningLogs()
+    logIndex = formData.value.inning_logs.findIndex((log) => log.inning === inning)
+  }
+  activeLogIndex.value = logIndex
+  return formData.value.inning_logs[logIndex]
+}
+
+const handleLiveStateUpdate = (updates: Partial<MatchRecordInput>) => {
+  const nextUpdates = { ...updates }
+  if (nextUpdates.line_score_data) {
+    nextUpdates.line_score_data = cloneLineScoreData(nextUpdates.line_score_data as LineScoreData)
   }
 
-  manualLogText.value = ''
+  Object.assign(formData.value, nextUpdates)
+
+  if (typeof updates.current_inning === 'string' && updates.current_inning) {
+    currentInning.value = updates.current_inning
+    findOrCreateInningLog(updates.current_inning)
+  }
+}
+
+const appendLiveActionToCurrentLog = ({ batter, action }: { batter?: string; action: string }) => {
+  const inning = formData.value.current_inning || '一上'
+  const log = findOrCreateInningLog(inning)
+  if (!isOffensiveHalf(inning) && !log.selectedPlayerId) {
+    log.selectedPlayerId = currentPitcher.value || formData.value.current_batter_name || ''
+  }
+
+  const lineupPlayer = activeGameLineup.value.find((player) => player.name === batter)
+  const order = Number(lineupPlayer?.order)
+  const orderLabel = Number.isFinite(order) && order > 0 ? `${order}棒 ` : ''
+  const actor = batter ? `${orderLabel}${batter}` : ''
+  const entry = actor ? `${actor} ${action}` : action
+  const previousLog = String(log.log || '').trimEnd()
+  log.log = previousLog ? `${previousLog}\n${entry}` : entry
+}
+
+const addInningLog = () => {
+  const targetInning = formData.value.current_inning || '一上'
+  const targetLog = findOrCreateInningLog(targetInning)
+  if (!targetLog.selectedPlayerId && !isOffensiveHalf(targetInning)) {
+    targetLog.selectedPlayerId = currentPitcher.value
+  }
+}
+
+const finishLogEdit = () => {
+  ElMessage.success('已保留本局逐字紀錄，請記得儲存比賽紀錄')
+}
+
+const updateCurrentInning = (inning: string) => {
+  formData.value.current_inning = inning
+  currentInning.value = inning
+  findOrCreateInningLog(inning)
 }
 
 const removeLog = (index: number) => {
   formData.value.inning_logs.splice(index, 1)
+  if (activeLogIndex.value === index) activeLogIndex.value = -1
 }
 
-// === TAB 4: BATTING STATS ===
+// === TAB 4/5: STATS ===
+const createEmptyBattingStat = (name = '', number = ''): BattingStat => ({
+  name,
+  number,
+  pa: 0,
+  ab: 0,
+  h1: 0,
+  h2: 0,
+  h3: 0,
+  hr: 0,
+  rbi: 0,
+  r: 0,
+  bb: 0,
+  hbp: 0,
+  so: 0,
+  sb: 0
+})
+
+const createEmptyPitchingStat = (name = '', number = ''): PitchingStat => ({
+  name,
+  number,
+  ip: 0,
+  h: 0,
+  h2: 0,
+  h3: 0,
+  hr: 0,
+  r: 0,
+  er: 0,
+  bb: 0,
+  so: 0,
+  np: 0,
+  ab: 0,
+  go: 0,
+  ao: 0
+})
+
 const loadLineupToStats = () => {
   const newStats: BattingStat[] = []
   formData.value.lineup.forEach(l => {
@@ -291,6 +521,169 @@ const loadLineupToStats = () => {
   ElMessage.success('已同步先發打線上所有填寫名稱的球員')
 }
 
+const loadCurrentLineupToPitchingStats = () => {
+  const pitcherCandidates = activeGameLineup.value.filter((player) => player.name && (player.position === '1' || player.remark?.includes('投')))
+  const existingNames = new Set(formData.value.pitching_stats?.map((stat) => stat.name) || [])
+  if (!formData.value.pitching_stats) formData.value.pitching_stats = []
+
+  pitcherCandidates.forEach((player) => {
+    if (!existingNames.has(player.name)) {
+      formData.value.pitching_stats?.push(createEmptyPitchingStat(player.name, player.number || ''))
+      existingNames.add(player.name)
+    }
+  })
+
+  ElMessage.success(pitcherCandidates.length ? '已載入目前場上投手資料' : '目前場上名單沒有標記投手')
+}
+
+const getHits = (stat: BattingStat) => (stat.h1 || 0) + (stat.h2 || 0) + (stat.h3 || 0) + (stat.hr || 0)
+const getAvg = (stat: BattingStat) => stat.ab > 0 ? (getHits(stat) / stat.ab).toFixed(3).replace(/^0/, '') : '.000'
+const formatIP = (outs: number) => `${Math.floor((Number(outs) || 0) / 3)}.${(Number(outs) || 0) % 3}`
+const getEra = (stat: PitchingStat) => stat.ip > 0 ? (((stat.er || 0) * 7) / (stat.ip / 3)).toFixed(2) : '0.00'
+
+const getStatPlayerNumber = (name: string) =>
+  activeGameLineup.value.find((player) => player.name === name)?.number ||
+  formData.value.lineup.find((player) => player.name === name)?.number ||
+  ''
+
+const ensureBattingStat = (name: string) => {
+  let stat = formData.value.batting_stats.find((item) => item.name === name)
+  if (!stat) {
+    stat = createEmptyBattingStat(name, getStatPlayerNumber(name))
+    formData.value.batting_stats.push(stat)
+  }
+  return stat
+}
+
+const ensurePitchingStat = (name: string) => {
+  if (!formData.value.pitching_stats) formData.value.pitching_stats = []
+  let stat = formData.value.pitching_stats.find((item) => item.name === name)
+  if (!stat) {
+    stat = createEmptyPitchingStat(name, getStatPlayerNumber(name))
+    formData.value.pitching_stats.push(stat)
+  }
+  return stat
+}
+
+const resetBattingNumbers = () => {
+  formData.value.batting_stats.forEach((stat) => {
+    Object.assign(stat, createEmptyBattingStat(stat.name, stat.number || getStatPlayerNumber(stat.name)))
+  })
+}
+
+const resetPitchingNumbers = () => {
+  formData.value.pitching_stats?.forEach((stat) => {
+    Object.assign(stat, createEmptyPitchingStat(stat.name, stat.number || getStatPlayerNumber(stat.name)))
+  })
+}
+
+const recalculateBattingStatsFromLogs = () => {
+  if (!formData.value.batting_stats.length) loadLineupToStats()
+  resetBattingNumbers()
+
+  const offensiveLogs = formData.value.inning_logs.filter((log) => isOffensiveHalf(log.inning))
+  let applied = 0
+
+  offensiveLogs.forEach((log) => {
+    const text = log.log || ''
+    activeGameLineup.value.forEach((player) => {
+      if (!player.name || !text.includes(player.name)) return
+      const stat = ensureBattingStat(player.name)
+
+      const hasAtBat = ['一安', '二安', '三安', 'HR', '全壘打', '內安', '空振', '站振', '三振', '飛球接殺', '平飛接殺', '滾地刺殺', '界外接殺', '雙殺打', '失誤', '野選'].some((term) => text.includes(term))
+      const hasPlateAppearance = hasAtBat || ['四壞', '觸身', '高飛犧牲打', '犧牲觸擊', '妨礙打擊'].some((term) => text.includes(term))
+
+      if (hasPlateAppearance) stat.pa += 1
+      if (hasAtBat) stat.ab += 1
+      if (text.includes('一安') || text.includes('內安')) stat.h1 += 1
+      if (text.includes('二安')) stat.h2 += 1
+      if (text.includes('三安')) stat.h3 += 1
+      if (text.includes('HR') || text.includes('全壘打')) stat.hr += 1
+      if (text.includes('四壞')) stat.bb += 1
+      if (text.includes('觸身')) stat.hbp += 1
+      if (text.includes('空振') || text.includes('站振') || text.includes('三振')) stat.so += 1
+      if (text.includes('盜壘成功')) stat.sb += 1
+      if (text.includes('回來得分') || text.includes('得分')) stat.r += 1
+
+      const rbiMatch = text.match(/(?:帶有|得到|貢獻)?(\d+)分打點/)
+      if (rbiMatch) stat.rbi += Number(rbiMatch[1]) || 0
+      if (hasPlateAppearance) applied += 1
+    })
+  })
+
+  ElMessage.success(`已根據逐局轉播重新計算打擊成績（${applied} 筆）`)
+}
+
+const recalculatePitchingStatsFromLogs = () => {
+  if (!formData.value.pitching_stats?.length) loadCurrentLineupToPitchingStats()
+  resetPitchingNumbers()
+
+  const defensiveLogs = formData.value.inning_logs.filter((log) => !isOffensiveHalf(log.inning))
+  let applied = 0
+
+  defensiveLogs.forEach((log) => {
+    const pitcherName = log.selectedPlayerId || currentPitcher.value
+    if (!pitcherName) return
+
+    const stat = ensurePitchingStat(pitcherName)
+    const text = log.log || ''
+    const atBatTerms = ['被一安', '被二安', '被三安', '被全壘打', '被內安', '空振', '三振', '滾地', '飛球', '雙殺', '失誤', '野選']
+
+    if (atBatTerms.some((term) => text.includes(term))) stat.ab += 1
+    if (text.includes('被一安') || text.includes('被內安')) stat.h += 1
+    if (text.includes('被二安')) { stat.h += 1; stat.h2 += 1 }
+    if (text.includes('被三安')) { stat.h += 1; stat.h3 += 1 }
+    if (text.includes('被全壘打')) { stat.h += 1; stat.hr += 1 }
+    if (text.includes('投出四壞') || text.includes('保送') || text.includes('四壞')) stat.bb += 1
+    if (text.includes('空振') || text.includes('三振')) stat.so += 1
+    if (text.includes('投手失分') || text.includes('掉分') || text.includes('失分')) stat.r += 1
+    if (text.includes('投手責失') || text.includes('責失')) stat.er += 1
+    if (text.includes('滾地')) { stat.ip += 1; stat.go += 1 }
+    if (text.includes('飛球') || text.includes('接殺')) { stat.ip += 1; stat.ao += 1 }
+    if (text.includes('三人出局')) stat.ip = Math.max(stat.ip, Math.ceil(stat.ip / 3) * 3)
+    applied += 1
+  })
+
+  ElMessage.success(`已根據逐局轉播重新計算投手成績（${applied} 局）`)
+}
+
+const clampCount = (value: number, max: number) => Math.min(Math.max(value, 0), max)
+const countControls: Array<{ key: 'current_b' | 'current_s' | 'current_o'; label: string; max: number }> = [
+  { key: 'current_b', label: 'B', max: 3 },
+  { key: 'current_s', label: 'S', max: 2 },
+  { key: 'current_o', label: 'O', max: 2 }
+]
+
+const adjustCount = (key: 'current_b' | 'current_s' | 'current_o', delta: number) => {
+  const max = key === 'current_b' ? 3 : 2
+  formData.value[key] = clampCount(normalizeNumber(formData.value[key]) + delta, max)
+}
+
+const toggleBase = (base: 'base_1' | 'base_2' | 'base_3') => {
+  formData.value[base] = !formData.value[base]
+}
+
+const resetCount = () => {
+  formData.value.current_b = 0
+  formData.value.current_s = 0
+}
+
+const resetHalfInning = () => {
+  formData.value.line_score_data = finalizeInningScore(
+    formData.value.line_score_data,
+    formData.value.current_inning,
+    formData.value.bat_first !== false
+  )
+  formData.value.current_b = 0
+  formData.value.current_s = 0
+  formData.value.current_o = 0
+  formData.value.base_1 = false
+  formData.value.base_2 = false
+  formData.value.base_3 = false
+  const nextInning = getNextInning(formData.value.current_inning || '一上')
+  updateCurrentInning(nextInning)
+}
+
 // === SAVE ===
 const handleSave = async () => {
   if (!formData.value.match_name || !formData.value.opponent) {
@@ -301,6 +694,12 @@ const handleSave = async () => {
   
   submitting.value = true
   try {
+    if (!lineupHasNamedPlayers(formData.value.current_lineup)) {
+      formData.value.current_lineup = cloneLineup(formData.value.lineup)
+    }
+    formData.value.line_score_data = cloneLineScoreData(formData.value.line_score_data)
+    sortInningLogs()
+
     if (props.mode === 'add') {
       await matchesStore.createMatch(formData.value)
       ElMessage.success('新增比賽成功')
@@ -376,21 +775,27 @@ const handlePhotoUpload = async (event: Event) => {
 </script>
 
 <template>
-  <el-dialog v-model="visible" :title="mode === 'add' ? '新增比賽紀錄' : '編輯比賽紀錄'" width="100%" class="!rounded-2xl max-w-5xl custom-dialog" destroy-on-close align-center top="5vh">
+  <el-dialog v-model="visible" :title="mode === 'add' ? '新增比賽紀錄' : '編輯比賽紀錄'" width="100%" class="!rounded-2xl max-w-6xl custom-dialog" destroy-on-close align-center top="5vh">
     <div class="h-[75vh] flex flex-col md:flex-row -mx-4 -my-6 md:m-0 h-full">
       <!-- Left Sidebar Tabs (Desktop) / Top Tabs (Mobile) -->
       <div class="bg-gray-50 md:w-48 xl:w-56 shrink-0 border-b md:border-b-0 md:border-r border-gray-100 flex md:flex-col overflow-x-auto md:overflow-y-auto hide-scrollbar z-10 p-2 md:p-4 gap-1">
         <button @click="activeTab = 'basic'" :class="{'bg-white text-primary shadow-sm border border-gray-200': activeTab === 'basic', 'text-gray-500 hover:bg-gray-100 border border-transparent': activeTab !== 'basic'}" class="px-4 py-3 md:py-4 rounded-xl flex items-center justify-center md:justify-start gap-2.5 font-bold transition-all shrink-0 min-w-[120px] md:min-w-0">
           <el-icon class="text-lg"><Document /></el-icon> <span>基本與賽況</span>
         </button>
+        <button @click="activeTab = 'sync'" :class="{'bg-white text-primary shadow-sm border border-gray-200': activeTab === 'sync', 'text-gray-500 hover:bg-gray-100 border border-transparent': activeTab !== 'sync'}" class="px-4 py-3 md:py-4 rounded-xl flex items-center justify-center md:justify-start gap-2.5 font-bold transition-all shrink-0 min-w-[120px] md:min-w-0">
+          <el-icon class="text-lg"><Connection /></el-icon> <span>同步編輯</span>
+        </button>
         <button @click="activeTab = 'lineup'" :class="{'bg-white text-primary shadow-sm border border-gray-200': activeTab === 'lineup', 'text-gray-500 hover:bg-gray-100 border border-transparent': activeTab !== 'lineup'}" class="px-4 py-3 md:py-4 rounded-xl flex items-center justify-center md:justify-start gap-2.5 font-bold transition-all shrink-0 min-w-[120px] md:min-w-0">
-          <el-icon class="text-lg"><Position /></el-icon> <span>先發與陣容</span>
+          <el-icon class="text-lg"><Position /></el-icon> <span>先發與打線</span>
         </button>
         <button @click="activeTab = 'innings'" :class="{'bg-white text-primary shadow-sm border border-gray-200': activeTab === 'innings', 'text-gray-500 hover:bg-gray-100 border border-transparent': activeTab !== 'innings'}" class="px-4 py-3 md:py-4 rounded-xl flex items-center justify-center md:justify-start gap-2.5 font-bold transition-all shrink-0 min-w-[120px] md:min-w-0">
           <el-icon class="text-lg"><Connection /></el-icon> <span>逐局轉播</span>
         </button>
-        <button @click="activeTab = 'stats'" :class="{'bg-white text-primary shadow-sm border border-gray-200': activeTab === 'stats', 'text-gray-500 hover:bg-gray-100 border border-transparent': activeTab !== 'stats'}" class="px-4 py-3 md:py-4 rounded-xl flex items-center justify-center md:justify-start gap-2.5 font-bold transition-all shrink-0 min-w-[120px] md:min-w-0">
-          <el-icon class="text-lg"><DataAnalysis /></el-icon> <span>比賽成績</span>
+        <button @click="activeTab = 'batting'" :class="{'bg-white text-primary shadow-sm border border-gray-200': activeTab === 'batting', 'text-gray-500 hover:bg-gray-100 border border-transparent': activeTab !== 'batting'}" class="px-4 py-3 md:py-4 rounded-xl flex items-center justify-center md:justify-start gap-2.5 font-bold transition-all shrink-0 min-w-[150px] md:min-w-0">
+          <el-icon class="text-lg"><DataAnalysis /></el-icon> <span>比賽成績 (打擊)</span>
+        </button>
+        <button @click="activeTab = 'pitching'" :class="{'bg-white text-primary shadow-sm border border-gray-200': activeTab === 'pitching', 'text-gray-500 hover:bg-gray-100 border border-transparent': activeTab !== 'pitching'}" class="px-4 py-3 md:py-4 rounded-xl flex items-center justify-center md:justify-start gap-2.5 font-bold transition-all shrink-0 min-w-[150px] md:min-w-0">
+          <el-icon class="text-lg"><DataAnalysis /></el-icon> <span>比賽成績 (投手)</span>
         </button>
       </div>
 
@@ -538,6 +943,113 @@ const handlePhotoUpload = async (event: Event) => {
 
         </div>
 
+        <!-- === TAB 2: SYNC WORKSPACE === -->
+        <div v-show="activeTab === 'sync'" class="space-y-5 animate-fade-in pr-1">
+          <div class="grid grid-cols-1 items-start gap-5 md:grid-cols-[minmax(320px,0.9fr)_minmax(360px,1.1fr)] xl:grid-cols-[minmax(0,0.9fr)_minmax(420px,1.1fr)]">
+            <section class="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                <div>
+                  <h3 class="text-sm font-extrabold text-slate-900">目前場上名單</h3>
+                  <div class="mt-1 flex flex-wrap gap-1.5">
+                    <el-tag size="small" effect="plain" class="font-bold">共 {{ formData.current_lineup?.length || 0 }} 人</el-tag>
+                    <el-tag size="small" type="success" effect="plain" class="font-bold">{{ currentPitcher ? `投手 ${currentPitcher}` : '未標記投手' }}</el-tag>
+                  </div>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                  <el-tag :type="currentLineupMode === 'synced' ? 'success' : 'warning'" effect="plain" class="font-bold">
+                    {{ currentLineupMode === 'synced' ? '跟隨先發' : '獨立編輯' }}
+                  </el-tag>
+                  <el-button size="small" type="primary" plain @click="syncCurrentLineupFromStarting">套用先發打線</el-button>
+                  <el-button size="small" color="#D99026" class="!text-white" @click="addCurrentLineup"><el-icon class="mr-1"><Plus /></el-icon>新增</el-button>
+                </div>
+              </div>
+
+              <div class="overflow-x-auto custom-scrollbar pb-1">
+                <div class="min-w-[560px] space-y-2">
+                  <div class="grid grid-cols-[48px_116px_minmax(170px,1fr)_72px_96px] gap-2 px-2 text-[11px] font-black tracking-widest text-slate-400">
+                    <div class="text-center">棒次</div>
+                    <div>守位</div>
+                    <div>球員</div>
+                    <div>背號</div>
+                    <div class="text-center">排序</div>
+                  </div>
+                  <div v-for="(p, i) in formData.current_lineup" :key="`current-${i}`" class="grid grid-cols-[48px_116px_minmax(170px,1fr)_72px_96px] gap-2 items-center rounded-xl border border-slate-100 bg-white p-2">
+                    <div class="text-center text-sm font-black text-slate-400">{{ p.order }}</div>
+                    <el-select v-model="p.position" size="small" class="w-full" @change="currentLineupMode = 'manual'">
+                      <el-option v-for="opt in posOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+                    </el-select>
+                    <el-select v-model="p.name" size="small" placeholder="球員姓名" filterable allow-create clearable class="w-full" @change="(val: string) => handleCurrentLineupPlayerChange(p, val)">
+                      <el-option v-for="name in availablePlayerNames" :key="`current-name-${name}`" :label="name" :value="name" />
+                    </el-select>
+                    <el-input v-model="p.number" size="small" placeholder="#" @change="currentLineupMode = 'manual'" />
+                    <div class="flex justify-center gap-1">
+                      <el-button size="small" text @click="moveCurrentLineup(i, -1)" :disabled="i === 0">▲</el-button>
+                      <el-button size="small" text @click="moveCurrentLineup(i, 1)" :disabled="i === (formData.current_lineup?.length || 0) - 1">▼</el-button>
+                      <el-button type="danger" size="small" circle plain @click="removeCurrentLineup(i)"><el-icon><Minus /></el-icon></el-button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="!formData.current_lineup?.length" class="mt-3 rounded-xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-400">
+                尚未建立目前場上名單
+              </div>
+            </section>
+
+            <section class="min-w-0 space-y-4 md:sticky md:top-0">
+              <MatchLiveController
+                :batter-options="liveBatterOptions"
+                :initial-batter="formData.current_batter_name || ''"
+                :initial-b="formData.current_b || 0"
+                :initial-s="formData.current_s || 0"
+                :initial-o="formData.current_o || 0"
+                :initial-base1="Boolean(formData.base_1)"
+                :initial-base2="Boolean(formData.base_2)"
+                :initial-base3="Boolean(formData.base_3)"
+                :is-defending="!isOffensiveHalf(formData.current_inning || '一上')"
+                :initial-home-score="formData.home_score || 0"
+                :initial-opponent-score="formData.opponent_score || 0"
+                :initial-inning="formData.current_inning || '一上'"
+                :initial-bat-first="formData.bat_first !== false"
+                :initial-line-score-data="formData.line_score_data"
+                :initial-show-lineup-intro="Boolean(formData.show_lineup_intro)"
+                :initial-show-line-score="Boolean(formData.show_line_score)"
+                :initial-show3d-field="Boolean(formData.show_3d_field)"
+                home-team-name="中港熊戰"
+                :opponent-team-name="formData.opponent || '對手'"
+                @update="handleLiveStateUpdate"
+                @record-action="appendLiveActionToCurrentLog"
+              />
+
+              <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div class="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <h3 class="text-sm font-extrabold text-slate-900">逐局轉播紀錄</h3>
+                    <p class="mt-1 text-xs font-semibold text-slate-500">{{ formData.current_inning || '一上' }} · {{ isOffensiveHalf(formData.current_inning || '一上') ? '我們進攻' : '我們防守' }}</p>
+                  </div>
+                  <el-button size="small" type="primary" plain @click="addInningLog">
+                    <el-icon class="mr-1"><Plus /></el-icon>開啟本局
+                  </el-button>
+                </div>
+                <div class="max-h-[260px] space-y-2 overflow-y-auto pr-1 custom-scrollbar">
+                  <div v-for="(log, idx) in formData.inning_logs" :key="`sync-log-${log.inning}-${idx}`" class="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                    <div class="mb-1 flex items-center justify-between gap-2">
+                      <el-tag :type="isOffensiveHalf(log.inning) ? 'primary' : 'warning'" effect="plain" class="font-bold">{{ log.inning }}</el-tag>
+                      <el-button size="small" text type="primary" @click="activeLogIndex = idx; activeTab = 'innings'">編輯</el-button>
+                    </div>
+                    <div class="line-clamp-3 whitespace-pre-wrap text-xs font-semibold leading-relaxed text-slate-600" :class="{ 'italic text-slate-400': !log.log }">
+                      {{ log.log || '尚無逐字轉播紀錄' }}
+                    </div>
+                  </div>
+                  <div v-if="!formData.inning_logs.length" class="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm font-bold text-slate-400">
+                    尚無逐局轉播紀錄
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+
         <!-- === TAB 2: LINEUP === -->
         <div v-show="activeTab === 'lineup'" class="space-y-4 animate-fade-in pr-2">
           <div class="flex items-center justify-between mb-4 bg-yellow-50 text-yellow-800 p-3 rounded-xl border border-yellow-100">
@@ -567,7 +1079,7 @@ const handlePhotoUpload = async (event: Event) => {
               </div>
               <div>
                 <el-select v-model="p.name" size="small" placeholder="選擇球員" filterable allow-create clearable @change="(val: string) => handleLineupPlayerChange(p, val)" class="w-full">
-                  <el-option v-for="name in selectedPlayers" :key="name" :label="name" :value="name" />
+                  <el-option v-for="name in availablePlayerNames" :key="name" :label="name" :value="name" />
                 </el-select>
               </div>
               <div><el-input v-model="p.number" size="small" placeholder="#" /></div>
@@ -581,116 +1093,106 @@ const handlePhotoUpload = async (event: Event) => {
         </div>
 
         <!-- === TAB 3: INNING LOGS === -->
-        <div v-show="activeTab === 'innings'" class="space-y-6 animate-fade-in pr-2">
-           
-           <!-- Logs View & Action Area -->
-           <div class="flex flex-col xl:flex-row gap-6">
-              
-             <!-- Rapid Composer Tool -->
-             <div class="flex-1 bg-blue-50/30 p-4 rounded-xl border border-blue-100 flex flex-col space-y-4 shadow-sm relative">
-               <h3 class="font-extrabold text-blue-800 text-sm flex items-center mb-1">
-                 <el-icon class="mr-1.5"><Document /></el-icon> 快速紀錄工具 (組合拼湊)
-               </h3>
-               
-               <!-- Player Dropdown -->
-               <div class="flex gap-2 w-full">
-                 <el-select v-model="currentPlayerId" placeholder="選擇球員..." class="flex-1" @change="handlePlayerSelect">
-                   <el-option v-for="l in formData.lineup" :key="l.order" :value="String(l.order)" :label="`${l.order}棒 - ${l.name||'未填'}`" />
-                 </el-select>
-                 <el-button @click="handlePlayerSelect(currentPlayerId)" class="shrink-0" :disabled="!currentPlayerId">
-                   插入名稱
-                 </el-button>
-               </div>
+        <div v-show="activeTab === 'innings'" class="space-y-5 animate-fade-in pr-2">
+          <MatchLiveController
+            :batter-options="liveBatterOptions"
+            :initial-batter="formData.current_batter_name || ''"
+            :initial-b="formData.current_b || 0"
+            :initial-s="formData.current_s || 0"
+            :initial-o="formData.current_o || 0"
+            :initial-base1="Boolean(formData.base_1)"
+            :initial-base2="Boolean(formData.base_2)"
+            :initial-base3="Boolean(formData.base_3)"
+            :is-defending="!isOffensiveHalf(formData.current_inning || '一上')"
+            :initial-home-score="formData.home_score || 0"
+            :initial-opponent-score="formData.opponent_score || 0"
+            :initial-inning="formData.current_inning || '一上'"
+            :initial-bat-first="formData.bat_first !== false"
+            :initial-line-score-data="formData.line_score_data"
+            :initial-show-lineup-intro="Boolean(formData.show_lineup_intro)"
+            :initial-show-line-score="Boolean(formData.show_line_score)"
+            :initial-show3d-field="Boolean(formData.show_3d_field)"
+            home-team-name="中港熊戰"
+            :opponent-team-name="formData.opponent || '對手'"
+            @update="handleLiveStateUpdate"
+            @record-action="appendLiveActionToCurrentLog"
+          />
 
-               <!-- Action Buttons -->
-               <div class="space-y-3">
-                 <div>
-                   <label class="text-xs font-bold text-gray-500 mb-1.5 flex items-center"><el-icon class="mr-1"><Position /></el-icon>擊球方向 (可選)</label>
-                   <div class="flex flex-wrap gap-1.5">
-                     <button v-for="btn in btnDirs" :key="btn" @click="appendLogText(`${btn}方向`)" class="px-2 py-1 text-[11px] font-bold border border-gray-200 bg-white text-gray-600 rounded hover:bg-gray-100 transition-colors">{{ btn }}</button>
-                   </div>
-                 </div>
-                 
-                 <div>
-                   <label class="text-xs font-bold text-gray-500 mb-1.5 flex items-center">⚾ 安打與上壘</label>
-                   <div class="flex flex-wrap gap-1.5">
-                     <button v-for="btn in btnHits" :key="btn.label" @click="appendLogText(btn.label)" :class="btn.class" class="px-2 py-1 text-[11px] font-bold border rounded transition-colors">{{ btn.label }}</button>
-                   </div>
-                 </div>
-
-                 <div>
-                   <label class="text-xs font-bold text-gray-500 mb-1.5 flex items-center">❌ 出局與三振</label>
-                   <div class="flex flex-wrap gap-1.5">
-                     <button v-for="btn in btnOuts" :key="btn" @click="appendLogText(btn)" class="px-2 py-1 text-[11px] font-bold border border-gray-200 bg-white text-gray-600 rounded hover:bg-gray-100 transition-colors">{{ btn }}</button>
-                   </div>
-                 </div>
-
-                 <div>
-                   <label class="text-xs font-bold text-gray-500 mb-1.5 flex items-center">🏃 推進跑壘與特殊</label>
-                   <div class="flex flex-wrap gap-1.5">
-                     <button v-for="btn in btnSpecial" :key="btn.label" @click="appendLogText(btn.label)" :class="btn.class" class="px-2 py-1 text-[11px] font-bold border rounded transition-colors">{{ btn.label }}</button>
-                   </div>
-                 </div>
-               </div>
-               
-               <!-- Composer Input Bar -->
-               <div class="mt-4 pt-4 border-t border-blue-100">
-                 <label class="text-xs font-bold text-gray-500 mb-2 block">純手動新增 / 修改拼湊結果</label>
-                 <div class="flex flex-col sm:flex-row gap-2">
-                   <el-select v-model="currentInning" class="w-full sm:w-28 shrink-0">
-                     <el-option v-for="i in ['一上','一下','二上','二下','三上','三下','四上','四下','五上','五下','六上','六下','七上','七下','八上','八下','九上','九下']" :key="i" :value="i" :label="i" />
-                   </el-select>
-                   <el-input v-model="manualLogText" placeholder="點選按鈕拼湊，或手動輸入..." class="flex-1" clearable />
-                 </div>
-                 <div class="mt-3 flex gap-2 w-full">
-                   <el-button @click="commitLog" type="primary" class="font-bold flex-1" :disabled="!manualLogText.trim()"><el-icon class="mr-1"><Check /></el-icon> 送出本筆紀錄</el-button>
-                   <el-button @click="manualLogText = ''" type="danger" plain icon="Delete" class="w-12 shrink-0"></el-button>
-                 </div>
-               </div>
-               
-             </div>
-
-             <!-- Logs Wrapper -->
-             <div class="flex-1 bg-white rounded-xl p-4 md:p-6 border border-gray-200 shadow-sm min-h-[400px] xl:max-h-[600px] overflow-y-auto custom-scrollbar">
-                <h3 class="font-extrabold text-gray-800 text-sm mb-4 border-b border-gray-100 pb-2 flex justify-between items-center">
-                  <span>即時文字轉播預覽</span>
-                  <span class="text-xs text-gray-500 font-normal">順序將依局數自動排列</span>
-                </h3>
-                <el-timeline v-if="formData.inning_logs.length" class="mt-2 pl-2">
-                  <el-timeline-item
-                    v-for="(log, idx) in formData.inning_logs"
-                    :key="idx"
-                    :timestamp="log.inning"
-                    placement="top"
-                    color="#3b82f6"
-                    center
-                    class="relative group pb-4"
-                  >
-                    <div class="flex items-start justify-between">
-                      <p class="text-[13px] font-bold text-gray-700 leading-relaxed max-w-[85%]">{{ log.log }}</p>
-                      <el-button type="danger" link @click="removeLog(idx)" class="opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0 text-xs">移除</el-button>
-                    </div>
-                  </el-timeline-item>
-                </el-timeline>
-                <div v-else class="h-full flex items-center justify-center text-gray-400 font-bold italic text-sm py-20">
-                  尚無任何文字轉播紀錄，請從左側新增
+          <div class="flex flex-col gap-3 rounded-2xl border border-blue-100 bg-blue-50/50 p-4 md:flex-row md:items-end md:justify-between">
+            <div class="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-[150px_minmax(180px,1fr)]">
+              <label>
+                <span class="mb-1 block text-xs font-bold text-slate-500">目前局數</span>
+                <el-select :model-value="formData.current_inning" class="w-full" @update:model-value="updateCurrentInning">
+                  <el-option v-for="inning in inningOptions" :key="inning" :label="inning" :value="inning" />
+                </el-select>
+              </label>
+              <div>
+                <span class="mb-1 block text-xs font-bold text-slate-500">目前場上投手</span>
+                <div class="flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700">
+                  {{ currentPitcher || '尚未在目前場上名單標記投手' }}
                 </div>
-             </div>
+              </div>
+            </div>
+            <el-button type="primary" class="font-bold" @click="addInningLog">
+              <el-icon class="mr-1"><Plus /></el-icon>建立 / 開啟本局
+            </el-button>
+          </div>
 
-           </div>
-           
+          <div class="space-y-3">
+            <div v-for="(log, idx) in formData.inning_logs" :key="`${log.inning}-${idx}`" class="rounded-2xl border bg-white p-4 shadow-sm transition-all" :class="activeLogIndex === idx ? 'border-primary ring-2 ring-primary/10' : 'border-slate-200'">
+              <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div class="flex flex-wrap items-center gap-2">
+                  <el-tag :type="isOffensiveHalf(log.inning) ? 'primary' : 'warning'" effect="dark" class="font-bold">{{ log.inning }}</el-tag>
+                  <span class="text-sm font-bold text-slate-700">{{ isOffensiveHalf(log.inning) ? '我們進攻' : '我們防守' }}</span>
+                  <span v-if="!isOffensiveHalf(log.inning) && log.selectedPlayerId" class="text-xs font-semibold text-slate-400">投手：{{ log.selectedPlayerId }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <el-button v-if="activeLogIndex !== idx" size="small" type="primary" plain @click="activeLogIndex = idx">編輯此局</el-button>
+                  <el-button type="danger" circle plain size="small" @click="removeLog(idx)"><el-icon><Delete /></el-icon></el-button>
+                </div>
+              </div>
+
+              <div v-if="activeLogIndex !== idx" class="min-h-[72px] whitespace-pre-wrap rounded-xl bg-slate-50 p-3 text-sm font-medium leading-relaxed text-slate-700" :class="{ 'italic text-slate-400': !log.log }">
+                {{ log.log || '尚無逐字轉播紀錄' }}
+              </div>
+
+              <div v-else class="space-y-3 rounded-xl border border-blue-100 bg-blue-50/50 p-3">
+                <div v-if="!isOffensiveHalf(log.inning)" class="max-w-xs">
+                  <span class="mb-1 block text-xs font-bold text-slate-500">本半局投手</span>
+                  <el-select v-model="log.selectedPlayerId" filterable allow-create clearable class="w-full">
+                    <el-option v-for="name in availablePlayerNames" :key="`log-p-${name}`" :label="name" :value="name" />
+                  </el-select>
+                </div>
+                <el-input v-model="log.log" type="textarea" :autosize="{ minRows: 6, maxRows: 16 }" placeholder="請逐字輸入本半局賽況，例如：一棒 陳奕樺 中外野一安，一壘有人" />
+                <div class="flex justify-end">
+                  <el-button color="#22c55e" class="!text-white font-bold" @click="finishLogEdit">
+                    <el-icon class="mr-1"><Check /></el-icon>完成本局
+                  </el-button>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="!formData.inning_logs.length" class="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-12 text-center text-sm font-bold text-slate-400">
+              尚無逐局轉播紀錄，請先建立目前局數。
+            </div>
+          </div>
         </div>
 
         <!-- === TAB 4: BATTING STATS === -->
-        <div v-show="activeTab === 'stats'" class="space-y-4 animate-fade-in pr-2">
+        <div v-show="activeTab === 'batting'" class="space-y-4 animate-fade-in pr-2">
            <div class="flex items-center justify-between bg-primary/5 p-4 rounded-xl border border-primary/10">
              <div>
                <h3 class="font-extrabold text-primary text-sm">手動微調個人打擊成績</h3>
-               <p class="text-xs text-primary/70 mt-0.5">請確認每個人的各項數據正確。如果之前使用了「快速紀錄工具」，這裡的數字會自動累加。</p>
+               <p class="text-xs text-primary/70 mt-0.5">PA、AB、安打、打點、跑壘</p>
              </div>
-             <el-button @click="loadLineupToStats" type="primary" plain size="small" class="!font-bold bg-white">
-               從先發陣容載入球員
-             </el-button>
+             <div class="flex flex-wrap justify-end gap-2">
+               <el-button @click="loadLineupToStats" type="primary" plain size="small" class="!font-bold bg-white">
+                 從先發載入
+               </el-button>
+               <el-button @click="recalculateBattingStatsFromLogs" color="#D99026" size="small" class="!font-bold !text-white">
+                 從逐局重算
+               </el-button>
+             </div>
            </div>
            
            <div class="overflow-x-auto min-h-[300px] custom-scrollbar border border-gray-200 rounded-xl">
@@ -698,6 +1200,8 @@ const handlePhotoUpload = async (event: Event) => {
                 <thead>
                   <tr class="bg-gray-100 text-gray-600 font-black">
                     <th class="p-2 border-b border-gray-200 text-left pl-3 sticky left-0 z-10 bg-gray-100">球員名稱</th>
+                    <th class="p-2 border-b border-gray-200" title="打擊率">AVG</th>
+                    <th class="p-2 border-b border-gray-200" title="安打">H</th>
                     <th class="p-2 border-b border-gray-200" title="打席">PA</th>
                     <th class="p-2 border-b border-gray-200" title="打數">AB</th>
                     <th class="p-2 border-b border-gray-200" title="一壘安">1B</th>
@@ -707,6 +1211,7 @@ const handlePhotoUpload = async (event: Event) => {
                     <th class="p-2 border-b border-gray-200 text-blue-600" title="打點">RBI</th>
                     <th class="p-2 border-b border-gray-200 text-orange-600" title="得分">R</th>
                     <th class="p-2 border-b border-gray-200" title="四死球">BB</th>
+                    <th class="p-2 border-b border-gray-200" title="觸身">HBP</th>
                     <th class="p-2 border-b border-gray-200" title="三振">SO</th>
                     <th class="p-2 border-b border-gray-200" title="盜壘">SB</th>
                     <th class="p-2 border-b border-gray-200">操作</th>
@@ -720,6 +1225,8 @@ const handlePhotoUpload = async (event: Event) => {
                         <el-input v-model="s.name" size="small" class="w-20" />
                       </div>
                     </td>
+                    <td class="p-1 font-mono font-black text-primary">{{ getAvg(s) }}</td>
+                    <td class="p-1 font-mono font-bold">{{ getHits(s) }}</td>
                     <td class="p-1"><el-input-number v-model="s.pa" :controls="false" :min="0" size="small" class="!w-10 !px-0" /></td>
                     <td class="p-1"><el-input-number v-model="s.ab" :controls="false" :min="0" size="small" class="!w-10 !px-0" /></td>
                     <td class="p-1"><el-input-number v-model="s.h1" :controls="false" :min="0" size="small" class="!w-10 !px-0 bg-green-50" /></td>
@@ -729,12 +1236,13 @@ const handlePhotoUpload = async (event: Event) => {
                     <td class="p-1"><el-input-number v-model="s.rbi" :controls="false" :min="0" size="small" class="!w-10 !px-0 bg-blue-50" /></td>
                     <td class="p-1"><el-input-number v-model="s.r" :controls="false" :min="0" size="small" class="!w-10 !px-0 bg-orange-50" /></td>
                     <td class="p-1"><el-input-number v-model="s.bb" :controls="false" :min="0" size="small" class="!w-10 !px-0" /></td>
+                    <td class="p-1"><el-input-number v-model="s.hbp" :controls="false" :min="0" size="small" class="!w-10 !px-0" /></td>
                     <td class="p-1"><el-input-number v-model="s.so" :controls="false" :min="0" size="small" class="!w-10 !px-0" /></td>
                     <td class="p-1"><el-input-number v-model="s.sb" :controls="false" :min="0" size="small" class="!w-10 !px-0" /></td>
                     <td class="p-1"><el-button type="danger" size="small" text @click="formData.batting_stats.splice(i, 1)"><el-icon><Minus /></el-icon></el-button></td>
                   </tr>
                   <tr v-if="formData.batting_stats.length === 0">
-                    <td colspan="13" class="p-8 text-gray-400 font-bold italic">
+                    <td colspan="16" class="p-8 text-gray-400 font-bold italic">
                       目前沒有打擊成績，請先「從先發陣容載入」或手動新增球員。
                     </td>
                   </tr>
@@ -743,8 +1251,87 @@ const handlePhotoUpload = async (event: Event) => {
            </div>
            
            <div class="flex justify-end pt-2">
-             <el-button @click="formData.batting_stats.push({name:'', number:'', pa:0, ab:0, h1:0, h2:0, h3:0, hr:0, rbi:0, r:0, bb:0, hbp:0, so:0, sb:0})" size="small" plain><el-icon class="mr-1.5"><Plus /></el-icon>加入單地球員</el-button>
+             <el-button @click="formData.batting_stats.push(createEmptyBattingStat())" size="small" plain><el-icon class="mr-1.5"><Plus /></el-icon>加入單一球員</el-button>
            </div>
+        </div>
+
+        <!-- === TAB 5: PITCHING STATS === -->
+        <div v-show="activeTab === 'pitching'" class="space-y-4 animate-fade-in pr-2">
+          <div class="flex items-center justify-between bg-slate-100 p-4 rounded-xl border border-slate-200">
+            <div>
+              <h3 class="font-extrabold text-slate-800 text-sm">投手成績輸入</h3>
+              <p class="text-xs text-slate-500 mt-0.5">局數、被安打、保送、三振、用球數</p>
+            </div>
+            <div class="flex flex-wrap justify-end gap-2">
+              <el-button @click="loadCurrentLineupToPitchingStats" type="primary" plain size="small" class="!font-bold bg-white">
+                載入目前投手
+              </el-button>
+              <el-button @click="recalculatePitchingStatsFromLogs" color="#D99026" size="small" class="!font-bold !text-white">
+                從逐局重算
+              </el-button>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto min-h-[300px] custom-scrollbar border border-gray-200 rounded-xl">
+            <table class="w-full text-[11px] text-center border-collapse whitespace-nowrap">
+              <thead>
+                <tr class="bg-gray-100 text-gray-600 font-black">
+                  <th class="p-2 border-b border-gray-200 text-left pl-3 sticky left-0 z-10 bg-gray-100">投手</th>
+                  <th class="p-2 border-b border-gray-200">IP</th>
+                  <th class="p-2 border-b border-gray-200">出局數</th>
+                  <th class="p-2 border-b border-gray-200">AB</th>
+                  <th class="p-2 border-b border-gray-200">H</th>
+                  <th class="p-2 border-b border-gray-200">2B</th>
+                  <th class="p-2 border-b border-gray-200">3B</th>
+                  <th class="p-2 border-b border-gray-200">HR</th>
+                  <th class="p-2 border-b border-gray-200">R</th>
+                  <th class="p-2 border-b border-gray-200">ER</th>
+                  <th class="p-2 border-b border-gray-200">BB</th>
+                  <th class="p-2 border-b border-gray-200">SO</th>
+                  <th class="p-2 border-b border-gray-200">NP</th>
+                  <th class="p-2 border-b border-gray-200">GO</th>
+                  <th class="p-2 border-b border-gray-200">AO</th>
+                  <th class="p-2 border-b border-gray-200">ERA</th>
+                  <th class="p-2 border-b border-gray-200">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(s, i) in formData.pitching_stats" :key="`pitch-${i}`" class="border-b border-gray-100/50 hover:bg-gray-50 transition-colors">
+                  <td class="p-1 pl-3 sticky left-0 z-10 bg-white">
+                    <div class="flex items-center gap-1 pr-2">
+                      <el-input v-model="s.name" size="small" class="w-24" placeholder="姓名" />
+                      <el-input v-model="s.number" size="small" class="!w-14" placeholder="#" />
+                    </div>
+                  </td>
+                  <td class="p-1 font-mono font-black text-primary">{{ formatIP(s.ip) }}</td>
+                  <td class="p-1"><el-input-number v-model="s.ip" :controls="false" :min="0" size="small" class="!w-10 !px-0" /></td>
+                  <td class="p-1"><el-input-number v-model="s.ab" :controls="false" :min="0" size="small" class="!w-10 !px-0" /></td>
+                  <td class="p-1"><el-input-number v-model="s.h" :controls="false" :min="0" size="small" class="!w-10 !px-0" /></td>
+                  <td class="p-1"><el-input-number v-model="s.h2" :controls="false" :min="0" size="small" class="!w-10 !px-0" /></td>
+                  <td class="p-1"><el-input-number v-model="s.h3" :controls="false" :min="0" size="small" class="!w-10 !px-0" /></td>
+                  <td class="p-1"><el-input-number v-model="s.hr" :controls="false" :min="0" size="small" class="!w-10 !px-0" /></td>
+                  <td class="p-1"><el-input-number v-model="s.r" :controls="false" :min="0" size="small" class="!w-10 !px-0" /></td>
+                  <td class="p-1"><el-input-number v-model="s.er" :controls="false" :min="0" size="small" class="!w-10 !px-0" /></td>
+                  <td class="p-1"><el-input-number v-model="s.bb" :controls="false" :min="0" size="small" class="!w-10 !px-0" /></td>
+                  <td class="p-1"><el-input-number v-model="s.so" :controls="false" :min="0" size="small" class="!w-10 !px-0" /></td>
+                  <td class="p-1"><el-input-number v-model="s.np" :controls="false" :min="0" size="small" class="!w-12 !px-0" /></td>
+                  <td class="p-1"><el-input-number v-model="s.go" :controls="false" :min="0" size="small" class="!w-10 !px-0" /></td>
+                  <td class="p-1"><el-input-number v-model="s.ao" :controls="false" :min="0" size="small" class="!w-10 !px-0" /></td>
+                  <td class="p-1 font-mono font-black text-primary">{{ getEra(s) }}</td>
+                  <td class="p-1"><el-button type="danger" size="small" text @click="formData.pitching_stats?.splice(i, 1)"><el-icon><Minus /></el-icon></el-button></td>
+                </tr>
+                <tr v-if="!formData.pitching_stats?.length">
+                  <td colspan="17" class="p-8 text-gray-400 font-bold italic">
+                    目前沒有投手成績，請先載入目前投手或手動新增。
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="flex justify-end pt-2">
+            <el-button @click="formData.pitching_stats?.push(createEmptyPitchingStat())" size="small" plain><el-icon class="mr-1.5"><Plus /></el-icon>新增投手</el-button>
+          </div>
         </div>
 
       </div>
