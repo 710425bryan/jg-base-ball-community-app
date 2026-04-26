@@ -86,6 +86,7 @@ export interface MatchRecord {
   location?: string;
   category_group?: string; // U12, etc.
   match_level?: string; // 友誼賽, etc.
+  tournament_name?: string | null;
   home_score: number;
   opponent_score: number;
   coaches?: string; // Comma separated

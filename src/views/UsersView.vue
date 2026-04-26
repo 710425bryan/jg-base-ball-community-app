@@ -11,10 +11,19 @@
         <p class="text-gray-500 font-medium text-sm mt-1">管理社區內的教練、經理與球員權限</p>
       </div>
 
-      <div class="flex items-center gap-3 self-start md:self-auto w-full md:w-auto">
-        <ViewModeSwitch v-model="viewMode" />
+      <div class="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-3 self-start md:flex md:w-auto md:items-center">
+        <el-select v-model="statusFilter" size="large" class="!w-full md:!w-[10.5rem]">
+          <el-option
+            v-for="option in accessStatusFilterOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
 
-        <button @click="openCreateModal" class="bg-primary hover:bg-primary-hover active:scale-95 text-white px-4 sm:px-5 py-2.5 rounded-xl shadow-[0_8px_20px_rgba(216,143,34,0.25)] text-sm font-bold transition-all flex items-center justify-center gap-2 flex-1 md:flex-none min-w-0">
+        <ViewModeSwitch v-model="viewMode" class="justify-self-end" />
+
+        <button @click="openCreateModal" class="col-span-2 w-full bg-primary hover:bg-primary-hover active:scale-95 text-white px-4 sm:px-5 py-2.5 rounded-xl shadow-[0_8px_20px_rgba(216,143,34,0.25)] text-sm font-bold transition-all flex items-center justify-center gap-2 md:col-span-1 md:w-auto md:flex-none min-w-0">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
           新增使用者
         </button>
@@ -30,6 +39,11 @@
         <div v-else-if="users.length === 0" class="flex-1 flex flex-col items-center justify-center text-gray-400 py-16">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
           <span class="font-bold">目前沒有使用者資料</span>
+        </div>
+
+        <div v-else-if="filteredDecoratedUsers.length === 0" class="flex-1 flex flex-col items-center justify-center text-gray-400 py-16">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L14 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 018 21v-7.586L1.293 6.707A1 1 0 011 6V4a1 1 0 011-1z" /></svg>
+          <span class="font-bold">沒有符合篩選條件的使用者</span>
         </div>
 
         <div v-else class="flex-1 min-h-0 overflow-y-auto pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:pb-2 pr-1 custom-scrollbar">
@@ -77,6 +91,16 @@
                       <span class="w-1.5 h-1.5 rounded-full" :class="getRoleDotClass(row.role)"></span>
                       {{ getRoleName(row.role) }}
                     </span>
+                  </template>
+                </el-table-column>
+
+                <el-table-column label="登入狀態" min-width="220">
+                  <template #default="{ row }">
+                    <span :class="getAccessStatusTagClass(row.accessState.status)" class="px-2.5 py-1 rounded-lg text-xs font-bold border inline-flex items-center gap-1">
+                      <span class="w-1.5 h-1.5 rounded-full" :class="getAccessStatusDotClass(row.accessState.status)"></span>
+                      {{ row.accessState.label }}
+                    </span>
+                    <div class="text-xs text-gray-400 mt-1">{{ getAccessWindowLabel(row) }}</div>
                   </template>
                 </el-table-column>
 
@@ -131,13 +155,13 @@
               <article
                 v-for="row in group.users"
                 :key="row.id"
-                class="bg-white rounded-2xl shadow-[0_2px_12px_rgb(0,0,0,0.05)] border border-gray-100/80 p-5 flex flex-col gap-4"
+                class="bg-white rounded-2xl shadow-[0_2px_12px_rgb(0,0,0,0.05)] border border-gray-100/80 p-3 sm:p-5 flex flex-col gap-2.5 sm:gap-4"
               >
-                <div class="flex items-start justify-between gap-4">
-                  <div class="flex items-center gap-4 min-w-0">
-                    <div class="relative w-14 h-14 rounded-full overflow-hidden shadow-sm border border-gray-100 bg-gray-50 shrink-0">
+                <div class="flex items-start justify-between gap-3 sm:gap-4">
+                  <div class="flex items-center gap-3 sm:gap-4 min-w-0">
+                    <div class="relative w-12 h-12 sm:w-14 sm:h-14 rounded-full overflow-hidden shadow-sm border border-gray-100 bg-gray-50 shrink-0">
                       <img v-if="row.avatar_url" :src="row.avatar_url" class="w-full h-full object-cover" />
-                      <div v-else class="w-full h-full flex items-center justify-center text-gray-400 font-extrabold text-lg bg-gradient-to-br from-gray-50 to-gray-200">
+                      <div v-else class="w-full h-full flex items-center justify-center text-gray-400 font-extrabold text-base sm:text-lg bg-gradient-to-br from-gray-50 to-gray-200">
                         {{ row.name?.charAt(0) || 'U' }}
                       </div>
                     </div>
@@ -153,18 +177,18 @@
                           <span class="w-1.5 h-1.5 rounded-full" :class="getRoleDotClass(row.role)"></span>
                           {{ getRoleName(row.role) }}
                         </span>
-                        <span class="inline-flex items-center gap-1.5 text-xs font-bold" :class="getLastSeenToneClass(row.last_seen_at)">
-                          <span class="w-2 h-2 rounded-full" :class="getLastSeenDotClass(row.last_seen_at)"></span>
-                          {{ getLastSeenStatus(row.last_seen_at) }}
+                        <span :class="getAccessStatusTagClass(row.accessState.status)" class="hidden sm:inline-flex px-2.5 py-1 rounded-lg text-xs font-bold border items-center gap-1">
+                          <span class="w-1.5 h-1.5 rounded-full" :class="getAccessStatusDotClass(row.accessState.status)"></span>
+                          {{ row.accessState.label }}
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  <div class="flex gap-2 shrink-0">
+                  <div class="flex gap-1.5 sm:gap-2 shrink-0">
                     <button
                       @click="openEditModal(row)"
-                      class="p-2.5 text-gray-400 hover:text-primary hover:bg-orange-50 rounded-xl transition-all border border-transparent hover:border-orange-100"
+                      class="p-2 sm:p-2.5 text-gray-400 hover:text-primary hover:bg-orange-50 rounded-xl transition-all border border-transparent hover:border-orange-100"
                       title="編輯"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
@@ -172,7 +196,7 @@
 
                     <button
                       @click="confirmDelete(row)"
-                      class="p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all border border-transparent hover:border-red-100"
+                      class="p-2 sm:p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all border border-transparent hover:border-red-100"
                       title="刪除"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -180,7 +204,11 @@
                   </div>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div class="sm:hidden pl-[3.75rem] text-xs font-medium text-gray-400">
+                  上線時間：{{ getLastSeenStatus(row.last_seen_at) }}
+                </div>
+
+                <div class="hidden sm:grid sm:grid-cols-2 xl:grid-cols-4 gap-3">
                   <div class="rounded-2xl border border-gray-100 bg-gray-50/70 p-3">
                     <div class="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">綁定成員</div>
                     <div class="mt-2 text-sm font-bold text-gray-800">{{ getLinkedMemberLabel(row) }}</div>
@@ -188,15 +216,21 @@
                   </div>
 
                   <div class="rounded-2xl border border-gray-100 bg-gray-50/70 p-3">
-                    <div class="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">上線時間</div>
-                    <div class="mt-2 text-sm font-bold text-gray-800">{{ getLastSeenStatus(row.last_seen_at) }}</div>
-                    <div class="mt-1 text-xs text-gray-500 leading-relaxed">{{ formatDate(row.last_seen_at, true) }}</div>
+                    <div class="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">登入狀態</div>
+                    <div class="mt-2 text-sm font-bold text-gray-800">{{ row.accessState.label }}</div>
+                    <div class="mt-1 text-xs text-gray-500 leading-relaxed">{{ row.accessState.message }}</div>
                   </div>
 
                   <div class="rounded-2xl border border-gray-100 bg-gray-50/70 p-3">
-                    <div class="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">建立時間</div>
-                    <div class="mt-2 text-sm font-bold text-gray-800">{{ formatDate(row.created_at, true) }}</div>
-                    <div class="mt-1 text-xs text-gray-500 leading-relaxed">{{ row.is_active === false ? '目前停用' : '目前啟用' }}</div>
+                    <div class="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">有效區間</div>
+                    <div class="mt-2 text-sm font-bold text-gray-800">{{ getAccessWindowLabel(row) }}</div>
+                    <div class="mt-1 text-xs text-gray-500 leading-relaxed">{{ getAccessWindowMeta(row) }}</div>
+                  </div>
+
+                  <div class="rounded-2xl border border-gray-100 bg-gray-50/70 p-3">
+                    <div class="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">上線時間</div>
+                    <div class="mt-2 text-sm font-bold text-gray-800">{{ getLastSeenStatus(row.last_seen_at) }}</div>
+                    <div class="mt-1 text-xs text-gray-500 leading-relaxed">{{ formatDate(row.last_seen_at, true) }}</div>
                   </div>
                 </div>
               </article>
@@ -259,6 +293,44 @@
           </el-select>
         </el-form-item>
 
+        <div class="rounded-2xl border border-gray-100 bg-gray-50/70 p-4">
+          <div class="flex items-center justify-between gap-4">
+            <div>
+              <div class="text-sm font-extrabold text-gray-800">允許登入</div>
+              <div class="mt-1 text-xs font-medium text-gray-500">{{ form.is_active ? '此帳號可在有效時間內登入' : '關閉後使用者將無法登入系統' }}</div>
+            </div>
+            <el-switch v-model="form.is_active" size="large" active-text="啟用" inactive-text="停權" />
+          </div>
+
+          <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <el-form-item label="可登入開始時間" class="font-bold !mb-0">
+              <el-date-picker
+                v-model="form.access_start"
+                type="datetime"
+                format="YYYY/MM/DD HH:mm"
+                value-format="YYYY-MM-DDTHH:mm:ssZ"
+                placeholder="不限制"
+                size="large"
+                class="!w-full"
+                clearable
+              />
+            </el-form-item>
+
+            <el-form-item label="可登入結束時間" class="font-bold !mb-0">
+              <el-date-picker
+                v-model="form.access_end"
+                type="datetime"
+                format="YYYY/MM/DD HH:mm"
+                value-format="YYYY-MM-DDTHH:mm:ssZ"
+                placeholder="永久有效"
+                size="large"
+                class="!w-full"
+                clearable
+              />
+            </el-form-item>
+          </div>
+        </div>
+
         <el-form-item label="綁定球員 / 校隊" class="font-bold">
           <el-select v-model="form.linked_team_member_ids" placeholder="可不綁定" size="large" class="w-full" multiple collapse-tags collapse-tags-tooltip clearable filterable>
             <el-option-group v-for="group in bindingOptionGroups" :key="group.role" :label="group.label">
@@ -296,8 +368,10 @@ import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
 import { supabase } from '@/services/supabase'
 import { usePermissionsStore } from '@/stores/permissions'
 import { compressImage } from '@/utils/imageCompressor'
+import { getProfileAccessState, type ProfileAccessState, type ProfileAccessStatus } from '@/utils/profileAccess'
 
 type ViewMode = 'table' | 'grid'
+type AccessStatusFilter = 'all' | ProfileAccessStatus
 
 type UserRow = {
   id: string
@@ -312,6 +386,8 @@ type UserRow = {
   linked_team_member_id?: string | null
   last_seen_at?: string | null
   is_active?: boolean | null
+  access_start?: string | null
+  access_end?: string | null
 }
 
 type BindingMember = {
@@ -327,6 +403,7 @@ type DecoratedUser = UserRow & {
   linkedMemberIds: string[]
   linkedMembers: BindingMember[]
   missingLinkedMemberCount: number
+  accessState: ProfileAccessState
 }
 
 type UserGroup = {
@@ -339,6 +416,7 @@ const permissionsStore = usePermissionsStore()
 
 const activeTab = ref('users')
 const viewMode = ref<ViewMode>('grid')
+const statusFilter = ref<AccessStatusFilter>('all')
 const fallbackRoleNames: Record<string, string> = {
   ADMIN: '系統管理員',
   MANAGER: '管理員',
@@ -346,6 +424,7 @@ const fallbackRoleNames: Record<string, string> = {
   COACH: '教練'
 }
 const fallbackRolePriority = ['ADMIN', 'MANAGER', 'HEAD_COACH', 'COACH']
+const accessStatusOrder: ProfileAccessStatus[] = ['active', 'suspended', 'not_started', 'expired']
 
 const users = ref<UserRow[]>([])
 const bindingMembers = ref<BindingMember[]>([])
@@ -367,7 +446,10 @@ const form = reactive({
   nickname: '',
   role: 'COACH',
   avatar_url: '',
-  linked_team_member_ids: [] as string[]
+  linked_team_member_ids: [] as string[],
+  is_active: true,
+  access_start: null as string | null,
+  access_end: null as string | null
 })
 
 const rules = {
@@ -404,9 +486,38 @@ const decoratedUsers = computed<DecoratedUser[]>(() => {
       ...user,
       linkedMemberIds,
       linkedMembers,
-      missingLinkedMemberCount: Math.max(0, linkedMemberIds.length - linkedMembers.length)
+      missingLinkedMemberCount: Math.max(0, linkedMemberIds.length - linkedMembers.length),
+      accessState: getProfileAccessState(user)
     }
   })
+})
+
+const filteredDecoratedUsers = computed(() => {
+  if (statusFilter.value === 'all') {
+    return decoratedUsers.value
+  }
+
+  return decoratedUsers.value.filter((user) => user.accessState.status === statusFilter.value)
+})
+
+const accessStatusFilterOptions = computed(() => {
+  const counts = decoratedUsers.value.reduce<Record<ProfileAccessStatus, number>>((summary, user) => {
+    summary[user.accessState.status] += 1
+    return summary
+  }, {
+    active: 0,
+    suspended: 0,
+    not_started: 0,
+    expired: 0
+  })
+
+  return [
+    { value: 'all' as const, label: `全部 ${decoratedUsers.value.length}` },
+    ...accessStatusOrder.map((status) => ({
+      value: status,
+      label: `${getAccessStatusLabel(status)} ${counts[status]}`
+    }))
+  ]
 })
 
 const roleOrderMap = computed(() => {
@@ -451,6 +562,31 @@ const getRoleDotClass = (role: string) => {
   return 'bg-blue-500'
 }
 
+const getAccessStatusLabel = (status: ProfileAccessStatus) => {
+  const labels: Record<ProfileAccessStatus, string> = {
+    active: '可登入',
+    suspended: '已停權',
+    not_started: '尚未開始',
+    expired: '已過期'
+  }
+
+  return labels[status]
+}
+
+const getAccessStatusTagClass = (status: ProfileAccessStatus) => {
+  if (status === 'active') return 'bg-emerald-50 border-emerald-200 text-emerald-700'
+  if (status === 'suspended') return 'bg-red-50 border-red-200 text-red-700'
+  if (status === 'not_started') return 'bg-sky-50 border-sky-200 text-sky-700'
+  return 'bg-amber-50 border-amber-200 text-amber-700'
+}
+
+const getAccessStatusDotClass = (status: ProfileAccessStatus) => {
+  if (status === 'active') return 'bg-emerald-500'
+  if (status === 'suspended') return 'bg-red-500'
+  if (status === 'not_started') return 'bg-sky-500'
+  return 'bg-amber-500'
+}
+
 const buildBindingOptionLabel = (member: BindingMember) => {
   const detailParts = [member.team_group, member.status && member.status !== '在隊' ? member.status : null].filter(Boolean)
   return detailParts.length > 0 ? `${member.name}｜${detailParts.join('｜')}` : member.name
@@ -489,7 +625,7 @@ const getLinkedMemberMeta = (row: DecoratedUser) => {
 const groupedUsers = computed<UserGroup[]>(() => {
   const groupedMap = new Map<string, DecoratedUser[]>()
 
-  for (const user of decoratedUsers.value) {
+  for (const user of filteredDecoratedUsers.value) {
     const existingGroup = groupedMap.get(user.role) ?? []
     existingGroup.push(user)
     groupedMap.set(user.role, existingGroup)
@@ -530,6 +666,21 @@ const formatDate = (dateString?: string | null, includeTime = false) => {
   const hours = String(date.getHours()).padStart(2, '0')
   const minutes = String(date.getMinutes()).padStart(2, '0')
   return `${year}/${month}/${day} ${hours}:${minutes}`
+}
+
+const getAccessWindowLabel = (row: Pick<UserRow, 'access_start' | 'access_end'>) => {
+  const startLabel = formatDate(row.access_start, true)
+  const endLabel = formatDate(row.access_end, true)
+
+  if (!row.access_start && !row.access_end) return '永久有效'
+  if (row.access_start && row.access_end) return `${startLabel} - ${endLabel}`
+  if (row.access_start) return `${startLabel} 起`
+  return `至 ${endLabel}`
+}
+
+const getAccessWindowMeta = (row: DecoratedUser) => {
+  if (!row.access_start && !row.access_end) return '未設定使用時間限制'
+  return row.accessState.allowed ? '目前位於可登入區間內' : row.accessState.message
 }
 
 const getLastSeenDiff = (dateString?: string | null) => {
@@ -614,6 +765,9 @@ const resetFormItems = () => {
   form.role = 'COACH'
   form.avatar_url = ''
   form.linked_team_member_ids = []
+  form.is_active = true
+  form.access_start = null
+  form.access_end = null
   avatarFile.value = null
   avatarPreview.value = null
 
@@ -636,6 +790,9 @@ const openEditModal = (row: DecoratedUser) => {
   form.role = row.role
   form.avatar_url = row.avatar_url || ''
   form.linked_team_member_ids = [...row.linkedMemberIds]
+  form.is_active = row.is_active !== false
+  form.access_start = row.access_start || null
+  form.access_end = row.access_end || null
   isModalOpen.value = true
 }
 
@@ -670,27 +827,61 @@ const uploadAvatar = async (userId: string) => {
   return data.publicUrl
 }
 
+const normalizeAccessTimestamp = (value?: string | null) => {
+  const normalized = value?.trim()
+  return normalized ? normalized : null
+}
+
+const validateAccessWindow = () => {
+  const accessStart = normalizeAccessTimestamp(form.access_start)
+  const accessEnd = normalizeAccessTimestamp(form.access_end)
+
+  if (!accessStart || !accessEnd) {
+    return true
+  }
+
+  const startTime = new Date(accessStart).getTime()
+  const endTime = new Date(accessEnd).getTime()
+
+  if (Number.isNaN(startTime) || Number.isNaN(endTime)) {
+    ElMessage.warning('請確認可登入時間格式是否正確')
+    return false
+  }
+
+  if (startTime > endTime) {
+    ElMessage.warning('可登入開始時間不可晚於結束時間')
+    return false
+  }
+
+  return true
+}
+
 const submitForm = async () => {
   if (!formRef.value) return
 
   await formRef.value.validate(async (valid: boolean) => {
     if (!valid) return
+    if (!validateAccessWindow()) return
+
     isSubmitting.value = true
 
     try {
+      const accessStart = normalizeAccessTimestamp(form.access_start)
+      const accessEnd = normalizeAccessTimestamp(form.access_end)
+
       if (isEditing.value) {
         const finalAvatarUrl = avatarFile.value ? await uploadAvatar(form.id) : form.avatar_url
-        const { error } = await supabase
-          .from('profiles')
-          .update({
-            name: form.name,
-            nickname: form.nickname,
-            role: form.role,
-            avatar_url: finalAvatarUrl,
-            linked_team_member_ids: form.linked_team_member_ids.length > 0 ? form.linked_team_member_ids : null,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', form.id)
+        const { error } = await supabase.rpc('admin_update_profile', {
+          target_id: form.id,
+          p_name: form.name,
+          p_nickname: form.nickname,
+          p_role: form.role,
+          p_avatar: finalAvatarUrl,
+          p_linked_team_member_ids: form.linked_team_member_ids.length > 0 ? form.linked_team_member_ids : null,
+          p_is_active: form.is_active,
+          p_access_start: accessStart,
+          p_access_end: accessEnd
+        })
 
         if (error) throw error
         ElMessage.success('更新成功！')
@@ -722,7 +913,10 @@ const submitForm = async () => {
           p_name: form.name,
           p_nickname: form.nickname,
           p_role: form.role,
-          p_avatar: finalAvatarUrl
+          p_avatar: finalAvatarUrl,
+          p_is_active: form.is_active,
+          p_access_start: accessStart,
+          p_access_end: accessEnd
         })
 
         if (profileError) {
@@ -741,7 +935,7 @@ const submitForm = async () => {
             console.error('Binding Error:', bindingError)
             ElMessage.warning(`新增使用者成功，但綁定資料寫入失敗：${bindingError.message}`)
           } else {
-            ElMessage.success('新增使用者成功！該成員已能透過信箱登入。')
+            ElMessage.success('新增使用者成功！登入狀態已套用。')
           }
         }
       }

@@ -50,7 +50,7 @@ export const usePermissionsStore = defineStore('permissions', () => {
   const can = (feature: string, action: string = 'VIEW') => {
     if (currentRole.value === 'ADMIN') return true // ADMIN bypasses all permission checks
 
-    if (feature === 'dashboard' || feature === 'calendar') {
+    if (action === 'VIEW' && (feature === 'dashboard' || feature === 'calendar' || feature === 'matches')) {
       return true // 預設開放功能
     }
 

@@ -1,0 +1,5 @@
+{
+  "imports": {
+    "@/types/match": "../../src/types/match.ts"
+  }
+}

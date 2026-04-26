@@ -602,23 +602,4 @@ onUnmounted(() => {
   border-radius: 10px;
 }
 
-/* 行動裝置對話框滿版與捲動處理 */
-@media (max-width: 639px) {
-  :deep(.custom-dialog) {
-    margin: 0 !important;
-    max-width: 100% !important;
-    width: 100% !important;
-    border-radius: 16px 16px 0 0 !important;
-    position: absolute;
-    bottom: 0;
-    max-height: 90vh;
-    display: flex;
-    flex-direction: column;
-  }
-  
-  :deep(.custom-dialog .el-dialog__body) {
-    flex: 1;
-    overflow-y: auto;
-  }
-}
 </style>

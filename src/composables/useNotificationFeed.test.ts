@@ -57,4 +57,49 @@ describe('notification feed controller', () => {
     await controller.loadNotificationFeed(10)
     expect(fetcher).toHaveBeenCalledTimes(1)
   })
+
+  it('maps match notifications and supports force reload', async () => {
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce([
+        {
+          id: 'match-event-1',
+          source: 'match',
+          title: '明日賽事提醒：春季聯賽',
+          body: '賽事名稱：春季聯賽',
+          created_at: '2026-04-14T12:00:00.000Z',
+          link: '/match-records?match_id=match-1',
+          highlight_member_id: null
+        }
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: 'match-event-2',
+          source: 'match',
+          title: '明日賽事提醒：邀請賽',
+          body: '賽事名稱：邀請賽',
+          created_at: '2026-04-14T13:00:00.000Z',
+          link: '/match-records?match_id=match-2',
+          highlight_member_id: null
+        }
+      ])
+
+    const controller = createNotificationFeedController(fetcher)
+
+    await controller.loadNotificationFeed(10)
+    await controller.loadNotificationFeed(10)
+    expect(fetcher).toHaveBeenCalledTimes(1)
+    expect(controller.notifications.value[0]).toMatchObject({
+      id: 'match:match-event-1',
+      source: 'match',
+      link: '/match-records?match_id=match-1'
+    })
+
+    await controller.loadNotificationFeed(10, { force: true })
+    expect(fetcher).toHaveBeenCalledTimes(2)
+    expect(controller.notifications.value[0]).toMatchObject({
+      id: 'match:match-event-2',
+      source: 'match',
+      link: '/match-records?match_id=match-2'
+    })
+  })
 })

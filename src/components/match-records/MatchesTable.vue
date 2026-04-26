@@ -6,6 +6,9 @@ import { ElMessage } from 'element-plus'
 
 const props = defineProps<{
   matches: MatchRecord[]
+  canEdit?: boolean
+  canDelete?: boolean
+  canNotify?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -107,7 +110,7 @@ const handleNotifyLine = (m: MatchRecord) => {
       <el-table-column label="操作" width="180" align="right" fixed="right">
         <template #default="{ row }">
           <div class="flex items-center justify-end space-x-1" @click.stop>
-             <el-tooltip content="發送推播通知" placement="top">
+             <el-tooltip v-if="props.canNotify !== false" content="發送推播通知" placement="top">
                <el-button @click.stop="handleNotifyLine(row)" circle size="small" class="!border-none hover:!bg-blue-50 hover:!text-blue-500 text-gray-400">
                  <el-icon><Bell /></el-icon>
                </el-button>
@@ -117,12 +120,12 @@ const handleNotifyLine = (m: MatchRecord) => {
                  <el-icon><DocumentCopy /></el-icon>
                </el-button>
              </el-tooltip>
-             <el-tooltip content="編輯" placement="top">
+             <el-tooltip v-if="props.canEdit !== false" content="編輯" placement="top">
                <el-button @click.stop="emit('edit', row.id)" circle size="small" class="!border-none hover:!bg-orange-50 hover:!text-orange-500 text-gray-400">
                  <el-icon><Operation /></el-icon>
                </el-button>
              </el-tooltip>
-             <el-tooltip content="刪除" placement="top">
+             <el-tooltip v-if="props.canDelete !== false" content="刪除" placement="top">
                <el-button @click.stop="emit('delete', row.id)" circle size="small" class="!border-none hover:!bg-red-50 hover:!text-red-500 text-gray-400">
                  <el-icon><Delete /></el-icon>
                </el-button>

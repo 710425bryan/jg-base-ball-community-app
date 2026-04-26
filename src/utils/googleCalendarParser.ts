@@ -52,12 +52,29 @@ export interface ParsedMatch {
   description: string
 }
 
-export interface CalendarSyncItem {
-  action: 'create' | 'update' | 'skip'
-  existingMatchId: string | null
+interface CalendarSyncItemBase {
   parsedMatch: ParsedMatch
+}
+
+export interface CalendarSyncCreateItem extends CalendarSyncItemBase {
+  action: 'create'
+  existingMatchId: null
   payload: MatchRecordInput
 }
+
+export interface CalendarSyncUpdateItem extends CalendarSyncItemBase {
+  action: 'update'
+  existingMatchId: string
+  payload: Partial<MatchRecordInput>
+}
+
+export interface CalendarSyncSkipItem extends CalendarSyncItemBase {
+  action: 'skip'
+  existingMatchId: string
+  payload: Partial<MatchRecordInput>
+}
+
+export type CalendarSyncItem = CalendarSyncCreateItem | CalendarSyncUpdateItem | CalendarSyncSkipItem
 
 export interface CalendarSyncOptions {
   minimumMatchDate?: string
@@ -385,9 +402,12 @@ const buildLineup = (players: ParsedMatch['players']) =>
 
 const buildPlayersSummary = (players: ParsedMatch['players']) => players.map((player) => player.name).join(',')
 
+const getCalendarTournamentName = (match: ParsedMatch) => collapseWhitespace(match.tournamentName || '')
+
 export const createMatchRecordInput = (match: ParsedMatch): MatchRecordInput => ({
   google_calendar_event_id: match.id || null,
   match_name: match.matchName || match.title || '未命名賽事',
+  tournament_name: getCalendarTournamentName(match) || null,
   opponent: match.opponent || '待確認',
   match_date: match.date,
   match_time: match.matchTime,
@@ -405,6 +425,26 @@ export const createMatchRecordInput = (match: ParsedMatch): MatchRecordInput => 
   inning_logs: [],
   batting_stats: []
 })
+
+const createMatchScheduleUpdateInput = (match: ParsedMatch): Partial<MatchRecordInput> => {
+  const payload: Partial<MatchRecordInput> = {
+    google_calendar_event_id: match.id || null,
+    match_name: match.matchName || match.title || '未命名賽事',
+    opponent: match.opponent || '待確認',
+    match_date: match.date,
+    match_time: match.matchTime,
+    location: match.location,
+    category_group: match.category,
+    match_level: match.level
+  }
+
+  const tournamentName = getCalendarTournamentName(match)
+  if (tournamentName) {
+    payload.tournament_name = tournamentName
+  }
+
+  return payload
+}
 
 const getStartTimeForMatchKey = (matchTime: string) => {
   const trimmed = matchTime.trim()
@@ -428,46 +468,28 @@ const buildParsedTitleCandidates = (match: ParsedMatch) =>
     )
   )
 
-const isSyncPayloadEqual = (existing: MatchRecord, payload: MatchRecordInput) =>
-  JSON.stringify({
-    google_calendar_event_id: existing.google_calendar_event_id || null,
-    match_name: existing.match_name,
-    opponent: existing.opponent,
-    match_date: existing.match_date,
-    match_time: existing.match_time,
-    location: existing.location || '',
-    category_group: existing.category_group || '',
-    match_level: existing.match_level || '',
-    home_score: existing.home_score,
-    opponent_score: existing.opponent_score,
-    coaches: existing.coaches || '',
-    players: existing.players || '',
-    note: existing.note || '',
-    photo_url: existing.photo_url || '',
-    absent_players: existing.absent_players || [],
-    lineup: existing.lineup || [],
-    inning_logs: existing.inning_logs || [],
-    batting_stats: existing.batting_stats || []
-  }) ===
-  JSON.stringify({
-    google_calendar_event_id: payload.google_calendar_event_id || null,
-    match_name: payload.match_name,
-    opponent: payload.opponent,
-    match_date: payload.match_date,
-    match_time: payload.match_time,
-    location: payload.location || '',
-    category_group: payload.category_group || '',
-    match_level: payload.match_level || '',
-    home_score: payload.home_score,
-    opponent_score: payload.opponent_score,
-    coaches: payload.coaches || '',
-    players: payload.players || '',
-    note: payload.note || '',
-    photo_url: payload.photo_url || '',
-    absent_players: payload.absent_players || [],
-    lineup: payload.lineup || [],
-    inning_logs: payload.inning_logs || [],
-    batting_stats: payload.batting_stats || []
+const syncUpdateFields: Array<keyof MatchRecordInput> = [
+  'google_calendar_event_id',
+  'match_name',
+  'tournament_name',
+  'opponent',
+  'match_date',
+  'match_time',
+  'location',
+  'category_group',
+  'match_level'
+]
+
+const normalizeSyncValue = (value: unknown) => {
+  if (value === null || value === undefined) return ''
+  return typeof value === 'string' ? collapseWhitespace(value) : value
+}
+
+const isSyncPayloadEqual = (existing: MatchRecord, payload: Partial<MatchRecordInput>) =>
+  syncUpdateFields.every((field) => {
+    if (!(field in payload)) return true
+
+    return normalizeSyncValue(existing[field]) === normalizeSyncValue(payload[field])
   })
 
 const findFallbackExistingMatch = (existingMatches: MatchRecord[], parsedMatch: ParsedMatch) => {
@@ -494,7 +516,8 @@ export const planCalendarSync = (
   return parsedMatches
     .filter((parsedMatch) => parsedMatch.date >= minimumMatchDate)
     .map((parsedMatch) => {
-      const payload = createMatchRecordInput(parsedMatch)
+      const createPayload = createMatchRecordInput(parsedMatch)
+      const updatePayload = createMatchScheduleUpdateInput(parsedMatch)
 
       const matchedByUid =
         parsedMatch.id
@@ -508,16 +531,16 @@ export const planCalendarSync = (
           action: 'create',
           existingMatchId: null,
           parsedMatch,
-          payload
+          payload: createPayload
         }
       }
 
-      if (isSyncPayloadEqual(existingMatch, payload)) {
+      if (isSyncPayloadEqual(existingMatch, updatePayload)) {
         return {
           action: 'skip',
           existingMatchId: existingMatch.id,
           parsedMatch,
-          payload
+          payload: updatePayload
         }
       }
 
@@ -525,7 +548,7 @@ export const planCalendarSync = (
         action: 'update',
         existingMatchId: existingMatch.id,
         parsedMatch,
-        payload
+        payload: updatePayload
       }
     })
 }

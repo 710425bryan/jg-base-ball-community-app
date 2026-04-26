@@ -43,6 +43,7 @@ describe('googleCalendarParser', () => {
     expect(parsed.id).toBe('uid-final@google.com')
     expect(parsed.title).toBe('就是棒春季聯賽 中港國小 V.S 華興小學')
     expect(parsed.matchName).toBe('就是棒春季聯賽')
+    expect(parsed.tournamentName).toBe('就是棒春季聯賽')
     expect(parsed.opponent).toBe('華興小學')
     expect(parsed.date).toBe('2026-03-28')
     expect(parsed.startTime).toBe('08:00')
@@ -55,6 +56,8 @@ describe('googleCalendarParser', () => {
     expect(parsed.coaches).toEqual(['張教練'])
     expect(parsed.players[0]).toEqual({ number: '15', name: '尤丞洋' })
     expect(parsed.players.at(-1)).toEqual({ number: '8', name: '謝準' })
+
+    expect(createMatchRecordInput(parsed).tournament_name).toBe('就是棒春季聯賽')
   })
 
   it('parses folded iCal text, title variants, and numbered player lines from real-world samples', () => {
@@ -147,6 +150,151 @@ END:VCALENDAR`)
 
     expect(syncPlan[2].action).toBe('skip')
     expect(syncPlan[2].existingMatchId).toBe('skip-1')
+  })
+
+  it('skips existing matches when only manual game record fields differ', () => {
+    const parsed = parseMatchRecord({
+      id: 'uid-manual@google.com',
+      summary: 'U12 春季聯賽 中港熊戰 vs 華興小學',
+      description: [
+        '組別 / 類別：U12',
+        '賽事等級：一級',
+        '集合時間：07:20',
+        '盃賽名稱：春季聯賽U12組',
+        '參賽球員：',
+        '15 尤丞洋'
+      ].join('\n'),
+      location: '迪化壘球場',
+      startRaw: '20260328T000000Z',
+      endRaw: '20260328T013000Z'
+    })
+
+    const existingMatches: MatchRecord[] = [
+      {
+        ...buildExistingMatch('manual-1', createMatchRecordInput(parsed)),
+        home_score: 8,
+        opponent_score: 5,
+        coaches: '手動教練',
+        players: '手動球員',
+        note: '賽後筆記',
+        photo_url: 'https://example.com/match.jpg',
+        absent_players: [{ name: '王小明', type: '請假' }],
+        lineup: [{ order: 1, position: '投手', name: '尤丞洋', number: '15' }],
+        inning_logs: [{ inning: '一上', log: '安打得分' }],
+        batting_stats: [
+          {
+            name: '尤丞洋',
+            number: '15',
+            pa: 4,
+            ab: 3,
+            h1: 2,
+            h2: 0,
+            h3: 0,
+            hr: 0,
+            rbi: 2,
+            r: 1,
+            bb: 1,
+            hbp: 0,
+            so: 0,
+            sb: 1
+          }
+        ],
+        pitching_stats: [
+          {
+            name: '尤丞洋',
+            number: '15',
+            ip: 9,
+            h: 3,
+            h2: 0,
+            h3: 0,
+            hr: 0,
+            r: 1,
+            er: 1,
+            bb: 1,
+            so: 4,
+            np: 38,
+            ab: 11,
+            go: 3,
+            ao: 2
+          }
+        ]
+      }
+    ]
+
+    const syncPlan = planCalendarSync(existingMatches, [parsed], {
+      minimumMatchDate: '2026-01-01'
+    })
+
+    expect(syncPlan).toHaveLength(1)
+    expect(syncPlan[0].action).toBe('skip')
+  })
+
+  it('updates tournament_name with a schedule-only payload for existing matches', () => {
+    const parsed = parseMatchRecord({
+      id: 'uid-tournament@google.com',
+      summary: 'U12 春季聯賽 中港熊戰 vs 華興小學',
+      description: [
+        '組別 / 類別：U12',
+        '賽事等級：一級',
+        '盃賽名稱：春季聯賽U12組'
+      ].join('\n'),
+      location: '迪化壘球場',
+      startRaw: '20260328T000000Z',
+      endRaw: '20260328T013000Z'
+    })
+
+    const existingMatch = {
+      ...buildExistingMatch('existing-1', {
+        ...createMatchRecordInput(parsed),
+        google_calendar_event_id: null,
+        tournament_name: null
+      }),
+      home_score: 4,
+      opponent_score: 3,
+      note: '已填賽後紀錄',
+      batting_stats: [
+        {
+          name: '尤丞洋',
+          number: '15',
+          pa: 3,
+          ab: 3,
+          h1: 1,
+          h2: 1,
+          h3: 0,
+          hr: 0,
+          rbi: 1,
+          r: 1,
+          bb: 0,
+          hbp: 0,
+          so: 1,
+          sb: 0
+        }
+      ]
+    }
+
+    const syncPlan = planCalendarSync([existingMatch], [parsed], {
+      minimumMatchDate: '2026-01-01'
+    })
+
+    expect(syncPlan).toHaveLength(1)
+
+    const updateItem = syncPlan[0]
+    if (updateItem.action !== 'update') {
+      throw new Error(`Expected update action, received ${updateItem.action}`)
+    }
+
+    expect(updateItem.existingMatchId).toBe('existing-1')
+    expect(updateItem.payload.google_calendar_event_id).toBe('uid-tournament@google.com')
+    expect(updateItem.payload.tournament_name).toBe('春季聯賽U12組')
+    expect('home_score' in updateItem.payload).toBe(false)
+    expect('opponent_score' in updateItem.payload).toBe(false)
+    expect('note' in updateItem.payload).toBe(false)
+    expect('photo_url' in updateItem.payload).toBe(false)
+    expect('players' in updateItem.payload).toBe(false)
+    expect('absent_players' in updateItem.payload).toBe(false)
+    expect('lineup' in updateItem.payload).toBe(false)
+    expect('inning_logs' in updateItem.payload).toBe(false)
+    expect('batting_stats' in updateItem.payload).toBe(false)
   })
 
   it('ignores matches scheduled before the minimum sync date', () => {

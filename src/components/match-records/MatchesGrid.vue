@@ -9,8 +9,12 @@ const UNKNOWN_MONTH_KEY = '__unknown__'
 const props = withDefaults(defineProps<{
   matches: MatchRecord[]
   sortDirection?: 'asc' | 'desc'
+  canEdit?: boolean
+  canDelete?: boolean
 }>(), {
-  sortDirection: 'desc'
+  sortDirection: 'desc',
+  canEdit: true,
+  canDelete: true
 })
 
 const emit = defineEmits<{
@@ -91,7 +95,7 @@ const getResult = (match: MatchRecord) => {
 <template>
   <div class="space-y-8">
     <div v-for="group in groupedMatches" :key="group.month" class="animate-fade-in">
-      <div class="flex items-center space-x-3 mb-4">
+      <div class="sticky top-0 z-20 -mx-4 md:-mx-6 px-4 md:px-6 py-3 mb-4 bg-background/95 backdrop-blur-md shadow-[0_1px_0_0_#e5e7eb] flex items-center space-x-3">
         <h2 class="text-lg font-extrabold text-gray-800">{{ group.month }}</h2>
         <div class="h-px bg-gray-200 flex-1"></div>
         <span class="text-xs font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{{ group.items.length }} 筆</span>
@@ -121,11 +125,11 @@ const getResult = (match: MatchRecord) => {
                 <span v-if="match.category_group" class="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded border border-indigo-100 font-bold whitespace-nowrap">{{ match.category_group }}</span>
                 <span v-if="match.match_level" class="text-[10px] bg-orange-50 text-orange-600 px-2 py-0.5 rounded border border-orange-100 font-bold whitespace-nowrap">{{ match.match_level }}</span>
               </div>
-              <div class="flex items-center gap-2" @click.stop>
-                <el-button plain round size="small" class="!font-bold !border-gray-300" @click.stop="emit('edit', match.id)">
+              <div v-if="props.canEdit || props.canDelete" class="flex items-center gap-2" @click.stop>
+                <el-button v-if="props.canEdit" plain round size="small" class="!font-bold !border-gray-300" @click.stop="emit('edit', match.id)">
                   <el-icon class="mr-1"><Operation /></el-icon> 編輯
                 </el-button>
-                <el-button plain round size="small" type="danger" class="!font-bold" @click.stop="emit('delete', match.id)">
+                <el-button v-if="props.canDelete" plain round size="small" type="danger" class="!font-bold" @click.stop="emit('delete', match.id)">
                   <el-icon class="mr-1"><Delete /></el-icon> 刪除
                 </el-button>
               </div>

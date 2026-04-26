@@ -12,6 +12,9 @@ import {
 } from '@/utils/supabaseRpc'
 
 type NotificationFeedFetcher = (limit: number) => Promise<NotificationFeedRow[]>
+type NotificationFeedLoadOptions = {
+  force?: boolean
+}
 
 const normalizeLimit = (limit: number) => Math.min(Math.max(limit, 1), 50)
 
@@ -78,8 +81,14 @@ export const createNotificationFeedController = (
   let feedLimit = 10
   let generation = 0
 
-  const loadNotificationFeed = async (limit = 10) => {
+  const loadNotificationFeed = async (limit = 10, loadOptions: NotificationFeedLoadOptions = {}) => {
     feedLimit = normalizeLimit(limit)
+
+    if (loadOptions.force) {
+      generation += 1
+      inFlight = null
+      isLoaded.value = false
+    }
 
     if (isLoaded.value && !inFlight) {
       return notifications.value

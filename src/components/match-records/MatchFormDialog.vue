@@ -74,6 +74,7 @@ const formData = ref<MatchRecordInput>({
   location: '',
   category_group: '',
   match_level: '',
+  tournament_name: null,
   home_score: 0,
   opponent_score: 0,
   coaches: '',
@@ -104,6 +105,15 @@ const formData = ref<MatchRecordInput>({
 // Default options (mocked for now, normally fetched from API)
 const groupOptions = ['U10', 'U12', 'U15', '中港校隊', '社會教練組']
 const levelOptions = ['友誼賽', '特訓課', '全國賽', '市級錦標賽']
+const tournamentOptions = computed(() =>
+  Array.from(
+    new Set(
+      matchesStore.matches
+        .map((match) => String(match.tournament_name || '').trim())
+        .filter(Boolean)
+    )
+  ).sort((left, right) => right.localeCompare(left, 'zh-Hant'))
+)
 
 // Proxy computed properties for multi-selects
 const selectedCoaches = computed({
@@ -182,6 +192,7 @@ const initForm = async () => {
       location: '',
       category_group: '',
       match_level: '友誼賽',
+      tournament_name: null,
       home_score: 0,
       opponent_score: 0,
       coaches: '',
@@ -698,6 +709,7 @@ const handleSave = async () => {
       formData.value.current_lineup = cloneLineup(formData.value.lineup)
     }
     formData.value.line_score_data = cloneLineScoreData(formData.value.line_score_data)
+    formData.value.tournament_name = formData.value.tournament_name?.trim() || null
     sortInningLogs()
 
     if (props.mode === 'add') {
@@ -837,6 +849,21 @@ const handlePhotoUpload = async (event: Event) => {
                <div>
                  <label class="text-xs font-bold text-gray-500 mb-1 block">賽事名稱 <span class="text-red-500">*</span></label>
                  <el-input v-model="formData.match_name" placeholder="例如: 111學年度國小棒球聯賽" class="!w-full" size="large" />
+               </div>
+               <div>
+                 <label class="text-xs font-bold text-gray-500 mb-1 block">盃賽名稱</label>
+                 <el-select
+                   v-model="formData.tournament_name"
+                   filterable
+                   allow-create
+                   clearable
+                   default-first-option
+                   placeholder="選擇或輸入盃賽名稱"
+                   class="!w-full"
+                   size="large"
+                 >
+                   <el-option v-for="name in tournamentOptions" :key="name" :label="name" :value="name" />
+                 </el-select>
                </div>
                <div>
                  <label class="text-xs font-bold text-gray-500 mb-1 block">對手隊伍 <span class="text-red-500">*</span></label>

@@ -44,6 +44,11 @@ const isFuture = computed(() => {
   return dayjs(matchData.value.match_date).isAfter(dayjs(), 'day')
 })
 
+const matchDateLabel = computed(() => {
+  if (!matchData.value?.match_date) return '未設定日期'
+  return dayjs(matchData.value.match_date).format('YYYY年M月D日')
+})
+
 const handleDelete = async () => {
   if (!matchData.value) return
   try {
@@ -133,20 +138,20 @@ const pitchingTeamStats = computed(() => {
 <template>
   <el-dialog v-model="visible" width="100%" class="!rounded-2xl md:max-w-5xl !p-0 !bg-gray-50 custom-dialog-body overflow-hidden" :show-close="false" destroy-on-close align-center top="2vh">
     <div v-if="loading" class="h-96 flex items-center justify-center" v-loading="true"></div>
-    <div v-else-if="matchData" class="flex flex-col h-[90vh] md:h-[85vh]">
+    <div v-else-if="matchData" class="flex h-full flex-col md:h-[85vh]">
       
       <!-- Top Action Bar (Fixed Absolute) -->
-      <div class="absolute top-0 left-0 right-0 z-50 flex justify-between items-center p-4 bg-gradient-to-b from-black/60 to-transparent pointer-events-none">
+      <div class="mobile-dialog-safe-top-actions absolute top-0 left-0 right-0 z-50 flex justify-between items-center p-4 bg-gradient-to-b from-black/60 to-transparent pointer-events-none">
          <!-- Back/Close -->
-         <button @click="visible = false" class="pointer-events-auto bg-white/20 hover:bg-white/40 backdrop-blur-md rounded-full w-10 h-10 flex items-center justify-center text-white transition-colors">
+         <button @click="visible = false" class="pointer-events-auto bg-white/20 hover:bg-white/40 backdrop-blur-md rounded-full w-11 h-11 flex items-center justify-center text-white transition-colors">
            <el-icon class="text-xl"><ArrowLeft /></el-icon>
          </button>
          <!-- Right Actions -->
          <div v-if="!props.readonly" class="flex items-center gap-2 pointer-events-auto">
-            <button @click="emit('edit')" class="bg-primary hover:bg-primary/90 rounded-full w-10 h-10 flex items-center justify-center text-white shadow shadow-primary/30 transition-colors tooltip" title="編輯紀錄">
+            <button @click="emit('edit')" class="bg-primary hover:bg-primary/90 rounded-full w-11 h-11 flex items-center justify-center text-white shadow shadow-primary/30 transition-colors tooltip" title="編輯紀錄">
               <el-icon class="text-xl"><Edit /></el-icon>
             </button>
-            <button @click="handleDelete" class="bg-red-500/80 hover:bg-red-500 rounded-full w-10 h-10 flex items-center justify-center text-white shadow transition-colors tooltip" title="刪除紀錄">
+            <button @click="handleDelete" class="bg-red-500/80 hover:bg-red-500 rounded-full w-11 h-11 flex items-center justify-center text-white shadow transition-colors tooltip" title="刪除紀錄">
               <el-icon class="text-xl"><Delete /></el-icon>
             </button>
          </div>
@@ -179,17 +184,18 @@ const pitchingTeamStats = computed(() => {
         <div class="p-4 md:p-8 space-y-6 max-w-7xl mx-auto">
           
           <!-- 2. Score Board -->
-          <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-10 flex justify-between items-center xl:w-2/3 mx-auto -mt-16 md:-mt-20 relative z-10">
+          <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 md:p-8 flex justify-between items-center xl:w-2/3 mx-auto -mt-16 md:-mt-20 sticky top-16 md:top-20 z-30">
              <!-- Home -->
              <div class="flex flex-col items-center flex-1">
                <span class="text-gray-400 font-bold tracking-widest text-xs mb-2">HOME 主隊</span>
                <span class="text-xl md:text-3xl font-black text-gray-800 mb-2 truncate max-w-full">中港熊戰</span>
-               <span class="text-6xl md:text-8xl font-black tracking-tighter" :class="matchData.home_score > matchData.opponent_score ? 'text-primary' : 'text-gray-800'">
+               <span class="text-5xl md:text-7xl font-black tracking-tighter" :class="matchData.home_score > matchData.opponent_score ? 'text-primary' : 'text-gray-800'">
                  {{ isFuture ? '-' : matchData.home_score }}
                </span>
              </div>
              <!-- VS -->
-             <div class="flex flex-col items-center px-4 md:px-8">
+             <div class="flex flex-col items-center px-3 md:px-8 shrink-0">
+               <span class="mb-2 text-[11px] md:text-xs font-black text-gray-400 whitespace-nowrap">{{ matchDateLabel }}</span>
                <div class="bg-gray-100 text-gray-400 font-black italic text-lg px-3 py-1 rounded-lg">VS</div>
                <span v-if="!isFuture" class="mt-4 font-black text-sm tracking-widest" :class="{
                  'text-green-500': matchData.home_score > matchData.opponent_score,
@@ -203,7 +209,7 @@ const pitchingTeamStats = computed(() => {
              <div class="flex flex-col items-center flex-1">
                <span class="text-gray-400 font-bold tracking-widest text-xs mb-2">AWAY 客隊</span>
                <span class="text-xl md:text-3xl font-black text-gray-800 mb-2 truncate max-w-full" :title="matchData.opponent">{{ matchData.opponent }}</span>
-               <span class="text-6xl md:text-8xl font-black tracking-tighter" :class="matchData.opponent_score > matchData.home_score ? 'text-red-500' : 'text-gray-800'">
+               <span class="text-5xl md:text-7xl font-black tracking-tighter" :class="matchData.opponent_score > matchData.home_score ? 'text-red-500' : 'text-gray-800'">
                  {{ isFuture ? '-' : matchData.opponent_score }}
                </span>
              </div>
@@ -421,4 +427,5 @@ const pitchingTeamStats = computed(() => {
   background-color: #cbd5e1;
   border-radius: 6px;
 }
+
 </style>

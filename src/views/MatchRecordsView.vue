@@ -1,25 +1,68 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { Search, Filter, Calendar, Plus } from '@element-plus/icons-vue'
 import { useMatchesStore } from '@/stores/matches'
+import { usePermissionsStore } from '@/stores/permissions'
 import MatchesGrid from '@/components/match-records/MatchesGrid.vue'
 import MatchesTable from '@/components/match-records/MatchesTable.vue'
 import MatchDetailDialog from '@/components/match-records/MatchDetailDialog.vue'
 import MatchFormDialog from '@/components/match-records/MatchFormDialog.vue'
 import SyncCalendarDialog from '@/components/match-records/SyncCalendarDialog.vue'
+import MatchTournamentStatsTab from '@/components/match-records/MatchTournamentStatsTab.vue'
+import MatchAttendanceStatsTab from '@/components/match-records/MatchAttendanceStatsTab.vue'
 import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { MatchRecord } from '@/types/match'
 
 const matchesStore = useMatchesStore()
+const permissionsStore = usePermissionsStore()
+const route = useRoute()
+const router = useRouter()
 
-const activeMainTab = ref<'past' | 'future'>('past')
+type MatchRecordsTab = 'past' | 'future' | 'tournament_stats' | 'attendance'
+
+const activeMainTab = ref<MatchRecordsTab>('past')
 
 const searchQuery = ref('')
 const selectedGroup = ref('')
 const selectedLevel = ref('')
-const selectedMonth = ref('')
+
+type MonthRange = [string, string]
+
+const createDefaultMonthRange = (): MonthRange => [
+  dayjs().format('YYYY-MM'),
+  dayjs().add(1, 'month').format('YYYY-MM')
+]
+
+const selectedMonthRange = ref<MonthRange>(createDefaultMonthRange())
+
+const selectedStartMonth = computed({
+  get: () => selectedMonthRange.value[0],
+  set: (value: string) => {
+    const nextStart = value || selectedMonthRange.value[0]
+    const currentEnd = selectedMonthRange.value[1]
+    selectedMonthRange.value = nextStart > currentEnd
+      ? [nextStart, nextStart]
+      : [nextStart, currentEnd]
+  }
+})
+
+const selectedEndMonth = computed({
+  get: () => selectedMonthRange.value[1],
+  set: (value: string) => {
+    const currentStart = selectedMonthRange.value[0]
+    const nextEnd = value || selectedMonthRange.value[1]
+    selectedMonthRange.value = nextEnd < currentStart
+      ? [nextEnd, nextEnd]
+      : [currentStart, nextEnd]
+  }
+})
+
+const hasAdvancedFilters = computed(() =>
+  Boolean(selectedGroup.value || selectedLevel.value || (selectedMonthRange.value[0] && selectedMonthRange.value[1]))
+)
 
 // Table vs Grid
 const viewMode = ref<'table' | 'grid'>('grid')
@@ -31,8 +74,66 @@ const syncDialogVisible = ref(false)
 const selectedMatchId = ref<string | null>(null)
 const formMode = ref<'add' | 'edit'>('add')
 
+const canCreateMatches = computed(() => permissionsStore.can('matches', 'CREATE'))
+const canEditMatches = computed(() => permissionsStore.can('matches', 'EDIT'))
+const canDeleteMatches = computed(() => permissionsStore.can('matches', 'DELETE'))
+const canSyncMatches = computed(() => canCreateMatches.value || canEditMatches.value)
+
+const getRouteMatchId = () => {
+  const rawMatchId = route.query.match_id
+  return typeof rawMatchId === 'string' ? rawMatchId.trim() : ''
+}
+
+const clearRouteMatchId = () => {
+  if (!route.query.match_id) return
+
+  const nextQuery = { ...route.query }
+  delete nextQuery.match_id
+  void router.replace({ query: nextQuery })
+}
+
+const openMatchFromRoute = async () => {
+  const routeMatchId = getRouteMatchId()
+  if (!routeMatchId) return
+
+  if (!matchesStore.matches.some((match) => match.id === routeMatchId)) {
+    await matchesStore.fetchMatches()
+  }
+
+  const targetMatch = matchesStore.matches.find((match) => match.id === routeMatchId)
+  if (!targetMatch) {
+    selectedMatchId.value = null
+    detailDialogVisible.value = false
+    ElMessage.warning('找不到這筆比賽資料')
+    clearRouteMatchId()
+    return
+  }
+
+  activeMainTab.value = dayjs(targetMatch.match_date).isAfter(dayjs().startOf('day'), 'day') ? 'future' : 'past'
+  selectedMatchId.value = routeMatchId
+  detailDialogVisible.value = true
+}
+
+const initializeMatches = async () => {
+  await matchesStore.fetchMatches()
+  await openMatchFromRoute()
+}
+
 onMounted(() => {
-  matchesStore.fetchMatches()
+  void initializeMatches()
+})
+
+watch(
+  () => route.query.match_id,
+  () => {
+    void openMatchFromRoute()
+  }
+)
+
+watch(detailDialogVisible, (visible) => {
+  if (!visible) {
+    clearRouteMatchId()
+  }
 })
 
 const getMatchSortValue = (match: MatchRecord) => {
@@ -63,18 +164,8 @@ const compareMatchesBySchedule = (a: MatchRecord, b: MatchRecord, direction: 'as
   return a.match_name.localeCompare(b.match_name, 'zh-Hant')
 }
 
-const filteredMatches = computed(() => {
+const filteredBaseMatches = computed(() => {
   let result = matchesStore.matches
-
-  // --- Tab Filtering ---
-  const today = dayjs().startOf('day')
-  if (activeMainTab.value === 'past') {
-    // Show matches today and before
-    result = result.filter(m => !m.match_date || dayjs(m.match_date).isBefore(today.add(1, 'day')))
-  } else {
-    // Show matches strictly after today
-    result = result.filter(m => m.match_date && dayjs(m.match_date).isAfter(today, 'day'))
-  }
 
   // --- Search & Advanced Filters ---
   if (searchQuery.value) {
@@ -95,15 +186,40 @@ const filteredMatches = computed(() => {
     result = result.filter(m => m.match_level === selectedLevel.value)
   }
 
-  if (selectedMonth.value) {
-    result = result.filter(m => m.match_date && m.match_date.startsWith(selectedMonth.value))
+  const [startMonth, endMonth] = selectedMonthRange.value
+  if (startMonth && endMonth) {
+    result = result.filter((m) => {
+      if (!m.match_date) return false
+
+      const matchMonth = m.match_date.slice(0, 7)
+      return matchMonth >= startMonth && matchMonth <= endMonth
+    })
   }
 
-  return [...result].sort((a, b) => {
-    const direction = activeMainTab.value === 'future' ? 'asc' : 'desc'
-    return compareMatchesBySchedule(a, b, direction)
-  })
+  return result
 })
+
+const pastFilteredMatches = computed(() => {
+  const tomorrow = dayjs().startOf('day').add(1, 'day')
+  return [...filteredBaseMatches.value]
+    .filter(m => !m.match_date || dayjs(m.match_date).isBefore(tomorrow))
+    .sort((a, b) => compareMatchesBySchedule(a, b, 'desc'))
+})
+
+const futureFilteredMatches = computed(() => {
+  const today = dayjs().startOf('day')
+  return [...filteredBaseMatches.value]
+    .filter(m => m.match_date && dayjs(m.match_date).isAfter(today, 'day'))
+    .sort((a, b) => compareMatchesBySchedule(a, b, 'asc'))
+})
+
+const filteredMatches = computed(() => {
+  return activeMainTab.value === 'future'
+    ? futureFilteredMatches.value
+    : pastFilteredMatches.value
+})
+
+const isListTab = computed(() => activeMainTab.value === 'past' || activeMainTab.value === 'future')
 
 const groups = computed(() => {
   const allGroups = matchesStore.matches.map(m => m.category_group).filter(Boolean) as string[]
@@ -215,7 +331,7 @@ const handleSyncCalendar = () => {
           <template #reference>
             <el-button class="!rounded-xl px-3 bg-white hover:bg-gray-50 text-gray-700 border-gray-200">
               <el-icon class="mr-1.5"><Filter /></el-icon>篩選
-              <span v-if="selectedGroup || selectedLevel || selectedMonth" class="ml-1.5 w-2 h-2 rounded-full bg-primary"></span>
+              <span v-if="hasAdvancedFilters" class="ml-1.5 w-2 h-2 rounded-full bg-primary"></span>
             </el-button>
           </template>
           
@@ -234,21 +350,41 @@ const handleSyncCalendar = () => {
               </el-select>
             </div>
             <div>
-              <label class="text-xs text-gray-500 font-bold mb-1 block">月份</label>
-              <el-date-picker v-model="selectedMonth" type="month" format="YYYY-MM" value-format="YYYY-MM" placeholder="選擇月份" class="!w-full" clearable />
+              <label class="text-xs text-gray-500 font-bold mb-1 block">月份區間</label>
+              <div class="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+                <el-date-picker
+                  v-model="selectedStartMonth"
+                  type="month"
+                  format="YYYY-MM"
+                  value-format="YYYY-MM"
+                  placeholder="開始月份"
+                  class="!w-full"
+                  :clearable="false"
+                />
+                <span class="hidden text-center text-xs font-bold text-gray-400 sm:block">至</span>
+                <el-date-picker
+                  v-model="selectedEndMonth"
+                  type="month"
+                  format="YYYY-MM"
+                  value-format="YYYY-MM"
+                  placeholder="結束月份"
+                  class="!w-full"
+                  :clearable="false"
+                />
+              </div>
             </div>
           </div>
         </el-popover>
 
-        <ViewModeSwitch v-model="viewMode" class="shrink-0" />
+        <ViewModeSwitch v-if="isListTab" v-model="viewMode" class="shrink-0" />
 
         <!-- Tool Buttons -->
-        <div class="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0">
-          <el-button @click="handleSyncCalendar" class="flex-1 sm:flex-none !rounded-xl text-gray-700 bg-white hover:bg-gray-50 border-gray-200">
+        <div v-if="isListTab && (canSyncMatches || canCreateMatches)" class="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+          <el-button v-if="canSyncMatches" @click="handleSyncCalendar" class="flex-1 sm:flex-none !rounded-xl text-gray-700 bg-white hover:bg-gray-50 border-gray-200">
             <el-icon class="mr-1.5 text-blue-500"><Calendar /></el-icon>同步行事曆
           </el-button>
           
-          <el-button @click="handleAddMatch" type="primary" class="flex-1 sm:flex-none !rounded-xl !bg-primary !border-primary hover:!bg-primary/90 !text-white shadow-sm shadow-primary/20 px-5 font-bold">
+          <el-button v-if="canCreateMatches" @click="handleAddMatch" type="primary" class="flex-1 sm:flex-none !rounded-xl !bg-primary !border-primary hover:!bg-primary/90 !text-white shadow-sm shadow-primary/20 px-5 font-bold">
             <el-icon class="mr-1.5 text-lg"><Plus /></el-icon>新增
           </el-button>
         </div>
@@ -257,11 +393,11 @@ const handleSyncCalendar = () => {
     </div>
       
     <!-- Modern Tabs under Sticky Header -->
-    <div class="px-4 md:px-6 flex gap-6 mt-1 lg:mt-0 bg-white/50 backdrop-blur-sm shadow-[0_1px_0_0_#f3f4f6]">
+    <div class="px-4 md:px-6 flex gap-6 mt-1 lg:mt-0 bg-white/50 backdrop-blur-sm shadow-[0_1px_0_0_#f3f4f6] overflow-x-auto">
       <button 
         @click="activeMainTab = 'past'" 
         :class="[
-          'pb-3 pt-1 font-bold text-sm px-1 transition-colors relative', 
+          'pb-3 pt-1 font-bold text-sm px-1 transition-colors relative whitespace-nowrap',
           activeMainTab === 'past' ? 'text-primary' : 'text-gray-500 hover:text-gray-800'
         ]"
       >
@@ -271,12 +407,32 @@ const handleSyncCalendar = () => {
       <button 
         @click="activeMainTab = 'future'" 
         :class="[
-          'pb-3 pt-1 font-bold text-sm px-1 transition-colors relative', 
+          'pb-3 pt-1 font-bold text-sm px-1 transition-colors relative whitespace-nowrap',
           activeMainTab === 'future' ? 'text-primary' : 'text-gray-500 hover:text-gray-800'
         ]"
       >
         未來賽事
         <div v-if="activeMainTab === 'future'" class="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-full"></div>
+      </button>
+      <button
+        @click="activeMainTab = 'tournament_stats'"
+        :class="[
+          'pb-3 pt-1 font-bold text-sm px-1 transition-colors relative whitespace-nowrap',
+          activeMainTab === 'tournament_stats' ? 'text-primary' : 'text-gray-500 hover:text-gray-800'
+        ]"
+      >
+        賽事成績
+        <div v-if="activeMainTab === 'tournament_stats'" class="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-full"></div>
+      </button>
+      <button
+        @click="activeMainTab = 'attendance'"
+        :class="[
+          'pb-3 pt-1 font-bold text-sm px-1 transition-colors relative whitespace-nowrap',
+          activeMainTab === 'attendance' ? 'text-primary' : 'text-gray-500 hover:text-gray-800'
+        ]"
+      >
+        賽事出席率
+        <div v-if="activeMainTab === 'attendance'" class="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-full"></div>
       </button>
     </div>
 
@@ -286,21 +442,23 @@ const handleSyncCalendar = () => {
     <div class="flex-1 overflow-y-auto p-4 md:p-6 pb-24" v-loading="matchesStore.loading">
       
       <!-- Empty State -->
-      <div v-if="!matchesStore.loading && filteredMatches.length === 0" class="h-64 flex flex-col items-center justify-center text-center max-w-sm mx-auto">
+      <div v-if="isListTab && !matchesStore.loading && filteredMatches.length === 0" class="h-64 flex flex-col items-center justify-center text-center max-w-sm mx-auto">
         <div class="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4">
            <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
         </div>
         <h3 class="text-gray-800 font-bold text-lg mb-2">尚無比賽紀錄</h3>
         <p class="text-sm text-gray-500 mb-6 font-medium">看來這邊還沒有任何紀錄，或是沒有符合您搜尋條件的賽事。</p>
-        <el-button @click="handleAddMatch" type="primary" plain class="!rounded-xl font-bold">立即新增第一場比賽</el-button>
+        <el-button v-if="canCreateMatches" @click="handleAddMatch" type="primary" plain class="!rounded-xl font-bold">立即新增第一場比賽</el-button>
       </div>
 
       <!-- Data Views -->
-      <template v-else>
+      <template v-else-if="isListTab">
         <MatchesGrid 
           v-if="viewMode === 'grid'" 
           :matches="filteredMatches" 
           :sort-direction="activeMainTab === 'future' ? 'asc' : 'desc'"
+          :can-edit="canEditMatches"
+          :can-delete="canDeleteMatches"
           @view="handleViewMatch" 
           @edit="handleEditMatch" 
           @delete="handleDeleteMatch"
@@ -308,15 +466,26 @@ const handleSyncCalendar = () => {
         <MatchesTable 
           v-else 
           :matches="filteredMatches" 
+          :can-edit="canEditMatches"
+          :can-delete="canDeleteMatches"
+          :can-notify="canSyncMatches"
           @view="handleViewMatch" 
           @edit="handleEditMatch" 
           @delete="handleDeleteMatch"
         />
       </template>
+      <MatchTournamentStatsTab
+        v-else-if="activeMainTab === 'tournament_stats'"
+        :matches="pastFilteredMatches"
+      />
+      <MatchAttendanceStatsTab
+        v-else
+        :matches="pastFilteredMatches"
+      />
     </div>
 
     <!-- Dialogs -->
-    <MatchDetailDialog v-model="detailDialogVisible" :match-id="selectedMatchId" @edit="handleEditMatch(selectedMatchId!)" />
+    <MatchDetailDialog v-model="detailDialogVisible" :match-id="selectedMatchId" :readonly="!canEditMatches" @edit="handleEditMatch(selectedMatchId!)" />
     <MatchFormDialog v-model="formDialogVisible" :match-id="selectedMatchId" :mode="formMode" />
     <SyncCalendarDialog v-model="syncDialogVisible" />
 

@@ -284,7 +284,7 @@ const handleNotificationClick = (link: string | undefined) => {
 };
 
 const handleNotificationBellClick = () => {
-  void loadNotificationFeedSafely();
+  void loadNotificationFeedSafely(true);
 };
 
 const translateRole = (role: string | undefined) => {
@@ -331,9 +331,9 @@ type IdleCapableWindow = Window & typeof globalThis & {
 let notificationIdleHandle: number | null = null;
 let notificationDelayHandle: number | null = null;
 
-const loadNotificationFeedSafely = async () => {
+const loadNotificationFeedSafely = async (force = false) => {
   try {
-    await loadNotificationFeed(10);
+    await loadNotificationFeed(10, { force });
   } catch (error) {
     console.error('Error fetching notification feed:', error);
   }

@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { supabase } from '@/services/supabase'
 import type { User, Session } from '@supabase/supabase-js'
 import { usePermissionsStore } from './permissions'
+import { getProfileAccessState } from '@/utils/profileAccess'
 
 const LAST_SEEN_SYNC_INTERVAL_MS = 5 * 60 * 1000
 const lastSeenSyncCache = new Map<string, number>()
@@ -20,10 +21,38 @@ export const useAuthStore = defineStore('auth', () => {
   let authStateSubscription: { unsubscribe: () => void } | null = null
   let hydratedProfileUserId: string | null = null
 
+  const clearLocalAuthContext = async () => {
+    session.value = null
+    user.value = null
+    profile.value = null
+    hydratedProfileUserId = null
+
+    if (permissionsStore.currentRole !== '') {
+      await permissionsStore.fetchPermissions('')
+    }
+  }
+
   const fetchProfile = async (userId: string) => {
     const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single()
     if (error) throw error
     profile.value = data || null
+    return profile.value
+  }
+
+  const rejectInvalidProfileAccess = async () => {
+    const accessState = getProfileAccessState(profile.value)
+
+    if (accessState.allowed) {
+      return
+    }
+
+    try {
+      await supabase.auth.signOut()
+    } finally {
+      await clearLocalAuthContext()
+    }
+
+    throw new Error(accessState.message)
   }
 
   const maybeTouchLastSeen = async (userId: string) => {
@@ -61,11 +90,7 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = nextSession?.user ?? null
 
     if (!user.value) {
-      profile.value = null
-      hydratedProfileUserId = null
-      if (permissionsStore.currentRole !== '') {
-        await permissionsStore.fetchPermissions('')
-      }
+      await clearLocalAuthContext()
       return
     }
 
@@ -76,6 +101,8 @@ export const useAuthStore = defineStore('auth', () => {
       await fetchProfile(user.value.id)
       hydratedProfileUserId = user.value.id
     }
+
+    await rejectInvalidProfileAccess()
 
     const nextRole = profile.value?.role || ''
     if (permissionsStore.currentRole !== nextRole) {
@@ -89,7 +116,9 @@ export const useAuthStore = defineStore('auth', () => {
     if (authStateSubscription) return
 
     const { data } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      void syncAuthContext(newSession)
+      void syncAuthContext(newSession).catch((error) => {
+        console.warn('Failed to sync auth state', error)
+      })
     })
 
     authStateSubscription = data.subscription
@@ -104,10 +133,10 @@ export const useAuthStore = defineStore('auth', () => {
       } = await supabase.auth.getSession()
 
       await syncAuthContext(existingSession, { forceProfileReload: true })
-      registerAuthStateListener()
     } catch (error) {
       console.error('Failed to initialize auth', error)
     } finally {
+      registerAuthStateListener()
       isInitializing.value = false
     }
   }
@@ -130,7 +159,7 @@ export const useAuthStore = defineStore('auth', () => {
     })
 
     if (permissionError || !canRequest) {
-      throw new Error('此信箱不存在於系統使用者名單中，無法登入。')
+      throw new Error('此信箱不存在、已停權或不在可登入時間內，無法登入。')
     }
 
     const { error } = await supabase.auth.signInWithOtp({ 
@@ -157,7 +186,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   const signOut = async () => {
     await supabase.auth.signOut()
-    await syncAuthContext(null, { forceProfileReload: true })
+    await clearLocalAuthContext()
   }
 
   return {

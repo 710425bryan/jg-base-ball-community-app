@@ -65,6 +65,14 @@ describe('auth store initialization', () => {
     vi.clearAllMocks()
     vi.resetModules()
     rpcMock.mockResolvedValue({ data: null, error: null })
+    signOutMock.mockResolvedValue({ error: null })
+    onAuthStateChangeMock.mockReturnValue({
+      data: {
+        subscription: {
+          unsubscribe: vi.fn()
+        }
+      }
+    })
     setActivePinia(createPinia())
   })
 
@@ -183,5 +191,84 @@ describe('auth store initialization', () => {
         emailRedirectTo: window.location.origin
       }
     })
+  })
+
+  it('signs out and clears local auth when an initialized profile is suspended', async () => {
+    const session = {
+      access_token: 'session-token',
+      user: { id: 'user-1' }
+    } as any
+
+    getSessionMock.mockResolvedValue({
+      data: {
+        session
+      }
+    })
+
+    profileSingleMock.mockResolvedValue({
+      data: {
+        id: 'user-1',
+        role: 'MANAGER',
+        name: 'Suspended User',
+        is_active: false
+      },
+      error: null
+    })
+
+    const [{ useAuthStore }, { usePermissionsStore }] = await Promise.all([
+      import('@/stores/auth'),
+      import('@/stores/permissions')
+    ])
+
+    const authStore = useAuthStore()
+    const permissionsStore = usePermissionsStore()
+    permissionsStore.currentRole = 'MANAGER'
+
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    await authStore.ensureInitialized()
+    consoleErrorSpy.mockRestore()
+
+    expect(signOutMock).toHaveBeenCalledTimes(1)
+    expect(authStore.user).toBeNull()
+    expect(authStore.profile).toBeNull()
+    expect(authStore.isAuthenticated).toBe(false)
+    expect(permissionsStore.currentRole).toBe('')
+  })
+
+  it('rejects otp verification when the hydrated profile is outside the access window', async () => {
+    const session = {
+      access_token: 'session-token',
+      user: { id: 'user-1' }
+    } as any
+
+    verifyOtpMock.mockResolvedValue({
+      data: {
+        session
+      },
+      error: null
+    })
+
+    profileSingleMock.mockResolvedValue({
+      data: {
+        id: 'user-1',
+        role: 'MANAGER',
+        name: 'Expired User',
+        is_active: true,
+        access_end: '2000-01-01T00:00:00.000Z'
+      },
+      error: null
+    })
+
+    const { useAuthStore } = await import('@/stores/auth')
+    const authStore = useAuthStore()
+
+    await expect(authStore.verifyOtpCode('test@example.com', '12345678'))
+      .rejects
+      .toThrow('此帳號的可登入時間已結束。')
+
+    expect(signOutMock).toHaveBeenCalledTimes(1)
+    expect(authStore.user).toBeNull()
+    expect(authStore.profile).toBeNull()
+    expect(authStore.isAuthenticated).toBe(false)
   })
 })

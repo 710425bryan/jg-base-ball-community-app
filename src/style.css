@@ -82,3 +82,83 @@ html {
 .el-table tbody tr:hover > td.el-table__cell {
   background-color: #fffaf0 !important; /* Soft orange hover */
 }
+
+/* Mobile Dialog Standard
+   All Element Plus dialogs use a full-screen layout on phones, with controls
+   padded away from iOS notches and home indicators. */
+@media (max-width: 639px) {
+  .el-overlay-dialog {
+    overflow: hidden !important;
+    padding: 0 !important;
+  }
+
+  .el-overlay-dialog > .el-dialog,
+  .el-overlay-dialog > .el-dialog.custom-dialog,
+  .el-overlay-dialog > .el-dialog.custom-dialog-body {
+    --el-dialog-width: 100% !important;
+    --el-dialog-margin-top: 0 !important;
+    bottom: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100dvh !important;
+    left: auto !important;
+    margin: 0 !important;
+    max-height: 100dvh !important;
+    max-width: 100% !important;
+    min-height: 100dvh !important;
+    overflow: hidden !important;
+    position: relative !important;
+    right: auto !important;
+    top: auto !important;
+    width: 100% !important;
+    border-radius: 0 !important;
+  }
+
+  .el-overlay-dialog > .el-dialog .el-dialog__header {
+    flex: none !important;
+    margin-right: 0 !important;
+    min-height: 56px !important;
+    padding-bottom: 12px !important;
+    padding-left: calc(16px + env(safe-area-inset-left)) !important;
+    padding-right: calc(64px + env(safe-area-inset-right)) !important;
+    padding-top: max(16px, calc(env(safe-area-inset-top) + 16px)) !important;
+  }
+
+  .el-overlay-dialog > .el-dialog .el-dialog__headerbtn {
+    align-items: center !important;
+    display: flex !important;
+    height: 44px !important;
+    justify-content: center !important;
+    right: max(8px, calc(env(safe-area-inset-right) + 8px)) !important;
+    top: max(8px, calc(env(safe-area-inset-top) + 8px)) !important;
+    width: 44px !important;
+  }
+
+  .el-overlay-dialog > .el-dialog .el-dialog__body {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .el-overlay-dialog > .el-dialog .el-dialog__footer {
+    flex: none !important;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom)) !important;
+    padding-left: calc(16px + env(safe-area-inset-left)) !important;
+    padding-right: calc(16px + env(safe-area-inset-right)) !important;
+  }
+
+  .mobile-dialog-safe-top-actions {
+    padding-left: calc(12px + env(safe-area-inset-left)) !important;
+    padding-right: calc(12px + env(safe-area-inset-right)) !important;
+    padding-top: max(12px, calc(env(safe-area-inset-top) + 12px)) !important;
+  }
+
+  .mobile-dialog-safe-close {
+    min-height: 44px !important;
+    min-width: 44px !important;
+    right: max(8px, calc(env(safe-area-inset-right) + 8px)) !important;
+    top: max(8px, calc(env(safe-area-inset-top) + 8px)) !important;
+  }
+}

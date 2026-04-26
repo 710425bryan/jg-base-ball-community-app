@@ -1330,33 +1330,9 @@ onMounted(() => {
   border-radius: 10px;
 }
 
-/* 行動裝置滿版設定 (含 iOS 瀏海 / 安全區域調整) */
 @media (max-width: 639px) {
-  .custom-dialog {
-    --el-dialog-width: 100% !important;
-    --el-dialog-margin-top: 0 !important;
-    margin: 0 !important;
-    height: 100dvh;
-    border-radius: 0 !important;
-    display: flex;
-    flex-direction: column;
-    padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-  .custom-dialog .el-dialog__header {
-    padding-top: max(24px, env(safe-area-inset-top)) !important;
-  }
-  .custom-dialog .el-dialog__body {
-    flex: 1;
-    overflow-y: hidden;
-    display: flex;
-    flex-direction: column;
-    padding: 16px !important;
-  }
   .custom-dialog .el-form {
     max-height: none !important;
-    flex: 1;
-    overflow-y: auto;
   }
 }
 </style>

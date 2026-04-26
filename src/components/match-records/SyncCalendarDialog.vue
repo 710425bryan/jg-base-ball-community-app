@@ -77,6 +77,9 @@
                   </span>
                 </div>
                 <h5 class="font-bold text-gray-900 leading-tight">{{ item.payload.match_name }}</h5>
+                <p v-if="item.payload.tournament_name" class="text-sm text-gray-600 mt-1">
+                  盃賽：{{ item.payload.tournament_name }}
+                </p>
                 <p class="text-sm text-gray-600 mt-1">對手：{{ item.payload.opponent }}</p>
                 <p class="text-xs text-gray-500 mt-2">
                   {{ item.payload.match_date }}<span v-if="item.payload.match_time"> ・ {{ item.payload.match_time }}</span>
@@ -113,9 +116,12 @@
                   </span>
                 </div>
                 <h5 class="font-bold text-gray-900 leading-tight">{{ item.payload.match_name }}</h5>
+                <p v-if="item.payload.tournament_name" class="text-sm text-gray-600 mt-1">
+                  盃賽：{{ item.payload.tournament_name }}
+                </p>
                 <p class="text-sm text-gray-600 mt-1">對手：{{ item.payload.opponent }}</p>
                 <p class="text-xs text-amber-700 mt-2 font-medium">
-                  將覆蓋既有紀錄：{{ getExistingMatchLabel(item.existingMatchId) }}
+                  只更新排程欄位：{{ getExistingMatchLabel(item.existingMatchId) }}
                 </p>
                 <p class="text-xs text-gray-500 mt-1">
                   {{ item.payload.match_date }}<span v-if="item.payload.match_time"> ・ {{ item.payload.match_time }}</span>
@@ -130,7 +136,7 @@
 
     <template #footer>
       <div class="flex items-center justify-between border-t border-gray-100 pt-4 -mx-4 px-4 bg-gray-50 rounded-b-2xl">
-        <span class="text-xs text-gray-400 font-bold">未出現在 Google 行事曆的既有比賽紀錄不會被刪除。</span>
+        <span class="text-xs text-gray-400 font-bold">既有紀錄不會被刪除；更新時不覆蓋比數、照片與賽後紀錄。</span>
         <div class="flex gap-2">
           <el-button class="!rounded-xl" @click="visible = false">取消</el-button>
           <el-button
@@ -169,9 +175,16 @@ const hasFetched = ref(false)
 const isSaving = ref(false)
 const syncItems = ref<CalendarSyncItem[]>([])
 
-const actionableItems = computed(() => syncItems.value.filter((item) => item.action !== 'skip'))
-const createItems = computed(() => actionableItems.value.filter((item) => item.action === 'create'))
-const updateItems = computed(() => actionableItems.value.filter((item) => item.action === 'update'))
+const isCreateItem = (item: CalendarSyncItem): item is Extract<CalendarSyncItem, { action: 'create' }> =>
+  item.action === 'create'
+const isUpdateItem = (item: CalendarSyncItem): item is Extract<CalendarSyncItem, { action: 'update' }> =>
+  item.action === 'update'
+const isActionableItem = (item: CalendarSyncItem): item is Extract<CalendarSyncItem, { action: 'create' | 'update' }> =>
+  item.action !== 'skip'
+
+const actionableItems = computed(() => syncItems.value.filter(isActionableItem))
+const createItems = computed(() => syncItems.value.filter(isCreateItem))
+const updateItems = computed(() => syncItems.value.filter(isUpdateItem))
 
 const ensureMatchesLoaded = async () => {
   if (matchesStore.matches.length === 0 && !matchesStore.loading) {
