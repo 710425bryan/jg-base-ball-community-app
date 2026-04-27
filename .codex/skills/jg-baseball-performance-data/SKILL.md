@@ -33,8 +33,9 @@ description: "棒球能力與體能測驗數據 workflow for jg-base-ball-commun
 
 ## 安全規則
 
-- 有對應 `VIEW` 權限的角色可讀該模組全部資料。
-- 沒有 `VIEW` 權限但 `profiles.linked_team_member_ids` 有綁定球員者，只能唯讀自己的綁定球員資料。
+- 只有 `VIEW` 權限的角色只能讀取 `profiles.linked_team_member_ids` 綁定球員資料。
+- 沒有 `VIEW` 權限但 `profiles.linked_team_member_ids` 有綁定球員者，也只能唯讀自己的綁定球員資料。
+- 具備對應 feature 的 `CREATE / EDIT / DELETE` 任一維護權限者，才可讀取該模組全隊資料。
 - `INSERT / UPDATE / DELETE` 只能由對應 feature 的 `CREATE / EDIT / DELETE` 權限執行；家長/球員自我檢視不可寫入。
 - RPC 與前端不得回傳或顯示 `national_id`、`guardian_phone`、`contact_line_id`。
 - 若新增欄位，需同步更新 table、RPC return shape、`src/types/performance.ts`、表單、列表與詳情頁指標設定。

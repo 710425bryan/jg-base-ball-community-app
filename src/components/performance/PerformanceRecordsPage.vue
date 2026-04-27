@@ -48,6 +48,7 @@ const records = computed<PerformanceRecord[]>(() => (
 const canCreate = computed(() => permissionsStore.can(config.value.feature, 'CREATE'))
 const canEdit = computed(() => permissionsStore.can(config.value.feature, 'EDIT'))
 const canDelete = computed(() => permissionsStore.can(config.value.feature, 'DELETE'))
+const canSearchRecords = computed(() => canCreate.value || canEdit.value || canDelete.value)
 
 const latestRecords = computed(() => {
   const latestByMember = new Map<string, PerformanceRecord>()
@@ -65,7 +66,7 @@ const latestRecords = computed(() => {
 })
 
 const filteredLatestRecords = computed(() => {
-  const keyword = searchKeyword.value.trim().toLowerCase()
+  const keyword = canSearchRecords.value ? searchKeyword.value.trim().toLowerCase() : ''
   if (!keyword) return latestRecords.value
 
   return latestRecords.value.filter((record) => [
@@ -119,7 +120,7 @@ const loadRecords = () => props.kind === BASEBALL_ABILITY_FEATURE
 const refresh = async () => {
   try {
     await Promise.all([
-      performanceStore.loadMembers(),
+      performanceStore.loadMembers(config.value.feature),
       loadRecords()
     ])
   } catch (error: any) {
@@ -229,8 +230,12 @@ onMounted(() => {
           </div>
         </div>
 
-        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div
+          class="flex flex-col gap-3 lg:flex-row lg:items-center"
+          :class="canSearchRecords ? 'lg:justify-between' : 'lg:justify-end'"
+        >
           <el-input
+            v-if="canSearchRecords"
             v-model="searchKeyword"
             size="large"
             clearable
@@ -251,7 +256,7 @@ onMounted(() => {
         <section v-else-if="filteredLatestRecords.length === 0" class="rounded-3xl border border-gray-100 bg-white p-10 text-center shadow-sm">
           <el-icon class="text-6xl text-gray-200"><DataLine /></el-icon>
           <h3 class="mt-4 text-lg font-black text-slate-800">{{ config.emptyTitle }}</h3>
-          <p class="mt-2 text-sm text-gray-400">有權限的角色可新增紀錄；家長與球員會看到已綁定球員的資料。</p>
+          <p class="mt-2 text-sm text-gray-400">可維護者可檢視全隊資料；僅檢視與綁定使用者只會看到已綁定球員的資料。</p>
         </section>
 
         <div v-else class="grid gap-6">

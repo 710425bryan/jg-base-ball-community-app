@@ -15,6 +15,7 @@ import type {
   BaseballAbilityPayload,
   BaseballAbilityRecord,
   PerformanceMemberOption,
+  PerformanceRecordKind,
   PhysicalTestPayload,
   PhysicalTestRecord
 } from '@/types/performance'
@@ -27,8 +28,8 @@ export const usePerformanceStore = defineStore('performance', () => {
   const isSaving = ref(false)
   const error = ref<string | null>(null)
 
-  const loadMembers = async () => {
-    members.value = await fetchPerformanceMemberOptions()
+  const loadMembers = async (feature?: PerformanceRecordKind | null) => {
+    members.value = await fetchPerformanceMemberOptions(feature)
     return members.value
   }
 

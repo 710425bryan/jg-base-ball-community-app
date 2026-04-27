@@ -5,6 +5,7 @@ import {
   type BaseballAbilityPayload,
   type BaseballAbilityRecord,
   type PerformanceMemberOption,
+  type PerformanceRecordKind,
   type PhysicalTestPayload,
   type PhysicalTestRecord
 } from '@/types/performance'
@@ -70,8 +71,10 @@ const normalizePhysicalTestRecord = (row: any): PhysicalTestRecord => ({
   member_avatar_url: row.member_avatar_url ?? null
 })
 
-export const fetchPerformanceMemberOptions = async () => {
-  const { data, error } = await supabase.rpc('get_performance_member_options')
+export const fetchPerformanceMemberOptions = async (feature?: PerformanceRecordKind | null) => {
+  const { data, error } = await supabase.rpc('get_performance_member_options', {
+    p_feature: feature || null
+  })
 
   if (error) throw error
   return (data || []).map(normalizeMemberOption)

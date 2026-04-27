@@ -74,7 +74,7 @@ const loadRecords = () => props.kind === BASEBALL_ABILITY_FEATURE
 const refresh = async () => {
   try {
     await Promise.all([
-      performanceStore.loadMembers(),
+      performanceStore.loadMembers(config.value.feature),
       loadRecords()
     ])
   } catch (error: any) {
@@ -238,7 +238,7 @@ onMounted(() => {
           <section v-if="records.length === 0" class="rounded-3xl border border-gray-100 bg-white p-10 text-center shadow-sm">
             <el-icon class="text-6xl text-gray-200"><TrendCharts /></el-icon>
             <h3 class="mt-4 text-lg font-black text-slate-800">尚無紀錄</h3>
-            <p class="mt-2 text-sm text-gray-400">有權限的角色可為這位球員新增第一筆測驗資料。</p>
+            <p class="mt-2 text-sm text-gray-400">可維護者可為這位球員新增第一筆測驗資料；僅檢視使用者只會看到已綁定球員的資料。</p>
           </section>
 
           <template v-else>

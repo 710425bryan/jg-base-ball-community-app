@@ -16,39 +16,51 @@
         <!-- Center: Desktop Menu -->
         <div class="flex-1 min-w-0 flex justify-center mx-1 xl:mx-2 overflow-hidden">
           <nav class="hidden lg:flex gap-4 xl:gap-6 2xl:gap-8 nav-desktop items-center px-1 min-w-0">
-            <router-link to="/dashboard" class="whitespace-nowrap text-[13px] xl:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">後台大廳</router-link>
-            <router-link to="/calendar" class="whitespace-nowrap text-[13px] xl:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">行事曆</router-link>
-            <router-link v-if="permissionsStore.can('matches', 'VIEW')" to="/match-records" class="whitespace-nowrap text-[13px] xl:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">比賽紀錄</router-link>
-            <router-link v-if="permissionsStore.can('leave_requests', 'VIEW')" to="/leave-requests" class="whitespace-nowrap text-[13px] xl:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">請假系統</router-link>
-            <router-link v-if="permissionsStore.can('attendance', 'VIEW')" to="/attendance" class="whitespace-nowrap text-[13px] xl:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">點名系統</router-link>
-            <router-link v-if="permissionsStore.can('players', 'VIEW')" to="/players" class="whitespace-nowrap text-[13px] xl:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">球員名單</router-link>
-            <el-dropdown trigger="hover" placement="bottom" v-if="hasPerformanceMenuAccess">
-              <div class="cursor-pointer whitespace-nowrap text-[13px] xl:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide flex items-center gap-1 pt-0.5 outline-none">
-                球隊數據 <el-icon class="text-xs transition-transform duration-300 el-dropdown-link-icon"><ArrowDown /></el-icon>
-              </div>
-              <template #dropdown>
-                <el-dropdown-menu class="!p-1.5 !rounded-xl min-w-[150px] shadow-xl border-gray-100">
-                  <el-dropdown-item v-if="canOpenBaseballAbility" @click="router.push('/baseball-ability')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">棒球能力數據</el-dropdown-item>
-                  <el-dropdown-item v-if="canOpenPhysicalTests" @click="router.push('/physical-tests')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">體能測驗數據</el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
-            
-            <!-- 更多選單 (不常用收納區) -->
-            <el-dropdown trigger="hover" placement="bottom" v-if="permissionsStore.can('join_inquiries') || permissionsStore.can('announcements') || permissionsStore.can('fees') || permissionsStore.can('equipment') || permissionsStore.can('users')">
-              <div class="cursor-pointer whitespace-nowrap text-[13px] xl:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide flex items-center gap-1 pt-0.5 outline-none">
-                更多 <el-icon class="text-xs transition-transform duration-300 el-dropdown-link-icon"><ArrowDown /></el-icon>
-              </div>
-              <template #dropdown>
-                <el-dropdown-menu class="!p-1.5 !rounded-xl min-w-[140px] shadow-xl border-gray-100">
-                  <el-dropdown-item v-if="permissionsStore.can('join_inquiries', 'VIEW')" @click="router.push('/join-inquiries')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">入隊申請</el-dropdown-item>
-                  <el-dropdown-item v-if="permissionsStore.can('announcements', 'VIEW')" @click="router.push('/announcements')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">系統公告</el-dropdown-item>
-                  <el-dropdown-item v-if="permissionsStore.can('fees', 'VIEW')" @click="router.push('/fees')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">收費管理</el-dropdown-item>
-                  <el-dropdown-item v-if="permissionsStore.can('equipment', 'VIEW')" @click="router.push('/equipment')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">裝備管理</el-dropdown-item>
-                  <el-dropdown-item v-if="permissionsStore.can('users', 'VIEW')" @click="router.push('/users')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5" divided>使用者名單</el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
+            <template v-if="isBasicMember">
+              <router-link
+                v-for="item in flatMemberDesktopNavItems"
+                :key="item.to"
+                :to="item.to"
+                class="whitespace-nowrap text-[13px] xl:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide"
+              >
+                {{ item.label }}
+              </router-link>
+            </template>
+            <template v-else>
+              <router-link to="/dashboard" class="whitespace-nowrap text-[13px] xl:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">後台大廳</router-link>
+              <router-link to="/calendar" class="whitespace-nowrap text-[13px] xl:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">行事曆</router-link>
+              <router-link v-if="permissionsStore.can('matches', 'VIEW')" to="/match-records" class="whitespace-nowrap text-[13px] xl:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">比賽紀錄</router-link>
+              <router-link v-if="permissionsStore.can('leave_requests', 'VIEW')" to="/leave-requests" class="whitespace-nowrap text-[13px] xl:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">請假系統</router-link>
+              <router-link v-if="permissionsStore.can('attendance', 'VIEW')" to="/attendance" class="whitespace-nowrap text-[13px] xl:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">點名系統</router-link>
+              <router-link v-if="permissionsStore.can('players', 'VIEW')" to="/players" class="whitespace-nowrap text-[13px] xl:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide">球員名單</router-link>
+              <el-dropdown trigger="hover" placement="bottom" v-if="hasPerformanceMenuAccess">
+                <div class="cursor-pointer whitespace-nowrap text-[13px] xl:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide flex items-center gap-1 pt-0.5 outline-none">
+                  球隊數據 <el-icon class="text-xs transition-transform duration-300 el-dropdown-link-icon"><ArrowDown /></el-icon>
+                </div>
+                <template #dropdown>
+                  <el-dropdown-menu class="!p-1.5 !rounded-xl min-w-[150px] shadow-xl border-gray-100">
+                    <el-dropdown-item v-if="canOpenBaseballAbility" @click="router.push('/baseball-ability')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">棒球能力數據</el-dropdown-item>
+                    <el-dropdown-item v-if="canOpenPhysicalTests" @click="router.push('/physical-tests')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">體能測驗數據</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+              
+              <!-- 更多選單 (不常用收納區) -->
+              <el-dropdown trigger="hover" placement="bottom" v-if="hasAdminMenuAccess">
+                <div class="cursor-pointer whitespace-nowrap text-[13px] xl:text-base hover:text-primary transition-colors font-bold text-gray-600 uppercase tracking-wide flex items-center gap-1 pt-0.5 outline-none">
+                  更多 <el-icon class="text-xs transition-transform duration-300 el-dropdown-link-icon"><ArrowDown /></el-icon>
+                </div>
+                <template #dropdown>
+                  <el-dropdown-menu class="!p-1.5 !rounded-xl min-w-[140px] shadow-xl border-gray-100">
+                    <el-dropdown-item v-if="permissionsStore.can('join_inquiries', 'VIEW')" @click="router.push('/join-inquiries')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">入隊申請</el-dropdown-item>
+                    <el-dropdown-item v-if="permissionsStore.can('announcements', 'VIEW')" @click="router.push('/announcements')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">系統公告</el-dropdown-item>
+                    <el-dropdown-item v-if="permissionsStore.can('fees', 'VIEW')" @click="router.push('/fees')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">收費管理</el-dropdown-item>
+                    <el-dropdown-item v-if="permissionsStore.can('equipment', 'VIEW')" @click="router.push('/equipment')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">裝備管理</el-dropdown-item>
+                    <el-dropdown-item v-if="permissionsStore.can('users', 'VIEW')" @click="router.push('/users')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5" divided>使用者名單</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </template>
           </nav>
         </div>
 
@@ -161,6 +173,29 @@
            <span class="text-[10px] text-gray-500 font-bold bg-white px-2 py-1 rounded-md border border-gray-200 shadow-sm tracking-wide">v{{ appVersion }}</span>
          </div>
          <div class="px-3 py-2 space-y-2">
+           <template v-if="isBasicMember">
+             <div class="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+               <template v-for="item in flatMemberMobileMenuItems" :key="item.to || item.label">
+                 <router-link
+                   v-if="item.to"
+                   :to="item.to"
+                   @click="closeMobileMenu"
+                   class="block border-b border-gray-50 px-5 py-3 text-sm font-bold tracking-wide text-gray-600 transition-colors last:border-b-0 hover:bg-gray-50 hover:text-primary"
+                 >
+                   {{ item.label }}
+                 </router-link>
+                 <button
+                   v-else
+                   type="button"
+                   class="block w-full border-b border-gray-50 px-5 py-3 text-left text-sm font-bold tracking-wide text-gray-600 transition-colors last:border-b-0 hover:bg-gray-50 hover:text-primary"
+                   @click="item.action?.()"
+                 >
+                   {{ item.label }}
+                 </button>
+               </template>
+             </div>
+           </template>
+           <template v-else>
            <section
              v-for="group in visibleMobileMenuGroups"
              :key="group.key"
@@ -205,6 +240,7 @@
                </template>
              </div>
            </section>
+           </template>
          </div>
          <button @click="handleSignOut" class="text-left px-6 py-5 text-red-500 hover:bg-red-50 font-bold w-full transition-colors flex items-center gap-2 uppercase tracking-widest text-sm">
            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
@@ -310,8 +346,12 @@ const hasLinkedTeamMembers = computed(() => {
   const linkedIds = authStore.profile?.linked_team_member_ids
   return Array.isArray(linkedIds) && linkedIds.length > 0
 });
-const canOpenBaseballAbility = computed(() => permissionsStore.can('baseball_ability', 'VIEW') || hasLinkedTeamMembers.value);
-const canOpenPhysicalTests = computed(() => permissionsStore.can('physical_tests', 'VIEW') || hasLinkedTeamMembers.value);
+const isBasicMember = computed(() => authStore.profile?.role === 'MEMBER');
+const performanceManageActions = ['CREATE', 'EDIT', 'DELETE'] as const;
+const canManagePerformanceFeature = (feature: string) =>
+  performanceManageActions.some((action) => permissionsStore.can(feature, action));
+const canOpenBaseballAbility = computed(() => canManagePerformanceFeature('baseball_ability') || hasLinkedTeamMembers.value);
+const canOpenPhysicalTests = computed(() => canManagePerformanceFeature('physical_tests') || hasLinkedTeamMembers.value);
 const hasPerformanceMenuAccess = computed(() => canOpenBaseballAbility.value || canOpenPhysicalTests.value);
 const primaryPerformancePath = computed(() => {
   if (canOpenBaseballAbility.value) return '/baseball-ability';
@@ -385,6 +425,12 @@ type MobileMenuGroup = {
   items: MobileMenuItem[];
 };
 
+type DesktopNavItem = {
+  label: string;
+  to: string;
+  visible?: boolean;
+};
+
 const mobileMenuGroupOpen = ref<Record<MobileMenuGroupKey, boolean>>({
   personal: false,
   team: false,
@@ -393,6 +439,36 @@ const mobileMenuGroupOpen = ref<Record<MobileMenuGroupKey, boolean>>({
 });
 
 const isVisibleMobileMenuItem = (item: MobileMenuItem) => item.visible !== false;
+const isVisibleDesktopNavItem = (item: DesktopNavItem) => item.visible !== false;
+
+const teamDesktopNavItems = computed<DesktopNavItem[]>(() => [
+  { label: '後台大廳', to: '/dashboard' },
+  { label: '行事曆', to: '/calendar' },
+  { label: '比賽紀錄', to: '/match-records', visible: permissionsStore.can('matches', 'VIEW') },
+  { label: '請假系統', to: '/leave-requests', visible: permissionsStore.can('leave_requests', 'VIEW') },
+  { label: '點名系統', to: '/attendance', visible: permissionsStore.can('attendance', 'VIEW') },
+  { label: '球員名單', to: '/players', visible: permissionsStore.can('players', 'VIEW') }
+].filter(isVisibleDesktopNavItem));
+
+const performanceDesktopNavItems = computed<DesktopNavItem[]>(() => [
+  { label: '棒球能力數據', to: '/baseball-ability', visible: canOpenBaseballAbility.value },
+  { label: '體能測驗數據', to: '/physical-tests', visible: canOpenPhysicalTests.value }
+].filter(isVisibleDesktopNavItem));
+
+const adminDesktopNavItems = computed<DesktopNavItem[]>(() => [
+  { label: '入隊申請', to: '/join-inquiries', visible: permissionsStore.can('join_inquiries', 'VIEW') },
+  { label: '系統公告', to: '/announcements', visible: permissionsStore.can('announcements', 'VIEW') },
+  { label: '收費管理', to: '/fees', visible: permissionsStore.can('fees', 'VIEW') },
+  { label: '裝備管理', to: '/equipment', visible: permissionsStore.can('equipment', 'VIEW') },
+  { label: '使用者名單', to: '/users', visible: permissionsStore.can('users', 'VIEW') }
+].filter(isVisibleDesktopNavItem));
+
+const flatMemberDesktopNavItems = computed<DesktopNavItem[]>(() => [
+  ...teamDesktopNavItems.value,
+  ...performanceDesktopNavItems.value,
+  ...adminDesktopNavItems.value
+]);
+const hasAdminMenuAccess = computed(() => adminDesktopNavItems.value.length > 0);
 
 const mobileMenuGroups = computed<MobileMenuGroup[]>(() => [
   {
@@ -440,6 +516,9 @@ const mobileMenuGroups = computed<MobileMenuGroup[]>(() => [
 ]);
 
 const visibleMobileMenuGroups = computed(() => mobileMenuGroups.value.filter((group) => group.items.length > 0));
+const flatMemberMobileMenuItems = computed<MobileMenuItem[]>(() => (
+  mobileMenuGroups.value.flatMap((group) => group.items)
+));
 
 const collapseMobileMenuGroups = () => {
   Object.keys(mobileMenuGroupOpen.value).forEach((key) => {

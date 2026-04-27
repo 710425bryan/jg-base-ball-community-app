@@ -7,6 +7,7 @@ import { usePermissionsStore } from '../stores/permissions'
 
 const CHUNK_RELOAD_SESSION_KEY = 'router:chunk-reload-target'
 const LINKED_MEMBER_VIEW_FEATURES = new Set(['baseball_ability', 'physical_tests'])
+const PERFORMANCE_MANAGE_ACTIONS = ['CREATE', 'EDIT', 'DELETE'] as const
 
 const isDynamicImportError = (error: unknown) => {
   const message = error instanceof Error ? error.message : String(error)
@@ -33,6 +34,11 @@ const hasLinkedTeamMembers = (profile: any) => {
   const linkedIds = profile?.linked_team_member_ids
   return Array.isArray(linkedIds) && linkedIds.filter(Boolean).length > 0
 }
+
+const canManagePerformanceFeature = (
+  permissionsStore: ReturnType<typeof usePermissionsStore>,
+  feature: string
+) => PERFORMANCE_MANAGE_ACTIONS.some((action) => permissionsStore.can(feature, action))
 
 const router = createRouter({
   history: createWebHashHistory(), // 必須符合舊版WebView設定
@@ -194,12 +200,21 @@ router.beforeEach(async (to, from, next) => {
   } else if (to.meta.requiresAuth && to.meta.feature) {
     const permissionsStore = usePermissionsStore()
     const feature = to.meta.feature as string
-    const canViewLinkedMemberData =
+    const isLinkedMemberViewFeature =
       to.meta.allowLinkedMemberView === true &&
-      LINKED_MEMBER_VIEW_FEATURES.has(feature) &&
-      hasLinkedTeamMembers(authStore.profile)
+      LINKED_MEMBER_VIEW_FEATURES.has(feature)
 
-    if (!permissionsStore.can(feature, 'VIEW') && !canViewLinkedMemberData) {
+    if (isLinkedMemberViewFeature) {
+      const canAccessPerformanceData =
+        canManagePerformanceFeature(permissionsStore, feature) ||
+        hasLinkedTeamMembers(authStore.profile)
+
+      if (!canAccessPerformanceData) {
+        next('/dashboard')
+      } else {
+        next()
+      }
+    } else if (!permissionsStore.can(feature, 'VIEW')) {
       next('/dashboard')
     } else {
       next()
