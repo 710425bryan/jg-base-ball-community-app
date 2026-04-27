@@ -295,6 +295,7 @@ import { Loading, BellFilled, Edit, Delete, Check, Calendar } from '@element-plu
 import dayjs from 'dayjs'
 import { useWindowSize } from '@vueuse/core'
 import { useRoute } from 'vue-router'
+import { getDefaultMonthlyFeeSettlementMonth } from '@/utils/monthlyFeeSettlement'
 
 const emit = defineEmits<{
   (e: 'summary-change', payload: {
@@ -307,7 +308,7 @@ const emit = defineEmits<{
   }): void
 }>()
 
-const selectedMonth = ref(dayjs().subtract(1, 'month').format('YYYY-MM'))
+const selectedMonth = ref(getDefaultMonthlyFeeSettlementMonth())
 const monthlyTotalSessions = ref(4)
 const hasMonthlyTotalMismatch = ref(false)
 const isLoading = ref(false)
