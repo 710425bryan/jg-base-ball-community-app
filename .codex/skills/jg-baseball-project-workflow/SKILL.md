@@ -1,6 +1,6 @@
 ---
 name: jg-baseball-project-workflow
-description: "Project-specific workflow for jg-base-ball-community-app. Use when Codex is asked to modify this repo's Vue 3 + Vite + TypeScript + Supabase app, especially page or component changes, Pinia stores, router, services, composables, utils, migrations, Edge Functions, PWA behavior, or repo-wide validation. Trigger on requests about 本專案、社區棒球管理系統、Supabase、Google Sheet 同步、Google Calendar 同步、推播通知、權限、或此 codebase 的一般功能修改。"
+description: "Project-specific workflow for jg-base-ball-community-app. Use when Codex is asked to modify this repo's Vue 3 + Vite + TypeScript + Supabase app, especially page or component changes, page title styling, Pinia stores, router, services, composables, utils, migrations, Edge Functions, PWA behavior, or repo-wide validation. Trigger on requests about 本專案、社區棒球管理系統、頁面 title 樣式、Supabase、Google Sheet 同步、Google Calendar 同步、推播通知、權限、或此 codebase 的一般功能修改。"
 ---
 
 # JG Baseball Project Workflow
@@ -33,6 +33,14 @@ description: "Project-specific workflow for jg-base-ball-community-app. Use when
 - 顯示球員資料時，先確認是否該走 `team_members_safe` 等安全讀取路徑。
 - 延續現有繁體中文文案與命名，不要因個人偏好大改風格。
 - 改到球員、請假、收費、賽事等核心流程時，順手檢查是否影響同步、通知、彙總或關聯資料。
+
+## UI 標題規則
+
+- 功能頁第一層標題統一使用 `src/style.css` 的 `.app-page-title`；標題含 icon、徽章或同列元素時加 `.app-page-title--inline`。
+- 頁面標題下方說明文字統一使用 `.app-page-subtitle`。
+- 預設 title 規格為 mobile `text-xl`、desktop `md:text-2xl`、`font-black`、`leading-tight`、`tracking-normal`、`text-slate-800`；title icon 使用 `.app-page-title-icon`。
+- 不要在功能頁 page title 直接堆疊 `text-3xl`、`text-primary`、`tracking-tight`、`tracking-wider` 或裝飾性 uppercase subtitle。若要調整全站 title 規格，優先改 `src/style.css` 的共用 class。
+- 首頁 hero、公開 landing、卡片標題、section title、dialog title 可依情境保留自己的視覺層級；不要為了統一 page title 而壓平這些區塊。
 
 ## 驗證
 

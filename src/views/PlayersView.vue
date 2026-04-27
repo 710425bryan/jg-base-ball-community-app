@@ -2,24 +2,24 @@
   <div class="h-full flex flex-col relative animate-fade-in p-2 md:p-6 pb-0 md:pb-6 bg-background text-text overflow-hidden">
     <!-- 頂部標題與操作區 -->
     <div class="flex flex-col xl:flex-row justify-between xl:items-center mb-5 gap-4 shrink-0 players-page-header">
-      <div class="flex items-center gap-4 shrink-0">
-        <div class="relative w-12 h-12 bg-white rounded-lg border border-orange-200 flex items-center justify-center shadow-sm overflow-hidden">
+      <div class="flex items-center gap-3 md:gap-4 shrink-0">
+        <div class="players-page-logo relative w-12 h-12 bg-white rounded-lg border border-orange-200 flex items-center justify-center shadow-sm overflow-hidden">
           <span class="absolute inset-x-0 top-0 h-1 bg-primary"></span>
           <span class="text-sm font-black text-slate-900">JG</span>
         </div>
         <div>
-          <h2 class="text-3xl font-black text-slate-900 flex items-center gap-2">
+          <h2 class="app-page-title app-page-title--inline">
             球員名單
           </h2>
-          <p class="text-secondary font-bold text-sm mt-1 uppercase flex items-center gap-2">
-            中港熊戰<span class="w-10 h-0.5 bg-secondary inline-block"></span>
+          <p class="app-page-subtitle">
+            中港熊戰
           </p>
         </div>
       </div>
       
       <div class="players-toolbar bg-white/90 border border-slate-200 rounded-lg shadow-sm p-2 flex flex-wrap items-center gap-2 xl:justify-end w-full xl:w-auto">
         <!-- 狀態、年齡與組別過濾 -->
-        <div class="w-full sm:w-auto flex flex-wrap items-center gap-2 shrink-0">
+        <div class="players-toolbar-filters w-full sm:w-auto flex flex-wrap items-center gap-2 shrink-0">
           <el-select v-model="filterStatus" class="w-24" size="default" placeholder="狀態">
             <el-option label="全狀態" value="全部" />
             <el-option label="在隊" value="在隊" />
@@ -43,7 +43,7 @@
         </div>
 
         <!-- 搜尋列 -->
-        <div class="w-full sm:w-auto flex-1 min-w-[180px] max-w-md transition-all duration-300">
+        <div class="players-search-field w-full sm:w-auto flex-1 min-w-[180px] max-w-md transition-all duration-300">
           <el-input
             v-model="searchQuery"
             placeholder="搜尋姓名..."
@@ -53,7 +53,7 @@
         </div>
 
         <!-- 切換顯示模式 -->
-        <div class="bg-slate-100 p-1 rounded-lg flex items-center shrink-0">
+        <div class="players-view-switch bg-slate-100 p-1 rounded-lg flex items-center shrink-0">
           <button @click="viewMode = 'grid'" :class="['px-3 py-2 rounded-md text-sm font-bold transition-all flex items-center gap-1.5 min-h-10', viewMode === 'grid' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700']">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
             <span class="hidden sm:inline">卡片</span>
@@ -63,16 +63,16 @@
             <span class="hidden sm:inline">表格</span>
           </button>
         </div>
-        <button v-if="canEditPlayers" @click="openPlayerExportDialog" class="bg-white hover:bg-slate-50 active:scale-95 text-slate-700 border border-slate-200 px-4 py-2.5 min-h-10 rounded-lg shadow-sm text-sm font-bold transition-all flex items-center gap-2">
+        <button v-if="canEditPlayers" @click="openPlayerExportDialog" class="players-toolbar-button bg-white hover:bg-slate-50 active:scale-95 text-slate-700 border border-slate-200 px-4 py-2.5 min-h-10 rounded-lg shadow-sm text-sm font-bold transition-all flex items-center gap-2">
           <el-icon class="text-primary"><Download /></el-icon>
           <span class="hidden sm:inline">下載比賽資料</span>
         </button>
-        <button v-if="canEditPlayers" @click="syncFromGoogleSheet" :disabled="isSyncing" class="bg-[#ca8a04] hover:bg-[#a16207] active:scale-95 text-white px-4 py-2.5 min-h-10 rounded-lg shadow-sm text-sm font-bold transition-all flex items-center gap-2 disabled:opacity-70">
+        <button v-if="canEditPlayers" @click="syncFromGoogleSheet" :disabled="isSyncing" class="players-toolbar-button bg-[#ca8a04] hover:bg-[#a16207] active:scale-95 text-white px-4 py-2.5 min-h-10 rounded-lg shadow-sm text-sm font-bold transition-all flex items-center gap-2 disabled:opacity-70">
           <el-icon v-if="isSyncing" class="is-loading"><Loading /></el-icon>
           <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg>
           <span class="hidden sm:inline">同步表單</span>
         </button>
-        <button v-if="canCreatePlayers" @click="openCreateModal()" class="bg-primary hover:bg-primary-hover active:scale-95 text-white px-4 py-2.5 min-h-10 rounded-lg shadow-sm text-sm font-bold transition-all flex items-center gap-2">
+        <button v-if="canCreatePlayers" @click="openCreateModal()" class="players-toolbar-button bg-primary hover:bg-primary-hover active:scale-95 text-white px-4 py-2.5 min-h-10 rounded-lg shadow-sm text-sm font-bold transition-all flex items-center gap-2">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
           <span class="hidden sm:inline">新增成員</span>
         </button>
@@ -101,7 +101,13 @@
         <el-table :data="filteredMembers" style="width: 100%" height="100%" row-class-name="cursor-pointer" @row-click="openEditModal" :header-cell-style="{ fontWeight: 'bold', whiteSpace: 'nowrap' }">
           <el-table-column width="76" align="center" fixed="left">
             <template #default="{ row }">
-              <el-avatar :src="row.avatar_url" shape="circle" :size="44" class="players-photo-frame bg-gray-100 border border-gray-200 flex items-center justify-center shrink-0">
+              <PreviewableImage
+                v-if="row.avatar_url"
+                :src="row.avatar_url"
+                :alt="`${row.name} 大頭照`"
+                class="players-photo-frame h-11 w-11 rounded-full border border-gray-200 bg-gray-100 shrink-0"
+              />
+              <el-avatar v-else shape="circle" :size="44" class="players-photo-frame bg-gray-100 border border-gray-200 flex items-center justify-center shrink-0">
                 <template #default>
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400 mt-1" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" /></svg>
                 </template>
@@ -131,7 +137,7 @@
           </el-table-column>
           <el-table-column prop="role" label="身分" width="90">
             <template #default="{ row }">
-              <span class="text-[10px] md:text-xs font-bold px-2 py-0.5 rounded border uppercase tracking-wider" :class="getRoleClass(row.role)">{{ row.role }}</span>
+              <span class="players-role-badge font-bold px-2 py-0.5 rounded border uppercase tracking-wider" :class="getRoleClass(row.role)">{{ row.role }}</span>
             </template>
           </el-table-column>
           <el-table-column prop="team_group" label="所屬群組" min-width="115">
@@ -184,7 +190,7 @@
       <!-- 卡片模式 -->
       <div v-else class="space-y-7">
         <section v-for="group in groupedMembers" :key="group.key" class="space-y-3">
-          <div class="sticky top-0 z-20 -mx-2 px-2 py-2 bg-background/95 backdrop-blur-md">
+          <div class="players-group-header sticky top-0 z-20 -mx-2 px-2 py-2 bg-background/95 backdrop-blur-md">
             <div class="bg-white/95 border border-slate-200 rounded-lg shadow-sm px-3 py-2 flex items-center justify-between gap-3">
               <h3 class="text-base md:text-lg font-black text-slate-900 flex items-center gap-2">
                 <span class="w-1.5 h-6 rounded-full" :class="group.accentClass"></span>
@@ -193,88 +199,94 @@
             </div>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 md:gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 md:gap-4">
             <article
               v-for="member in group.members"
               :key="member.id"
               :role="canEditPlayers ? 'button' : undefined"
               :tabindex="canEditPlayers ? 0 : -1"
               :aria-label="canEditPlayers ? `查看 ${member.name} 資料` : undefined"
-              class="players-member-card bg-white rounded-lg p-4 border border-slate-200 hover:border-primary/50 hover:shadow-md transition-all duration-200 relative group shadow-sm flex flex-col min-h-[292px] overflow-hidden"
+              class="players-member-card rounded-lg p-2.5 border border-slate-200 hover:border-primary/50 hover:shadow-lg transition-all duration-200 relative group shadow-sm flex flex-col min-h-[326px] overflow-hidden"
               :class="canEditPlayers ? 'cursor-pointer' : 'cursor-default'"
               @click="openEditModal(member)"
               @keydown.enter.space.prevent="openEditModal(member)"
             >
               <span class="absolute inset-x-0 top-0 h-1" :class="getMemberAccentClass(member)"></span>
-              <span class="absolute inset-x-0 top-1 h-24 bg-slate-50/80 border-b border-slate-100"></span>
-              <div class="relative flex items-start justify-between gap-3">
-                <div class="flex items-center gap-3 min-w-0">
-                  <div class="players-photo-frame w-20 h-20 md:w-24 md:h-24 rounded-2xl border-4 border-white ring-1 ring-slate-200 group-hover:ring-primary/40 flex items-center justify-center text-slate-400 overflow-hidden relative shrink-0 transition-colors bg-white shadow-sm">
-                    <img v-if="member.avatar_url" :src="member.avatar_url" class="players-photo w-full h-full object-cover" draggable="false" loading="lazy" />
-                    <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" /></svg>
-                  </div>
-                  <div class="min-w-0">
-                    <h4 class="font-black text-slate-800 text-lg md:text-xl leading-tight truncate">{{ member.name }}</h4>
-                    <div class="mt-2 flex flex-wrap items-center gap-1.5">
-                      <span class="text-[10px] md:text-xs font-bold px-2 py-0.5 rounded-md border uppercase" :class="getRoleClass(member.role)">{{ member.role }}</span>
-                      <span v-if="member.status === '退隊'" class="text-[10px] md:text-xs font-bold px-2 py-0.5 rounded-md border bg-red-50 text-red-600 border-red-200">退隊</span>
-                      <span v-else class="text-[10px] md:text-xs font-bold px-2 py-0.5 rounded-md border bg-green-50 text-green-600 border-green-100">在隊</span>
-                    </div>
-                    <div class="mt-2 flex flex-wrap items-center gap-1.5">
-                      <span v-if="member.team_group" class="inline-flex max-w-full text-[10px] md:text-xs font-bold px-2 py-0.5 rounded-md border truncate" :class="getTeamGroupClass(member.team_group)">
-                        {{ member.team_group }}
-                      </span>
-                      <span v-if="getULevel(member)" class="text-[10px] md:text-xs font-black px-2 py-0.5 rounded-md uppercase bg-blue-50 text-blue-600 border border-blue-100">
-                        {{ getULevel(member) }}
-                      </span>
-                    </div>
+              <div class="players-card-photo relative aspect-[4/3] overflow-hidden rounded-md border border-white/80 bg-slate-100 shadow-sm">
+                <PreviewableImage
+                  v-if="member.avatar_url"
+                  :src="member.avatar_url"
+                  :alt="`${member.name} 大頭照`"
+                  class="players-photo h-full w-full"
+                  lazy
+                />
+                <div v-else class="h-full w-full flex items-center justify-center bg-gradient-to-br from-slate-100 via-white to-orange-50 text-slate-300">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-14 w-14" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" /></svg>
+                </div>
+                <div class="absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-2">
+                  <span class="players-role-badge max-w-[70%] truncate font-black px-2 py-1 rounded-md border border-white/70 bg-white/90 shadow-sm backdrop-blur" :class="getRoleClass(member.role)">{{ member.role }}</span>
+                  <span v-if="member.jersey_number" class="bg-slate-950/90 text-white font-mono font-black text-sm px-2.5 py-1 rounded-md shadow-sm shrink-0">#{{ member.jersey_number }}</span>
+                </div>
+                <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/75 via-slate-900/25 to-transparent px-3 pb-2 pt-8">
+                  <div class="flex items-center justify-between gap-2 text-white">
+                    <h4 class="font-black text-lg leading-tight truncate">{{ member.name }}</h4>
+                    <span v-if="member.status === '退隊'" class="text-[10px] font-bold px-2 py-0.5 rounded-md border border-red-200/70 bg-red-500/90 text-white shrink-0">退隊</span>
+                    <span v-else class="text-[10px] font-bold px-2 py-0.5 rounded-md border border-emerald-200/70 bg-emerald-500/90 text-white shrink-0">在隊</span>
                   </div>
                 </div>
-
-                <span v-if="member.jersey_number" class="bg-slate-900 text-white font-mono font-black text-base px-3 py-1.5 rounded-lg shadow-sm shrink-0">#{{ member.jersey_number }}</span>
               </div>
 
-              <div class="relative mt-5 grid grid-cols-2 gap-x-5 gap-y-4 text-sm border-y border-slate-100 py-4">
+              <div class="relative px-1 pt-3">
+                <div class="flex flex-wrap items-center gap-1.5 min-h-6">
+                  <span v-if="member.team_group" class="inline-flex max-w-full text-[10px] md:text-xs font-bold px-2 py-0.5 rounded-md border truncate" :class="getTeamGroupClass(member.team_group)">
+                    {{ member.team_group }}
+                  </span>
+                  <span v-if="getULevel(member)" class="text-[10px] md:text-xs font-black px-2 py-0.5 rounded-md uppercase bg-sky-50 text-sky-700 border border-sky-100">
+                    {{ getULevel(member) }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="relative mt-3 grid grid-cols-2 gap-x-3 gap-y-3 text-xs border-t border-slate-100 px-1 pt-3">
                 <div class="min-w-0">
-                  <span class="block text-[11px] font-bold text-slate-400 mb-1">生日</span>
+                  <span class="block text-[10px] font-bold text-slate-400 mb-0.5">生日</span>
                   <span v-if="member.birth_date" class="block font-bold text-slate-800 truncate">
                     {{ member.birth_date }}
-                    <span class="text-slate-400 font-medium">({{ getROCDate(member.birth_date) }})</span>
                   </span>
                   <span v-else class="text-gray-300">-</span>
                 </div>
                 <div class="min-w-0">
-                  <span class="block text-[11px] font-bold text-slate-400 mb-1">球衣名字</span>
+                  <span class="block text-[10px] font-bold text-slate-400 mb-0.5">球衣名字</span>
                   <span v-if="member.jersey_name" class="block font-bold text-slate-800 truncate">
                     {{ member.jersey_name }}
                   </span>
                   <span v-else class="text-gray-300">-</span>
                 </div>
                 <div>
-                  <span class="block text-[11px] font-bold text-slate-400 mb-1">球衣尺寸</span>
+                  <span class="block text-[10px] font-bold text-slate-400 mb-0.5">球衣尺寸</span>
                   <span v-if="member.jersey_size" class="font-bold text-slate-800">
                     {{ member.jersey_size }}
                   </span>
                   <span v-else class="text-gray-300">-</span>
                 </div>
                 <div>
-                  <span class="block text-[11px] font-bold text-slate-400 mb-1">投 / 打</span>
-                  <span v-if="member.throwing_hand && member.batting_hand" class="text-xs md:text-sm font-mono font-bold text-slate-700">
+                  <span class="block text-[10px] font-bold text-slate-400 mb-0.5">投 / 打</span>
+                  <span v-if="member.throwing_hand && member.batting_hand" class="font-mono font-bold text-slate-700">
                     {{ member.throwing_hand.slice(0,1) }}/{{ member.batting_hand.slice(0,1) }}
                   </span>
                   <span v-else class="text-gray-300">-</span>
                 </div>
               </div>
 
-              <div class="mt-auto pt-4 flex flex-wrap items-center gap-2">
-                <span v-if="member.sibling_ids && member.sibling_ids.length > 0 && getSiblingName(member.sibling_ids)" class="text-[10px] md:text-xs font-bold px-2 py-1 rounded-md border inline-flex items-center gap-1.5 max-w-full" :class="member.is_primary_payer ? 'text-emerald-700 border-emerald-200 bg-emerald-50' : 'bg-primary/5 text-primary border-primary/20'">
+              <div class="mt-auto pt-3 px-1 flex flex-wrap items-center gap-2">
+                <span v-if="member.sibling_ids && member.sibling_ids.length > 0 && getSiblingName(member.sibling_ids)" class="text-[10px] font-bold px-2 py-1 rounded-md border inline-flex items-center gap-1.5 max-w-full" :class="member.is_primary_payer ? 'text-emerald-700 border-emerald-200 bg-emerald-50' : 'bg-primary/5 text-primary border-primary/20'">
                   <span class="shrink-0">{{ member.is_primary_payer ? '主要繳費人' : '半價優惠' }}</span>
-                  <span class="opacity-80 font-medium border-l border-current pl-1.5 text-[9px] md:text-[10px] truncate">手足: {{ getSiblingName(member.sibling_ids) }}</span>
+                  <span class="opacity-80 font-medium border-l border-current pl-1.5 text-[9px] truncate">手足: {{ getSiblingName(member.sibling_ids) }}</span>
                 </span>
-                <span v-else-if="member.is_half_price" class="text-[10px] md:text-xs font-bold px-2 py-1 rounded-md border bg-primary/5 text-primary border-primary/20">
+                <span v-else-if="member.is_half_price" class="text-[10px] font-bold px-2 py-1 rounded-md border bg-primary/5 text-primary border-primary/20">
                   半價優惠
                 </span>
-                <span v-if="member.national_id && canEditPlayers" class="text-xs md:text-sm font-mono text-gray-400 hidden sm:inline-block">
+                <span v-if="member.national_id && canEditPlayers" class="text-[10px] font-mono text-gray-400 hidden sm:inline-block">
                   ID: {{ member.national_id }}
                 </span>
               </div>
@@ -299,7 +311,12 @@
         <div class="flex justify-center mb-6">
           <div class="relative group cursor-pointer">
             <div class="players-photo-frame w-28 h-28 sm:w-32 sm:h-32 rounded-full overflow-hidden bg-gray-100 border-4 border-white shadow-lg flex items-center justify-center">
-              <img v-if="previewAvatar" :src="previewAvatar" class="players-photo w-full h-full object-cover" draggable="false"/>
+              <PreviewableImage
+                v-if="previewAvatar"
+                :src="previewAvatar"
+                :alt="`${form.name || '隊職員'} 大頭照`"
+                class="players-photo h-full w-full"
+              />
               <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-300" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" /></svg>
             </div>
             <label class="absolute bottom-0 right-0 bg-primary text-white p-2 rounded-full shadow-md cursor-pointer hover:bg-primary/90 transition-transform hover:scale-105 active:scale-95">
@@ -594,6 +611,7 @@ import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading, InfoFilled, Search, Download } from '@element-plus/icons-vue'
+import PreviewableImage from '@/components/common/PreviewableImage.vue'
 import { downloadUtf8BomCsv } from '@/utils/csvExport'
 import axios from 'axios'
 
@@ -1817,7 +1835,7 @@ onMounted(() => {
   height: 38px;
   padding: 0 14px !important;
   border-radius: 8px;
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 800;
   color: #64748b;
   transition: color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
@@ -1835,6 +1853,10 @@ onMounted(() => {
 }
 
 .players-member-card {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.94) 58%, rgba(255, 247, 237, 0.82) 100%);
+  box-shadow: 0 12px 26px -20px rgba(15, 23, 42, 0.32);
+  isolation: isolate;
   transform: translateZ(0);
 }
 .players-member-card:hover {
@@ -1843,6 +1865,16 @@ onMounted(() => {
 .players-member-card:focus-visible {
   outline: 3px solid rgba(216, 143, 34, 0.28);
   outline-offset: 2px;
+}
+.players-role-badge {
+  font-size: 1rem;
+  line-height: 1.25rem;
+}
+.players-card-photo {
+  transition: box-shadow 180ms ease, transform 180ms ease;
+}
+.players-member-card:hover .players-card-photo {
+  box-shadow: 0 16px 30px -20px rgba(15, 23, 42, 0.62);
 }
 
 .export-dialog.el-dialog {
@@ -1927,6 +1959,7 @@ onMounted(() => {
 
 @media (prefers-reduced-motion: reduce) {
   .players-member-card,
+  .players-card-photo,
   .players-toolbar .el-input__wrapper,
   .players-toolbar .el-select__wrapper,
   .light-tabs .el-tabs__item {
@@ -1950,6 +1983,74 @@ onMounted(() => {
 }
 
 @media (max-width: 639px) {
+  .players-page-header {
+    gap: 0.5rem;
+    margin-bottom: 0.625rem;
+  }
+  .players-page-logo {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+  .players-toolbar {
+    gap: 0.375rem;
+    padding: 0.375rem;
+  }
+  .players-toolbar-filters {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 0.9fr) minmax(0, 1.35fr);
+    gap: 0.375rem;
+  }
+  .players-toolbar-filters .el-select {
+    width: 100% !important;
+  }
+  .players-toolbar .el-input__wrapper,
+  .players-toolbar .el-select__wrapper {
+    min-height: 40px;
+  }
+  .players-search-field {
+    flex: 1 1 7.5rem;
+    min-width: 0;
+    max-width: none;
+  }
+  .players-view-switch {
+    padding: 0;
+  }
+  .players-view-switch button,
+  .players-toolbar-button {
+    width: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+  }
+  .players-view-switch button {
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .players-toolbar-button {
+    padding: 0 !important;
+  }
+  .player-tabs-shell {
+    margin-bottom: 0.5rem;
+  }
+  .light-tabs .el-tabs__item {
+    height: 38px;
+    padding: 0 10px !important;
+    font-size: 1rem;
+  }
+  .players-content {
+    padding-right: 0;
+    padding-bottom: 5.5rem;
+  }
+  .players-group-header {
+    padding-top: 0.25rem;
+    padding-bottom: 0.375rem;
+  }
+  .players-group-header > div {
+    padding: 0.375rem 0.75rem;
+  }
+  .players-group-header h3 {
+    font-size: 0.95rem;
+  }
   .custom-dialog .el-form {
     max-height: none !important;
   }

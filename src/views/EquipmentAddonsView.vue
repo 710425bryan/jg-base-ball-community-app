@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Goods, Loading, Refresh, ShoppingCart } from '@element-plus/icons-vue'
+import PreviewableImage from '@/components/common/PreviewableImage.vue'
 import { listMyPaymentMembers } from '@/services/myPayments'
 import { useEquipmentStore } from '@/stores/equipment'
 import { useEquipmentRequestsStore } from '@/stores/equipmentRequests'
@@ -288,11 +289,11 @@ onMounted(() => {
       <div class="max-w-6xl mx-auto flex flex-col gap-4">
         <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 class="text-xl md:text-2xl font-black text-slate-800 leading-tight flex items-center gap-2">
-              <el-icon class="text-primary"><ShoppingCart /></el-icon>
+            <h2 class="app-page-title app-page-title--inline">
+              <el-icon class="app-page-title-icon"><ShoppingCart /></el-icon>
               裝備加購
             </h2>
-            <p class="text-xs md:text-sm font-bold text-gray-500 mt-1">
+            <p class="app-page-subtitle">
               為已綁定成員申請裝備加購，管理員確認領取後再回報付款
             </p>
           </div>
@@ -469,11 +470,11 @@ onMounted(() => {
                 >
                   <div class="flex gap-3">
                     <div class="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-gray-100">
-                      <img
+                      <PreviewableImage
                         v-if="equipment.image_url"
                         :src="equipment.image_url"
                         :alt="equipment.name"
-                        class="h-full w-full object-cover"
+                        class="h-full w-full"
                       />
                       <div v-else class="flex h-full w-full items-center justify-center text-gray-300">
                         <el-icon class="text-3xl"><Goods /></el-icon>
@@ -582,6 +583,25 @@ onMounted(() => {
                   >
                     <span class="font-bold text-gray-700">{{ item.equipment_name_snapshot }} <span class="text-gray-400">{{ item.size || '' }}</span></span>
                     <span class="font-black text-primary">{{ item.quantity }} 件 / {{ formatCurrency(getEquipmentRequestItemTotalPrice(item)) }}</span>
+                  </div>
+                </div>
+
+                <div v-if="request.ready_image_url || request.pickup_image_url" class="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div v-if="request.ready_image_url" class="rounded-2xl border border-gray-100 bg-white p-3">
+                    <div class="mb-2 text-xs font-black text-gray-400">備貨照片</div>
+                    <PreviewableImage
+                      :src="request.ready_image_url"
+                      alt="備貨照片"
+                      class="h-28 w-full rounded-xl border border-gray-100"
+                    />
+                  </div>
+                  <div v-if="request.pickup_image_url" class="rounded-2xl border border-gray-100 bg-white p-3">
+                    <div class="mb-2 text-xs font-black text-gray-400">領取照片</div>
+                    <PreviewableImage
+                      :src="request.pickup_image_url"
+                      alt="領取照片"
+                      class="h-28 w-full rounded-xl border border-gray-100"
+                    />
                   </div>
                 </div>
 

@@ -6,6 +6,7 @@
       <div class="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/75 to-slate-900/20"></div>
       <div class="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-slate-950 to-transparent"></div>
       <div class="absolute right-[-12%] top-0 hidden h-full w-1/2 origin-bottom translate-x-10 skew-x-12 bg-slate-800/40 md:block"></div>
+      <HomeHolidayHeroOverlay />
 
       <div class="relative z-10 mx-auto flex w-full max-w-7xl flex-col items-start gap-8 px-6 text-left md:px-12">
         <div class="max-w-3xl">
@@ -361,6 +362,7 @@ import { ElMessage } from 'element-plus'
 import { Bell, Loading } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 
+import HomeHolidayHeroOverlay from '@/components/home/HomeHolidayHeroOverlay.vue'
 import MatchDetailDialog from '@/components/match-records/MatchDetailDialog.vue'
 import { getPublicLandingSnapshot } from '@/services/publicLanding'
 import { supabase } from '@/services/supabase'

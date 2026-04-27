@@ -3,10 +3,10 @@
     <!-- 頂部標題區 -->
     <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4 shrink-0">
       <div>
-        <h2 class="text-3xl font-extrabold text-primary tracking-tight flex items-center gap-2">
+        <h2 class="app-page-title app-page-title--inline">
           出缺勤管理
         </h2>
-        <p class="text-gray-500 font-medium text-sm mt-1">管理各級球員與教練的請假紀錄、統計與月曆，請假將自動生效。</p>
+        <p class="app-page-subtitle">管理各級球員與教練的請假紀錄、統計與月曆，請假將自動生效。</p>
       </div>
 
       <div class="flex items-center gap-3">

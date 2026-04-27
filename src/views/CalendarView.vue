@@ -1,7 +1,7 @@
 <template>
   <div class="h-full flex-1 flex flex-col animate-fade-in relative p-4 md:p-6 pb-0 md:pb-6 bg-background text-text overflow-hidden">
     <div class="flex justify-between items-center mb-6 shrink-0">
-      <h2 class="text-2xl font-extrabold text-primary tracking-tight">行事曆與賽事</h2>
+      <h2 class="app-page-title">行事曆與賽事</h2>
       <button @click="showParserInfo = true" class="bg-white border border-gray-200 hover:bg-gray-50 active:scale-95 text-gray-600 px-4 py-2.5 rounded-xl shadow-sm text-sm font-bold transition-all flex items-center gap-2">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
         同步說明

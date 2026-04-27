@@ -307,8 +307,8 @@ const handleSyncCalendar = () => {
           </svg>
         </div>
         <div>
-          <h1 class="text-xl md:text-2xl font-extrabold text-gray-900 tracking-tight leading-none mb-1">比賽紀錄</h1>
-          <p class="text-xs text-gray-500 font-medium">Match Records</p>
+          <h1 class="app-page-title">比賽紀錄</h1>
+          <p class="app-page-subtitle">Match Records</p>
         </div>
       </div>
 

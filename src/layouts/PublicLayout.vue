@@ -91,6 +91,8 @@
       <span class="truncate">系統已發布新版本，點擊重新整理以取得最新功能</span>
     </button>
 
+    <HolidayThemeRibbon />
+
     <nav
       v-if="isMobileMenuOpen"
       class="sticky z-30 border-b border-slate-800 bg-slate-950 px-4 py-4 text-white shadow-xl md:hidden"
@@ -182,6 +184,7 @@ import { nextTick, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { Close, Menu } from '@element-plus/icons-vue'
 
+import HolidayThemeRibbon from '@/components/layout/HolidayThemeRibbon.vue'
 import LoginModal from '@/components/LoginModal.vue'
 import { useVersionCheck } from '@/composables/useVersionCheck'
 import { useAuthStore } from '@/stores/auth'

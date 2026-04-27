@@ -7,6 +7,7 @@ import { useRoute } from 'vue-router'
 import { useEquipmentRequestsStore } from '@/stores/equipmentRequests'
 import { usePermissionsStore } from '@/stores/permissions'
 import { deleteEquipmentPurchaseRequestWithRollback } from '@/services/equipmentApi'
+import PreviewableImage from '@/components/common/PreviewableImage.vue'
 import type { EquipmentPurchaseRequest } from '@/types/equipment'
 import {
   EQUIPMENT_REQUEST_HISTORY_STATUSES,
@@ -374,6 +375,15 @@ watch(() => route.query.highlight_id, () => {
                 </div>
               </div>
 
+              <div v-if="request.ready_image_url" class="mt-4 rounded-2xl border border-blue-100 bg-blue-50/60 p-3">
+                <div class="mb-2 text-xs font-black text-blue-700">備貨照片</div>
+                <PreviewableImage
+                  :src="request.ready_image_url"
+                  alt="備貨照片"
+                  class="h-28 w-full rounded-xl border border-blue-100"
+                />
+              </div>
+
               <div class="mt-4 flex flex-wrap justify-end gap-2">
                 <button
                   v-if="request.status === EQUIPMENT_REQUEST_STATUS.APPROVED"
@@ -434,6 +444,24 @@ watch(() => route.query.highlight_id, () => {
               >
                 刪除
               </button>
+            </div>
+            <div v-if="request.ready_image_url || request.pickup_image_url" class="mt-3 grid gap-3 sm:grid-cols-2">
+              <div v-if="request.ready_image_url" class="rounded-2xl border border-gray-100 bg-white p-3">
+                <div class="mb-2 text-xs font-black text-gray-400">備貨照片</div>
+                <PreviewableImage
+                  :src="request.ready_image_url"
+                  alt="備貨照片"
+                  class="h-24 w-full rounded-xl border border-gray-100"
+                />
+              </div>
+              <div v-if="request.pickup_image_url" class="rounded-2xl border border-gray-100 bg-white p-3">
+                <div class="mb-2 text-xs font-black text-gray-400">領取照片</div>
+                <PreviewableImage
+                  :src="request.pickup_image_url"
+                  alt="領取照片"
+                  class="h-24 w-full rounded-xl border border-gray-100"
+                />
+              </div>
             </div>
           </article>
         </div>

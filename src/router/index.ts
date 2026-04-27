@@ -125,6 +125,12 @@ const router = createRouter({
           meta: { feature: 'announcements' }
         },
         {
+          path: 'holiday-theme-settings',
+          name: 'HolidayThemeSettings',
+          component: () => import('../views/HolidayThemeSettingsView.vue'),
+          meta: { feature: 'holiday_theme_settings' }
+        },
+        {
           path: 'attendance',
           name: 'Attendance',
           component: () => import('../views/AttendanceListView.vue'),

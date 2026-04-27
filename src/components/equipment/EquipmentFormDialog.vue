@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Delete, Loading } from '@element-plus/icons-vue'
+import PreviewableImage from '@/components/common/PreviewableImage.vue'
 import { useEquipmentStore } from '@/stores/equipment'
 import type { Equipment, EquipmentCategory, EquipmentFormPayload, EquipmentSizeStock } from '@/types/equipment'
 
@@ -18,6 +19,7 @@ const emit = defineEmits<{
 const equipmentStore = useEquipmentStore()
 const formRef = ref()
 const imageFile = ref<File | null>(null)
+const imagePreview = ref<string | null>(null)
 
 const categories: EquipmentCategory[] = ['服飾類', '球具類', '消耗品', '其他']
 
@@ -58,7 +60,15 @@ const rules = {
   ]
 }
 
+const revokeImagePreview = () => {
+  if (imagePreview.value?.startsWith('blob:')) {
+    URL.revokeObjectURL(imagePreview.value)
+  }
+  imagePreview.value = null
+}
+
 const resetForm = () => {
+  revokeImagePreview()
   form.name = props.equipment?.name || ''
   form.category = props.equipment?.category || '球具類'
   form.specs = props.equipment?.specs || ''
@@ -84,7 +94,9 @@ const removeSizeStock = (index: number) => {
 }
 
 const handleImageChange = (file: any) => {
+  revokeImagePreview()
   imageFile.value = file?.raw || null
+  imagePreview.value = imageFile.value ? URL.createObjectURL(imageFile.value) : null
 }
 
 const normalizeSizesStock = () => {
@@ -133,6 +145,10 @@ const submit = async () => {
 
 watch(() => props.modelValue, (value) => {
   if (value) resetForm()
+})
+
+onBeforeUnmount(() => {
+  revokeImagePreview()
 })
 </script>
 
@@ -239,11 +255,11 @@ watch(() => props.modelValue, (value) => {
         />
       </div>
 
-      <img
-        v-if="form.image_url"
-        :src="form.image_url"
+      <PreviewableImage
+        v-if="imagePreview || form.image_url"
+        :src="imagePreview || form.image_url"
         alt="裝備照片"
-        class="h-32 w-full rounded-2xl border border-gray-100 object-cover"
+        class="h-32 w-full rounded-2xl border border-gray-100"
       />
     </el-form>
 

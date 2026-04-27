@@ -100,6 +100,7 @@ serve(async (req) => {
           feature,
           action,
           title: pushTitle,
+          body: pushBody,
           url: payload.url || "/leave-requests",
         });
 

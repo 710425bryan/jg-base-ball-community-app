@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import HomeHolidayHeroOverlay from '@/components/home/HomeHolidayHeroOverlay.vue'
 import MatchDetailDialog from '@/components/match-records/MatchDetailDialog.vue'
 import { supabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/auth'
@@ -540,6 +541,7 @@ onUnmounted(() => {
       <div
         class="pointer-events-none absolute right-0 top-0 hidden h-full w-2/3 translate-x-32 skew-x-[12deg] bg-slate-800 opacity-50 md:block lg:w-1/2"
       ></div>
+      <HomeHolidayHeroOverlay />
 
       <div class="relative z-10 mx-auto flex h-full w-full max-w-7xl items-end px-3 pb-8 pt-7 sm:px-4 md:pb-10 md:pt-10">
         <div class="flex min-h-[450px] w-full flex-col justify-end gap-4 md:flex-row md:items-end md:justify-between md:gap-8">

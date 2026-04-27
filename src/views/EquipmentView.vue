@@ -10,6 +10,7 @@ import {
   Tickets
 } from '@element-plus/icons-vue'
 import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
+import PreviewableImage from '@/components/common/PreviewableImage.vue'
 import EquipmentFormDialog from '@/components/equipment/EquipmentFormDialog.vue'
 import EquipmentHistoryDialog from '@/components/equipment/EquipmentHistoryDialog.vue'
 import EquipmentTransactionDialog from '@/components/equipment/EquipmentTransactionDialog.vue'
@@ -142,11 +143,11 @@ onMounted(() => {
       <div class="max-w-7xl mx-auto flex flex-col gap-4">
         <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 class="text-xl md:text-2xl font-black text-slate-800 leading-tight flex items-center gap-2">
-              <el-icon class="text-primary"><Goods /></el-icon>
+            <h2 class="app-page-title app-page-title--inline">
+              <el-icon class="app-page-title-icon"><Goods /></el-icon>
               裝備管理
             </h2>
-            <p class="text-xs md:text-sm font-bold text-gray-500 mt-1">
+            <p class="app-page-subtitle">
               管理裝備庫存、借還領取、加購品項與交易紀錄
             </p>
           </div>
@@ -228,11 +229,11 @@ onMounted(() => {
             class="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm"
           >
             <div class="aspect-[16/9] bg-gray-100">
-              <img
+              <PreviewableImage
                 v-if="equipment.image_url"
                 :src="equipment.image_url"
                 :alt="equipment.name"
-                class="h-full w-full object-cover"
+                class="h-full w-full"
               />
               <div v-else class="flex h-full items-center justify-center text-gray-300">
                 <el-icon class="text-5xl"><Goods /></el-icon>
@@ -345,7 +346,12 @@ onMounted(() => {
                   <td class="px-5 py-4">
                     <div class="flex items-center gap-3">
                       <div class="h-12 w-12 overflow-hidden rounded-2xl bg-gray-100">
-                        <img v-if="equipment.image_url" :src="equipment.image_url" class="h-full w-full object-cover" :alt="equipment.name" />
+                        <PreviewableImage
+                          v-if="equipment.image_url"
+                          :src="equipment.image_url"
+                          :alt="equipment.name"
+                          class="h-full w-full"
+                        />
                         <div v-else class="flex h-full items-center justify-center text-gray-300">
                           <el-icon><Goods /></el-icon>
                         </div>

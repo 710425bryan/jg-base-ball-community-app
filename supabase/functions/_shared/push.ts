@@ -32,6 +32,9 @@ type RolePermissionRow = {
 
 type ProfileIdRow = {
   id: string;
+  is_active?: boolean | null;
+  access_start?: string | null;
+  access_end?: string | null;
 };
 
 export type PushTargetAudienceOptions = {
@@ -93,14 +96,27 @@ export const getEligiblePushTargetUserIds = async (
 
   const { data: userRows, error: userError } = await supabase
     .from("profiles")
-    .select("id")
+    .select("id, is_active, access_start, access_end")
     .in("role", filteredRoles);
 
   if (userError) {
     throw userError;
   }
 
+  const now = Date.now();
+
   return ((userRows ?? []) as ProfileIdRow[])
+    .filter((row) => {
+      if (row.is_active === false) return false;
+
+      const startTime = row.access_start ? new Date(row.access_start).getTime() : null;
+      const endTime = row.access_end ? new Date(row.access_end).getTime() : null;
+
+      if (startTime !== null && !Number.isNaN(startTime) && startTime > now) return false;
+      if (endTime !== null && !Number.isNaN(endTime) && endTime < now) return false;
+
+      return true;
+    })
     .map((row) => row.id)
     .filter(Boolean);
 };

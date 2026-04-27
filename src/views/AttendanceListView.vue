@@ -10,10 +10,10 @@
           </svg>
         </div>
         <div>
-          <h2 class="text-2xl md:text-3xl font-black text-slate-800 tracking-wider flex items-center gap-2">
+          <h2 class="app-page-title app-page-title--inline">
             點名管理系統
           </h2>
-          <p class="text-secondary font-bold text-sm mt-1 uppercase tracking-[0.1em]">
+          <p class="app-page-subtitle">
             中港熊戰・Attendance
           </p>
         </div>

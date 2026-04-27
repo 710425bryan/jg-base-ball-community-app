@@ -2,13 +2,13 @@
   <div class="h-full flex flex-col relative animate-fade-in p-2 md:p-6 pb-0 md:pb-6 overflow-hidden">
     <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4 shrink-0">
       <div>
-        <h2 class="text-3xl font-extrabold text-primary tracking-tight flex items-center gap-2">
+        <h2 class="app-page-title app-page-title--inline">
           使用者名單
-          <span class="text-sm font-medium bg-orange-50 text-primary px-3 py-1 rounded-full align-middle">
+          <span class="rounded-full bg-orange-50 px-3 py-1 text-xs font-bold text-primary align-middle md:text-sm">
             {{ users.length }} 名成員
           </span>
         </h2>
-        <p class="text-gray-500 font-medium text-sm mt-1">管理社區內的教練、經理與球員權限</p>
+        <p class="app-page-subtitle">管理社區內的教練、經理與球員權限</p>
       </div>
 
       <div class="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-3 self-start md:flex md:w-auto md:items-center">
@@ -77,7 +77,12 @@
                   <template #default="{ row }">
                     <div class="flex items-center gap-3 py-1">
                       <div class="relative w-11 h-11 rounded-full overflow-hidden shadow-sm border border-gray-100 bg-gray-50 shrink-0">
-                        <img v-if="row.avatar_url" :src="row.avatar_url" class="w-full h-full object-cover" />
+                        <PreviewableImage
+                          v-if="row.avatar_url"
+                          :src="row.avatar_url"
+                          :alt="`${row.name} 大頭照`"
+                          class="w-full h-full"
+                        />
                         <div v-else class="w-full h-full flex items-center justify-center text-gray-400 font-extrabold text-base bg-gradient-to-br from-gray-50 to-gray-200">
                           {{ row.name?.charAt(0) || 'U' }}
                         </div>
@@ -169,7 +174,12 @@
                 <div class="flex items-start justify-between gap-3 sm:gap-4">
                   <div class="flex items-center gap-3 sm:gap-4 min-w-0">
                     <div class="relative w-12 h-12 sm:w-14 sm:h-14 rounded-full overflow-hidden shadow-sm border border-gray-100 bg-gray-50 shrink-0">
-                      <img v-if="row.avatar_url" :src="row.avatar_url" class="w-full h-full object-cover" />
+                      <PreviewableImage
+                        v-if="row.avatar_url"
+                        :src="row.avatar_url"
+                        :alt="`${row.name} 大頭照`"
+                        class="w-full h-full"
+                      />
                       <div v-else class="w-full h-full flex items-center justify-center text-gray-400 font-extrabold text-base sm:text-lg bg-gradient-to-br from-gray-50 to-gray-200">
                         {{ row.name?.charAt(0) || 'U' }}
                       </div>
@@ -272,11 +282,24 @@
       <el-form :model="form" :rules="rules" ref="formRef" label-position="top" class="mt-2 space-y-4">
         <div class="flex flex-col items-center justify-center mb-6">
           <div class="relative w-24 h-24 rounded-full border-2 border-dashed border-gray-300 bg-gray-50 flex flex-col items-center justify-center overflow-hidden hover:bg-gray-100 transition-colors cursor-pointer" @click="triggerFileInput">
-            <img v-if="form.avatar_url || avatarPreview" :src="avatarPreview || form.avatar_url" class="w-full h-full object-cover absolute inset-0 z-10" />
+            <PreviewableImage
+              v-if="form.avatar_url || avatarPreview"
+              :src="avatarPreview || form.avatar_url"
+              :alt="`${form.name || '使用者'} 大頭照`"
+              class="absolute inset-0 z-10 h-full w-full"
+            />
             <div class="z-0 flex flex-col items-center justify-center text-gray-400" :class="{ 'opacity-0': form.avatar_url || avatarPreview }">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mb-1 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
               <span class="text-sm font-bold">上傳大頭貼</span>
             </div>
+            <button
+              v-if="form.avatar_url || avatarPreview"
+              type="button"
+              class="absolute bottom-1 right-1 z-20 rounded-full bg-primary px-2 py-1 text-[10px] font-bold text-white shadow-sm"
+              @click.stop="triggerFileInput"
+            >
+              更換
+            </button>
             <input type="file" ref="fileInput" class="hidden" accept="image/*" @change="handleFileSelect" />
           </div>
         </div>
@@ -380,6 +403,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading, Search } from '@element-plus/icons-vue'
+import PreviewableImage from '@/components/common/PreviewableImage.vue'
 import RolePermissionsManager from '@/components/RolePermissionsManager.vue'
 import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
 import { supabase } from '@/services/supabase'

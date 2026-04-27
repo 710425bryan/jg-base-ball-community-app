@@ -126,6 +126,18 @@
 - 裝備交易 `purchase` 產生後才會進入付款回報；不要把來源專案的 `fee_records` 或月結關帳模型直接搬進本專案。
 - 新增裝備 UI 時避免 Element Plus `size="small"`，保持手機觸控尺寸；大型裝備頁應拆成 components/stores/services/utils，不要集中成單一長檔。
 
+## 7.2 節日主題設定規則
+
+- 節日主題後台路由為 `/holiday-theme-settings`，使用 feature key `holiday_theme_settings` 與 actions `VIEW / EDIT`。
+- 節日主題通知使用 feature key `holiday_theme` 與 action `VIEW`；收件對象為具備該權限且有啟用推播裝置的有效登入帳號。
+- 設定儲存在 `system_settings` 的 `holiday_theme_config` row，payload 為 v2 多活動格式；要保留 legacy single-theme config 的轉換相容性。
+- 公開首頁與未登入頁不可直接查 `system_settings` raw table；只能走 `get_public_holiday_theme_config()`。
+- 後台儲存必須走 `save_holiday_theme_config(jsonb)`，DB 端需檢查 `holiday_theme_settings:EDIT`，不可只靠前端按鈕隱藏。
+- 球員主題選單只讀非敏感欄位，優先走 `get_holiday_theme_player_options()` 或 `team_members_safe`，不得暴露 `national_id`、`guardian_phone`、`contact_line_id`。
+- 自動通知 event key 固定為 `holiday_theme:auto:<activityId>:<scheduleStartAt>`；手動補送每次確認產生新的 request key，但同一次操作需避免雙擊重送。
+- 排程 Edge Function 不可硬編碼 Supabase URL、authorization token 或 sync secret；cron migration 使用 `current_setting('app.holiday_theme_function_url')`、`app.holiday_theme_authorization`、`app.holiday_theme_secret`。
+- 全站套用點為 `LandingView`、`HomeView`、`App.vue`、`PublicLayout`、`MainLayout`；調整動畫或橫幅時需同時確認公開頁與後台不遮擋既有操作。
+
 ## 8. 驗證規則
 
 依任務範圍選擇對應驗證，至少做最貼近修改範圍的檢查：

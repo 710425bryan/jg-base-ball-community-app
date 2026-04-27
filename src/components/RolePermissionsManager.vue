@@ -339,6 +339,12 @@ const systemFeatures = [
     actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
   },
   {
+    key: 'holiday_theme_settings',
+    name: '節日主題設定',
+    desc: '管理首頁節日活動、全站動畫與主題通知',
+    actions: ['VIEW', 'EDIT']
+  },
+  {
     key: 'attendance',
     name: '點名系統',
     desc: '建立活動並進行出缺席點名',

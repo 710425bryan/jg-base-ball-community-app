@@ -201,11 +201,11 @@ onMounted(() => {
       <div class="max-w-7xl mx-auto flex flex-col gap-4">
         <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 class="text-xl md:text-2xl font-black text-slate-800 leading-tight flex items-center gap-2">
-              <el-icon class="text-primary"><DataLine /></el-icon>
+            <h2 class="app-page-title app-page-title--inline">
+              <el-icon class="app-page-title-icon"><DataLine /></el-icon>
               {{ config.title }}
             </h2>
-            <p class="text-xs md:text-sm font-bold text-gray-500 mt-1">{{ config.description }}</p>
+            <p class="app-page-subtitle">{{ config.description }}</p>
           </div>
 
           <div class="flex flex-wrap gap-2">

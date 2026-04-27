@@ -3,8 +3,8 @@
     <div class="bg-white px-4 md:px-6 py-4 border-b border-gray-200 shadow-sm shrink-0">
       <div class="max-w-6xl mx-auto flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 class="text-xl md:text-2xl font-black text-slate-800 leading-tight">繳費資訊</h2>
-          <p class="text-xs md:text-sm font-bold text-gray-500 mt-1">
+          <h2 class="app-page-title">繳費資訊</h2>
+          <p class="app-page-subtitle">
             查看關聯成員的月繳 / 季繳狀態；若為管理員，也可切換查看其他球員的繳費紀錄
           </p>
         </div>

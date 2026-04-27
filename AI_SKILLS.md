@@ -58,6 +58,12 @@
 - 用途：棒球能力數據、體能測驗數據、趨勢頁、手動 CRUD 與家長/球員唯讀檢視。
 - 典型情境：修改 `/baseball-ability`、`/physical-tests`、`baseball_ability_records`、`physical_test_records`、`get_baseball_ability_records`、`get_physical_test_records`、或 `baseball_ability` / `physical_tests` 權限。
 
+### `jg-baseball-holiday-theme`
+
+- 路徑：`.codex/skills/jg-baseball-holiday-theme/SKILL.md`
+- 用途：節日主題設定、全站動畫、首頁/後台節日 hero、橫幅與節日推播。
+- 典型情境：修改 `/holiday-theme-settings`、`holiday_theme_config`、`get_public_holiday_theme_config()`、`save_holiday_theme_config(jsonb)`、`notify-holiday-theme`、或 `holiday_theme_settings` / `holiday_theme` 權限。
+
 ## 維護建議
 
 - 新增 skill 前，先確認能否併入既有 skill，避免過度切碎。

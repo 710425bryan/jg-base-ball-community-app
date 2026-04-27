@@ -174,11 +174,11 @@ onMounted(() => {
               <el-icon><ArrowLeft /></el-icon>
               返回{{ config.shortTitle }}
             </button>
-            <h2 class="text-xl md:text-2xl font-black text-slate-800 leading-tight flex items-center gap-2">
-              <el-icon class="text-primary"><TrendCharts /></el-icon>
+            <h2 class="app-page-title app-page-title--inline">
+              <el-icon class="app-page-title-icon"><TrendCharts /></el-icon>
               {{ member?.name || '球員' }}｜{{ config.title }}
             </h2>
-            <p class="text-xs md:text-sm font-bold text-gray-500 mt-1">
+            <p class="app-page-subtitle">
               {{ member?.role || '球員' }}
               <span v-if="member?.team_group">｜{{ member.team_group }}</span>
               <span v-if="member?.jersey_number">｜#{{ member.jersey_number }}</span>

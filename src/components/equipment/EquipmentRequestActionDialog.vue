@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { Loading } from '@element-plus/icons-vue'
+import PreviewableImage from '@/components/common/PreviewableImage.vue'
 
 const props = defineProps<{
   modelValue: boolean
@@ -19,14 +20,24 @@ const emit = defineEmits<{
 
 const note = ref('')
 const imageFile = ref<File | null>(null)
+const imagePreview = ref<string | null>(null)
 
 const isOpen = computed({
   get: () => props.modelValue,
   set: (value: boolean) => emit('update:modelValue', value)
 })
 
+const revokeImagePreview = () => {
+  if (imagePreview.value?.startsWith('blob:')) {
+    URL.revokeObjectURL(imagePreview.value)
+  }
+  imagePreview.value = null
+}
+
 const handleImageChange = (file: any) => {
+  revokeImagePreview()
   imageFile.value = file?.raw || null
+  imagePreview.value = imageFile.value ? URL.createObjectURL(imageFile.value) : null
 }
 
 const submit = () => {
@@ -39,8 +50,13 @@ const submit = () => {
 watch(() => props.modelValue, (value) => {
   if (value) {
     note.value = ''
+    revokeImagePreview()
     imageFile.value = null
   }
+})
+
+onBeforeUnmount(() => {
+  revokeImagePreview()
 })
 </script>
 
@@ -66,16 +82,24 @@ watch(() => props.modelValue, (value) => {
         </el-form-item>
 
         <el-form-item v-if="allowImage" label="照片" class="font-bold">
-          <el-upload
-            accept="image/*"
-            :auto-upload="false"
-            :limit="1"
-            :on-change="handleImageChange"
-          >
-            <button type="button" class="rounded-2xl border border-gray-200 px-5 py-3 font-bold text-gray-600 hover:border-primary hover:text-primary transition-colors">
-              選擇照片
-            </button>
-          </el-upload>
+          <div class="space-y-3">
+            <el-upload
+              accept="image/*"
+              :auto-upload="false"
+              :limit="1"
+              :on-change="handleImageChange"
+            >
+              <button type="button" class="rounded-2xl border border-gray-200 px-5 py-3 font-bold text-gray-600 hover:border-primary hover:text-primary transition-colors">
+                選擇照片
+              </button>
+            </el-upload>
+            <PreviewableImage
+              v-if="imagePreview"
+              :src="imagePreview"
+              alt="處理照片"
+              class="h-40 w-full rounded-2xl border border-gray-100"
+            />
+          </div>
         </el-form-item>
       </el-form>
     </div>

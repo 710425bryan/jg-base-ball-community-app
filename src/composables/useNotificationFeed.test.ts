@@ -102,4 +102,27 @@ describe('notification feed controller', () => {
       link: '/match-records?match_id=match-2'
     })
   })
+
+  it('maps announcement notifications', async () => {
+    const fetcher = vi.fn().mockResolvedValue([
+      {
+        id: 'announcement_manual:announcement-1:1760000000000',
+        source: 'announcement',
+        title: '[系統公告] 練球時間調整',
+        body: '本週練球時間調整為上午。',
+        created_at: '2026-04-14T14:00:00.000Z',
+        link: '/announcements?highlight_announcement_id=announcement-1',
+        highlight_member_id: null
+      }
+    ])
+
+    const controller = createNotificationFeedController(fetcher)
+    await controller.loadNotificationFeed(10)
+
+    expect(controller.notifications.value[0]).toMatchObject({
+      id: 'announcement:announcement_manual:announcement-1:1760000000000',
+      source: 'announcement',
+      link: '/announcements?highlight_announcement_id=announcement-1'
+    })
+  })
 })

@@ -3,13 +3,13 @@
     <!-- Header -->
     <div class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-end gap-4 shrink-0">
       <div>
-        <h2 class="text-3xl font-extrabold text-primary flex items-center gap-3 tracking-tight">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-secondary" viewBox="0 0 20 20" fill="currentColor">
+        <h2 class="app-page-title app-page-title--inline">
+          <svg xmlns="http://www.w3.org/2000/svg" class="app-page-title-icon h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
             <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z" />
           </svg>
           家長入隊申請
         </h2>
-        <p class="text-gray-500 font-medium text-sm mt-2">
+        <p class="app-page-subtitle">
           查看並聯繫從首頁送出入隊詢問的家長。
         </p>
       </div>

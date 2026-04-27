@@ -54,6 +54,7 @@
                   <el-dropdown-menu class="!p-1.5 !rounded-xl min-w-[140px] shadow-xl border-gray-100">
                     <el-dropdown-item v-if="permissionsStore.can('join_inquiries', 'VIEW')" @click="router.push('/join-inquiries')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">入隊申請</el-dropdown-item>
                     <el-dropdown-item v-if="permissionsStore.can('announcements', 'VIEW')" @click="router.push('/announcements')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">系統公告</el-dropdown-item>
+                    <el-dropdown-item v-if="permissionsStore.can('holiday_theme_settings', 'VIEW')" @click="router.push('/holiday-theme-settings')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">節日主題設定</el-dropdown-item>
                     <el-dropdown-item v-if="permissionsStore.can('fees', 'VIEW')" @click="router.push('/fees')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">收費管理</el-dropdown-item>
                     <el-dropdown-item v-if="permissionsStore.can('equipment', 'VIEW')" @click="router.push('/equipment')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">裝備管理</el-dropdown-item>
                     <el-dropdown-item v-if="permissionsStore.can('users', 'VIEW')" @click="router.push('/users')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5" divided>使用者名單</el-dropdown-item>
@@ -148,6 +149,8 @@
       </svg>
       <span class="truncate">系統已發布新版本，點擊重新整理以取得最新功能</span>
     </div>
+
+    <HolidayThemeRibbon />
 
     <!-- Mobile Hamburger Menu (Dropdown/Overlay) -->
     <div
@@ -308,6 +311,7 @@ import { usePermissionsStore } from '@/stores/permissions';
 import { supabase } from '@/services/supabase';
 import { Bell, ArrowDown } from '@element-plus/icons-vue';
 import PushSettingsDialog from '@/components/PushSettingsDialog.vue';
+import HolidayThemeRibbon from '@/components/layout/HolidayThemeRibbon.vue';
 import { configureNotificationFeedFallbackFetcher, useNotificationFeed } from '@/composables/useNotificationFeed';
 import { useVersionCheck } from '@/composables/useVersionCheck';
 import { buildNotificationFeedItemId, type NotificationFeedItem, type NotificationFeedRow } from '@/types/dashboard';
@@ -551,6 +555,7 @@ const performanceDesktopNavItems = computed<DesktopNavItem[]>(() => [
 const adminDesktopNavItems = computed<DesktopNavItem[]>(() => [
   { label: '入隊申請', to: '/join-inquiries', visible: permissionsStore.can('join_inquiries', 'VIEW') },
   { label: '系統公告', to: '/announcements', visible: permissionsStore.can('announcements', 'VIEW') },
+  { label: '節日主題設定', to: '/holiday-theme-settings', visible: permissionsStore.can('holiday_theme_settings', 'VIEW') },
   { label: '收費管理', to: '/fees', visible: permissionsStore.can('fees', 'VIEW') },
   { label: '裝備管理', to: '/equipment', visible: permissionsStore.can('equipment', 'VIEW') },
   { label: '使用者名單', to: '/users', visible: permissionsStore.can('users', 'VIEW') }
@@ -601,6 +606,7 @@ const mobileMenuGroups = computed<MobileMenuGroup[]>(() => [
     items: [
       { label: '入隊申請', to: '/join-inquiries', visible: permissionsStore.can('join_inquiries', 'VIEW') },
       { label: '系統公告', to: '/announcements', visible: permissionsStore.can('announcements', 'VIEW') },
+      { label: '節日主題設定', to: '/holiday-theme-settings', visible: permissionsStore.can('holiday_theme_settings', 'VIEW') },
       { label: '收費管理', to: '/fees', visible: permissionsStore.can('fees', 'VIEW') },
       { label: '裝備管理', to: '/equipment', visible: permissionsStore.can('equipment', 'VIEW') },
       { label: '使用者名單', to: '/users', visible: permissionsStore.can('users', 'VIEW') }

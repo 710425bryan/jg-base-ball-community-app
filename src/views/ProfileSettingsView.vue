@@ -2,8 +2,8 @@
   <div class="h-full flex flex-col relative animate-fade-in bg-gray-50 text-text overflow-hidden">
     <div class="bg-white px-4 md:px-6 py-4 border-b border-gray-200 shadow-sm shrink-0">
       <div class="max-w-5xl mx-auto">
-        <h2 class="text-xl md:text-2xl font-black text-slate-800 leading-tight">個人設定</h2>
-        <p class="text-xs md:text-sm font-bold text-gray-500 mt-1">
+        <h2 class="app-page-title">個人設定</h2>
+        <p class="app-page-subtitle">
           更新大頭照、綽號與常用匯款資訊
         </p>
       </div>

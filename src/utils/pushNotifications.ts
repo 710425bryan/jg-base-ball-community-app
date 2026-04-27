@@ -79,7 +79,7 @@ export const describePushDispatchIssue = (
   }
 
   if ((result.total_targets ?? 0) === 0) {
-    return '目前沒有已啟用推播的接收裝置，請確認接收人已在「請假系統」開啟通知推播設定。'
+    return '目前沒有已啟用推播的接收裝置，請確認接收人已在「個人設定」開啟系統推播通知。'
   }
 
   if ((result.dispatched_count ?? 0) === 0 && ((result.failed_count ?? 0) > 0 || (result.expired_count ?? 0) > 0)) {

@@ -33,6 +33,24 @@ body {
   overscroll-behavior-y: none; /* Prevent elastic scroll pull-down revealing background */
 }
 
+@layer components {
+  .app-page-title {
+    @apply m-0 break-words text-xl font-black leading-tight tracking-normal text-slate-800 md:text-2xl;
+  }
+
+  .app-page-title--inline {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  .app-page-title-icon {
+    @apply shrink-0 text-primary;
+  }
+
+  .app-page-subtitle {
+    @apply mt-1 text-xs font-bold leading-snug tracking-normal text-gray-500 md:text-sm;
+  }
+}
+
 /* Fallbacks and Mobile Optimizations */
 .safe-area-padding {
   padding-top: env(safe-area-inset-top);

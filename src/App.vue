@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
+import HolidayThemeSiteEffects from '@/components/layout/HolidayThemeSiteEffects.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const authStore = useAuthStore()
@@ -16,5 +17,8 @@ onMounted(async () => {
       <p class="text-gray-500 font-bold tracking-widest">系統初始化中...</p>
     </div>
   </div>
-  <router-view v-else />
+  <template v-else>
+    <HolidayThemeSiteEffects />
+    <router-view />
+  </template>
 </template>
