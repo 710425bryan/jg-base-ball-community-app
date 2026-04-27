@@ -582,7 +582,13 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { supabase } from '@/services/supabase'
 import { compressImage } from '@/utils/imageCompressor'
 import { buildPushEventKey, dispatchPushNotification } from '@/utils/pushNotifications'
-import { dedupePlayerSyncRows, getProtectedFeeFlagsPayloadForGoogleFormSync } from '@/utils/playerSync'
+import {
+  buildGuardianAccountSyncRows,
+  dedupePlayerSyncRows,
+  getProtectedFeeFlagsPayloadForGoogleFormSync,
+  type GuardianAccountSyncInput,
+  type GuardianAccountSyncRow
+} from '@/utils/playerSync'
 import { normalizeSiblingIds } from '@/utils/siblingGroups'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
@@ -596,6 +602,16 @@ const permissionsStore = usePermissionsStore()
 const canEditPlayers = computed(() => permissionsStore.can('players', 'EDIT'))
 const canCreatePlayers = computed(() => permissionsStore.can('players', 'CREATE'))
 const canDeletePlayers = computed(() => permissionsStore.can('players', 'DELETE'))
+const canViewUsers = computed(() => permissionsStore.can('users', 'VIEW'))
+const canCreateUsers = computed(() => permissionsStore.can('users', 'CREATE'))
+const canEditUsers = computed(() => permissionsStore.can('users', 'EDIT'))
+
+const PLAYER_SYNC_SHEET_ID = '1xERmQABQONXNONfw_pz9cDmz5Pb597sYYVQE3AT5ySk'
+const PLAYER_SYNC_SHEET_GID = '0'
+const PLAYER_SYNC_CSV_URL = `https://docs.google.com/spreadsheets/d/${PLAYER_SYNC_SHEET_ID}/export?format=csv&id=${PLAYER_SYNC_SHEET_ID}&gid=${PLAYER_SYNC_SHEET_GID}`
+const DEFAULT_SYNC_USER_PASSWORD = '123456'
+const GENERAL_MEMBER_ROLE_FALLBACK = 'MEMBER'
+const GENERAL_MEMBER_ROLE_CANDIDATE_KEYS = ['MEMBER', 'PARENT', 'GENERAL_MEMBER']
 
 const isLoading = ref(true)
 const isSubmitting = ref(false)
@@ -1131,17 +1147,281 @@ function parseCSV(text: string) {
   return result;
 }
 
+type SyncMemberRow = {
+  id: string
+  name?: string | null
+  role?: string | null
+}
+
+type ProfileForGuardianSync = {
+  id: string
+  email?: string | null
+  linked_team_member_ids?: string[] | null
+}
+
+type GuardianAccountSyncResult = {
+  total: number
+  created: number
+  existing: number
+  updatedExisting: number
+  skippedNoLinkedMember: number
+  skippedNoPermission: number
+  skippedAuthDuplicate: number
+}
+
+const resolveGeneralMemberRoleKeyFromRoles = (roles: any[]) => {
+  const exactRole = roles.find((role) => role.role_name === '一般成員')
+  if (exactRole?.role_key) return exactRole.role_key
+
+  for (const candidateKey of GENERAL_MEMBER_ROLE_CANDIDATE_KEYS) {
+    const candidateRole = roles.find((role) => role.role_key === candidateKey)
+    if (candidateRole?.role_key) return candidateRole.role_key
+  }
+
+  return ''
+}
+
+const resolveGeneralMemberRoleKey = async () => {
+  const currentRoleKey = resolveGeneralMemberRoleKeyFromRoles(permissionsStore.roles)
+  if (currentRoleKey) return currentRoleKey
+
+  const { data, error } = await supabase
+    .from('app_roles')
+    .select('role_key, role_name')
+    .order('weight', { ascending: true })
+
+  if (error) {
+    console.warn('[Player Sync] Unable to resolve app role for general member. Using fallback role.', error)
+    return GENERAL_MEMBER_ROLE_FALLBACK
+  }
+
+  return resolveGeneralMemberRoleKeyFromRoles(data || []) || GENERAL_MEMBER_ROLE_FALLBACK
+}
+
+const getProfileLinkedMemberIds = (profile: ProfileForGuardianSync) =>
+  Array.isArray(profile.linked_team_member_ids)
+    ? profile.linked_team_member_ids.filter(Boolean)
+    : []
+
+const hasSameMemberIds = (left: string[], right: string[]) => {
+  if (left.length !== right.length) return false
+
+  const rightSet = new Set(right)
+  return left.every((id) => rightSet.has(id))
+}
+
+const fetchProfilesByEmail = async (emails: string[]) => {
+  const emailSet = new Set(emails)
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, email, linked_team_member_ids')
+
+  if (error) throw error
+
+  const profilesByEmail = new Map<string, ProfileForGuardianSync>()
+  ;(data || []).forEach((profile) => {
+    const email = profile.email?.trim().toLowerCase()
+    if (email && emailSet.has(email) && !profilesByEmail.has(email)) {
+      profilesByEmail.set(email, profile)
+    }
+  })
+
+  return profilesByEmail
+}
+
+const resolveGuardianLinkedMemberIds = (
+  row: GuardianAccountSyncRow,
+  memberByName: Map<string, SyncMemberRow>
+) => {
+  const memberIds = new Set<string>()
+
+  row.playerNames.forEach((playerName) => {
+    const member = memberByName.get(playerName.trim())
+    if (member && isSiblingEligibleRole(member.role)) {
+      memberIds.add(member.id)
+    }
+  })
+
+  return Array.from(memberIds)
+}
+
+const updateProfileLinkedMemberIds = async (profileId: string, memberIds: string[]) => {
+  const { error } = await supabase
+    .from('profiles')
+    .update({
+      linked_team_member_ids: memberIds.length > 0 ? memberIds : null,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', profileId)
+
+  if (error) throw error
+}
+
+const isDuplicateAuthSignupError = (payload: any, message: string) => {
+  const errorText = `${payload?.code || ''} ${payload?.msg || ''} ${payload?.message || ''} ${message}`.toLowerCase()
+  return errorText.includes('already') || errorText.includes('registered') || errorText.includes('exists')
+}
+
+const createGuardianAuthUser = async (row: GuardianAccountSyncRow) => {
+  const response = await fetch(
+    `${import.meta.env.VITE_SUPABASE_URL}/auth/v1/signup`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({ email: row.email, password: DEFAULT_SYNC_USER_PASSWORD })
+    }
+  )
+  const authData = await response.json().catch(() => ({}))
+  const errorMessage =
+    authData?.msg ||
+    authData?.message ||
+    authData?.error_description ||
+    authData?.error ||
+    (!response.ok ? `建立 auth.users 失敗 (${response.status})` : '')
+
+  if (!response.ok || authData?.msg || authData?.code || authData?.error) {
+    if (isDuplicateAuthSignupError(authData, errorMessage)) {
+      return null
+    }
+
+    throw new Error(errorMessage || '建立 auth.users 失敗')
+  }
+
+  const newUserId = authData?.user?.id || authData?.id
+  if (!newUserId) throw new Error('API 並未正確回傳用戶 ID')
+
+  return newUserId as string
+}
+
+const syncGuardianAccounts = async (
+  rows: GuardianAccountSyncRow[],
+  memberList: SyncMemberRow[]
+): Promise<GuardianAccountSyncResult> => {
+  const result: GuardianAccountSyncResult = {
+    total: rows.length,
+    created: 0,
+    existing: 0,
+    updatedExisting: 0,
+    skippedNoLinkedMember: 0,
+    skippedNoPermission: 0,
+    skippedAuthDuplicate: 0
+  }
+
+  if (rows.length === 0) return result
+
+  if (!canViewUsers.value) {
+    result.skippedNoPermission = rows.length
+    return result
+  }
+
+  const profilesByEmail = await fetchProfilesByEmail(rows.map((row) => row.email))
+  const memberByName = new Map(
+    memberList
+      .map((member) => [member.name?.trim(), member] as const)
+      .filter(([name]) => Boolean(name))
+  ) as Map<string, SyncMemberRow>
+  let generalMemberRoleKey = ''
+
+  for (const row of rows) {
+    const linkedMemberIds = resolveGuardianLinkedMemberIds(row, memberByName)
+    if (linkedMemberIds.length === 0) {
+      result.skippedNoLinkedMember += 1
+      continue
+    }
+
+    const existingProfile = profilesByEmail.get(row.email)
+    if (existingProfile) {
+      result.existing += 1
+      const currentLinkedMemberIds = getProfileLinkedMemberIds(existingProfile)
+      const mergedMemberIds = Array.from(new Set([...currentLinkedMemberIds, ...linkedMemberIds]))
+
+      if (!hasSameMemberIds(currentLinkedMemberIds, mergedMemberIds)) {
+        if (!canEditUsers.value) {
+          result.skippedNoPermission += 1
+          continue
+        }
+
+        await updateProfileLinkedMemberIds(existingProfile.id, mergedMemberIds)
+        existingProfile.linked_team_member_ids = mergedMemberIds
+        result.updatedExisting += 1
+      }
+
+      continue
+    }
+
+    if (!canCreateUsers.value || !canEditUsers.value) {
+      result.skippedNoPermission += 1
+      continue
+    }
+
+    if (!generalMemberRoleKey) {
+      generalMemberRoleKey = await resolveGeneralMemberRoleKey()
+    }
+
+    const newUserId = await createGuardianAuthUser(row)
+    if (!newUserId) {
+      result.skippedAuthDuplicate += 1
+      continue
+    }
+
+    const { error: profileError } = await supabase.rpc('admin_insert_profile', {
+      target_id: newUserId,
+      p_email: row.email,
+      p_name: row.guardianName || row.email,
+      p_nickname: null,
+      p_role: generalMemberRoleKey,
+      p_avatar: null,
+      p_is_active: true,
+      p_access_start: null,
+      p_access_end: null
+    })
+
+    if (profileError) throw profileError
+
+    await updateProfileLinkedMemberIds(newUserId, linkedMemberIds)
+    result.created += 1
+  }
+
+  return result
+}
+
+const buildGuardianAccountSyncSummary = (result: GuardianAccountSyncResult) => {
+  if (result.total === 0) return ''
+
+  const parts = [`使用者新增 ${result.created} 筆`]
+
+  if (result.existing > 0) {
+    parts.push(`既有 email ${result.existing} 筆未重複新增`)
+  }
+  if (result.updatedExisting > 0) {
+    parts.push(`補綁既有使用者 ${result.updatedExisting} 筆`)
+  }
+  if (result.skippedAuthDuplicate > 0) {
+    parts.push(`略過 auth 已存在 ${result.skippedAuthDuplicate} 筆`)
+  }
+  if (result.skippedNoLinkedMember > 0) {
+    parts.push(`略過無法對應球員 ${result.skippedNoLinkedMember} 筆`)
+  }
+  if (result.skippedNoPermission > 0) {
+    parts.push(`略過權限不足 ${result.skippedNoPermission} 筆`)
+  }
+
+  return `；${parts.join('，')}`
+}
+
 const syncFromGoogleSheet = async () => {
   if (!canEditPlayers.value) return;
   try {
-    await ElMessageBox.confirm('確定要從 Google 表單同步球員名單？這將會更新同名的球員資料並新增缺漏的球員。', '🔄 同步確認', {
+    await ElMessageBox.confirm('確定要從 Google 表單同步球員名單？這將會更新同名球員、新增缺漏球員，並依主要聯絡人 email 建立一般成員帳號；重複 email 不會重複新增。', '🔄 同步確認', {
       confirmButtonText: '開始同步', cancelButtonText: '取消', type: 'warning'
     });
     
     isSyncing.value = true;
     
-    const url = 'https://docs.google.com/spreadsheets/d/1JJHUF0mn8afiYd0ZUkqrhKbdoPLGQAq15oE14JgdcBA/export?format=csv&id=1JJHUF0mn8afiYd0ZUkqrhKbdoPLGQAq15oE14JgdcBA&gid=0';
-    const response = await axios.get(url, { responseType: 'text' });
+    const response = await axios.get(PLAYER_SYNC_CSV_URL, { responseType: 'text' });
     const csvData = parseCSV(response.data);
     
     if (csvData.length < 2) throw new Error('無法擷取到有效的表單資料或資料為空');
@@ -1154,6 +1434,7 @@ const syncFromGoogleSheet = async () => {
     const inserts: any[] = [];
     const updates: any[] = [];
     const syncRows: Array<{ name: string; siblingNames: string[]; roleMapped: string }> = [];
+    const guardianAccountInputs: GuardianAccountSyncInput[] = [];
     
     for (let i = 1; i < csvData.length; i++) {
       const row = csvData[i];
@@ -1184,15 +1465,16 @@ const syncFromGoogleSheet = async () => {
       const throwing_hand = row[8]?.trim() || null;
       const batting_hand = row[9]?.trim() || null;
       const contact_line_id = row[10]?.trim() || null;
-      const contact_relation = row[11]?.trim() || null;
-      const guardian_name = row[12]?.trim() || null;
-      const guardian_phone = row[13]?.trim() || null;
-      const jersey_number = row[14]?.trim() || null;
-      const jersey_size = row[15]?.trim() || null;
-      const jersey_name = row[16]?.trim() || null;
-      const low_income_qualification = row[17]?.trim() === '是';
-      const notes = row[18]?.trim() && !['無', '沒', '無。'].includes(row[18]?.trim()) ? row[18]?.trim() : null;
-      const portrait_auth_str = row[19] || '';
+      const contact_email = row[11]?.trim() || null;
+      const contact_relation = row[12]?.trim() || null;
+      const guardian_name = row[13]?.trim() || null;
+      const guardian_phone = row[14]?.trim() || null;
+      const jersey_number = row[15]?.trim() || null;
+      const jersey_size = row[16]?.trim() || null;
+      const jersey_name = row[17]?.trim() || null;
+      const low_income_qualification = row[18]?.trim() === '是';
+      const notes = row[19]?.trim() && !['無', '沒', '無。'].includes(row[19]?.trim()) ? row[19]?.trim() : null;
+      const portrait_auth_str = row[20] || '';
       const portrait_auth = portrait_auth_str.includes('同意') || portrait_auth_str.includes('已充分閱讀');
       
       const basePayload: any = {
@@ -1221,6 +1503,14 @@ const syncFromGoogleSheet = async () => {
         siblingNames,
         roleMapped
       })
+
+      if (isSiblingEligibleRole(roleMapped)) {
+        guardianAccountInputs.push({
+          email: contact_email,
+          guardianName: guardian_name,
+          playerNames: [name]
+        })
+      }
 
       const existingMember = existingMap.get(name);
       if (existingMember) {
@@ -1290,12 +1580,15 @@ const syncFromGoogleSheet = async () => {
         : []
     })
 
-    await persistNormalizedSiblingIds(refreshedMembers)
+    const normalizedMembers = await persistNormalizedSiblingIds(refreshedMembers)
+    const guardianAccountRows = buildGuardianAccountSyncRows(guardianAccountInputs)
+    const guardianAccountSyncResult = await syncGuardianAccounts(guardianAccountRows, normalizedMembers)
+    const guardianAccountSummary = buildGuardianAccountSyncSummary(guardianAccountSyncResult)
     
     ElMessage.success(
       duplicateRowCount > 0
-        ? `同步完成！新增 ${dedupedInserts.length} 筆，更新 ${dedupedUpdates.length} 筆資料；偵測到 ${duplicateRowCount} 筆重複列，已以最後一筆為準`
-        : `同步完成！新增 ${dedupedInserts.length} 筆，更新 ${dedupedUpdates.length} 筆資料`
+        ? `同步完成！新增 ${dedupedInserts.length} 筆，更新 ${dedupedUpdates.length} 筆資料；偵測到 ${duplicateRowCount} 筆重複列，已以最後一筆為準${guardianAccountSummary}`
+        : `同步完成！新增 ${dedupedInserts.length} 筆，更新 ${dedupedUpdates.length} 筆資料${guardianAccountSummary}`
     );
     await fetchData();
   } catch (err: any) {
