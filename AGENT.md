@@ -88,6 +88,15 @@
 - 預設視為輸出檔，不作為主要修改目標。
 - 除非任務明確是修建置結果、快取產物或 PWA 輸出，否則不要編輯。
 
+### 棒球能力 / 體能測驗數據
+
+- 後台路由為 `/baseball-ability`、`/baseball-ability/:memberId`、`/physical-tests`、`/physical-tests/:memberId`。
+- 權限 feature key 分別為 `baseball_ability` 與 `physical_tests`，actions 為 `VIEW / CREATE / EDIT / DELETE`。
+- 資料表為 `baseball_ability_records` 與 `physical_test_records`，讀取預設走 `get_baseball_ability_records()`、`get_physical_test_records()` 與 `get_performance_member_options()`。
+- 有對應 `VIEW` 權限者可看全部資料；沒有權限但有 `profiles.linked_team_member_ids` 的家長/球員只能唯讀自己的綁定球員資料。
+- 新增、編輯、刪除必須依 DB RLS 檢查對應 feature/action，不可只靠前端按鈕隱藏。
+- 這些 RPC 不得回傳 `national_id`、`guardian_phone`、`contact_line_id` 等敏感欄位。
+
 ## 6. 資料與安全規則
 
 - 本專案包含敏感欄位，例如 `national_id`、`guardian_phone`、`contact_line_id`。

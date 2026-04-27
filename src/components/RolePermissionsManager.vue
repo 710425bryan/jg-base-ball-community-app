@@ -309,6 +309,18 @@ const systemFeatures = [
     actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
   },
   {
+    key: 'baseball_ability',
+    name: '棒球能力數據',
+    desc: '檢視與維護跑壘、球速、擊球與傳接球測驗',
+    actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
+  },
+  {
+    key: 'physical_tests',
+    name: '體能測驗數據',
+    desc: '檢視與維護身體數值、速度、柔軟度與爆發力測驗',
+    actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
+  },
+  {
     key: 'users',
     name: '人員與權限設定',
     desc: '管理使用者登入帳號、指定角色與權限',

@@ -63,6 +63,10 @@
             <span class="hidden sm:inline">表格</span>
           </button>
         </div>
+        <button v-if="canEditPlayers" @click="openPlayerExportDialog" class="bg-white hover:bg-slate-50 active:scale-95 text-slate-700 border border-slate-200 px-4 py-2.5 min-h-10 rounded-lg shadow-sm text-sm font-bold transition-all flex items-center gap-2">
+          <el-icon class="text-primary"><Download /></el-icon>
+          <span class="hidden sm:inline">下載比賽資料</span>
+        </button>
         <button v-if="canEditPlayers" @click="syncFromGoogleSheet" :disabled="isSyncing" class="bg-[#ca8a04] hover:bg-[#a16207] active:scale-95 text-white px-4 py-2.5 min-h-10 rounded-lg shadow-sm text-sm font-bold transition-all flex items-center gap-2 disabled:opacity-70">
           <el-icon v-if="isSyncing" class="is-loading"><Loading /></el-icon>
           <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg>
@@ -482,6 +486,94 @@
         </div>
       </template>
     </el-dialog>
+
+    <!-- 下載比賽球員資料 Modal -->
+    <el-dialog
+      v-model="isExportDialogOpen"
+      title="下載比賽球員資料"
+      width="95%"
+      style="max-width: 720px; border-radius: 16px;"
+      class="export-dialog"
+      append-to-body
+    >
+      <div class="max-h-[65vh] space-y-7 overflow-y-auto pr-2 custom-scrollbar">
+        <section class="export-step">
+          <h3 class="export-step-title">1. 選擇要匯出的人員</h3>
+          <div class="mb-3 flex flex-wrap items-center gap-2">
+            <span class="text-sm font-bold text-slate-500">快速選取:</span>
+            <button type="button" class="export-chip" @click="selectExportMembersBy('all')">所有人</button>
+            <button v-for="level in exportULevelOptions" :key="level" type="button" class="export-chip" @click="selectExportMembersBy(level)">{{ level }}</button>
+            <button type="button" class="export-chip" @click="selectExportMembersBy('coach')">教練</button>
+            <button type="button" class="export-chip" @click="clearExportMembers">清除全選</button>
+          </div>
+
+          <el-select
+            v-model="selectedExportMemberIds"
+            multiple
+            filterable
+            clearable
+            collapse-tags
+            collapse-tags-tooltip
+            :max-collapse-tags="3"
+            class="w-full"
+            placeholder="請選擇球員/教練"
+          >
+            <el-option
+              v-for="member in exportMemberOptions"
+              :key="member.id"
+              :label="getExportMemberOptionLabel(member)"
+              :value="member.id"
+            />
+          </el-select>
+          <p class="mt-2 text-sm font-semibold text-slate-500">已選擇 {{ selectedExportMembers.length }} 人</p>
+        </section>
+
+        <section class="export-step">
+          <h3 class="export-step-title">2. 選擇要匯出的欄位</h3>
+          <div class="mb-3 flex flex-wrap items-center gap-2">
+            <button type="button" class="export-chip" @click="setExportColumnPreset('all')">預設全選</button>
+            <button type="button" class="export-chip" @click="setExportColumnPreset('basic')">基本資料</button>
+            <button type="button" class="export-chip" @click="setExportColumnPreset('clear')">清除選取</button>
+          </div>
+
+          <el-checkbox-group v-if="availableExportColumns.length > 0" v-model="selectedExportColumnKeys" class="grid grid-cols-1 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+            <el-checkbox
+              v-for="column in availableExportColumns"
+              :key="column.key"
+              :value="column.key"
+              class="export-checkbox"
+            >
+              {{ column.label }}
+            </el-checkbox>
+          </el-checkbox-group>
+          <div v-else class="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm font-semibold text-slate-500">
+            目前沒有可匯出的欄位
+          </div>
+        </section>
+
+        <section class="export-step">
+          <h3 class="export-step-title">3. 選擇下載格式</h3>
+          <el-radio-group v-model="exportFormat">
+            <el-radio value="csv" class="font-bold">CSV 試算表</el-radio>
+          </el-radio-group>
+        </section>
+      </div>
+
+      <template #footer>
+        <div class="flex items-center justify-end gap-3 pt-3">
+          <button type="button" @click="isExportDialogOpen = false" class="px-5 py-2 text-gray-500 font-bold hover:bg-gray-100 rounded-lg transition-all">取消</button>
+          <button
+            type="button"
+            @click="exportPlayerMatchCsv"
+            :disabled="!canExportPlayerCsv"
+            class="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-5 py-2 text-sm font-bold text-white shadow-sm transition-all hover:bg-primary/90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <el-icon><Download /></el-icon>
+            匯出並下載
+          </button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -495,7 +587,8 @@ import { normalizeSiblingIds } from '@/utils/siblingGroups'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Loading, InfoFilled, Search } from '@element-plus/icons-vue'
+import { Loading, InfoFilled, Search, Download } from '@element-plus/icons-vue'
+import { downloadUtf8BomCsv } from '@/utils/csvExport'
 import axios from 'axios'
 
 const authStore = useAuthStore()
@@ -672,6 +765,188 @@ const getSiblingName = (ids: string[] | string) => {
   if (!ids) return '';
   const idArray = Array.isArray(ids) ? ids : [ids];
   return idArray.map(id => members.value.find(m => m.id === id)?.name).filter(Boolean).join(', ');
+}
+
+type ExportQuickSelect = 'all' | 'coach' | 'U12' | 'U11' | 'U10' | 'U9' | 'U8'
+type ExportColumnPreset = 'all' | 'basic' | 'clear'
+type PlayerExportColumn = {
+  key: string
+  label: string
+  sourceKeys?: string[]
+  sensitive?: boolean
+  basic?: boolean
+  always?: boolean
+  getValue: (member: any) => unknown
+}
+
+const exportULevelOptions: ExportQuickSelect[] = ['U12', 'U11', 'U10', 'U9', 'U8']
+const isExportDialogOpen = ref(false)
+const selectedExportMemberIds = ref<string[]>([])
+const selectedExportColumnKeys = ref<string[]>([])
+const exportFormat = ref<'csv'>('csv')
+
+const hasOwnField = (member: any, key: string) =>
+  Object.prototype.hasOwnProperty.call(member || {}, key)
+
+const hasExportValue = (value: unknown) => {
+  if (value === null || value === undefined) return false
+  if (typeof value === 'boolean') return true
+  if (Array.isArray(value)) return value.length > 0
+  return String(value).trim() !== ''
+}
+
+const hasSourceValue = (member: any, keys: string[]) =>
+  keys.some((key) => hasOwnField(member, key) && hasExportValue(member[key]))
+
+const formatBoolean = (value: unknown) => value ? '是' : '否'
+
+const formatDateTime = (value: unknown) => {
+  if (!value) return ''
+  return String(value).replace('T', ' ').slice(0, 16)
+}
+
+const playerExportColumns = computed<PlayerExportColumn[]>(() => [
+  { key: 'name', label: '姓名', basic: true, always: true, getValue: (member) => member.name },
+  { key: 'role', label: '稱謂/身分', basic: true, sourceKeys: ['role'], getValue: (member) => member.role },
+  { key: 'status', label: '在隊狀態', basic: true, sourceKeys: ['status'], getValue: (member) => member.status || '在隊' },
+  { key: 'team_group', label: '比賽組別', basic: true, sourceKeys: ['team_group'], getValue: (member) => member.team_group },
+  { key: 'u_level', label: '年級類別', basic: true, getValue: (member) => getULevel(member) },
+  { key: 'jersey_number', label: '背號', basic: true, sourceKeys: ['jersey_number'], getValue: (member) => member.jersey_number },
+  { key: 'jersey_name', label: '球衣名字', sourceKeys: ['jersey_name'], getValue: (member) => member.jersey_name },
+  { key: 'jersey_size', label: '球衣尺寸', sourceKeys: ['jersey_size'], getValue: (member) => member.jersey_size },
+  { key: 'birth_date', label: '生日(西元)', basic: true, sourceKeys: ['birth_date'], getValue: (member) => member.birth_date },
+  { key: 'roc_birth_date', label: '生日(民國)', basic: true, getValue: (member) => getROCDate(member.birth_date) },
+  { key: 'national_id', label: '身分證字號', sensitive: true, sourceKeys: ['national_id'], getValue: (member) => member.national_id },
+  { key: 'throwing_hand', label: '投球習慣', basic: true, sourceKeys: ['throwing_hand'], getValue: (member) => member.throwing_hand },
+  { key: 'batting_hand', label: '打擊習慣', basic: true, sourceKeys: ['batting_hand'], getValue: (member) => member.batting_hand },
+  { key: 'contact_relation', label: '聯絡人關係', sourceKeys: ['contact_relation'], getValue: (member) => member.contact_relation },
+  { key: 'guardian_name', label: '聯絡人1', sourceKeys: ['guardian_name'], getValue: (member) => member.guardian_name },
+  { key: 'guardian_phone', label: '連絡電話1', sensitive: true, sourceKeys: ['guardian_phone'], getValue: (member) => member.guardian_phone },
+  { key: 'contact_line_id', label: 'LINE ID', sensitive: true, sourceKeys: ['contact_line_id'], getValue: (member) => member.contact_line_id },
+  { key: 'is_early_enrollment', label: '提早入學', sourceKeys: ['is_early_enrollment'], getValue: (member) => formatBoolean(member.is_early_enrollment) },
+  { key: 'low_income_qualification', label: '清寒低收資格', sourceKeys: ['low_income_qualification'], getValue: (member) => formatBoolean(member.low_income_qualification) },
+  { key: 'is_primary_payer', label: '主要繳費人', sourceKeys: ['is_primary_payer'], getValue: (member) => formatBoolean(member.is_primary_payer) },
+  { key: 'is_half_price', label: '半價優惠', sourceKeys: ['is_half_price'], getValue: (member) => formatBoolean(member.is_half_price) },
+  { key: 'sibling_ids', label: '相關手足', sourceKeys: ['sibling_ids'], getValue: (member) => getSiblingName(member.sibling_ids) },
+  { key: 'portrait_auth', label: '肖像授權', sourceKeys: ['portrait_auth'], getValue: (member) => formatBoolean(member.portrait_auth) },
+  { key: 'notes', label: '備註', sourceKeys: ['notes'], getValue: (member) => member.notes },
+  { key: 'created_at', label: '建立時間', sourceKeys: ['created_at'], getValue: (member) => formatDateTime(member.created_at) },
+  { key: 'updated_at', label: '更新時間', sourceKeys: ['updated_at'], getValue: (member) => formatDateTime(member.updated_at) }
+])
+
+const exportMemberOptions = computed(() =>
+  members.value
+    .filter((member) => member?.id && member?.name)
+    .map((member) => ({ ...member, id: String(member.id) }))
+)
+
+const selectedExportMembers = computed(() => {
+  const selectedIds = new Set(selectedExportMemberIds.value)
+  return exportMemberOptions.value.filter((member) => selectedIds.has(member.id))
+})
+
+const exportColumnSourceMembers = computed(() =>
+  selectedExportMembers.value.length > 0 ? selectedExportMembers.value : exportMemberOptions.value
+)
+
+const isExportColumnAvailable = (column: PlayerExportColumn, sourceMembers: any[]) => {
+  if (sourceMembers.length === 0) return false
+  if (column.sensitive && !canEditPlayers.value) return false
+  if (column.always) return true
+
+  return sourceMembers.some((member) => {
+    if (column.sourceKeys?.length && hasSourceValue(member, column.sourceKeys)) {
+      return true
+    }
+
+    return hasExportValue(column.getValue(member))
+  })
+}
+
+const availableExportColumns = computed(() =>
+  playerExportColumns.value.filter((column) => isExportColumnAvailable(column, exportColumnSourceMembers.value))
+)
+
+const selectedExportColumns = computed(() => {
+  const selectedKeys = new Set(selectedExportColumnKeys.value)
+  return availableExportColumns.value.filter((column) => selectedKeys.has(column.key))
+})
+
+const canExportPlayerCsv = computed(() =>
+  canEditPlayers.value && selectedExportMembers.value.length > 0 && selectedExportColumns.value.length > 0 && exportFormat.value === 'csv'
+)
+
+const getExportMemberOptionLabel = (member: any) => {
+  const tags = [member.role, getULevel(member), member.team_group]
+    .filter(Boolean)
+    .join(' / ')
+
+  return tags ? `${member.name} (${tags})` : member.name
+}
+
+const setExportColumnPreset = (preset: ExportColumnPreset) => {
+  if (preset === 'clear') {
+    selectedExportColumnKeys.value = []
+    return
+  }
+
+  selectedExportColumnKeys.value = availableExportColumns.value
+    .filter((column) => preset === 'all' || column.basic)
+    .map((column) => column.key)
+}
+
+const selectExportMembersBy = (target: ExportQuickSelect) => {
+  const nextMembers = exportMemberOptions.value.filter((member) => {
+    if (target === 'all') return true
+    if (target === 'coach') return member.role === '教練'
+    return getULevel(member) === target
+  })
+
+  selectedExportMemberIds.value = nextMembers.map((member) => member.id)
+}
+
+const clearExportMembers = () => {
+  selectedExportMemberIds.value = []
+}
+
+const openPlayerExportDialog = () => {
+  if (!canEditPlayers.value) return
+
+  if (exportMemberOptions.value.length === 0) {
+    ElMessage.warning('目前沒有球員資料可匯出')
+    return
+  }
+
+  selectedExportMemberIds.value = []
+  exportFormat.value = 'csv'
+  setExportColumnPreset('all')
+  isExportDialogOpen.value = true
+}
+
+const exportPlayerMatchCsv = () => {
+  if (!canEditPlayers.value) return
+
+  if (selectedExportMembers.value.length === 0) {
+    ElMessage.warning('請先選擇要匯出的人員')
+    return
+  }
+
+  if (selectedExportColumns.value.length === 0) {
+    ElMessage.warning('請至少選擇一個匯出欄位')
+    return
+  }
+
+  const rows = [
+    selectedExportColumns.value.map((column) => column.label),
+    ...selectedExportMembers.value.map((member) =>
+      selectedExportColumns.value.map((column) => column.getValue(member))
+    )
+  ]
+  const dateText = new Date().toISOString().slice(0, 10)
+
+  downloadUtf8BomCsv(`比賽球員資料_${dateText}.csv`, rows)
+  ElMessage.success(`已匯出 ${selectedExportMembers.value.length} 人的 CSV`)
+  isExportDialogOpen.value = false
 }
 
 // U-level 排序邏輯
@@ -1275,6 +1550,57 @@ onMounted(() => {
 .players-member-card:focus-visible {
   outline: 3px solid rgba(216, 143, 34, 0.28);
   outline-offset: 2px;
+}
+
+.export-dialog.el-dialog {
+  border-radius: 16px !important;
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.28) !important;
+}
+.export-dialog .el-dialog__header {
+  border-bottom: 1px solid #e2e8f0;
+  margin-right: 0;
+  padding: 20px 24px 14px;
+}
+.export-dialog .el-dialog__title {
+  color: #0f172a !important;
+  font-weight: 900;
+}
+.export-dialog .el-dialog__body {
+  padding: 18px 24px 0;
+}
+.export-step-title {
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--color-primary);
+  padding-bottom: 8px;
+  color: #c56d12;
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+.export-chip {
+  min-height: 28px;
+  border: 1px solid #dbe3ee;
+  border-radius: 999px;
+  background: #ffffff;
+  padding: 0 12px;
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 800;
+  transition: border-color 160ms ease, color 160ms ease, background-color 160ms ease;
+}
+.export-chip:hover {
+  border-color: rgba(216, 143, 34, 0.55);
+  background: #fff7ed;
+  color: var(--color-primary);
+}
+.export-checkbox {
+  margin-right: 0 !important;
+  min-width: 0;
+}
+.export-checkbox .el-checkbox__label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #2380ff;
+  font-weight: 800;
 }
 /* Modal Styling */
 .custom-dialog.el-dialog {

@@ -6,6 +6,7 @@ import { useAuthStore } from '../stores/auth'
 import { usePermissionsStore } from '../stores/permissions'
 
 const CHUNK_RELOAD_SESSION_KEY = 'router:chunk-reload-target'
+const LINKED_MEMBER_VIEW_FEATURES = new Set(['baseball_ability', 'physical_tests'])
 
 const isDynamicImportError = (error: unknown) => {
   const message = error instanceof Error ? error.message : String(error)
@@ -26,6 +27,11 @@ const getFallbackFullPath = () => {
     : window.location.hash
 
   return hashPath || '/dashboard'
+}
+
+const hasLinkedTeamMembers = (profile: any) => {
+  const linkedIds = profile?.linked_team_member_ids
+  return Array.isArray(linkedIds) && linkedIds.filter(Boolean).length > 0
 }
 
 const router = createRouter({
@@ -137,6 +143,30 @@ const router = createRouter({
           meta: { feature: 'fees' }
         },
         {
+          path: 'baseball-ability',
+          name: 'BaseballAbility',
+          component: () => import('../views/BaseballAbilityView.vue'),
+          meta: { feature: 'baseball_ability', allowLinkedMemberView: true }
+        },
+        {
+          path: 'baseball-ability/:memberId',
+          name: 'BaseballAbilityDetail',
+          component: () => import('../views/BaseballAbilityDetailView.vue'),
+          meta: { feature: 'baseball_ability', allowLinkedMemberView: true }
+        },
+        {
+          path: 'physical-tests',
+          name: 'PhysicalTests',
+          component: () => import('../views/PhysicalTestsView.vue'),
+          meta: { feature: 'physical_tests', allowLinkedMemberView: true }
+        },
+        {
+          path: 'physical-tests/:memberId',
+          name: 'PhysicalTestsDetail',
+          component: () => import('../views/PhysicalTestsDetailView.vue'),
+          meta: { feature: 'physical_tests', allowLinkedMemberView: true }
+        },
+        {
           path: 'equipment',
           name: 'Equipment',
           component: () => import('../views/EquipmentView.vue'),
@@ -163,7 +193,13 @@ router.beforeEach(async (to, from, next) => {
     next('/')
   } else if (to.meta.requiresAuth && to.meta.feature) {
     const permissionsStore = usePermissionsStore()
-    if (!permissionsStore.can(to.meta.feature as string, 'VIEW')) {
+    const feature = to.meta.feature as string
+    const canViewLinkedMemberData =
+      to.meta.allowLinkedMemberView === true &&
+      LINKED_MEMBER_VIEW_FEATURES.has(feature) &&
+      hasLinkedTeamMembers(authStore.profile)
+
+    if (!permissionsStore.can(feature, 'VIEW') && !canViewLinkedMemberData) {
       next('/dashboard')
     } else {
       next()

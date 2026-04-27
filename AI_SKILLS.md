@@ -52,6 +52,12 @@
 - 用途：裝備管理、家長加購、請購審核、領取、裝備付款回報。
 - 典型情境：修改 `/equipment`、`/equipment-addons`、`equipment_transactions`、`equipment_purchase_requests`、`equipment_payment_submissions`、裝備 storage 或相關推播。
 
+### `jg-baseball-performance-data`
+
+- 路徑：`.codex/skills/jg-baseball-performance-data/SKILL.md`
+- 用途：棒球能力數據、體能測驗數據、趨勢頁、手動 CRUD 與家長/球員唯讀檢視。
+- 典型情境：修改 `/baseball-ability`、`/physical-tests`、`baseball_ability_records`、`physical_test_records`、`get_baseball_ability_records`、`get_physical_test_records`、或 `baseball_ability` / `physical_tests` 權限。
+
 ## 維護建議
 
 - 新增 skill 前，先確認能否併入既有 skill，避免過度切碎。
