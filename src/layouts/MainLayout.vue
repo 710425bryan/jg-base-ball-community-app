@@ -121,7 +121,7 @@
                   <el-dropdown-item @click="router.push('/my-payments')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">繳費資訊</el-dropdown-item>
                   <el-dropdown-item v-if="hasLinkedTeamMembers" @click="router.push('/equipment-addons')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">裝備加購</el-dropdown-item>
                   <el-dropdown-item @click="router.push('/my-leave-requests')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">我的假單</el-dropdown-item>
-                  <el-dropdown-item v-if="permissionsStore.can('leave_requests', 'VIEW')" @click="openPushSettingsFromMenu" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">通知設定</el-dropdown-item>
+                  <el-dropdown-item @click="openPushSettingsFromMenu" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">通知設定</el-dropdown-item>
                   <el-dropdown-item @click="handleSignOut" class="!rounded-lg !font-bold !text-red-500 hover:!text-red-600 !py-2.5" divided>登出</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
@@ -254,6 +254,8 @@
       <router-view />
     </main>
 
+    <PushSettingsDialog v-model="isPushSettingsOpen" />
+
     <!-- Bottom Menu (Mobile Only) -->
     <nav class="md:hidden flex-none w-full bg-white border-t border-gray-200 z-50 text-xs text-gray-500 pb-[env(safe-area-inset-bottom)] shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
       <div class="flex justify-around items-center pt-2 h-[4.5rem]">
@@ -300,11 +302,12 @@
 
 <script setup lang="ts">
 import { computed, ref, watch, onUnmounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { usePermissionsStore } from '@/stores/permissions';
 import { supabase } from '@/services/supabase';
 import { Bell, ArrowDown } from '@element-plus/icons-vue';
+import PushSettingsDialog from '@/components/PushSettingsDialog.vue';
 import { configureNotificationFeedFallbackFetcher, useNotificationFeed } from '@/composables/useNotificationFeed';
 import { useVersionCheck } from '@/composables/useVersionCheck';
 import { buildNotificationFeedItemId, type NotificationFeedItem, type NotificationFeedRow } from '@/types/dashboard';
@@ -327,8 +330,8 @@ dayjs.extend(relativeTime)
 dayjs.locale('zh-tw')
 
 const appVersion = __APP_VERSION__;
-
 const router = useRouter();
+const route = useRoute();
 const authStore = useAuthStore();
 const permissionsStore = usePermissionsStore();
 const {
@@ -340,7 +343,9 @@ const {
 } = useNotificationFeed();
 const { hasUpdateAvailable, refreshApp } = useVersionCheck();
 const isMobileMenuOpen = ref(false);
+const isPushSettingsOpen = ref(false);
 const notificationPopover = ref<any>(null);
+let autoPushPromptTimer: number | null = null;
 const currentUserDisplayName = computed(() => authStore.profile?.nickname || authStore.profile?.name || '使用者');
 const hasLinkedTeamMembers = computed(() => {
   const linkedIds = authStore.profile?.linked_team_member_ids
@@ -402,12 +407,100 @@ const handleSignOut = async () => {
 
 const openPushSettingsFromMenu = () => {
   isMobileMenuOpen.value = false;
-  void router.push({
-    path: '/leave-requests',
-    query: {
-      open_push_settings: '1'
-    }
+  isPushSettingsOpen.value = true;
+};
+
+const openPushSettingsFromRouteQuery = () => {
+  if (route.query.open_push_settings !== '1') {
+    return;
+  }
+
+  isPushSettingsOpen.value = true;
+
+  const nextQuery = { ...route.query };
+  delete nextQuery.open_push_settings;
+
+  void router.replace({
+    query: nextQuery
   });
+};
+
+const getCurrentPushRegistration = async () => {
+  if (
+    typeof window === 'undefined' ||
+    typeof navigator === 'undefined' ||
+    !('serviceWorker' in navigator) ||
+    !('PushManager' in window) ||
+    typeof Notification === 'undefined'
+  ) {
+    return null;
+  }
+
+  const existingRegistration = await navigator.serviceWorker.getRegistration();
+  if (existingRegistration) {
+    return existingRegistration;
+  }
+
+  return Promise.race<ServiceWorkerRegistration | null>([
+    navigator.serviceWorker.ready,
+    new Promise((resolve) => window.setTimeout(() => resolve(null), 1200))
+  ]);
+};
+
+const hasCurrentDeviceEnabledPushSubscription = async (userId: string) => {
+  if (typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
+    return false;
+  }
+
+  const registration = await getCurrentPushRegistration();
+  const subscription = await registration?.pushManager.getSubscription();
+  const endpoint = subscription?.endpoint || subscription?.toJSON().endpoint || '';
+
+  if (!endpoint) {
+    return false;
+  }
+
+  const { data, error } = await supabase
+    .from('web_push_subscriptions')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('endpoint', endpoint)
+    .eq('enabled', true)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return Boolean(data?.id);
+};
+
+const maybeAutoOpenPushSettings = async (userId?: string | null) => {
+  if (!userId || isPushSettingsOpen.value || route.query.open_push_settings === '1') {
+    return;
+  }
+
+  try {
+    const hasCurrentDevicePush = await hasCurrentDeviceEnabledPushSubscription(userId);
+    if (!hasCurrentDevicePush && !isPushSettingsOpen.value) {
+      isPushSettingsOpen.value = true;
+    }
+  } catch (error) {
+    console.warn('Failed to check push notification subscription state', error);
+  }
+};
+
+const scheduleAutoOpenPushSettings = (userId?: string | null) => {
+  if (typeof window === 'undefined') return;
+
+  if (autoPushPromptTimer !== null) {
+    window.clearTimeout(autoPushPromptTimer);
+  }
+
+  autoPushPromptTimer = window.setTimeout(() => {
+    autoPushPromptTimer = null;
+    void maybeAutoOpenPushSettings(userId);
+  }, 900);
 };
 
 type MobileMenuGroupKey = 'personal' | 'team' | 'performance' | 'admin';
@@ -479,7 +572,7 @@ const mobileMenuGroups = computed<MobileMenuGroup[]>(() => [
       { label: '繳費資訊', to: '/my-payments' },
       { label: '裝備加購', to: '/equipment-addons', visible: hasLinkedTeamMembers.value },
       { label: '我的假單', to: '/my-leave-requests' },
-      { label: '通知設定', action: openPushSettingsFromMenu, visible: permissionsStore.can('leave_requests', 'VIEW') }
+      { label: '通知設定', action: openPushSettingsFromMenu }
     ].filter(isVisibleMobileMenuItem)
   },
   {
@@ -542,6 +635,22 @@ watch(isMobileMenuOpen, (isOpen) => {
     collapseMobileMenuGroups();
   }
 });
+
+watch(
+  () => route.query.open_push_settings,
+  () => {
+    openPushSettingsFromRouteQuery();
+  },
+  { immediate: true }
+);
+
+watch(
+  () => authStore.user?.id,
+  (userId) => {
+    scheduleAutoOpenPushSettings(userId);
+  },
+  { immediate: true }
+);
 
 type IdleDeadlineLike = {
   didTimeout: boolean;
@@ -1137,6 +1246,11 @@ watch(() => authStore.profile?.role, (newRole) => {
 
 
 onUnmounted(() => {
+  if (typeof window !== 'undefined' && autoPushPromptTimer !== null) {
+    window.clearTimeout(autoPushPromptTimer);
+    autoPushPromptTimer = null;
+  }
+
   clearScheduledNotificationFeedLoad();
   clearQuarterlyFeeNotificationBuffer();
   stopListening();

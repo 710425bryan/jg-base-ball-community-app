@@ -147,21 +147,18 @@
               </el-form-item>
             </div>
 
-            <div
-              v-if="canOpenPushSettings"
-              class="rounded-2xl border border-primary/15 bg-primary/5 px-4 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-            >
+            <div class="rounded-2xl border border-primary/15 bg-primary/5 px-4 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <div class="text-sm font-black text-slate-800">通知推播設定</div>
+                <div class="text-sm font-black text-slate-800">系統推播通知</div>
                 <p class="mt-2 text-sm text-gray-600 leading-relaxed">
-                  若要讓這台手機收到請假通知，請先從這裡開啟裝置推播授權與綁定。
+                  若要讓這台手機收到明日賽事提醒、請假通知與其他系統通知，請先從這裡開啟裝置推播授權與綁定。
                 </p>
               </div>
 
               <button
                 type="button"
                 class="shrink-0 rounded-2xl bg-primary hover:bg-primary-hover text-white font-bold px-5 py-3 transition-colors"
-                @click="openPushSettings"
+                @click="isPushSettingsOpen = true"
               >
                 前往設定
               </button>
@@ -197,17 +194,18 @@
         </section>
       </div>
     </div>
+
+    <PushSettingsDialog v-model="isPushSettingsOpen" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
+import PushSettingsDialog from '@/components/PushSettingsDialog.vue'
 import { supabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/auth'
-import { usePermissionsStore } from '@/stores/permissions'
 import { compressImage } from '@/utils/imageCompressor'
 import {
   normalizeAccountLast5,
@@ -218,13 +216,12 @@ import {
 const MAX_AVATAR_BYTES = 1024 * 1024
 const paymentMethodOptions = PAYMENT_METHOD_OPTIONS
 
-const router = useRouter()
 const authStore = useAuthStore()
-const permissionsStore = usePermissionsStore()
 
 const isLoading = ref(true)
 const isCompressing = ref(false)
 const isSubmitting = ref(false)
+const isPushSettingsOpen = ref(false)
 const formRef = ref()
 const fileInput = ref<HTMLInputElement | null>(null)
 const avatarFile = ref<File | null>(null)
@@ -291,16 +288,6 @@ const avatarDisplayUrl = computed(() => avatarPreview.value || form.avatar_url)
 const requiresAccountLast5 = computed(() => {
   return checkRequiresAccountLast5(form.preferred_payment_method)
 })
-const canOpenPushSettings = computed(() => permissionsStore.can('leave_requests', 'VIEW'))
-
-const openPushSettings = () => {
-  void router.push({
-    path: '/leave-requests',
-    query: {
-      open_push_settings: '1'
-    }
-  })
-}
 
 const revokeAvatarPreview = () => {
   if (avatarPreview.value.startsWith('blob:')) {

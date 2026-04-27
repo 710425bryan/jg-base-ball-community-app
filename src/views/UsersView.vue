@@ -12,6 +12,15 @@
       </div>
 
       <div class="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-3 self-start md:flex md:w-auto md:items-center">
+        <el-input
+          v-model="searchQuery"
+          placeholder="搜尋使用者或球員姓名"
+          :prefix-icon="Search"
+          clearable
+          size="large"
+          class="col-span-2 !w-full md:!w-72"
+        />
+
         <el-select v-model="statusFilter" size="large" class="!w-full md:!w-[10.5rem]">
           <el-option
             v-for="option in accessStatusFilterOptions"
@@ -113,11 +122,11 @@
 
                 <el-table-column label="上線時間" min-width="180">
                   <template #default="{ row }">
-                    <div class="inline-flex items-center gap-1.5 text-xs font-bold" :class="getLastSeenToneClass(row.last_seen_at)">
-                      <span class="w-2 h-2 rounded-full" :class="getLastSeenDotClass(row.last_seen_at)"></span>
+                    <div class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-black" :class="getLastSeenBadgeClass(row.last_seen_at)">
+                      <span class="w-2.5 h-2.5 rounded-full shadow-sm" :class="getLastSeenDotClass(row.last_seen_at)"></span>
                       {{ getLastSeenStatus(row.last_seen_at) }}
                     </div>
-                    <div class="text-xs text-gray-400 mt-1">{{ formatDate(row.last_seen_at, true) }}</div>
+                    <div class="text-xs mt-1" :class="getLastSeenMetaClass(row.last_seen_at)">{{ formatDate(row.last_seen_at, true) }}</div>
                   </template>
                 </el-table-column>
 
@@ -204,8 +213,11 @@
                   </div>
                 </div>
 
-                <div class="sm:hidden pl-[3.75rem] text-xs font-medium text-gray-400">
-                  上線時間：{{ getLastSeenStatus(row.last_seen_at) }}
+                <div class="sm:hidden pl-[3.75rem]">
+                  <span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-black" :class="getLastSeenBadgeClass(row.last_seen_at)">
+                    <span class="w-2.5 h-2.5 rounded-full shadow-sm" :class="getLastSeenDotClass(row.last_seen_at)"></span>
+                    上線時間：{{ getLastSeenStatus(row.last_seen_at) }}
+                  </span>
                 </div>
 
                 <div class="hidden sm:grid sm:grid-cols-2 xl:grid-cols-4 gap-3">
@@ -229,8 +241,13 @@
 
                   <div class="rounded-2xl border border-gray-100 bg-gray-50/70 p-3">
                     <div class="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">上線時間</div>
-                    <div class="mt-2 text-sm font-bold text-gray-800">{{ getLastSeenStatus(row.last_seen_at) }}</div>
-                    <div class="mt-1 text-xs text-gray-500 leading-relaxed">{{ formatDate(row.last_seen_at, true) }}</div>
+                    <div class="mt-2">
+                      <span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-black" :class="getLastSeenBadgeClass(row.last_seen_at)">
+                        <span class="w-2.5 h-2.5 rounded-full shadow-sm" :class="getLastSeenDotClass(row.last_seen_at)"></span>
+                        {{ getLastSeenStatus(row.last_seen_at) }}
+                      </span>
+                    </div>
+                    <div class="mt-1 text-xs leading-relaxed" :class="getLastSeenMetaClass(row.last_seen_at)">{{ formatDate(row.last_seen_at, true) }}</div>
                   </div>
                 </div>
               </article>
@@ -362,7 +379,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Loading } from '@element-plus/icons-vue'
+import { Loading, Search } from '@element-plus/icons-vue'
 import RolePermissionsManager from '@/components/RolePermissionsManager.vue'
 import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
 import { supabase } from '@/services/supabase'
@@ -417,6 +434,7 @@ const permissionsStore = usePermissionsStore()
 const activeTab = ref('users')
 const viewMode = ref<ViewMode>('grid')
 const statusFilter = ref<AccessStatusFilter>('all')
+const searchQuery = ref('')
 const fallbackRoleNames: Record<string, string> = {
   ADMIN: '系統管理員',
   MANAGER: '管理員',
@@ -492,16 +510,44 @@ const decoratedUsers = computed<DecoratedUser[]>(() => {
   })
 })
 
+const normalizeSearchValue = (value: string | null | undefined) =>
+  value?.trim().toLowerCase() ?? ''
+
+const searchedDecoratedUsers = computed(() => {
+  const keyword = normalizeSearchValue(searchQuery.value)
+  if (!keyword) return decoratedUsers.value
+
+  return decoratedUsers.value.filter((user) => {
+    const searchableText = [
+      user.name,
+      user.nickname,
+      user.email,
+      user.role,
+      getRoleName(user.role),
+      ...user.linkedMembers.flatMap((member) => [
+        member.name,
+        member.role,
+        member.team_group
+      ])
+    ]
+      .map((value) => normalizeSearchValue(value))
+      .filter(Boolean)
+      .join(' ')
+
+    return searchableText.includes(keyword)
+  })
+})
+
 const filteredDecoratedUsers = computed(() => {
   if (statusFilter.value === 'all') {
-    return decoratedUsers.value
+    return searchedDecoratedUsers.value
   }
 
-  return decoratedUsers.value.filter((user) => user.accessState.status === statusFilter.value)
+  return searchedDecoratedUsers.value.filter((user) => user.accessState.status === statusFilter.value)
 })
 
 const accessStatusFilterOptions = computed(() => {
-  const counts = decoratedUsers.value.reduce<Record<ProfileAccessStatus, number>>((summary, user) => {
+  const counts = searchedDecoratedUsers.value.reduce<Record<ProfileAccessStatus, number>>((summary, user) => {
     summary[user.accessState.status] += 1
     return summary
   }, {
@@ -512,7 +558,7 @@ const accessStatusFilterOptions = computed(() => {
   })
 
   return [
-    { value: 'all' as const, label: `全部 ${decoratedUsers.value.length}` },
+    { value: 'all' as const, label: `全部 ${searchedDecoratedUsers.value.length}` },
     ...accessStatusOrder.map((status) => ({
       value: status,
       label: `${getAccessStatusLabel(status)} ${counts[status]}`
@@ -692,33 +738,53 @@ const getLastSeenDiff = (dateString?: string | null) => {
   return Math.max(0, Date.now() - parsed)
 }
 
+type LastSeenStatus = 'online' | 'offline' | 'stale' | 'unknown'
+
+const getLastSeenState = (dateString?: string | null): LastSeenStatus => {
+  const diff = getLastSeenDiff(dateString)
+
+  if (diff == null) return 'unknown'
+  if (diff <= 10 * 60 * 1000) return 'online'
+  if (diff < 7 * 24 * 60 * 60 * 1000) return 'offline'
+  return 'stale'
+}
+
 const getLastSeenStatus = (dateString?: string | null) => {
   const diff = getLastSeenDiff(dateString)
 
   if (diff == null) return '尚無紀錄'
   if (diff <= 10 * 60 * 1000) return '在線中'
-  if (diff < 60 * 60 * 1000) return `${Math.max(1, Math.floor(diff / (60 * 1000)))} 分鐘前`
-  if (diff < 24 * 60 * 60 * 1000) return `${Math.floor(diff / (60 * 60 * 1000))} 小時前`
-  if (diff < 7 * 24 * 60 * 60 * 1000) return `${Math.floor(diff / (24 * 60 * 60 * 1000))} 天前`
-  return formatDate(dateString, true)
+  if (diff < 60 * 60 * 1000) return `離線 ${Math.max(1, Math.floor(diff / (60 * 1000)))} 分鐘`
+  if (diff < 24 * 60 * 60 * 1000) return `離線 ${Math.floor(diff / (60 * 60 * 1000))} 小時`
+  if (diff < 7 * 24 * 60 * 60 * 1000) return `離線 ${Math.floor(diff / (24 * 60 * 60 * 1000))} 天`
+  return '很久沒上線'
 }
 
-const getLastSeenToneClass = (dateString?: string | null) => {
-  const diff = getLastSeenDiff(dateString)
+const getLastSeenBadgeClass = (dateString?: string | null) => {
+  const state = getLastSeenState(dateString)
 
-  if (diff == null) return 'text-gray-400'
-  if (diff <= 10 * 60 * 1000) return 'text-emerald-600'
-  if (diff < 24 * 60 * 60 * 1000) return 'text-amber-600'
-  return 'text-gray-500'
+  if (state === 'online') return 'bg-lime-100 border-lime-300 text-lime-800 shadow-[0_0_0_3px_rgba(132,204,22,0.16)]'
+  if (state === 'offline') return 'bg-amber-50 border-amber-200 text-amber-700'
+  if (state === 'stale') return 'bg-rose-50 border-rose-200 text-rose-700'
+  return 'bg-slate-100 border-slate-200 text-slate-500'
 }
 
 const getLastSeenDotClass = (dateString?: string | null) => {
-  const diff = getLastSeenDiff(dateString)
+  const state = getLastSeenState(dateString)
 
-  if (diff == null) return 'bg-gray-300'
-  if (diff <= 10 * 60 * 1000) return 'bg-emerald-500'
-  if (diff < 24 * 60 * 60 * 1000) return 'bg-amber-500'
-  return 'bg-gray-400'
+  if (state === 'online') return 'bg-lime-500 animate-pulse'
+  if (state === 'offline') return 'bg-amber-500'
+  if (state === 'stale') return 'bg-rose-500'
+  return 'bg-slate-400'
+}
+
+const getLastSeenMetaClass = (dateString?: string | null) => {
+  const state = getLastSeenState(dateString)
+
+  if (state === 'online') return 'text-lime-700'
+  if (state === 'offline') return 'text-amber-600'
+  if (state === 'stale') return 'text-rose-600'
+  return 'text-slate-400'
 }
 
 const fetchUsers = async () => {
