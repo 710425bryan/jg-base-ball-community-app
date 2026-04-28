@@ -80,11 +80,26 @@
               <h3 class="font-bold text-gray-800 text-sm">系統通知中心</h3>
               <span class="bg-primary/10 text-primary text-[10px] font-extrabold px-2 py-0.5 rounded-full">{{ notifications.length }} 則新通知</span>
             </div>
-            <div v-if="notifications.length > 0" class="max-h-[350px] overflow-y-auto bg-white">
-              <div v-for="note in notifications" :key="note.id" @click="handleNotificationClick(note.link)" class="p-3 px-4 border-b border-gray-50 hover:bg-primary/5 transition-colors cursor-pointer text-sm">
+            <div v-if="notificationCategories.length > 1" class="flex gap-1 overflow-x-auto border-b border-gray-100 bg-white px-3 py-2">
+              <button
+                v-for="category in notificationCategories"
+                :key="category.source"
+                type="button"
+                class="shrink-0 rounded-full px-3 py-1.5 text-xs font-black transition-colors"
+                :class="activeNotificationSource === category.source ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'"
+                @click="activeNotificationSource = category.source"
+              >
+                {{ category.label }}
+              </button>
+            </div>
+            <div v-if="filteredNotifications.length > 0" class="max-h-[350px] overflow-y-auto bg-white">
+              <div v-for="note in filteredNotifications" :key="note.id" @click="handleNotificationClick(note.link)" class="p-3 px-4 border-b border-gray-50 hover:bg-primary/5 transition-colors cursor-pointer text-sm">
                 <div class="text-gray-800 font-bold mb-1 line-clamp-1 leading-snug">{{ note.title }}</div>
                 <div class="text-gray-500 text-xs mb-1.5 leading-snug">{{ note.body }}</div>
-                <div class="text-gray-400 text-[10px] flex justify-end">{{ dayjs(note.createdAt).fromNow() }}</div>
+                <div class="text-gray-400 text-[10px] flex items-center justify-between gap-2">
+                  <span>{{ getNotificationSourceLabel(note.source) }}</span>
+                  <span>{{ dayjs(note.createdAt).fromNow() }}</span>
+                </div>
               </div>
             </div>
             <div v-else-if="isNotificationFeedLoading" class="text-sm text-gray-400 text-center py-8 bg-white flex flex-col items-center">
@@ -93,7 +108,7 @@
             </div>
             <div v-else class="text-sm text-gray-400 text-center py-8 bg-white flex flex-col items-center">
               <el-icon class="text-4xl text-gray-200 mb-2"><Bell /></el-icon>
-              目前沒有新通知
+              {{ notifications.length > 0 ? '此分類目前沒有通知' : '目前沒有新通知' }}
             </div>
           </el-popover>
 
@@ -261,43 +276,42 @@
 
     <!-- Bottom Menu (Mobile Only) -->
     <nav class="md:hidden flex-none w-full bg-white border-t border-gray-200 z-50 text-xs text-gray-500 pb-[env(safe-area-inset-bottom)] shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
-      <div class="flex justify-around items-center pt-2 h-[4.5rem]">
-      <router-link to="/dashboard" @click="isMobileMenuOpen = false" class="flex flex-col items-center justify-center p-1 px-2 min-w-[3.5rem] hover:text-primary transition-colors shrink-0">
+      <div class="grid grid-cols-5 items-center pt-2 h-[4.5rem]">
+      <router-link to="/dashboard" @click="isMobileMenuOpen = false" class="flex flex-col items-center justify-center p-1 hover:text-primary transition-colors shrink-0">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
         </svg>
         <span class="font-bold tracking-wide">大廳</span>
       </router-link>
-      <router-link to="/calendar" @click="isMobileMenuOpen = false" class="flex flex-col items-center justify-center p-1 px-2 min-w-[3.5rem] hover:text-primary transition-colors shrink-0">
+      <router-link :to="mobileSchedulePath" @click="isMobileMenuOpen = false" class="flex flex-col items-center justify-center p-1 hover:text-primary transition-colors shrink-0">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
-        <span class="font-bold tracking-wide">行事曆</span>
+        <span class="font-bold tracking-wide">賽程</span>
       </router-link>
-      <router-link v-if="permissionsStore.can('matches', 'VIEW')" to="/match-records" @click="isMobileMenuOpen = false" class="flex flex-col items-center justify-center p-1 px-2 min-w-[3.5rem] hover:text-primary transition-colors shrink-0">
+      <router-link to="/my-leave-requests" @click="isMobileMenuOpen = false" class="flex flex-col items-center justify-center p-1 hover:text-primary transition-colors shrink-0">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
-        <span class="font-bold tracking-wide">比賽紀錄</span>
+        <span class="font-bold tracking-wide">請假</span>
       </router-link>
-      <router-link v-if="permissionsStore.can('players', 'VIEW')" to="/players" @click="isMobileMenuOpen = false" class="flex flex-col items-center justify-center p-1 px-2 min-w-[3.5rem] hover:text-primary transition-colors shrink-0">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-        </svg>
-        <span class="font-bold tracking-wide">球員</span>
-      </router-link>
-      <router-link v-if="primaryPerformancePath" :to="primaryPerformancePath" @click="isMobileMenuOpen = false" class="flex flex-col items-center justify-center p-1 px-2 min-w-[3.5rem] hover:text-primary transition-colors shrink-0">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 19V5m0 14h16M8 16v-5m4 5V8m4 8v-7" />
-        </svg>
-        <span class="font-bold tracking-wide">數據</span>
-      </router-link>
-      <router-link v-if="permissionsStore.can('fees', 'VIEW')" to="/fees" @click="isMobileMenuOpen = false" class="flex flex-col items-center justify-center p-1 px-2 min-w-[3.5rem] hover:text-primary transition-colors shrink-0">
+      <router-link to="/my-payments" @click="isMobileMenuOpen = false" class="flex flex-col items-center justify-center p-1 hover:text-primary transition-colors shrink-0">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-2.21 0-4 .895-4 2s1.79 2 4 2 4 .895 4 2-1.79 2-4 2m0-10c1.742 0 3.224.554 3.775 1.333M12 8V6m0 2v2m0 4v2m0-2c-1.742 0-3.224-.554-3.775-1.333M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
-        <span class="font-bold tracking-wide">收費管理</span>
+        <span class="font-bold tracking-wide">繳費</span>
       </router-link>
+      <button
+        type="button"
+        class="flex flex-col items-center justify-center p-1 transition-colors shrink-0"
+        :class="isMobileMenuOpen ? 'text-primary' : 'hover:text-primary'"
+        @click="isMobileMenuOpen = !isMobileMenuOpen"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+        <span class="font-bold tracking-wide">更多</span>
+      </button>
       </div>
     </nav>
   </div>
@@ -314,7 +328,7 @@ import PushSettingsDialog from '@/components/PushSettingsDialog.vue';
 import HolidayThemeRibbon from '@/components/layout/HolidayThemeRibbon.vue';
 import { configureNotificationFeedFallbackFetcher, useNotificationFeed } from '@/composables/useNotificationFeed';
 import { useVersionCheck } from '@/composables/useVersionCheck';
-import { buildNotificationFeedItemId, type NotificationFeedItem, type NotificationFeedRow } from '@/types/dashboard';
+import { buildNotificationFeedItemId, type NotificationFeedItem, type NotificationFeedRow, type NotificationSource } from '@/types/dashboard';
 import { buildSiblingGroupMap, normalizeSiblingIds } from '@/utils/siblingGroups'
 import {
   buildGroupedPushEventKey,
@@ -349,6 +363,18 @@ const { hasUpdateAvailable, refreshApp } = useVersionCheck();
 const isMobileMenuOpen = ref(false);
 const isPushSettingsOpen = ref(false);
 const notificationPopover = ref<any>(null);
+type NotificationFilterSource = NotificationSource | 'all';
+
+const activeNotificationSource = ref<NotificationFilterSource>('all');
+const notificationSourceLabels: Record<NotificationSource, string> = {
+  leave: '請假通知',
+  member: '球員通知',
+  join: '入隊詢問',
+  fee: '繳費提醒',
+  match: '賽事提醒',
+  announcement: '公告',
+  equipment: '裝備通知'
+};
 let autoPushPromptTimer: number | null = null;
 const currentUserDisplayName = computed(() => authStore.profile?.nickname || authStore.profile?.name || '使用者');
 const hasLinkedTeamMembers = computed(() => {
@@ -366,6 +392,26 @@ const primaryPerformancePath = computed(() => {
   if (canOpenBaseballAbility.value) return '/baseball-ability';
   if (canOpenPhysicalTests.value) return '/physical-tests';
   return '';
+});
+const mobileSchedulePath = '/calendar';
+const getNotificationSourceLabel = (source: NotificationSource) => notificationSourceLabels[source];
+const notificationCategories = computed<Array<{ source: NotificationFilterSource; label: string }>>(() => {
+  const sources = [...new Set(notifications.value.map((note) => note.source))];
+
+  return [
+    { source: 'all', label: '全部' },
+    ...sources.map((source) => ({
+      source,
+      label: getNotificationSourceLabel(source)
+    }))
+  ];
+});
+const filteredNotifications = computed(() => {
+  if (activeNotificationSource.value === 'all') {
+    return notifications.value;
+  }
+
+  return notifications.value.filter((note) => note.source === activeNotificationSource.value);
 });
 const mobileMenuStyle = computed(() => {
   const updateBarOffset = hasUpdateAvailable.value ? ' - 2.75rem' : ''
@@ -639,6 +685,12 @@ const closeMobileMenu = () => {
 watch(isMobileMenuOpen, (isOpen) => {
   if (!isOpen) {
     collapseMobileMenuGroups();
+  }
+});
+
+watch(notificationCategories, (categories) => {
+  if (!categories.some((category) => category.source === activeNotificationSource.value)) {
+    activeNotificationSource.value = 'all';
   }
 });
 

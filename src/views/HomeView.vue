@@ -5,7 +5,9 @@ import dayjs from 'dayjs'
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import HomeHolidayHeroOverlay from '@/components/home/HomeHolidayHeroOverlay.vue'
+import MyHomeTodayPanel from '@/components/home/MyHomeTodayPanel.vue'
 import MatchDetailDialog from '@/components/match-records/MatchDetailDialog.vue'
+import { getMyHomeSnapshot } from '@/services/myHome'
 import { supabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/auth'
 import { useEquipmentStore } from '@/stores/equipment'
@@ -14,6 +16,7 @@ import { usePermissionsStore } from '@/stores/permissions'
 import { createEmptyDashboardStats, type DashboardAnnouncement } from '@/types/dashboard'
 import type { Equipment } from '@/types/equipment'
 import type { MatchRecord } from '@/types/match'
+import { createEmptyMyHomeSnapshot } from '@/types/myHome'
 import {
   getEquipmentRemainingOverallQuantity,
   getEquipmentSizeInventoryList
@@ -118,12 +121,24 @@ const detailVisible = ref(false)
 const selectedMatchId = ref<string | null>(null)
 const now = ref(dayjs())
 const weatherStatus = ref<WeatherStatus>('loading')
+const myHomeSnapshot = ref(createEmptyMyHomeSnapshot())
+const selectedMyHomeMemberId = ref('')
+const isMyHomeLoading = ref(false)
+const myHomeError = ref('')
 
 let clockId: ReturnType<typeof setInterval> | null = null
 
 const canViewMatches = computed(() => permissionsStore.can('matches', 'VIEW'))
 const canViewAnnouncements = computed(() => permissionsStore.can('announcements', 'VIEW'))
 const isAdmin = computed(() => permissionsStore.currentRole === 'ADMIN')
+const hasLinkedTeamMembers = computed(() => {
+  const linkedIds = authStore.profile?.linked_team_member_ids
+  return Array.isArray(linkedIds) && linkedIds.length > 0
+})
+const shouldShowMyHomePanel = computed(() => {
+  const role = authStore.profile?.role
+  return role === 'MEMBER' || role === 'PARENT' || hasLinkedTeamMembers.value
+})
 
 const userName = computed(() => authStore.profile?.nickname || authStore.profile?.name || '球隊夥伴')
 const todayLabel = computed(() => now.value.format('YYYY 年 MM 月 DD 日'))
@@ -150,6 +165,11 @@ const weatherCard = computed(() => {
     wind: `風速 ${windSpeed.toFixed(1)}m/s`
   }
 })
+const myHomeWeatherCard = computed(() => ({
+  summary: weatherStatus.value === 'success' ? weatherCard.value.summary : '氣象資料暫時不可用',
+  temperature: weatherCard.value.temperature,
+  rain: weatherCard.value.rain
+}))
 const weatherIconName = computed<WeatherIconName>(() => {
   const code = weatherState.weatherCode
   const isDay = weatherState.isDay ?? true
@@ -464,6 +484,34 @@ const fetchEquipmentAddonData = async () => {
   }
 }
 
+const fetchMyHomeSnapshotData = async () => {
+  if (!shouldShowMyHomePanel.value) {
+    myHomeSnapshot.value = createEmptyMyHomeSnapshot()
+    selectedMyHomeMemberId.value = ''
+    return
+  }
+
+  isMyHomeLoading.value = true
+  myHomeError.value = ''
+
+  try {
+    const snapshot = await getMyHomeSnapshot(now.value.format('YYYY-MM-DD'))
+    myHomeSnapshot.value = snapshot
+
+    const hasSelectedMember = snapshot.members.some((member) => member.id === selectedMyHomeMemberId.value)
+    if (!hasSelectedMember) {
+      selectedMyHomeMemberId.value = snapshot.members[0]?.id || ''
+    }
+  } catch (error: any) {
+    console.error('Error fetching personal home snapshot:', error)
+    myHomeError.value = error?.message || '無法載入個人化首頁資料'
+    myHomeSnapshot.value = createEmptyMyHomeSnapshot()
+    selectedMyHomeMemberId.value = ''
+  } finally {
+    isMyHomeLoading.value = false
+  }
+}
+
 const openMatchDetail = async (matchId: string) => {
   selectedMatchId.value = matchId
   detailVisible.value = true
@@ -509,6 +557,7 @@ onMounted(() => {
 
   void Promise.allSettled([
     fetchWeatherData(),
+    fetchMyHomeSnapshotData(),
     fetchMatchesData(),
     fetchAdminStats(),
     fetchAnnouncementsData(),
@@ -859,6 +908,16 @@ onUnmounted(() => {
         </div>
       </div>
     </section>
+
+    <MyHomeTodayPanel
+      v-if="shouldShowMyHomePanel"
+      v-model:selected-member-id="selectedMyHomeMemberId"
+      :snapshot="myHomeSnapshot"
+      :is-loading="isMyHomeLoading"
+      :error-message="myHomeError"
+      :weather="myHomeWeatherCard"
+      @refresh="fetchMyHomeSnapshotData"
+    />
 
     <section v-if="isAdmin" data-test="admin-stats" class="mx-auto mt-6 w-full max-w-7xl px-3 sm:px-4">
       <div class="grid gap-4 md:grid-cols-2">

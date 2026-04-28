@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { getCurrentRouteFullPathFromLocation, reloadAppShell, refreshAppShell } from '@/utils/appUpdate'
 
 const hasUpdateAvailable = ref(false)
 const currentVersion = __APP_VERSION__
@@ -123,7 +124,7 @@ const activateWaitingServiceWorker = async (registration: ServiceWorkerRegistrat
 
     const handleControllerChange = () => {
       finish(true)
-      window.location.reload()
+      reloadAppShell(getCurrentRouteFullPathFromLocation())
     }
 
     navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange)
@@ -159,7 +160,7 @@ const refreshApp = async () => {
     console.warn('[VersionCheck] 重新整理更新版本失敗', err)
   }
 
-  window.location.reload()
+  await refreshAppShell(getCurrentRouteFullPathFromLocation())
 }
 
 export function useVersionCheck() {

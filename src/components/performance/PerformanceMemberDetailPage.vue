@@ -13,6 +13,7 @@ import {
   type PerformancePayload,
   type PerformanceRecord,
   type PerformanceRecordKind,
+  type PerformanceMetricDefinition,
   type PerformanceSubmitMeta,
   type PhysicalTestPayload
 } from '@/types/performance'
@@ -65,7 +66,130 @@ const canCreate = computed(() => permissionsStore.can(config.value.feature, 'CRE
 const canEdit = computed(() => permissionsStore.can(config.value.feature, 'EDIT'))
 const canDelete = computed(() => permissionsStore.can(config.value.feature, 'DELETE'))
 
-const latestRecord = computed(() => records.value[0] || null)
+type MetricDirection = 'higher' | 'lower' | 'neutral'
+
+const metricDirectionByKey: Record<string, MetricDirection> = {
+  pitch_speed: 'higher',
+  exit_velocity: 'higher',
+  home_to_first: 'lower',
+  home_to_home: 'lower',
+  catch_count: 'higher',
+  relay_throw_count: 'higher',
+  base_run_180s_laps: 'higher',
+  height: 'neutral',
+  weight: 'neutral',
+  bmi: 'neutral',
+  arm_span: 'neutral',
+  shuttle_run: 'lower',
+  sit_and_reach: 'higher',
+  sit_ups: 'higher',
+  standing_long_jump: 'higher',
+  vertical_jump: 'higher'
+}
+
+const sortedRecords = computed(() => [...records.value].sort((left, right) =>
+  right.test_date.localeCompare(left.test_date) || right.created_at.localeCompare(left.created_at)
+))
+const latestRecord = computed(() => sortedRecords.value[0] || null)
+const previousRecord = computed(() => {
+  if (!latestRecord.value) return null
+  return sortedRecords.value.find((record) => record.id !== latestRecord.value?.id) || null
+})
+
+const getMetricNumber = (record: PerformanceRecord | null, metricKey: string) => {
+  if (!record) return null
+
+  const numericValue = Number((record as any)[metricKey])
+  return Number.isFinite(numericValue) ? numericValue : null
+}
+
+const getMetricDirection = (metricKey: string): MetricDirection => metricDirectionByKey[metricKey] || 'higher'
+
+const buildMetricTrend = (metric: PerformanceMetricDefinition) => {
+  const latestValue = getMetricNumber(latestRecord.value, metric.key)
+  const previousValue = getMetricNumber(previousRecord.value, metric.key)
+  const formattedLatest = latestRecord.value ? getMetricValue(latestRecord.value, metric.key) : '-'
+
+  if (latestValue === null || previousValue === null) {
+    return {
+      key: metric.key,
+      label: metric.label,
+      latest: formattedLatest,
+      changeText: '待累積第二筆',
+      tone: 'neutral' as const,
+      hasPrevious: false
+    }
+  }
+
+  const delta = latestValue - previousValue
+  const direction = getMetricDirection(metric.key)
+  const absDelta = formatPerformanceValue(Math.abs(delta), metric)
+  const isSame = Math.abs(delta) < 0.0001
+  const isImproved = direction === 'higher'
+    ? delta > 0
+    : direction === 'lower'
+      ? delta < 0
+      : false
+
+  return {
+    key: metric.key,
+    label: metric.label,
+    latest: formattedLatest,
+    changeText: isSame
+      ? '和上次持平'
+      : direction === 'neutral'
+        ? `變化 ${delta > 0 ? '+' : '-'}${absDelta}`
+        : `${isImproved ? '進步' : '需留意'} ${absDelta}`,
+    tone: isSame || direction === 'neutral' ? 'neutral' as const : isImproved ? 'positive' as const : 'negative' as const,
+    hasPrevious: true
+  }
+}
+
+const progressMetricSummary = computed(() => {
+  const trends = config.value.metrics.map(buildMetricTrend)
+  return trends.find((trend) => trend.hasPrevious && trend.tone !== 'neutral') || trends[0] || null
+})
+
+const coachNoteSummary = computed(() => {
+  const recordValue = latestRecord.value as any
+  return recordValue?.coach_note || recordValue?.coach_notes || recordValue?.notes || recordValue?.remark || recordValue?.remarks || '尚未留下教練備註'
+})
+
+const practiceSuggestion = computed(() => {
+  const trend = progressMetricSummary.value
+  if (!latestRecord.value || !trend) return '累積測驗紀錄後，這裡會整理適合的練習方向。'
+  if (!trend.hasPrevious) return '再累積一次測驗後，就能看出進步方向與需要加強的項目。'
+  if (trend.tone === 'positive') return `${trend.label} 有進步，建議維持固定練習節奏，並讓教練確認下一個目標。`
+  if (trend.tone === 'negative') return `${trend.label} 較前一次需要留意，建議近期練習先放慢節奏、確認動作穩定度。`
+  return '整體變化穩定，建議維持每週基礎訓練與規律追蹤。'
+})
+
+const parentSummaryCards = computed(() => [
+  {
+    label: '最近一次',
+    value: latestRecord.value?.test_date || '-',
+    helper: latestRecord.value ? `${config.value.primaryMetricLabel}: ${getMetricValue(latestRecord.value, config.value.primaryMetric)}` : '尚無測驗資料',
+    tone: 'primary'
+  },
+  {
+    label: '進步幅度',
+    value: progressMetricSummary.value?.changeText || '待累積',
+    helper: progressMetricSummary.value?.label || '尚無可比較項目',
+    tone: progressMetricSummary.value?.tone || 'neutral'
+  },
+  {
+    label: '教練備註',
+    value: coachNoteSummary.value,
+    helper: '完整紀錄仍由教練維護',
+    tone: 'neutral'
+  },
+  {
+    label: '建議方向',
+    value: practiceSuggestion.value,
+    helper: '供家長快速掌握，不取代教練現場判斷',
+    tone: 'warm'
+  }
+])
 
 const loadRecords = () => props.kind === BASEBALL_ABILITY_FEATURE
   ? performanceStore.loadBaseballAbilityRecords(memberId.value)
@@ -242,6 +366,33 @@ onMounted(() => {
           </section>
 
           <template v-else>
+            <section class="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
+              <div class="mb-4 flex flex-col gap-1 md:flex-row md:items-end md:justify-between">
+                <div>
+                  <h3 class="text-lg font-black text-slate-800">家長摘要</h3>
+                  <p class="mt-1 text-sm font-bold text-gray-400">最近表現、進步幅度與練習方向先整理在這裡。</p>
+                </div>
+                <span class="text-xs font-black text-primary">{{ config.shortTitle }}</span>
+              </div>
+              <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <div
+                  v-for="card in parentSummaryCards"
+                  :key="card.label"
+                  class="rounded-2xl border px-4 py-3"
+                  :class="{
+                    'border-primary/15 bg-primary/5': card.tone === 'primary',
+                    'border-emerald-100 bg-emerald-50': card.tone === 'positive',
+                    'border-amber-100 bg-amber-50': card.tone === 'negative' || card.tone === 'warm',
+                    'border-gray-100 bg-gray-50': card.tone === 'neutral'
+                  }"
+                >
+                  <div class="text-[11px] font-black tracking-[0.16em] text-gray-400">{{ card.label }}</div>
+                  <div class="mt-2 min-h-[3rem] text-base font-black leading-6 text-slate-800">{{ card.value }}</div>
+                  <div class="mt-2 text-xs font-bold leading-5 text-gray-500">{{ card.helper }}</div>
+                </div>
+              </div>
+            </section>
+
             <section class="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
               <div class="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>

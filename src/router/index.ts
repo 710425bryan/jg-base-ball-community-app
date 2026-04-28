@@ -4,6 +4,7 @@ import MainLayout from '../layouts/MainLayout.vue'
 import PushEntryView from '../views/PushEntryView.vue'
 import { useAuthStore } from '../stores/auth'
 import { usePermissionsStore } from '../stores/permissions'
+import { getCurrentRouteFullPathFromLocation, refreshAppShell } from '../utils/appUpdate'
 
 const CHUNK_RELOAD_SESSION_KEY = 'router:chunk-reload-target'
 const LINKED_MEMBER_VIEW_FEATURES = new Set(['baseball_ability', 'physical_tests'])
@@ -14,8 +15,11 @@ const isDynamicImportError = (error: unknown) => {
 
   return [
     'Failed to fetch dynamically imported module',
+    'Failed to load module script',
     'Importing a module script failed',
+    'error loading dynamically imported module',
     'ChunkLoadError',
+    'Load failed',
     'Unable to preload CSS'
   ].some((pattern) => message.includes(pattern))
 }
@@ -23,11 +27,7 @@ const isDynamicImportError = (error: unknown) => {
 const getFallbackFullPath = () => {
   if (typeof window === 'undefined') return '/dashboard'
 
-  const hashPath = window.location.hash.startsWith('#')
-    ? window.location.hash.slice(1)
-    : window.location.hash
-
-  return hashPath || '/dashboard'
+  return getCurrentRouteFullPathFromLocation()
 }
 
 const hasLinkedTeamMembers = (profile: any) => {
@@ -250,7 +250,7 @@ router.onError((error, to) => {
   }
 
   window.sessionStorage.setItem(CHUNK_RELOAD_SESSION_KEY, targetFullPath)
-  window.location.assign(`${window.location.origin}/#${targetFullPath}`)
+  void refreshAppShell(targetFullPath)
 })
 
 router.afterEach((to) => {

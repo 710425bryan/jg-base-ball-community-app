@@ -1,5 +1,49 @@
 <template>
   <div class="flex-1 bg-white">
+    <section
+      id="today-attendance"
+      class="border-b border-blue-100 bg-blue-50/90 px-4 py-3 md:px-12 md:py-4"
+      v-loading="isLoadingAttendance"
+    >
+      <div class="mx-auto flex max-w-7xl flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div class="flex min-w-0 items-start gap-3">
+          <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" /></svg>
+          </div>
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <h2 class="text-base font-black text-blue-950 md:text-lg">今日訓練點名狀態</h2>
+              <span class="rounded-full border border-blue-200 bg-white px-2.5 py-0.5 text-xs font-bold text-blue-700">最即時</span>
+            </div>
+            <p v-if="todayEvent" class="mt-1 truncate text-sm font-bold text-blue-900">
+              {{ todayEvent.title }}｜{{ todayEvent.date }}
+            </p>
+            <p v-else class="mt-1 text-sm font-bold text-blue-900/70">今天無訓練點名</p>
+          </div>
+        </div>
+
+        <div v-if="todayEvent" class="rounded-xl bg-white px-4 py-3 shadow-sm ring-1 ring-blue-100 md:min-w-[360px]">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <div class="text-xs font-black tracking-[0.16em] text-blue-500">今日請假</div>
+              <div class="mt-1 text-2xl font-black text-blue-950">{{ todayLeaveNames.length }} 人</div>
+            </div>
+            <div class="text-right text-xs font-bold leading-5 text-slate-400">出席狀態以教練現場點名為準</div>
+          </div>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <span
+              v-for="(name, idx) in todayLeaveNames"
+              :key="idx"
+              class="rounded-lg border border-gray-200 bg-slate-50 px-3 py-1.5 text-xs font-bold tracking-widest text-gray-700"
+            >
+              {{ maskName(name) }}
+            </span>
+            <span v-if="todayLeaveNames.length === 0" class="text-sm font-bold text-emerald-700">目前無請假紀錄</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- Hero Section -->
     <section class="relative flex min-h-[calc(100dvh-5rem)] w-full items-center overflow-hidden border-b-[12px] border-primary bg-slate-950 py-16 md:min-h-[720px] md:py-20">
       <div class="absolute inset-0 bg-[url('/hero-bg.jpg')] bg-cover bg-center bg-no-repeat opacity-40"></div>
@@ -56,58 +100,107 @@
       </div>
     </section>
 
-    <!-- Content Sections -->
-    <section class="max-w-7xl mx-auto py-12 px-6 md:py-16 md:px-12 w-full">
-      <!-- 今日點名狀況 (全寬置頂區塊) -->
-      <div class="w-full mb-14 md:mb-20">
-        <div class="overflow-hidden rounded-2xl border border-blue-100/80 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.06)]">
-          <div class="grid gap-5 border-b border-blue-100 bg-blue-50/40 p-5 md:grid-cols-[1fr_auto] md:items-center">
-            <div class="flex items-start gap-3">
-              <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" /></svg>
-              </div>
+    <section class="border-b border-gray-100 bg-white px-6 py-12 md:px-12 md:py-16">
+      <div class="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+        <div class="lg:sticky lg:top-24">
+          <div class="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-sm font-black text-primary">
+            報名前先了解
+          </div>
+          <h2 class="text-3xl font-black leading-tight text-slate-900 md:text-5xl">讓第一次體驗更安心</h2>
+          <p class="mt-5 text-base font-medium leading-8 text-slate-600 md:text-lg">
+            家長可以先確認訓練型態、年齡分組與體驗流程；送出表單後，教練團會依孩子年齡、程度與近期場地安排回覆。
+          </p>
+          <button
+            type="button"
+            @click="openJoinModal"
+            class="mt-7 inline-flex min-h-12 items-center justify-center rounded-md bg-primary px-6 text-sm font-extrabold tracking-widest text-white shadow-[0_14px_28px_rgba(216,143,34,0.26)] transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary/80"
+          >
+            立即安排體驗
+          </button>
+        </div>
+
+        <div class="grid gap-5">
+          <div class="grid gap-4 md:grid-cols-2">
+            <article
+              v-for="item in recruitmentHighlights"
+              :key="item.title"
+              class="rounded-2xl border border-gray-100 bg-slate-50 p-5"
+            >
+              <div class="text-xs font-black tracking-[0.16em] text-primary">{{ item.eyebrow }}</div>
+              <h3 class="mt-2 text-xl font-black text-slate-900">{{ item.title }}</h3>
+              <p class="mt-3 text-sm font-medium leading-7 text-slate-600">{{ item.body }}</p>
+            </article>
+          </div>
+
+          <div class="rounded-2xl border border-amber-100 bg-amber-50/70 p-5">
+            <button
+              type="button"
+              class="flex min-h-12 w-full items-center justify-between gap-3 text-left"
+              :aria-expanded="isExperienceOpen"
+              @click="toggleExperienceSection"
+            >
               <div>
-                <div class="mb-1 flex flex-wrap items-center gap-2">
-                  <h2 class="text-xl font-black text-blue-950">今日訓練點名狀態</h2>
-                  <span class="rounded-full border border-blue-200 bg-blue-100 px-2.5 py-0.5 text-xs font-bold text-blue-700">當日限定</span>
-                </div>
-                <p class="text-sm font-medium leading-6 text-blue-900/70">公開資訊僅顯示遮罩姓名，方便家長快速掌握今日出席概況。</p>
+                <h3 class="text-xl font-black text-slate-900">報名後會發生什麼</h3>
+                <p class="mt-1 text-sm font-bold text-amber-700 md:hidden">體驗流程</p>
               </div>
-            </div>
-            <div v-if="todayEvent" class="rounded-xl bg-white px-4 py-3 text-left shadow-sm ring-1 ring-blue-100 md:text-right">
-              <div class="text-xs font-bold tracking-widest text-blue-500">今日請假</div>
-              <div class="mt-1 text-2xl font-black text-blue-950">{{ todayLeaveNames.length }} 人</div>
+              <span class="hidden rounded-full bg-white px-3 py-1 text-xs font-black text-primary shadow-sm md:inline-flex">體驗流程</span>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5 shrink-0 text-amber-700 transition-transform md:hidden"
+                :class="{ 'rotate-180': isExperienceOpen }"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            <div class="mt-4 gap-3 md:grid md:grid-cols-3" :class="isExperienceOpen ? 'grid' : 'hidden md:grid'">
+              <div v-for="step in experienceSteps" :key="step.title" class="rounded-xl bg-white p-4 shadow-sm">
+                <div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-black text-white">{{ step.step }}</div>
+                <h4 class="mt-3 text-base font-black text-slate-900">{{ step.title }}</h4>
+                <p class="mt-2 text-sm font-medium leading-6 text-slate-600">{{ step.body }}</p>
+              </div>
             </div>
           </div>
-          <div class="p-5 md:p-6" v-loading="isLoadingAttendance">
-            <div v-if="!todayEvent" class="flex flex-col items-center justify-center text-gray-400 font-medium py-8">
-               <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-               今天無訓練點名
-            </div>
-            <div v-else>
-               <div class="mb-4 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-                  <div>
-                    <h3 class="text-2xl font-black text-slate-900">{{ todayEvent.title }}</h3>
-                    <span class="text-sm font-bold text-slate-500">{{ todayEvent.date }}</span>
-                  </div>
-                  <span class="inline-flex w-fit items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">完整請假名單</span>
-               </div>
-               <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                  <h5 class="font-bold text-gray-700 mb-3 flex items-center gap-2">
-                     <span class="w-2 h-2 rounded-full bg-red-400"></span>今日請假名單 ({{ todayLeaveNames.length }}人)
-                  </h5>
-                  <div v-if="todayLeaveNames.length === 0" class="text-sm text-gray-500 font-medium tracking-wide">無人請假，全員到齊。</div>
-                  <div v-else class="flex flex-wrap gap-2">
-                     <span v-for="(name, idx) in todayLeaveNames" :key="idx" class="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-bold tracking-widest text-gray-700 shadow-sm">
-                       {{ maskName(name) }}
-                     </span>
-                  </div>
-               </div>
+
+          <div class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+            <button
+              type="button"
+              class="flex min-h-12 w-full items-center justify-between gap-3 text-left"
+              :aria-expanded="isFaqOpen"
+              @click="toggleFaqSection"
+            >
+              <div>
+                <h3 class="text-xl font-black text-slate-900">常見問題</h3>
+                <p class="mt-1 text-sm font-bold text-gray-400 md:hidden">{{ recruitmentFaqs.length }} 個問題</p>
+              </div>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5 shrink-0 text-gray-500 transition-transform md:hidden"
+                :class="{ 'rotate-180': isFaqOpen }"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            <div class="mt-4 divide-y divide-gray-100" :class="isFaqOpen ? 'block' : 'hidden md:block'">
+              <div v-for="faq in recruitmentFaqs" :key="faq.question" class="py-4 first:pt-0 last:pb-0">
+                <div class="text-sm font-black text-slate-800">{{ faq.question }}</div>
+                <p class="mt-2 text-sm font-medium leading-7 text-slate-600">{{ faq.answer }}</p>
+              </div>
             </div>
           </div>
         </div>
       </div>
+    </section>
 
+    <!-- Content Sections -->
+    <section class="max-w-7xl mx-auto py-12 px-6 md:py-16 md:px-12 w-full">
       <div class="grid grid-cols-1 gap-14 lg:grid-cols-3 lg:gap-16">
         
         <!-- Schedule Ticker -->
@@ -125,9 +218,15 @@
               @click="openUpcomingMatch(match.id)"
             >
               <div class="flex items-center gap-4 min-w-0">
-                <div class="flex flex-col items-center justify-center bg-white p-3 rounded-md border border-gray-100 shadow-sm w-16 shrink-0">
+                <div class="flex min-h-[78px] w-16 shrink-0 flex-col items-center justify-center rounded-md border border-gray-100 bg-white p-3 shadow-sm">
                   <span class="text-xs font-bold text-gray-400 uppercase">{{ formatScheduleMonth(match.match_date) }}</span>
                   <span class="text-2xl font-black text-slate-800">{{ formatScheduleDay(match.match_date) }}</span>
+                  <span
+                    v-if="match.category_group"
+                    class="mt-1 inline-flex rounded bg-primary px-2 py-0.5 text-[10px] font-black uppercase leading-none tracking-[0.12em] text-white"
+                  >
+                    {{ match.category_group }}
+                  </span>
                 </div>
                 <div class="min-w-0">
                   <div class="text-sm font-bold text-gray-500 mb-1 line-clamp-1">{{ formatScheduleMeta(match) }}</div>
@@ -161,8 +260,13 @@
             <!-- 第一則大區塊 -->
             <div @click="openAnnouncement(latestAnnouncements[0])" class="bg-white rounded-xl overflow-hidden shadow-md hover:-translate-y-1 transition-transform group cursor-pointer flex flex-col border border-gray-100">
               <div class="h-64 bg-slate-800 relative overflow-hidden">
-                <img v-if="latestAnnouncements[0].image_url" :src="latestAnnouncements[0].image_url" class="absolute inset-0 w-full h-full object-cover z-0 group-hover:scale-105 transition-transform duration-700" />
-                <div class="absolute inset-0 bg-gradient-to-tr from-slate-900/80 to-transparent z-10"></div>
+                <PreviewableImage
+                  v-if="latestAnnouncements[0].image_url"
+                  :src="latestAnnouncements[0].image_url"
+                  :alt="latestAnnouncements[0].title"
+                  class="absolute inset-0 z-0 h-full w-full transition-transform duration-700 group-hover:scale-105"
+                />
+                <div class="pointer-events-none absolute inset-0 bg-gradient-to-tr from-slate-900/80 to-transparent z-10"></div>
                 <!-- 若無圖片則顯示原有的裝飾背景 -->
                 <div v-if="!latestAnnouncements[0].image_url" class="absolute inset-0 bg-primary/20 group-hover:scale-105 transition-transform duration-700 z-10"></div>
                 <div v-if="latestAnnouncements[0].is_pinned" class="absolute bottom-4 left-4 z-20">
@@ -186,7 +290,12 @@
               <!-- 第2到3則小區塊 -->
               <div v-for="announcement in latestAnnouncements.slice(1)" :key="announcement.id" @click="openAnnouncement(announcement)" class="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 flex hover:-translate-y-1 transition-transform group cursor-pointer h-full min-h-[140px]">
                 <div class="w-1/3 bg-slate-800 overflow-hidden relative shrink-0">
-                   <img v-if="announcement.image_url" :src="announcement.image_url" class="absolute inset-0 w-full h-full object-cover z-0 group-hover:scale-105 transition-transform duration-700" />
+                   <PreviewableImage
+                     v-if="announcement.image_url"
+                     :src="announcement.image_url"
+                     :alt="announcement.title"
+                     class="absolute inset-0 z-0 h-full w-full transition-transform duration-700 group-hover:scale-105"
+                   />
                    <div v-if="!announcement.image_url" class="absolute inset-0 transition-transform duration-700 group-hover:scale-105" 
                         :class="announcement.is_pinned ? 'bg-red-500/30' : 'bg-secondary/20'"></div>
                    <div v-if="announcement.is_pinned" class="absolute top-2 left-2 z-20">
@@ -295,8 +404,13 @@
         <h3 class="text-2xl font-black text-slate-800 leading-tight mb-2">{{ selectedAnnouncement.title }}</h3>
         <div class="text-sm font-bold text-gray-400 mb-5">{{ dayjs(selectedAnnouncement.created_at).format('YYYY年 MM月 DD日 HH:mm') }}</div>
         
-        <div v-if="selectedAnnouncement.image_url" class="rounded-xl overflow-hidden mb-6 border border-gray-100 shadow-sm max-h-[300px] bg-gray-50 flex items-center justify-center">
-          <img :src="selectedAnnouncement.image_url" class="w-full h-full object-contain" />
+        <div v-if="selectedAnnouncement.image_url" class="mb-6 flex max-h-[300px] items-center justify-center overflow-hidden rounded-xl border border-gray-100 bg-gray-50 shadow-sm">
+          <PreviewableImage
+            :src="selectedAnnouncement.image_url"
+            :alt="selectedAnnouncement.title"
+            fit="contain"
+            class="h-full w-full"
+          />
         </div>
         
         <div class="text-gray-700 whitespace-pre-line leading-relaxed text-[15px] max-h-[40dvh] overflow-y-auto custom-scrollbar pr-2">
@@ -362,6 +476,7 @@ import { ElMessage } from 'element-plus'
 import { Bell, Loading } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 
+import PreviewableImage from '@/components/common/PreviewableImage.vue'
 import HomeHolidayHeroOverlay from '@/components/home/HomeHolidayHeroOverlay.vue'
 import MatchDetailDialog from '@/components/match-records/MatchDetailDialog.vue'
 import { getPublicLandingSnapshot } from '@/services/publicLanding'
@@ -383,6 +498,8 @@ const joinFormRef = ref()
 const isAnnouncementModalOpen = ref(false)
 const selectedAnnouncement = ref<PublicLandingAnnouncement | null>(null)
 const latestAnnouncements = ref<PublicLandingAnnouncement[]>([])
+const isExperienceOpen = ref(false)
+const isFaqOpen = ref(false)
 
 const isLoadingAttendance = ref(true)
 const isLoadingUpcomingMatches = ref(true)
@@ -392,6 +509,62 @@ const upcomingMatches = ref<PublicLandingMatch[]>([])
 
 const selectedUpcomingMatchId = ref<string | null>(null)
 const upcomingMatchDialogVisible = ref(false)
+
+const recruitmentHighlights = [
+  {
+    eyebrow: 'TRAINING',
+    title: '訓練時間',
+    body: '以教練團公告與近期賽程為準，常見安排會落在平日傍晚或週末時段；體驗前會先確認適合的梯次。'
+  },
+  {
+    eyebrow: 'LOCATION',
+    title: '訓練地點',
+    body: '主要以中港國小與教練公告場地為核心，遇到比賽、移地訓練或天候調整會另外通知。'
+  },
+  {
+    eyebrow: 'AGE',
+    title: '適合年齡',
+    body: '國小至國中階段皆可先詢問，教練會依年齡、棒球經驗與安全性安排分組。'
+  },
+  {
+    eyebrow: 'FEE',
+    title: '費用說明',
+    body: '體驗與正式加入費用會依當期方案、訓練頻率與裝備需求確認；送出表單後會由教練團完整說明。'
+  }
+]
+
+const experienceSteps = [
+  {
+    step: '1',
+    title: '留下資料',
+    body: '填寫家長聯絡方式與孩子年齡，讓教練先判斷適合梯次。'
+  },
+  {
+    step: '2',
+    title: '確認體驗',
+    body: '教練回覆時間、地點、需要準備的用品與注意事項。'
+  },
+  {
+    step: '3',
+    title: '到場體驗',
+    body: '孩子跟著隊伍練習，家長可同步了解訓練節奏與加入方式。'
+  }
+]
+
+const recruitmentFaqs = [
+  {
+    question: '完全沒有棒球經驗可以參加嗎？',
+    answer: '可以先報名體驗，教練會依孩子的基礎能力與安全狀況安排合適內容。'
+  },
+  {
+    question: '需要先準備完整裝備嗎？',
+    answer: '第一次體驗可先穿適合運動的服裝與鞋子；球具、手套與正式裝備需求可在體驗後再確認。'
+  },
+  {
+    question: '報名後多久會有人聯絡？',
+    answer: '表單送出後會通知管理端，教練團會在方便確認梯次後盡快回覆。'
+  }
+]
 
 const canViewUpcomingMatchDetails = computed(
   () => authStore.isAuthenticated && permissionsStore.can('matches', 'VIEW')
@@ -412,6 +585,14 @@ const scrollToSchedule = () => {
 
 const openJoinModal = () => {
   isJoinModalOpen.value = true
+}
+
+const toggleExperienceSection = () => {
+  isExperienceOpen.value = !isExperienceOpen.value
+}
+
+const toggleFaqSection = () => {
+  isFaqOpen.value = !isFaqOpen.value
 }
 
 const openAnnouncement = (item: PublicLandingAnnouncement) => {
