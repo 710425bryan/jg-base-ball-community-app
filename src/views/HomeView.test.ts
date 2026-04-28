@@ -3,6 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { RouterLinkStub, flushPromises, shallowMount, type VueWrapper } from '@vue/test-utils'
+import dayjs from 'dayjs'
 
 const pushMock = vi.fn()
 const fetchMock = vi.fn()
@@ -293,9 +294,11 @@ const mountHomeView = async ({
         wind_speed_10m: 10
       },
       daily: {
+        weather_code: [1],
         temperature_2m_max: [31],
         temperature_2m_min: [24],
-        precipitation_probability_max: [15]
+        precipitation_probability_max: [15],
+        wind_speed_10m_max: [18]
       }
     })
   })
@@ -403,5 +406,30 @@ describe('HomeView dashboard redesign', () => {
     await wrapper.find('[data-test="equipment-addons-link"]').trigger('click')
 
     expect(pushMock).toHaveBeenCalledWith('/equipment-addons')
+  })
+
+  it('fetches dashboard weather for the next match location', async () => {
+    const matchDate = dayjs().add(2, 'day').format('YYYY-MM-DD')
+
+    const { wrapper } = await mountHomeView({
+      role: 'MANAGER',
+      permissions: ['matches'],
+      matches: [
+        {
+          ...sampleMatches[0],
+          id: 'future-weather-match',
+          match_date: matchDate,
+          location: '新莊棒球場'
+        }
+      ]
+    })
+
+    const weatherRequestUrl = new URL(String(fetchMock.mock.calls[0][0]))
+
+    expect(weatherRequestUrl.hostname).toBe('api.open-meteo.com')
+    expect(weatherRequestUrl.searchParams.get('latitude')).toBe('25.0411')
+    expect(weatherRequestUrl.searchParams.get('longitude')).toBe('121.4478')
+    expect(weatherRequestUrl.searchParams.get('start_date')).toBe(matchDate)
+    expect(wrapper.text()).toContain('新莊棒球場')
   })
 })

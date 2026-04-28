@@ -1,177 +1,274 @@
 # AGENT.md
 
-本檔是此專案的 AI / Agent 工作入口。任何自動化代理、程式助手或協作型 AI 在閱讀、分析、修改本專案前，應先閱讀本檔，再閱讀任務相關檔案。
+本檔是 `jg-base-ball-community-app` 的 AI / Agent 工作入口。任何自動化代理、程式助手或協作型 AI 在閱讀、分析、修改本專案前，必須先讀本檔，再依任務讀對應 skill 與程式碼。
 
-## 1. 專案定位
+若 `AGENTS.md`、其他提示或舊文件與本檔衝突，以本檔為準；若本檔與實際程式碼衝突，先相信程式碼現況，並在回報中指出文件需要更新。
+
+## 0. 專案定位
 
 - 專案名稱：`jg-base-ball-community-app`
-- 主要用途：中港國小社區棒球管理系統
-- 前端技術：Vue 3 + Vite + TypeScript + Pinia + Vue Router + Element Plus
-- 後端服務：Supabase
-- 其他重點：PWA、Google Sheet / Google Calendar 同步、Supabase Edge Functions
+- 產品定位：中港熊戰 / 中港國小社區棒球管理系統
+- 主要使用者：管理員、經理、教練、家長、球員
+- 前端技術：Vue 3 + Vite + TypeScript + Pinia + Vue Router + Element Plus + Tailwind CSS
+- 後端服務：Supabase Auth / Database / Storage / Edge Functions
+- 其他重點：PWA、Web Push、Google Sheet / Google Form 同步、Google Calendar / iCal 賽事同步、行動裝置與舊版 WebView 相容
 
-## 2. 讀取順序
+## 1. Codex 啟動流程
 
-當 AI 接到任務時，請依照以下順序建立上下文：
+每次開始任務，依序做：
 
-1. 先讀本檔 `AGENT.md`
-2. 若任務可能命中 repo 內既有 AI skills，補讀 `AI_SKILLS.md` 與對應 `.codex/skills/*/SKILL.md`
-3. 再讀與任務直接相關的檔案
-4. 若涉及路由、權限、登入、資料同步，再補讀對應的 `router`、`stores`、`services`、`utils`
-5. 不要一次大量掃描全部檔案，避免引入無關上下文
+1. 讀本檔 `AGENT.md`。
+2. 看 `git status --short`，確認工作區是否已有他人或使用者改動。
+3. 若需要理解整體功能資料流，讀 `docs/PROJECT_LOGIC.md`；若需要找檔案與責任邊界，讀 `docs/FILE_MAP.md`。
+4. 依任務分類讀 `AI_SKILLS.md` 與 `.codex/skills/*/SKILL.md`。
+5. 只讀任務直接相關的 `views`、`components`、`stores`、`services`、`utils`、`types`、migration 或 Edge Function。
+6. 如果任務碰到路由、登入、權限、敏感資料、公開頁或推播，必須補讀安全邊界相關檔案，不能只改 UI。
+7. 動手前先辨識目標檔案是原始碼、產物、維運腳本還是 migration。
+8. 修改後依本檔的驗證矩陣跑最貼近的檢查。
+9. 回報時說清楚改了什麼、原因、驗證結果、剩餘風險。
 
-## 3. 全域工作規則
+不要一開始就全專案掃檔；先用 `rg` / `rg --files` 精準定位。
 
-- 優先做最小必要修改，避免大範圍重構
-- 保留既有功能與資料流，除非任務明確要求調整架構
-- 沿用原檔案既有風格，不要因個人偏好大改格式
-- UI 文案以繁體中文為主，保持現有語氣與用詞一致
-- 若功能涉及手機/平板使用情境，需注意響應式與觸控操作
-- 全專案 `el-dialog` 在手機模式（`max-width: 639px`）預設必須滿版顯示；右上角關閉按鈕需避開 `env(safe-area-inset-top/right)`，觸控區不得小於 44px。若某 Dialog 需要非滿版，必須在該元件註明原因並確認手機可操作性。
-- 若功能涉及登入、權限或敏感資料，先確認是否已有安全讀取路徑可用
-- 修改前先辨識該檔案是不是原始碼、產物、腳本或 migration，再決定是否應編輯
+## 2. 任務分類與必讀 Skill
 
-## 4. 目前目錄規則
+本 repo 的 Codex skills 放在 `.codex/skills/`，索引在 `AI_SKILLS.md`。命中下列情境時，先讀對應 `SKILL.md`。
+
+| 任務類型 | 必讀 skill | 常見必讀檔案 |
+| --- | --- | --- |
+| 一般 Vue / Supabase 修改 | `jg-baseball-project-workflow` | `src/router/index.ts`、相關 `view/component/store/service/type` |
+| 登入、角色、路由守衛、feature/action | `jg-baseball-auth-permissions` | `src/router/index.ts`、`src/stores/auth.ts`、`src/stores/permissions.ts`、相關 migration |
+| 球員名單、Google Form / Sheet 同步 | `jg-baseball-player-sync` | `src/utils/playerSync.ts`、`src/utils/playerSync.test.ts`、`PlayersView.vue` |
+| 推播、通知中心、eventKey、subscription | `jg-baseball-push-notifications` | `src/utils/pushNotifications.ts`、`supabase/functions/send-push-notification/*` |
+| Google Calendar / iCal 賽事同步 | `jg-baseball-match-calendar-sync` | `src/utils/googleCalendarParser.ts`、`src/services/matchesApi.ts`、`SyncCalendarDialog.vue` |
+| 裝備管理、加購、庫存、裝備付款 | `jg-baseball-equipment-management` | `src/types/equipment.ts`、`src/services/equipmentApi.ts`、`src/stores/equipment*.ts`、`src/components/equipment/*` |
+| 棒球能力 / 體能測驗數據 | `jg-baseball-performance-data` | `src/services/performanceApi.ts`、`src/stores/performance.ts`、`src/components/performance/*` |
+| 節日主題、全站動畫、節日推播 | `jg-baseball-holiday-theme` | `src/composables/useHolidayTheme.ts`、`HolidayThemeSettingsView.vue`、`notify-holiday-theme/*` |
+
+若任務橫跨多個類型，先讀最直接命中的 skill，再讀安全邊界相關 skill。
+
+## 3. 目錄與責任邊界
 
 ### `/src`
 
-- `src/views/`：頁面級功能。每個檔案通常對應一個路由頁面。
-- `src/components/`：可重用區塊元件。跨頁共用的 UI 優先放這裡。
-- `src/layouts/`：頁面骨架。公開頁與登入後頁面在這裡切分。
-- `src/router/`：路由設定與進頁權限檢查。
-- `src/stores/`：Pinia 狀態管理，放登入、權限、資料狀態等共用邏輯。
-- `src/services/`：對外部服務或資料來源的存取封裝，例如 Supabase API。
-- `src/composables/`：可重用的 Vue 組合式邏輯。
-- `src/utils/`：純函式或可測試工具邏輯。若邏輯可脫離 UI，優先放這裡。
+- `src/views/`：頁面級功能，每個檔案通常對應一個路由頁。
+- `src/components/`：可重用 UI 與功能區塊；跨頁共用優先放這裡。
+- `src/layouts/`：公開頁與登入後頁面骨架。
+- `src/router/`：路由設定、登入檢查、feature-based guard。
+- `src/stores/`：Pinia 狀態與跨頁資料，例如 auth、permissions、equipment、matches、performance。
+- `src/services/`：Supabase / 外部服務存取封裝；新的資料存取優先放這裡。
+- `src/composables/`：可重用 Vue 狀態邏輯，例如版本檢查、通知中心、節日主題。
+- `src/utils/`：可測試純邏輯，例如同步 parser、推播 key、費用計算、裝備庫存。
 - `src/types/`：集中型別定義。
+- `src/style.css`：全域樣式、Tailwind layer、共用 page title / dialog 規則。
 
 ### `/supabase`
 
-- `supabase/functions/`：Supabase Edge Functions。
-- 根目錄的 `supabase_*_migration.sql`：資料表、view、RLS、欄位調整等 migration 檔。
-- 新資料庫變更優先新增 migration，不要任意覆寫既有 migration，除非確認仍未部署或任務明確要求。
+- `supabase/functions/`：Edge Functions。
+- 根目錄 `supabase_*_migration.sql`：資料表、view、RLS、RPC、cron、storage policy 等 migration。
+- 新資料庫變更優先新增 migration，不要任意覆寫既有 migration，除非確認尚未部署或任務明確要求。
 
-### 其他目錄與檔案
+### 其他
 
-- `public/`：靜態資產。可直接提供給前端使用。
-- `dev-dist/`：建置產物或測試產物，預設不要手動修改。
-- `scripts/`：一次性或維運型腳本。
-- `.codex/skills/`：本 repo 的可重用 Codex skills。若任務明確落在權限、球員同步、推播或賽事日曆同步，先讀對應 `SKILL.md` 再擴大上下文。
-- `check_db.ts`、`check_db2.ts`：資料庫檢查腳本，非正式產品流程。
-- `vite.config.ts`：Vite、PWA、版本輸出行為。
-- `package.json`：套件與可用指令定義。
+- `docs/PROJECT_LOGIC.md`：目前專案功能邏輯、資料流、主要資料表與 RPC 對照。
+- `docs/FILE_MAP.md`：重要檔案地圖，協助 AI 快速定位該讀或該改的檔案。
+- `.codex/skills/`：專案 AI workflow。
+- `public/`：靜態資產；`public/version.json` 由 Vite plugin 維護，功能開發不手動改。
+- `dist/`、`dev-dist/`：建置產物，預設不要編輯。
+- `scripts/`：維運、修復、資產產生腳本。
+- `check_db.ts`、`check_db2.ts`、`test_db.sql`：資料庫檢查或臨時驗證用，不是正式產品流程。
+- `vite.config.ts`：Vite、PWA、legacy plugin、chunk 拆分、`versionUpdatePlugin()`。
 
-## 5. 檔案級注意事項
+## 4. 編輯原則
 
-### `src/router/index.ts`
+- 做最小必要修改，避免順手重構。
+- 沿用原檔案命名、排版、資料流與元件拆分方式。
+- UI 文案以繁體中文為主，語氣貼近現有系統。
+- 頁面專屬邏輯留在 `views`；可重用 UI 放 `components`；可測試邏輯放 `utils` / `composables`；外部資料存取放 `services`。
+- 新增或調整型別時同步更新 `src/types/*` 與實際資料 normalize 流程。
+- 修改前確認是否有使用者尚未提交的變更；不得 revert unrelated changes。
+- 不編輯 `dist/`、`dev-dist/`、`public/version.json`，除非任務就是建置輸出或 PWA 版本問題。
 
-- 目前使用 `createWebHashHistory()`，註解已說明這是為了相容舊版 WebView。
-- 除非任務明確要求且已評估部署影響，不能直接改成 `createWebHistory()`。
+## 5. 目前 App 啟動與路由邏輯
 
-### `src/services/supabase.ts`
+- `src/main.ts` 建立 Vue app，掛載 Pinia、Vue Router、Vue Query、Element Plus zh-tw。
+- `src/App.vue` 在 `onMounted` 呼叫 `authStore.ensureInitialized()`，初始化期間顯示全頁 loading；初始化後掛 `HolidayThemeSiteEffects` 與 `router-view`。
+- `src/services/supabase.ts` 用 `VITE_SUPABASE_URL`、`VITE_SUPABASE_ANON_KEY` 建立 Supabase client，並在 `visibilitychange` 時 stop/start auth auto refresh，避免手機休眠後 token 不刷新。
+- Router 使用 `createWebHashHistory()`，這是為了相容舊版 WebView；沒有明確部署評估，不可改成 `createWebHistory()`。
+- Router 有 dynamic import chunk load error fallback，會透過 `refreshAppShell()` 重新載入目前路徑；修改 router 時不要破壞這段。
 
-- 依賴 `VITE_SUPABASE_URL` 與 `VITE_SUPABASE_ANON_KEY`。
-- 已有 `visibilitychange` 的 token refresh 保護邏輯，修改時不要破壞行動端休眠恢復機制。
+### 公開路由
 
-### `vite.config.ts`
+- `/`：`PublicLayout` + `LandingView`，公開首頁。
+- `/push-entry`：公開推播入口頁。
+- 公開頁不可直接查受保護 raw table；公開摘要走安全 RPC，例如 `get_public_landing_snapshot()`、`get_public_holiday_theme_config()`。
 
-- 內含 `versionUpdatePlugin()`，會維護 `public/version.json`。
-- 含 PWA 設定與 chunk 拆分規則，若不是為了解決建置或快取問題，不要隨意改動。
+### 登入後路由
 
-### `public/version.json`
+登入後頁面掛在 `MainLayout`，父層 `meta.requiresAuth = true`。
 
-- 這是版本輸出結果，主要由 Vite plugin 維護。
-- 若只是功能開發，不需要手動編輯。
+- 不需額外 feature 的登入頁：`/dashboard`、`/calendar`、`/profile`、`/my-payments`、`/equipment-addons`、`/my-leave-requests`。
+- 需要 `meta.feature` 的後台頁：`leave_requests`、`players`、`users`、`join_inquiries`、`announcements`、`holiday_theme_settings`、`attendance`、`matches`、`fees`、`baseball_ability`、`physical_tests`、`equipment`。
+- `baseball_ability` 與 `physical_tests` 有 `allowLinkedMemberView` 例外：有綁定球員者可唯讀自己的資料；管理權限者可看全隊。
+- 無權限時導回 `/dashboard`。
 
-### `dev-dist/*`
+## 6. Auth、權限與安全邊界
 
-- 預設視為輸出檔，不作為主要修改目標。
-- 除非任務明確是修建置結果、快取產物或 PWA 輸出，否則不要編輯。
+- 登入使用 magic link / OTP；登入前 email 檢查走 `can_request_magic_link()`，不可匿名直查 `profiles`。
+- `src/stores/auth.ts` 負責 session、profile、last seen、role permissions hydration。
+- `src/stores/permissions.ts` 從 `app_role_permissions` 讀取 feature/action；`ADMIN` 有前端 bypass。
+- `permissionsStore.can()`、按鈕顯示、router guard 只算 UX 控制，不是資料安全邊界。
+- 真正安全邊界在 DB RLS、policy、`security definer` RPC、Edge Function 驗證。
+- 新增或調整 `feature/action` 時要同步三層：DB helper / RLS、前端 permission store / UI、AI 文件與 skill。
+- 敏感欄位包含 `national_id`、`guardian_phone`、`contact_line_id`；展示名單預設走 `team_members_safe` 或安全 RPC。
+- 只有確定流程需要完整個資，且 DB 與畫面權限一致時，才查 `team_members` raw table。
 
-### 棒球能力 / 體能測驗數據
+## 7. 目前功能邏輯地圖
 
-- 後台路由為 `/baseball-ability`、`/baseball-ability/:memberId`、`/physical-tests`、`/physical-tests/:memberId`。
-- 權限 feature key 分別為 `baseball_ability` 與 `physical_tests`，actions 為 `VIEW / CREATE / EDIT / DELETE`。
-- 資料表為 `baseball_ability_records` 與 `physical_test_records`，讀取預設走 `get_baseball_ability_records()`、`get_physical_test_records()` 與 `get_performance_member_options()`。
-- 只有 `VIEW` 權限者與有 `profiles.linked_team_member_ids` 綁定的家長/球員，都只能唯讀自己的綁定球員資料；必須具備對應 feature 的 `CREATE / EDIT / DELETE` 任一維護權限，才能讀取全隊資料。
+### 公開首頁與入隊
+
+- `LandingView` 透過 `src/services/publicLanding.ts` 呼叫 `get_public_landing_snapshot(p_today)` 顯示公開摘要。
+- 入隊申請會寫入 `join_inquiries`；公開 insert 由 DB policy 控制。
+- 公開頁若需要新增資料，只能拿非敏感摘要，不可直接擴散 profiles / team_members / leave_requests 等 raw table。
+
+### 個人首頁與個人功能
+
+- `HomeView` 同時有後台 dashboard 與個人化區塊；個人化摘要走 `src/services/myHome.ts` 的 `get_my_home_snapshot()`，RPC 未部署時顯示空狀態 fallback。
+- `MyLeaveRequestsView` 走 `src/services/myLeaveRequests.ts`：`list_my_leave_members()`、`list_my_leave_requests()`、`create_my_leave_requests()`、`delete_my_leave_request()`。
+- `MyPaymentsView` 走 `src/services/myPayments.ts`：`list_my_payment_members()`、`get_my_payment_records()`、`list_my_payment_submissions()`、`create_my_payment_submission()`、`get_my_payment_submission_estimate()`。
+- `ProfileSettingsView` 透過 `update_my_profile_settings()` 更新個人設定，大頭照使用 `avatars` bucket。
+
+### 後台大廳、公告與通知中心
+
+- `MainLayout` 顯示桌機導覽、手機更多選單、底部行動導覽、通知中心、版本更新提示、節日橫幅。
+- 通知中心優先走 `get_notification_feed()`；若 RPC 缺失，依 `useNotificationFeed` 的 fallback fetcher 邏輯處理。
+- 公告管理在 `AnnouncementsView`，資料表為 `announcements`，附件 / 圖片目前使用 storage。
+
+### 球員、使用者與權限
+
+- 球員名單主要在 `PlayersView`，資料表為 `team_members`；同步邏輯與 dedupe 在 `src/utils/playerSync.ts`。
+- Google 表單 / Sheet 同步不得覆蓋既有 `team_members.is_primary_payer` 與 `team_members.is_half_price`；新增球員時兩者預設 `false`。
+- 使用者管理在 `UsersView`，profile 新增 / 更新 / 刪除優先走 `admin_insert_profile()`、`admin_update_profile()`、`admin_delete_user()`。
+- 權限 UI 在 `RolePermissionsManager.vue`，對應 `app_roles` 與 `app_role_permissions`。
+
+### 請假與點名
+
+- 家長 / 球員自己的請假走 `myLeaveRequests` RPC。
+- 後台請假管理在 `LeaveRequestsView`，會讀 `team_members` 與 `leave_requests`，需受 `leave_requests` feature RLS 保護。
+- 點名列表與點名頁使用 `attendance_events`、`attendance_records`，並會參照 `team_members`、`leave_requests`。
+- 改到請假或點名時，要檢查通知中心、推播、今日缺席摘要與費用計算是否受影響。
+
+### 賽事與 Google Calendar 同步
+
+- 賽事資料表為 `matches`，主要 API 在 `src/services/matchesApi.ts`。
+- `matchesApi` 保留 `google_calendar_event_id` 欄位缺失 / schema cache 尚未更新時的 fallback。
+- Google Calendar / iCal parsing 與同步規劃在 `src/utils/googleCalendarParser.ts`，UI 在 `SyncCalendarDialog.vue`。
+- 比賽紀錄相關元件在 `src/components/match-records/*`，照片使用 `matches-photos` bucket。
+
+### 收費與付款
+
+- 收費後台在 `FeesView` 與 `src/components/fees/*`。
+- 主要資料表包含 `fee_settings`、`monthly_fees`、`quarterly_fees`、`profile_payment_submissions`。
+- 個人繳費回報走 `profile_payment_submissions` RPC；管理端審核在費用頁。
+- sibling / quarter fee / monthly settlement 等邏輯已拆在 `src/utils/*fee*` 與相關測試。
+
+### 裝備管理與加購
+
+- 後台裝備管理路由 `/equipment`，feature key 為 `equipment`。
+- 家長加購路由 `/equipment-addons`，只要求登入；資料安全由 `linked_team_member_ids` 與 DB RLS 限制，不要改成需要 `equipment:VIEW`。
+- 裝備資料流集中在 `src/types/equipment.ts`、`src/services/equipmentApi.ts`、`src/stores/equipment*.ts`、`src/components/equipment/*`。
+- 主要資料表包含 `equipment`、`equipment_transactions`、`equipment_inventory_adjustments`、`equipment_purchase_requests`、`equipment_purchase_request_items`、`equipment_payment_submissions`、`equipment_payment_submission_items`。
+- 裝備流程：加購申請 `pending` -> 審核 `approved` -> 備貨 `ready_for_pickup` -> 領取 `picked_up` -> 裝備付款回報 `pending_review` -> 費用端確認 `approved` 或退回 `rejected`。
+- 裝備圖片與處理照片使用 `equipments` bucket。
+- 裝備交易 `purchase` 產生後才進入付款回報；不要把來源專案的 `fee_records` 或月結關帳模型直接搬進本專案。
+
+### 棒球能力與體能測驗
+
+- 後台路由：`/baseball-ability`、`/baseball-ability/:memberId`、`/physical-tests`、`/physical-tests/:memberId`。
+- feature key：`baseball_ability`、`physical_tests`；actions：`VIEW / CREATE / EDIT / DELETE`。
+- 資料表：`baseball_ability_records`、`physical_test_records`。
+- 讀取預設走 `get_baseball_ability_records()`、`get_physical_test_records()`、`get_performance_member_options()`。
+- 只有 `VIEW` 權限者與有 `profiles.linked_team_member_ids` 綁定的家長 / 球員，都只能唯讀自己的綁定球員資料。
+- 具備對應 feature 的 `CREATE / EDIT / DELETE` 任一維護權限，才可讀取全隊資料與做維護。
 - 新增、編輯、刪除必須依 DB RLS 檢查對應 feature/action，不可只靠前端按鈕隱藏。
-- 這些 RPC 不得回傳 `national_id`、`guardian_phone`、`contact_line_id` 等敏感欄位。
+- RPC 不得回傳 `national_id`、`guardian_phone`、`contact_line_id`。
 
-## 6. 資料與安全規則
+### 節日主題
 
-- 本專案包含敏感欄位，例如 `national_id`、`guardian_phone`、`contact_line_id`。
-- 顯示或查詢球員資料時，優先確認是否已有安全 view，例如 `team_members_safe`。
-- 不要為了方便而把敏感欄位直接擴散到更多頁面、更多查詢或前端快取。
-- 涉及權限顯示時，先檢查 `stores/auth.ts`、`stores/permissions.ts` 與 router meta。
+- 後台路由 `/holiday-theme-settings`，feature key `holiday_theme_settings`，actions `VIEW / EDIT`。
+- 設定儲存在 `system_settings.key = 'holiday_theme_config'`，payload 為 v2 多活動格式，需保留 legacy single-theme config 轉換。
+- 公開與未登入頁只能走 `get_public_holiday_theme_config()`。
+- 後台儲存走 `save_holiday_theme_config(jsonb)`，DB 端需檢查 `holiday_theme_settings:EDIT`。
+- 節日通知 feature/action 為 `holiday_theme:VIEW`。
+- 全站套用點：`LandingView`、`HomeView`、`App.vue`、`PublicLayout`、`MainLayout`。
 
-## 7. 功能修改原則
+### 推播與 Web Push
 
-- 頁面專屬邏輯留在 `views`，可抽象且可測試的邏輯抽到 `utils` 或 `composables`
-- 若只是小型 UI 修正，不要把現有結構整個拆掉重做
-- 若新增同步、對帳、名單整理等資料規則，優先補單元測試
-- 若修的是 Supabase 寫入流程，留意 `upsert`、唯一鍵、批次資料去重與 RLS
-- 若改到球員、請假、收費、賽事等核心流程，需檢查是否影響通知、彙總或關聯資料
-- 若改到裝備管理或裝備加購，需同時檢查 `equipment`、`equipment_transactions`、`equipment_purchase_requests`、`equipment_payment_submissions` 的資料流、RLS、付款回報與推播連結
-- Google 表單 / Google Sheet 同步不得覆蓋 `team_members.is_primary_payer` 與 `team_members.is_half_price`；這兩個欄位視為系統內手動維護欄位。同步既有球員時必須保留資料庫現值，新增球員時兩者皆預設為 `false`
-- 球員、請假、繳費、入隊詢問等事件若需要手機推播，前端與表單入口應統一走 `src/utils/pushNotifications.ts`；收件對象必須依 `feature` + `action` 權限決定，不可再把所有推播綁死在 `leave_requests`
-- 若同一事件可能同時從表單提交、Realtime 監聽或多個入口觸發，必須提供穩定 `eventKey`，並由 `send-push-notification` 搭配 `push_dispatch_events` 做去重，避免重複推播
+- 前端派送入口統一走 `src/utils/pushNotifications.ts` 的 `dispatchPushNotification()`。
+- Edge Function：`supabase/functions/send-push-notification/index.ts`；共用 helper 在 `supabase/functions/_shared/push.ts`。
+- 訂閱資料表：`web_push_subscriptions`。
+- 同一事件可能由表單、Realtime、重試或多入口觸發時，必須提供穩定 `eventKey`，由 `send-push-notification` 搭配 `push_dispatch_events` 去重。
+- 收件對象以 `feature` + `action` 權限決定；`targetRoles` 只能縮小範圍，不可取代權限查詢。
 
-## 7.1 裝備管理規則
+### PWA、版本與更新
 
-- 裝備後台路由為 `/equipment`，使用 feature key `equipment` 與 actions `VIEW / CREATE / EDIT / DELETE`。
-- 家長加購路由為 `/equipment-addons`，只要求登入；資料安全由 `linked_team_member_ids` 與 DB RLS 限制，不要改成需要 `equipment:VIEW`。
-- 裝備付款回報整合在 `/my-payments`，管理端審核整合在 `/fees?tab=equipment`。
-- 裝備圖片與請購處理照片使用 Supabase Storage bucket `equipments`。
-- 裝備加購流程是：加購申請 `pending` → 審核 `approved` → 備貨 `ready_for_pickup` → 領取 `picked_up` → 裝備付款回報 `pending_review` → 費用端確認 `approved` 或退回 `rejected`。
-- 裝備交易 `purchase` 產生後才會進入付款回報；不要把來源專案的 `fee_records` 或月結關帳模型直接搬進本專案。
-- 新增裝備 UI 時避免 Element Plus `size="small"`，保持手機觸控尺寸；大型裝備頁應拆成 components/stores/services/utils，不要集中成單一長檔。
+- `vite.config.ts` 內的 `versionUpdatePlugin()` 維護 `public/version.json`。
+- `useVersionCheck()` 輪詢 `/version.json`，發現新版本後在 `PublicLayout` / `MainLayout` 顯示更新列。
+- Router chunk 載入失敗會觸發 app shell refresh；修改 PWA、build 或 router 時要確認這條恢復路徑仍可用。
 
-## 7.2 節日主題設定規則
+## 8. UI 與行動裝置規則
 
-- 節日主題後台路由為 `/holiday-theme-settings`，使用 feature key `holiday_theme_settings` 與 actions `VIEW / EDIT`。
-- 節日主題通知使用 feature key `holiday_theme` 與 action `VIEW`；收件對象為具備該權限且有啟用推播裝置的有效登入帳號。
-- 設定儲存在 `system_settings` 的 `holiday_theme_config` row，payload 為 v2 多活動格式；要保留 legacy single-theme config 的轉換相容性。
-- 公開首頁與未登入頁不可直接查 `system_settings` raw table；只能走 `get_public_holiday_theme_config()`。
-- 後台儲存必須走 `save_holiday_theme_config(jsonb)`，DB 端需檢查 `holiday_theme_settings:EDIT`，不可只靠前端按鈕隱藏。
-- 球員主題選單只讀非敏感欄位，優先走 `get_holiday_theme_player_options()` 或 `team_members_safe`，不得暴露 `national_id`、`guardian_phone`、`contact_line_id`。
-- 自動通知 event key 固定為 `holiday_theme:auto:<activityId>:<scheduleStartAt>`；手動補送每次確認產生新的 request key，但同一次操作需避免雙擊重送。
-- 排程 Edge Function 不可硬編碼 Supabase URL、authorization token 或 sync secret；cron migration 使用 `current_setting('app.holiday_theme_function_url')`、`app.holiday_theme_authorization`、`app.holiday_theme_secret`。
-- 全站套用點為 `LandingView`、`HomeView`、`App.vue`、`PublicLayout`、`MainLayout`；調整動畫或橫幅時需同時確認公開頁與後台不遮擋既有操作。
+- 功能頁第一層標題使用 `src/style.css` 的 `.app-page-title`；標題含 icon、徽章或同列元素時加 `.app-page-title--inline`。
+- 頁面標題下方說明文字使用 `.app-page-subtitle`。
+- 預設 title 規格為 mobile `text-xl`、desktop `md:text-2xl`、`font-black`、`leading-tight`、`tracking-normal`、`text-slate-800`；title icon 使用 `.app-page-title-icon`。
+- 不要在功能頁 page title 直接堆疊 `text-3xl`、`text-primary`、`tracking-tight`、`tracking-wider` 或裝飾性 uppercase subtitle。
+- 首頁 hero、公開 landing、卡片標題、section title、dialog title 可依情境保留自己的視覺層級。
+- 全專案 `el-dialog` 在手機模式（`max-width: 639px`）預設滿版顯示；右上角關閉按鈕避開 `env(safe-area-inset-top/right)`，觸控區不得小於 44px。
+- 若某 Dialog 必須非滿版，需在該元件註明原因並確認手機可操作性。
+- 新增 Element Plus 按鈕盡量避免 `size="small"`，尤其是手機主要操作與裝備流程。
 
-## 8. 驗證規則
+## 9. 資料庫與 migration 規則
 
-依任務範圍選擇對應驗證，至少做最貼近修改範圍的檢查：
+- DB 權限 helper 以 `has_app_permission()`、`has_any_app_permission()` 等既有函式為基礎。
+- 新增受保護資料表時要同步 RLS、policy、必要 RPC、前端 service/type、AI 文件。
+- 公開資料讀取優先做成公開安全 RPC，只回傳必要且去敏感化欄位。
+- 修改 `profiles`、`team_members`、付款、裝備、請假、推播等核心表時，先檢查是否已有後續 migration 覆寫同名 function / policy。
+- Edge Function 不硬編碼 secret、service role key、cron authorization；使用環境變數或 DB setting。
+- Storage bucket policy 要跟功能權限一致；例如 avatars、equipments、matches-photos 各自有不同使用情境。
 
-- 型別檢查：`pnpm exec vue-tsc --noEmit`
-- 單元測試：`pnpm exec vitest run <target>`
-- 完整建置：`pnpm build`
+## 10. 驗證矩陣
 
-若沒有對應 script，請不要假設存在；先以 `package.json` 為準。
+以 `package.json` 為準，本專案目前有：
 
-## 9. 提交前檢查
+- 開發：`pnpm dev`
+- 建置：`pnpm build`
+- 預覽：`pnpm preview`
 
-- 只修改和任務直接相關的檔案
-- 確認沒有誤動產物檔與無關檔案
-- 確認新增規則與現況一致，不要寫成理想化但不符合實際 repo 的文件
-- 回報時要清楚說明：改了什麼、為什麼、怎麼驗證、是否有未處理風險
+依修改範圍選擇：
 
-## 10. AI 回應風格
+- 文件-only：`git diff --check`
+- TypeScript / Vue：`pnpm exec vue-tsc --noEmit`
+- 純 utils：`pnpm exec vitest run <target.test.ts>`
+- UI 或整合風險高：`pnpm build`
+- 裝備：`pnpm exec vitest run src/utils/equipmentInventory.test.ts src/utils/equipmentPricing.test.ts src/utils/equipmentRequestStatus.test.ts`
+- 賽事同步：`pnpm exec vitest run src/utils/googleCalendarParser.test.ts src/services/matchesApi.test.ts`
+- 球員同步：`pnpm exec vitest run src/utils/playerSync.test.ts`
+- 推播工具：`pnpm exec vitest run src/utils/pushNotifications.test.ts`
+- 節日主題：`pnpm exec vitest run src/composables/useHolidayTheme.test.ts src/utils/holidayMotionLayout.test.ts src/components/layout/__tests__/HolidayThemeRibbon.test.ts src/views/HolidayThemeSettingsView.test.ts supabase/functions/notify-holiday-theme/logic.test.ts`
+- 能力 / 體測：至少 `pnpm exec vue-tsc --noEmit` 與 `pnpm build`，並人工檢查 ADMIN CRUD、linked member 唯讀、無權限導回、兩 feature 權限互不互通。
 
-- 先講結論，再補細節
-- 優先用繁體中文
-- 簡潔、可執行、貼近專案現況
-- 若規則與實際程式碼衝突，先指出衝突，再提出建議，不要直接假設規則永遠正確
+若因環境限制無法驗證，回報必須明確說明未跑哪個檢查與原因。
 
-## 11. 本檔維護原則
+## 11. 回報規則
 
-- 這份文件是專案現況規則，不是抽象模板
-- 當專案結構、資料流或部署方式改變時，應同步更新本檔
-- 若新增重要目錄、建置流程、資料同步規則或安全邊界，請一併補到本檔
-## Security Boundary Update (2026-04)
+- 先講結論，再補細節。
+- 使用繁體中文。
+- 明確列出修改檔案、核心原因、驗證結果。
+- 若發現規則與實作不一致，說出衝突位置與建議處理方式。
+- 不把理想化流程寫成已存在現況；文件必須貼近實際 repo。
 
-- `permissionsStore.can()`、按鈕顯示、router guard 只算前端 UX 控制，不算資料安全邊界。
-- 任何受保護資料若能被 API / Supabase 直接讀取，必須同步補 DB 端 RLS、policy、或 `security definer` RPC。
-- 公開頁面不可直接查受保護 raw table；請優先使用公開安全 RPC，例如 `get_public_landing_snapshot()`。
-- 登入前的 email 存在性 / 可登入性檢查，不可匿名直查 `profiles`；必須走 `can_request_magic_link()` 這類只回 boolean 的 RPC。
-- `team_members_safe` 是非敏感讀取的預設路徑；若流程需要 `national_id`、`guardian_phone`、`contact_line_id` 等敏感欄位，必須改走 `team_members` 並確認有對應 DB 權限。
-- 權限功能若新增或調整 `feature/action`，要一起更新三層：DB helper / RLS、前端 permission store、AI 文件與 skill。
+## 12. 本檔維護規則
+
+- 這份文件是專案現況規則，不是抽象模板。
+- 當路由、權限、資料流、migration、Edge Function、PWA 或重要 UI 規則改變時，要同步更新本檔、`docs/PROJECT_LOGIC.md`、`docs/FILE_MAP.md` 與對應 skill。
+- 新增功能域時，補上：路由、feature/action、主要檔案、資料表/RPC、RLS 邊界、驗證方式。
+- 若本檔變得過長，仍保留啟動流程、任務分類、安全邊界與功能地圖在本檔；細節可拆到 skill，但入口不能失去導航能力。

@@ -9,6 +9,7 @@ import MyHomeTodayPanel from '@/components/home/MyHomeTodayPanel.vue'
 import MatchDetailDialog from '@/components/match-records/MatchDetailDialog.vue'
 import { getMyHomeSnapshot } from '@/services/myHome'
 import { supabase } from '@/services/supabase'
+import { getMatchWeatherForecast, type WeatherSnapshot } from '@/services/weatherApi'
 import { useAuthStore } from '@/stores/auth'
 import { useEquipmentStore } from '@/stores/equipment'
 import { useMatchesStore } from '@/stores/matches'
@@ -30,18 +31,6 @@ import {
   isDashboardMatchInProgress,
   pickDashboardHeroMatch
 } from '@/utils/dashboardHome'
-
-type WeatherSnapshot = {
-  location: string
-  summary: string
-  currentTemp: number | null
-  maxTemp: number | null
-  minTemp: number | null
-  rainProbability: number | null
-  windSpeedMps: number | null
-  weatherCode: number | null
-  isDay: boolean | null
-}
 
 type WeatherStatus = 'loading' | 'success' | 'unavailable'
 type WeatherIconName = 'cloudy' | 'lightning' | 'moon-night' | 'partly-cloudy' | 'pouring' | 'sunny'
@@ -80,7 +69,6 @@ const INACTIVE_MEMBER_STATUSES = new Set(['離隊', '退隊'])
 const DEFAULT_WEATHER_TEMP = 26
 const DEFAULT_WEATHER_RAIN = 20
 const DEFAULT_WEATHER_WIND = 2
-const xinzhuangCoords = { latitude: 25.0359, longitude: 121.45 }
 const WEATHER_ICON_COMPONENTS: Record<WeatherIconName, typeof Cloudy> = {
   cloudy: Cloudy,
   lightning: Lightning,
@@ -113,7 +101,9 @@ const weatherState = reactive<WeatherSnapshot>({
   rainProbability: null,
   windSpeedMps: null,
   weatherCode: null,
-  isDay: null
+  isDay: null,
+  forecastDate: null,
+  isMatchDateForecast: false
 })
 
 const latestAnnouncements = ref<DashboardAnnouncement[]>([])
@@ -170,6 +160,16 @@ const myHomeWeatherCard = computed(() => ({
   temperature: weatherCard.value.temperature,
   rain: weatherCard.value.rain
 }))
+const weatherLocationDetail = computed(() => {
+  const location = weatherState.location || '新莊區'
+  if (!weatherState.forecastDate) return location
+
+  const dateLabel = weatherState.isMatchDateForecast
+    ? dayjs(weatherState.forecastDate).format('M/D')
+    : '今日'
+
+  return `${dateLabel} ${location}`
+})
 const weatherIconName = computed<WeatherIconName>(() => {
   const code = weatherState.weatherCode
   const isDay = weatherState.isDay ?? true
@@ -257,25 +257,6 @@ const featuredAddonEquipment = computed(() => availableAddonEquipments.value[0] 
 const addonPreviewEquipments = computed(() => availableAddonEquipments.value.slice(0, 4))
 const isEquipmentAddonLoading = computed(() => equipmentStore.isLoading && equipmentStore.equipments.length === 0)
 
-const weatherCodeToSummary = (code: number | null, isDay = true) => {
-  if (code == null) return '氣象資料更新中'
-  if (code === 0) return isDay ? '晴朗' : '晴夜'
-  if (code === 1) return isDay ? '大致晴朗' : '大致晴朗'
-  if (code === 2) return '多雲時晴'
-  if (code === 3) return '陰天'
-  if ([45, 48].includes(code)) return '有霧'
-  if ([51, 53, 55, 56, 57].includes(code)) return '毛毛雨'
-  if ([61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return '短暫陣雨'
-  if ([71, 73, 75, 77, 85, 86].includes(code)) return '降雪'
-  if ([95, 96, 99].includes(code)) return '雷陣雨'
-  return '局部多雲'
-}
-
-const formatWindMps = (kmh: number | null | undefined) => {
-  if (kmh == null || Number.isNaN(kmh)) return null
-  return Math.round((kmh / 3.6) * 10) / 10
-}
-
 const formatHeroDateTime = (match: MatchRecord) =>
   `${match.match_date.replace(/-/g, '/')} ${match.match_time || ''}`.trim()
 
@@ -324,33 +305,36 @@ const resetAdminStats = () => {
   Object.assign(stats, createEmptyDashboardStats())
 }
 
+const getDashboardWeatherTarget = () => {
+  if (heroMatch.value?.location) {
+    return {
+      location: heroMatch.value.location,
+      matchDate: heroMatch.value.match_date
+    }
+  }
+
+  const nextPersonalEvent = myHomeSnapshot.value.next_event
+  if (nextPersonalEvent?.type === 'match' && nextPersonalEvent.location) {
+    return {
+      location: nextPersonalEvent.location,
+      matchDate: nextPersonalEvent.date
+    }
+  }
+
+  return {
+    location: null,
+    matchDate: null
+  }
+}
+
 const fetchWeatherData = async () => {
   weatherStatus.value = 'loading'
 
   try {
-    const url = new URL('https://api.open-meteo.com/v1/forecast')
-    url.searchParams.set('latitude', String(xinzhuangCoords.latitude))
-    url.searchParams.set('longitude', String(xinzhuangCoords.longitude))
-    url.searchParams.set('current', 'temperature_2m,weather_code,is_day,wind_speed_10m')
-    url.searchParams.set('daily', 'temperature_2m_max,temperature_2m_min,precipitation_probability_max')
-    url.searchParams.set('forecast_days', '1')
-    url.searchParams.set('timezone', 'Asia/Taipei')
-
-    const response = await fetch(url.toString())
-    if (!response.ok) throw new Error(`Weather request failed: ${response.status}`)
-
-    const payload = await response.json()
-    const current = payload.current || {}
-    const daily = payload.daily || {}
-
-    weatherState.summary = weatherCodeToSummary(current.weather_code ?? null, Boolean(current.is_day))
-    weatherState.currentTemp = typeof current.temperature_2m === 'number' ? current.temperature_2m : null
-    weatherState.maxTemp = Array.isArray(daily.temperature_2m_max) ? daily.temperature_2m_max[0] ?? null : null
-    weatherState.minTemp = Array.isArray(daily.temperature_2m_min) ? daily.temperature_2m_min[0] ?? null : null
-    weatherState.rainProbability = Array.isArray(daily.precipitation_probability_max) ? daily.precipitation_probability_max[0] ?? null : null
-    weatherState.windSpeedMps = formatWindMps(current.wind_speed_10m ?? null)
-    weatherState.weatherCode = typeof current.weather_code === 'number' ? current.weather_code : null
-    weatherState.isDay = current.is_day == null ? null : Boolean(current.is_day)
+    Object.assign(weatherState, await getMatchWeatherForecast({
+      ...getDashboardWeatherTarget(),
+      now: now.value
+    }))
     weatherStatus.value = 'success'
   } catch (error) {
     console.error('Error fetching weather data:', error)
@@ -362,6 +346,8 @@ const fetchWeatherData = async () => {
     weatherState.windSpeedMps = DEFAULT_WEATHER_WIND
     weatherState.weatherCode = null
     weatherState.isDay = true
+    weatherState.forecastDate = now.value.format('YYYY-MM-DD')
+    weatherState.isMatchDateForecast = false
     weatherStatus.value = 'unavailable'
   }
 }
@@ -555,10 +541,11 @@ onMounted(() => {
     now.value = dayjs()
   }, 60_000)
 
+  const myHomePromise = fetchMyHomeSnapshotData()
+  const matchesPromise = fetchMatchesData()
+
   void Promise.allSettled([
-    fetchWeatherData(),
-    fetchMyHomeSnapshotData(),
-    fetchMatchesData(),
+    Promise.allSettled([myHomePromise, matchesPromise]).then(() => fetchWeatherData()),
     fetchAdminStats(),
     fetchAnnouncementsData(),
     fetchEquipmentAddonData()
@@ -736,7 +723,7 @@ onUnmounted(() => {
                     </div>
                   </div>
 
-                  <div class="today-weather-detail">降雨 {{ Math.round(weatherState.rainProbability ?? DEFAULT_WEATHER_RAIN) }}% {{ weatherState.location || '新莊區' }}</div>
+                  <div class="today-weather-detail min-w-0 truncate">降雨 {{ Math.round(weatherState.rainProbability ?? DEFAULT_WEATHER_RAIN) }}% {{ weatherLocationDetail }}</div>
                   <div class="today-weather-detail">{{ weatherCard.wind }}</div>
                 </div>
               </section>
@@ -824,7 +811,7 @@ onUnmounted(() => {
                       </div>
                     </div>
 
-                    <div class="today-weather-detail">降雨 {{ Math.round(weatherState.rainProbability ?? DEFAULT_WEATHER_RAIN) }}% {{ weatherState.location || '新莊區' }}</div>
+                    <div class="today-weather-detail min-w-0 truncate">降雨 {{ Math.round(weatherState.rainProbability ?? DEFAULT_WEATHER_RAIN) }}% {{ weatherLocationDetail }}</div>
                     <div class="today-weather-detail">{{ weatherCard.wind }}</div>
                   </div>
                 </section>
