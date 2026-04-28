@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Delete,
   Edit,
+  Filter,
   Goods,
   Plus,
   Refresh,
@@ -13,6 +14,7 @@ import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
 import PreviewableImage from '@/components/common/PreviewableImage.vue'
 import EquipmentFormDialog from '@/components/equipment/EquipmentFormDialog.vue'
 import EquipmentHistoryDialog from '@/components/equipment/EquipmentHistoryDialog.vue'
+import EquipmentInventoryAdjustmentDialog from '@/components/equipment/EquipmentInventoryAdjustmentDialog.vue'
 import EquipmentTransactionDialog from '@/components/equipment/EquipmentTransactionDialog.vue'
 import { useEquipmentStore } from '@/stores/equipment'
 import { usePermissionsStore } from '@/stores/permissions'
@@ -28,11 +30,14 @@ const permissionsStore = usePermissionsStore()
 const searchKeyword = ref('')
 const selectedCategory = ref('all')
 const viewMode = ref<'grid' | 'table'>('grid')
+const isMobileFiltersOpen = ref(false)
 const isFormDialogOpen = ref(false)
 const editingEquipment = ref<Equipment | null>(null)
+const isInventoryDialogOpen = ref(false)
+const inventoryAdjustmentEquipment = ref<Equipment | null>(null)
 const isTransactionDialogOpen = ref(false)
 const transactionEquipment = ref<Equipment | null>(null)
-const transactionDefaultType = ref<EquipmentTransactionType>('borrow')
+const transactionDefaultType = ref<EquipmentTransactionType>('purchase')
 const isHistoryDialogOpen = ref(false)
 const historyEquipment = ref<Equipment | null>(null)
 
@@ -73,6 +78,20 @@ const summary = computed(() => {
   }
 })
 
+const hasActiveFilters = computed(() =>
+  searchKeyword.value.trim().length > 0 || selectedCategory.value !== 'all'
+)
+
+const mobileFilterLabel = computed(() =>
+  selectedCategory.value === 'all' ? '篩選' : selectedCategory.value
+)
+
+const clearFilters = () => {
+  searchKeyword.value = ''
+  selectedCategory.value = 'all'
+  isMobileFiltersOpen.value = false
+}
+
 const formatCurrency = (amount: number) => new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
@@ -89,7 +108,12 @@ const openEditDialog = (equipment: Equipment) => {
   isFormDialogOpen.value = true
 }
 
-const openTransactionDialog = (equipment: Equipment, type: EquipmentTransactionType) => {
+const openInventoryDialog = (equipment: Equipment) => {
+  inventoryAdjustmentEquipment.value = equipment
+  isInventoryDialogOpen.value = true
+}
+
+const openTransactionDialog = (equipment: Equipment, type: EquipmentTransactionType = 'purchase') => {
   transactionEquipment.value = equipment
   transactionDefaultType.value = type
   isTransactionDialogOpen.value = true
@@ -139,64 +163,75 @@ onMounted(() => {
 
 <template>
   <div class="h-full flex flex-col relative animate-fade-in bg-gray-50 text-text overflow-hidden">
-    <div class="bg-white px-4 md:px-6 py-4 border-b border-gray-200 shadow-sm shrink-0 z-10">
-      <div class="max-w-7xl mx-auto flex flex-col gap-4">
-        <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
+    <div class="bg-white px-3 py-3 md:px-6 md:py-4 border-b border-gray-200 shadow-sm shrink-0 z-10">
+      <div class="max-w-7xl mx-auto flex flex-col gap-3 md:gap-4">
+        <div class="flex items-center justify-between gap-3">
+          <div class="min-w-0">
             <h2 class="app-page-title app-page-title--inline">
               <el-icon class="app-page-title-icon"><Goods /></el-icon>
               裝備管理
             </h2>
-            <p class="app-page-subtitle">
+            <p class="app-page-subtitle hidden sm:block">
               管理裝備庫存、借還領取、加購品項與交易紀錄
             </p>
           </div>
 
-          <div class="flex flex-wrap gap-2">
+          <div class="flex shrink-0 gap-2">
             <button
               type="button"
-              class="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 px-4 py-3 text-sm font-bold text-gray-600 hover:border-primary hover:text-primary transition-colors disabled:opacity-70"
+              class="inline-flex h-11 w-11 items-center justify-center gap-2 rounded-2xl border border-gray-200 text-sm font-bold text-gray-600 hover:border-primary hover:text-primary transition-colors disabled:opacity-70 md:w-auto md:px-4"
               :disabled="equipmentStore.isLoading"
+              title="重新整理"
               @click="refresh"
             >
               <el-icon :class="{ 'is-loading': equipmentStore.isLoading }"><Refresh /></el-icon>
-              重新整理
+              <span class="hidden md:inline">重新整理</span>
             </button>
             <button
               v-if="canCreate"
               type="button"
-              class="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-bold text-white hover:bg-primary-hover transition-colors"
+              class="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-primary px-3 text-sm font-bold text-white hover:bg-primary-hover transition-colors md:px-5"
               @click="openCreateDialog"
             >
               <el-icon><Plus /></el-icon>
-              新增裝備
+              <span class="md:hidden">新增</span>
+              <span class="hidden md:inline">新增裝備</span>
             </button>
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-3">
-          <section class="rounded-2xl border border-primary/15 bg-primary/5 px-4 py-3">
-            <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-primary/70">品項</p>
-            <p class="mt-2 text-2xl font-black text-primary">{{ summary.totalItems }}</p>
+        <div class="grid grid-cols-4 gap-1.5 md:gap-3">
+          <section class="rounded-xl border border-primary/15 bg-primary/5 px-2.5 py-2 md:rounded-2xl md:px-4 md:py-3">
+            <p class="text-[10px] font-bold text-primary/70 md:text-[11px] md:uppercase md:tracking-[0.16em]">品項</p>
+            <p class="mt-0.5 text-lg font-black text-primary md:mt-2 md:text-2xl">{{ summary.totalItems }}</p>
           </section>
-          <section class="rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3">
-            <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-sky-700">總數量</p>
-            <p class="mt-2 text-2xl font-black text-sky-800">{{ summary.totalQuantity }}</p>
+          <section class="rounded-xl border border-sky-100 bg-sky-50 px-2.5 py-2 md:rounded-2xl md:px-4 md:py-3">
+            <p class="text-[10px] font-bold text-sky-700 md:text-[11px] md:uppercase md:tracking-[0.16em]">總數量</p>
+            <p class="mt-0.5 text-lg font-black text-sky-800 md:mt-2 md:text-2xl">{{ summary.totalQuantity }}</p>
           </section>
-          <section class="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
-            <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-700">可用庫存</p>
-            <p class="mt-2 text-2xl font-black text-emerald-700">{{ summary.remainingQuantity }}</p>
+          <section class="rounded-xl border border-emerald-100 bg-emerald-50 px-2.5 py-2 md:rounded-2xl md:px-4 md:py-3">
+            <p class="text-[10px] font-bold text-emerald-700 md:text-[11px] md:uppercase md:tracking-[0.16em]">可用庫存</p>
+            <p class="mt-0.5 text-lg font-black text-emerald-700 md:mt-2 md:text-2xl">{{ summary.remainingQuantity }}</p>
           </section>
-          <section class="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
-            <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-amber-700">開放加購</p>
-            <p class="mt-2 text-2xl font-black text-amber-700">{{ summary.quickPurchaseCount }}</p>
+          <section class="rounded-xl border border-amber-100 bg-amber-50 px-2.5 py-2 md:rounded-2xl md:px-4 md:py-3">
+            <p class="text-[10px] font-bold text-amber-700 md:text-[11px] md:uppercase md:tracking-[0.16em]">開放加購</p>
+            <p class="mt-0.5 text-lg font-black text-amber-700 md:mt-2 md:text-2xl">{{ summary.quickPurchaseCount }}</p>
           </section>
         </div>
 
-        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div class="grid gap-2 md:grid-cols-[minmax(0,1fr)_220px] lg:min-w-[560px]">
+        <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+          <div class="flex gap-2 md:grid md:grid-cols-[minmax(0,1fr)_220px] lg:min-w-[560px]">
             <el-input v-model="searchKeyword" size="large" clearable placeholder="搜尋裝備名稱、規格或備註" />
-            <el-select v-model="selectedCategory" size="large" class="w-full">
+            <button
+              type="button"
+              class="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-2xl border px-3 text-sm font-bold transition-colors md:hidden"
+              :class="hasActiveFilters ? 'border-primary/30 bg-primary/5 text-primary' : 'border-gray-200 bg-white text-gray-600'"
+              @click="isMobileFiltersOpen = !isMobileFiltersOpen"
+            >
+              <el-icon><Filter /></el-icon>
+              <span class="max-w-[4.5rem] truncate">{{ mobileFilterLabel }}</span>
+            </button>
+            <el-select v-model="selectedCategory" size="large" class="hidden w-full md:block">
               <el-option
                 v-for="category in categories"
                 :key="category"
@@ -205,12 +240,42 @@ onMounted(() => {
               />
             </el-select>
           </div>
-          <ViewModeSwitch v-model="viewMode" />
+          <ViewModeSwitch v-model="viewMode" class="hidden md:inline-flex" />
+
+          <div class="flex items-center justify-between text-xs font-bold text-gray-400 md:hidden">
+            <span>顯示 {{ filteredEquipments.length }} / {{ summary.totalItems }}</span>
+            <button
+              v-if="hasActiveFilters"
+              type="button"
+              class="text-primary"
+              @click="clearFilters"
+            >
+              清除篩選
+            </button>
+          </div>
+
+          <div
+            v-show="isMobileFiltersOpen"
+            class="grid gap-2 rounded-2xl border border-gray-100 bg-gray-50 p-2 md:hidden"
+          >
+            <el-select v-model="selectedCategory" size="large" class="w-full" @change="isMobileFiltersOpen = false">
+              <el-option
+                v-for="category in categories"
+                :key="category"
+                :label="category === 'all' ? '全部分類' : category"
+                :value="category"
+              />
+            </el-select>
+            <div class="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2">
+              <span class="text-xs font-bold text-gray-400">顯示模式</span>
+              <ViewModeSwitch v-model="viewMode" />
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
-    <div class="flex-1 overflow-y-auto min-h-0 p-4 md:p-6 pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:pb-6 custom-scrollbar">
+    <div class="flex-1 overflow-y-auto min-h-0 p-3 md:p-6 pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:pb-6 custom-scrollbar">
       <div class="max-w-7xl mx-auto">
         <div v-if="equipmentStore.isLoading" class="min-h-[45vh] flex items-center justify-center">
           <div class="text-sm font-bold text-gray-400">裝備資料載入中...</div>
@@ -287,8 +352,16 @@ onMounted(() => {
                 <button
                   v-if="canCreate || canEdit"
                   type="button"
+                  class="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700 hover:bg-emerald-100 transition-colors"
+                  @click="openInventoryDialog(equipment)"
+                >
+                  新增庫存
+                </button>
+                <button
+                  v-if="canCreate || canEdit"
+                  type="button"
                   class="rounded-xl bg-primary px-3 py-2 text-sm font-bold text-white hover:bg-primary-hover transition-colors"
-                  @click="openTransactionDialog(equipment, 'borrow')"
+                  @click="openTransactionDialog(equipment)"
                 >
                   交易
                 </button>
@@ -374,7 +447,16 @@ onMounted(() => {
                   </td>
                   <td class="px-5 py-4">
                     <div class="flex justify-end gap-2">
-                      <button v-if="canCreate || canEdit" type="button" class="rounded-xl bg-primary px-3 py-2 text-sm font-bold text-white" @click="openTransactionDialog(equipment, 'borrow')">
+                      <button
+                        v-if="canCreate || canEdit"
+                        type="button"
+                        class="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700"
+                        title="新增庫存"
+                        @click="openInventoryDialog(equipment)"
+                      >
+                        <el-icon><Plus /></el-icon>
+                      </button>
+                      <button v-if="canCreate || canEdit" type="button" class="rounded-xl bg-primary px-3 py-2 text-sm font-bold text-white" @click="openTransactionDialog(equipment)">
                         <el-icon><Tickets /></el-icon>
                       </button>
                       <button type="button" class="rounded-xl border border-gray-200 px-3 py-2 text-sm font-bold text-gray-600" @click="openHistoryDialog(equipment)">
@@ -399,6 +481,12 @@ onMounted(() => {
     <EquipmentFormDialog
       v-model="isFormDialogOpen"
       :equipment="editingEquipment"
+      @saved="refresh"
+    />
+
+    <EquipmentInventoryAdjustmentDialog
+      v-model="isInventoryDialogOpen"
+      :equipment="inventoryAdjustmentEquipment"
       @saved="refresh"
     />
 

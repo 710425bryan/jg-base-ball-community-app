@@ -6,6 +6,8 @@ import type {
   CreateEquipmentPurchaseRequestPayload,
   Equipment,
   EquipmentFormPayload,
+  EquipmentInventoryAdjustment,
+  EquipmentInventoryAdjustmentPayload,
   EquipmentMemberSummary,
   EquipmentPaymentSubmission,
   EquipmentPurchaseRequest,
@@ -40,6 +42,9 @@ const normalizeEquipment = (row: any): Equipment => ({
   equipment_transactions: Array.isArray(row?.equipment_transactions)
     ? row.equipment_transactions.map(normalizeTransaction)
     : [],
+  inventory_adjustments: Array.isArray(row?.inventory_adjustments)
+    ? row.inventory_adjustments.map(normalizeInventoryAdjustment)
+    : [],
   reserved_request_items: Array.isArray(row?.reserved_request_items)
     ? row.reserved_request_items.map((item: any) => ({
       ...item,
@@ -53,6 +58,18 @@ const normalizeTransaction = (row: any): EquipmentTransaction => ({
   ...row,
   quantity: normalizeNumber(row?.quantity, 1),
   unit_price: row?.unit_price == null ? null : normalizeNumber(row.unit_price)
+})
+
+const normalizeInventoryAdjustment = (row: any): EquipmentInventoryAdjustment => ({
+  ...row,
+  quantity_delta: normalizeNumber(row?.quantity_delta, 1),
+  total_quantity_after: normalizeNumber(row?.total_quantity_after),
+  sizes_stock_after: Array.isArray(row?.sizes_stock_after)
+    ? row.sizes_stock_after.map((item: any) => ({
+      size: String(item?.size || '').trim(),
+      quantity: normalizeNumber(item?.quantity)
+    })).filter((item: any) => item.size)
+    : []
 })
 
 const normalizePaymentSubmission = (row: any): EquipmentPaymentSubmission => ({
@@ -192,6 +209,37 @@ export const fetchEquipmentTransactions = async (equipmentId: string) => {
   return (data || []).map(normalizeTransaction)
 }
 
+export const fetchEquipmentInventoryAdjustments = async (equipmentId: string) => {
+  const { data, error } = await supabase
+    .from('equipment_inventory_adjustments')
+    .select(`
+      id,
+      equipment_id,
+      adjustment_type,
+      adjustment_date,
+      member_id,
+      handled_by,
+      size,
+      quantity_delta,
+      total_quantity_after,
+      sizes_stock_after,
+      notes,
+      created_by,
+      created_at,
+      updated_at,
+      team_members ( name, role )
+    `)
+    .eq('equipment_id', equipmentId)
+    .order('adjustment_date', { ascending: false })
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    if (error.code === '42P01') return []
+    throw error
+  }
+  return (data || []).map(normalizeInventoryAdjustment)
+}
+
 export const fetchEquipmentMembers = async () => {
   const { data, error } = await supabase
     .from('team_members_safe')
@@ -261,6 +309,23 @@ export const createEquipmentTransaction = async (payload: EquipmentTransactionPa
 export const deleteEquipmentTransaction = async (transactionId: string) => {
   const { error } = await supabase.from('equipment_transactions').delete().eq('id', transactionId)
   if (error) throw error
+}
+
+export const createEquipmentInventoryAdjustment = async (
+  payload: EquipmentInventoryAdjustmentPayload
+) => {
+  const { data, error } = await supabase.rpc('create_equipment_inventory_adjustment', {
+    p_equipment_id: payload.equipment_id,
+    p_adjustment_date: payload.adjustment_date,
+    p_member_id: payload.member_id || null,
+    p_handled_by: payload.handled_by || null,
+    p_size: payload.size || null,
+    p_quantity_delta: payload.quantity_delta,
+    p_notes: payload.notes || null
+  })
+
+  if (error) throw error
+  return normalizeInventoryAdjustment(Array.isArray(data) ? data[0] : data)
 }
 
 const REQUEST_SELECT = `

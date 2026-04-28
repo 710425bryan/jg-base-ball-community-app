@@ -60,6 +60,27 @@ export type EquipmentTransaction = {
   } | null
 }
 
+export type EquipmentInventoryAdjustment = {
+  id: string
+  equipment_id: string
+  adjustment_type: 'stock_in' | string
+  adjustment_date: string
+  member_id: string | null
+  handled_by: string | null
+  size: string | null
+  quantity_delta: number
+  total_quantity_after: number
+  sizes_stock_after: EquipmentSizeStock[]
+  notes: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  team_members?: {
+    name?: string | null
+    role?: string | null
+  } | null
+}
+
 export type Equipment = {
   id: string
   name: string
@@ -75,6 +96,7 @@ export type Equipment = {
   created_at: string
   updated_at: string
   equipment_transactions?: EquipmentTransaction[]
+  inventory_adjustments?: EquipmentInventoryAdjustment[]
   reserved_request_items?: EquipmentReservedRequestItem[]
 }
 
@@ -101,6 +123,16 @@ export type EquipmentTransactionPayload = {
   quantity: number
   notes?: string | null
   unit_price?: number | null
+}
+
+export type EquipmentInventoryAdjustmentPayload = {
+  equipment_id: string
+  adjustment_date: string
+  member_id?: string | null
+  handled_by?: string | null
+  size?: string | null
+  quantity_delta: number
+  notes?: string | null
 }
 
 export type EquipmentRequestItem = {

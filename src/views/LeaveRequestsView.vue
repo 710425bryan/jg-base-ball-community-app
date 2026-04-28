@@ -33,19 +33,29 @@
             <div class="p-4 border-b border-gray-100 flex flex-col gap-4">
               <div class="flex flex-col sm:flex-row items-center justify-between">
                 <el-date-picker
-                  v-model="dateRange"
-                  type="daterange"
-                  range-separator="至"
-                  start-placeholder="開始日期"
-                  end-placeholder="結束日期"
-                  format="YYYY-MM-DD"
-                  value-format="YYYY-MM-DD"
-                  @change="fetchData"
-                  class="!w-full sm:!w-[300px]"
+                  v-model="selectedSearchMonth"
+                  type="month"
+                  placeholder="搜尋月份"
+                  format="YYYY 年 MM 月"
+                  value-format="YYYY-MM"
+                  :clearable="false"
+                  class="!w-full sm:!w-[220px]"
                 />
               </div>
 
               <!-- 日期篩選按鈕區 -->
+              <div class="flex gap-2 overflow-x-auto custom-scrollbar pb-1 px-1">
+                <button
+                  v-for="monthOption in monthQuickOptions"
+                  :key="monthOption.value"
+                  @click="applyMonthFilter(monthOption.value)"
+                  class="px-4 py-2 rounded-xl border transition-all text-sm font-bold whitespace-nowrap shrink-0"
+                  :class="selectedSearchMonth === monthOption.value ? 'border-primary bg-primary/5 text-primary' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'"
+                >
+                  {{ monthOption.label }}
+                </button>
+              </div>
+
               <div class="flex items-stretch gap-3 overflow-x-auto custom-scrollbar pb-2 pt-1 px-1">
                 <button 
                   @click="selectedDate = ''"
@@ -444,7 +454,7 @@ const formRef = ref()
 
 // --- 篩選區間 ---
 const defaultStartDate = dayjs().startOf('month').format('YYYY-MM-DD')
-const defaultEndDate = dayjs().add(2, 'month').endOf('month').format('YYYY-MM-DD')
+const defaultEndDate = dayjs().endOf('month').format('YYYY-MM-DD')
 const dateRange = ref<[string, string]>([defaultStartDate, defaultEndDate])
 
 const dateShortcuts = [
@@ -506,6 +516,31 @@ const getLeaveBadgeClass = (type: string) => {
 
 // --- 日期篩選邏輯 ---
 const selectedDate = ref<string>('')
+
+const applyMonthFilter = (month: string) => {
+  const monthDate = dayjs(month)
+  dateRange.value = [
+    monthDate.startOf('month').format('YYYY-MM-DD'),
+    monthDate.endOf('month').format('YYYY-MM-DD')
+  ]
+  fetchData()
+}
+
+const selectedSearchMonth = computed({
+  get: () => {
+    const [start] = dateRange.value || [defaultStartDate, defaultEndDate]
+    return dayjs(start).format('YYYY-MM')
+  },
+  set: (month: string) => {
+    applyMonthFilter(month)
+  }
+})
+
+const monthQuickOptions = computed(() => [
+  { label: '上個月', value: dayjs().subtract(1, 'month').format('YYYY-MM') },
+  { label: '本月', value: dayjs().format('YYYY-MM') },
+  { label: '下個月', value: dayjs().add(1, 'month').format('YYYY-MM') }
+])
 
 watch(dateRange, () => {
   selectedDate.value = ''
@@ -682,7 +717,7 @@ const fetchData = async () => {
       .order('start_date', { ascending: false })
 
     if (start && end) {
-      query = query.gte('start_date', start).lte('end_date', end)
+      query = query.lte('start_date', end).gte('end_date', start)
     }
 
     const { data, error } = await query

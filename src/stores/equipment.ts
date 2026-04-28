@@ -2,9 +2,11 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import {
   createEquipment,
+  createEquipmentInventoryAdjustment,
   createEquipmentTransaction,
   deleteEquipment,
   deleteEquipmentTransaction,
+  fetchEquipmentInventoryAdjustments,
   fetchEquipmentMembers,
   fetchEquipmentTransactions,
   fetchEquipments,
@@ -13,6 +15,7 @@ import {
 import type {
   Equipment,
   EquipmentFormPayload,
+  EquipmentInventoryAdjustmentPayload,
   EquipmentMemberSummary,
   EquipmentTransactionPayload
 } from '@/types/equipment'
@@ -65,6 +68,7 @@ export const useEquipmentStore = defineStore('equipment', () => {
         next[index] = {
           ...saved,
           equipment_transactions: next[index].equipment_transactions || saved.equipment_transactions || [],
+          inventory_adjustments: next[index].inventory_adjustments || saved.inventory_adjustments || [],
           reserved_request_items: next[index].reserved_request_items || saved.reserved_request_items || []
         }
         equipments.value = next
@@ -90,10 +94,49 @@ export const useEquipmentStore = defineStore('equipment', () => {
     return transactions
   }
 
+  const loadInventoryAdjustments = async (equipmentId: string) => {
+    const adjustments = await fetchEquipmentInventoryAdjustments(equipmentId)
+    equipments.value = equipments.value.map((equipment) => {
+      if (equipment.id !== equipmentId) return equipment
+      return { ...equipment, inventory_adjustments: adjustments }
+    })
+    return adjustments
+  }
+
+  const loadHistory = async (equipmentId: string) => {
+    const [transactions, adjustments] = await Promise.all([
+      fetchEquipmentTransactions(equipmentId),
+      fetchEquipmentInventoryAdjustments(equipmentId)
+    ])
+
+    equipments.value = equipments.value.map((equipment) => {
+      if (equipment.id !== equipmentId) return equipment
+      return {
+        ...equipment,
+        equipment_transactions: transactions,
+        inventory_adjustments: adjustments
+      }
+    })
+
+    return { transactions, adjustments }
+  }
+
   const addTransaction = async (payload: EquipmentTransactionPayload) => {
     const transaction = await createEquipmentTransaction(payload)
     await loadEquipments()
     return transaction
+  }
+
+  const addInventoryAdjustment = async (payload: EquipmentInventoryAdjustmentPayload) => {
+    isSaving.value = true
+
+    try {
+      const adjustment = await createEquipmentInventoryAdjustment(payload)
+      await loadEquipments()
+      return adjustment
+    } finally {
+      isSaving.value = false
+    }
   }
 
   const removeTransaction = async (transactionId: string) => {
@@ -113,7 +156,10 @@ export const useEquipmentStore = defineStore('equipment', () => {
     saveEquipment,
     removeEquipment,
     loadTransactions,
+    loadInventoryAdjustments,
+    loadHistory,
     addTransaction,
+    addInventoryAdjustment,
     removeTransaction
   }
 })

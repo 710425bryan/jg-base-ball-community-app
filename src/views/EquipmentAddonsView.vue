@@ -8,6 +8,7 @@ import PreviewableImage from '@/components/common/PreviewableImage.vue'
 import { listMyPaymentMembers } from '@/services/myPayments'
 import { useEquipmentStore } from '@/stores/equipment'
 import { useEquipmentRequestsStore } from '@/stores/equipmentRequests'
+import { usePermissionsStore } from '@/stores/permissions'
 import type { Equipment, EquipmentRequestItem } from '@/types/equipment'
 import type { MyPaymentMember } from '@/types/payments'
 import {
@@ -32,6 +33,7 @@ const route = useRoute()
 const router = useRouter()
 const equipmentStore = useEquipmentStore()
 const requestStore = useEquipmentRequestsStore()
+const permissionsStore = usePermissionsStore()
 
 const members = ref<MyPaymentMember[]>([])
 const selectedMemberId = ref('')
@@ -48,8 +50,18 @@ const linkedMembers = computed(() =>
   members.value.filter((member) => member.is_linked !== false)
 )
 
+const canPurchaseForAllMembers = computed(() => permissionsStore.currentRole === 'ADMIN')
+
+const purchaseMemberOptions = computed(() =>
+  canPurchaseForAllMembers.value ? members.value : linkedMembers.value
+)
+
 const selectedMember = computed(() =>
-  linkedMembers.value.find((member) => member.member_id === selectedMemberId.value) || null
+  purchaseMemberOptions.value.find((member) => member.member_id === selectedMemberId.value) || null
+)
+
+const visibleRequests = computed(() =>
+  canPurchaseForAllMembers.value ? requestStore.reviewRequests : requestStore.myRequests
 )
 
 const availableEquipments = computed(() =>
@@ -209,7 +221,7 @@ const submitRequest = async () => {
     ElMessage.success('已送出裝備加購申請')
     await Promise.all([
       equipmentStore.loadEquipments(),
-      requestStore.loadMyRequests()
+      loadAddonRequests()
     ])
   } catch (error: any) {
     ElMessage.error(error?.message || '送出加購申請失敗')
@@ -238,6 +250,12 @@ const goToEquipmentPayment = (requestId: string) => {
   router.push(`/my-payments?view=equipment&highlight_id=${requestId}`)
 }
 
+const loadAddonRequests = () => (
+  canPurchaseForAllMembers.value
+    ? requestStore.loadReviewRequests()
+    : requestStore.loadMyRequests()
+)
+
 const highlightFromRoute = async () => {
   const id = String(route.query.highlight_id || '').trim()
   if (!id) return
@@ -259,11 +277,11 @@ const bootstrap = async () => {
     const [paymentMembers] = await Promise.all([
       listMyPaymentMembers(),
       equipmentStore.loadEquipments(),
-      requestStore.loadMyRequests()
+      loadAddonRequests()
     ])
     members.value = paymentMembers
-    if (!selectedMemberId.value && linkedMembers.value.length > 0) {
-      selectedMemberId.value = linkedMembers.value[0].member_id
+    if (!selectedMemberId.value && purchaseMemberOptions.value.length > 0) {
+      selectedMemberId.value = linkedMembers.value[0]?.member_id || purchaseMemberOptions.value[0].member_id
     }
     if (route.query.tab === 'requests') activeTab.value = 'requests'
     await highlightFromRoute()
@@ -338,7 +356,7 @@ onMounted(() => {
       </div>
 
       <div v-else class="max-w-6xl mx-auto">
-        <section v-if="linkedMembers.length === 0" class="rounded-3xl border border-gray-100 bg-white p-8 text-center shadow-sm">
+        <section v-if="purchaseMemberOptions.length === 0" class="rounded-3xl border border-gray-100 bg-white p-8 text-center shadow-sm">
           <h3 class="text-lg font-black text-slate-800">目前沒有可加購的綁定成員</h3>
           <p class="mt-2 text-sm text-gray-500">請先請管理員完成帳號與球員或校隊成員綁定。</p>
         </section>
@@ -346,9 +364,9 @@ onMounted(() => {
         <template v-else>
           <section class="mb-4 rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
             <label class="text-xs font-bold uppercase tracking-[0.18em] text-gray-400">加購成員</label>
-            <el-select v-model="selectedMemberId" class="mt-2 w-full md:max-w-md" size="large">
+            <el-select v-model="selectedMemberId" class="mt-2 w-full md:max-w-md" size="large" filterable>
               <el-option
-                v-for="member in linkedMembers"
+                v-for="member in purchaseMemberOptions"
                 :key="member.member_id"
                 :label="buildMemberOptionLabel(member)"
                 :value="member.member_id"
@@ -550,17 +568,17 @@ onMounted(() => {
                 <p class="mt-1 text-xs text-gray-400">查看審核、備貨、領取與付款狀態。</p>
               </div>
               <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-black text-gray-600">
-                {{ requestStore.myRequests.length }} 筆
+                {{ visibleRequests.length }} 筆
               </span>
             </div>
 
-            <div v-if="requestStore.myRequests.length === 0" class="mt-4 rounded-2xl bg-gray-50 px-4 py-8 text-center text-sm font-bold text-gray-400">
+            <div v-if="visibleRequests.length === 0" class="mt-4 rounded-2xl bg-gray-50 px-4 py-8 text-center text-sm font-bold text-gray-400">
               目前沒有裝備加購申請。
             </div>
 
             <div v-else class="mt-4 grid gap-3">
               <article
-                v-for="request in requestStore.myRequests"
+                v-for="request in visibleRequests"
                 :id="`equipment-addon-request-${request.id}`"
                 :key="request.id"
                 class="rounded-2xl border border-gray-100 bg-gray-50/70 p-4 transition-all"

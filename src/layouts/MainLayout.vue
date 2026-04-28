@@ -135,7 +135,7 @@
                 <el-dropdown-menu class="!p-1.5 !rounded-xl min-w-[180px] shadow-xl border-gray-100">
                   <el-dropdown-item @click="router.push('/profile')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">個人設定</el-dropdown-item>
                   <el-dropdown-item @click="router.push('/my-payments')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">繳費資訊</el-dropdown-item>
-                  <el-dropdown-item v-if="hasLinkedTeamMembers" @click="router.push('/equipment-addons')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">裝備加購</el-dropdown-item>
+                  <el-dropdown-item v-if="canOpenEquipmentAddons" @click="router.push('/equipment-addons')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">裝備加購</el-dropdown-item>
                   <el-dropdown-item @click="router.push('/my-leave-requests')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">我的假單</el-dropdown-item>
                   <el-dropdown-item @click="openPushSettingsFromMenu" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">通知設定</el-dropdown-item>
                   <el-dropdown-item @click="handleSignOut" class="!rounded-lg !font-bold !text-red-500 hover:!text-red-600 !py-2.5" divided>登出</el-dropdown-item>
@@ -381,6 +381,7 @@ const hasLinkedTeamMembers = computed(() => {
   const linkedIds = authStore.profile?.linked_team_member_ids
   return Array.isArray(linkedIds) && linkedIds.length > 0
 });
+const canOpenEquipmentAddons = computed(() => permissionsStore.currentRole === 'ADMIN' || hasLinkedTeamMembers.value);
 const isBasicMember = computed(() => authStore.profile?.role === 'MEMBER');
 const performanceManageActions = ['CREATE', 'EDIT', 'DELETE'] as const;
 const canManagePerformanceFeature = (feature: string) =>
@@ -621,7 +622,7 @@ const mobileMenuGroups = computed<MobileMenuGroup[]>(() => [
     items: [
       { label: '個人設定', to: '/profile' },
       { label: '繳費資訊', to: '/my-payments' },
-      { label: '裝備加購', to: '/equipment-addons', visible: hasLinkedTeamMembers.value },
+      { label: '裝備加購', to: '/equipment-addons', visible: canOpenEquipmentAddons.value },
       { label: '我的假單', to: '/my-leave-requests' },
       { label: '通知設定', action: openPushSettingsFromMenu }
     ].filter(isVisibleMobileMenuItem)

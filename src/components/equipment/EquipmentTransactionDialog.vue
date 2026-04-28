@@ -23,7 +23,7 @@ const isSubmitting = ref(false)
 
 const form = reactive<EquipmentTransactionPayload>({
   equipment_id: '',
-  transaction_type: 'borrow',
+  transaction_type: 'purchase',
   transaction_date: dayjs().format('YYYY-MM-DD'),
   member_id: null,
   handled_by: '',
@@ -39,10 +39,10 @@ const isOpen = computed({
 })
 
 const typeOptions: Array<{ value: EquipmentTransactionType; label: string; helper: string }> = [
+  { value: 'purchase', label: '購買', helper: '管理端直接記錄購買交易。' },
   { value: 'borrow', label: '借出', helper: '會扣除可用庫存，歸還後補回。' },
   { value: 'return', label: '歸還', helper: '會補回已借出數量。' },
-  { value: 'receive', label: '領取', helper: '永久發放給成員。' },
-  { value: 'purchase', label: '購買', helper: '管理端直接記錄購買交易。' }
+  { value: 'receive', label: '領取', helper: '永久發放給成員。' }
 ]
 
 const currentType = computed(() => typeOptions.find((option) => option.value === form.transaction_type))
@@ -66,15 +66,16 @@ const rules = {
 }
 
 const resetForm = async () => {
+  const nextType = props.defaultType || 'purchase'
   form.equipment_id = props.equipment?.id || ''
-  form.transaction_type = props.defaultType || 'borrow'
+  form.transaction_type = nextType
   form.transaction_date = dayjs().format('YYYY-MM-DD')
   form.member_id = null
   form.handled_by = ''
   form.size = null
   form.quantity = 1
   form.notes = ''
-  form.unit_price = props.defaultType === 'purchase' ? Number(props.equipment?.purchase_price || 0) : null
+  form.unit_price = nextType === 'purchase' ? Number(props.equipment?.purchase_price || 0) : null
   formRef.value?.clearValidate?.()
 
   if (equipmentStore.members.length === 0) {
