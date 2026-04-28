@@ -1,11 +1,21 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Loading } from '@element-plus/icons-vue'
 import { useEquipmentStore } from '@/stores/equipment'
-import type { Equipment, EquipmentInventoryAdjustment, EquipmentTransaction } from '@/types/equipment'
-import { getEquipmentTransactionTotalPrice } from '@/utils/equipmentPricing'
+import { fetchEquipmentRequestHistoryItems } from '@/services/equipmentApi'
+import type {
+  Equipment,
+  EquipmentInventoryAdjustment,
+  EquipmentRequestHistoryItem,
+  EquipmentTransaction
+} from '@/types/equipment'
+import { getEquipmentRequestItemTotalPrice, getEquipmentTransactionTotalPrice } from '@/utils/equipmentPricing'
+import {
+  EQUIPMENT_REQUEST_RESERVED_STATUSES,
+  getEquipmentRequestStatusLabel
+} from '@/utils/equipmentRequestStatus'
 
 const props = defineProps<{
   modelValue: boolean
@@ -18,6 +28,8 @@ const emit = defineEmits<{
 }>()
 
 const equipmentStore = useEquipmentStore()
+const requestHistoryItems = ref<EquipmentRequestHistoryItem[]>([])
+const isRequestHistoryLoading = ref(false)
 
 const isOpen = computed({
   get: () => props.modelValue,
@@ -31,8 +43,13 @@ const displayEquipment = computed(() => {
 
 const transactions = computed(() => displayEquipment.value?.equipment_transactions || [])
 const inventoryAdjustments = computed(() => displayEquipment.value?.inventory_adjustments || [])
+const isHistoryLoading = computed(() => equipmentStore.isLoading || isRequestHistoryLoading.value)
 
 const typeLabel = (type: string) => {
+  if (type.startsWith('request:')) {
+    return '加購申請'
+  }
+
   const map: Record<string, string> = {
     borrow: '借出',
     return: '歸還',
@@ -44,6 +61,7 @@ const typeLabel = (type: string) => {
 }
 
 const typeClass = (type: string) => {
+  if (type.startsWith('request:')) return 'bg-sky-50 border-sky-200 text-sky-700'
   if (type === 'stock_in') return 'bg-emerald-50 border-emerald-200 text-emerald-700'
   if (type === 'return') return 'bg-emerald-50 border-emerald-200 text-emerald-700'
   if (type === 'purchase') return 'bg-primary/10 border-primary/20 text-primary'
@@ -53,15 +71,19 @@ const typeClass = (type: string) => {
 
 type HistoryItem = {
   id: string
-  kind: 'transaction' | 'inventory_adjustment'
+  kind: 'transaction' | 'inventory_adjustment' | 'request_item'
   recordType: string
   time: string | null
   person: string | null
+  source: string
+  sourceDetail: string | null
   size: string | null
   quantityLabel: string
+  quantityTone: 'positive' | 'negative' | 'neutral'
   amount: number | null
   notes: string | null
   transaction?: EquipmentTransaction
+  requestItem?: EquipmentRequestHistoryItem
 }
 
 const formatDateTime = (value?: string | null) => {
@@ -80,8 +102,45 @@ const getTransactionQuantityLabel = (transaction: EquipmentTransaction) => {
   return transaction.transaction_type === 'return' ? `+${quantity}` : `-${quantity}`
 }
 
-const quantityClass = (label: string) =>
-  label.startsWith('+') ? 'text-emerald-700' : 'text-rose-600'
+const getTransactionSource = (transaction: EquipmentTransaction) => {
+  if (transaction.transaction_type === 'purchase') {
+    return transaction.request_item_id ? '裝備加購' : '管理端購買'
+  }
+
+  return '管理端交易'
+}
+
+const getTransactionSourceDetail = (transaction: EquipmentTransaction) => {
+  if (transaction.transaction_type === 'purchase' && transaction.request_item_id) {
+    return '領取後建立付款項目'
+  }
+
+  if (transaction.transaction_type === 'purchase') {
+    return '手動新增購買'
+  }
+
+  return null
+}
+
+const getRequestHistoryTime = (item: EquipmentRequestHistoryItem) =>
+  item.picked_up_at || item.rejected_at || item.cancelled_at || item.ready_at || item.approved_at || item.requested_at
+
+const isRequestItemReserved = (item: EquipmentRequestHistoryItem) =>
+  EQUIPMENT_REQUEST_RESERVED_STATUSES.includes(item.request_status as any)
+
+const getRequestQuantityLabel = (item: EquipmentRequestHistoryItem) => {
+  if (isRequestItemReserved(item)) {
+    return `預扣 -${Math.max(Number(item.quantity || 0), 0)}`
+  }
+
+  return '未扣庫存'
+}
+
+const quantityClass = (item: HistoryItem) => {
+  if (item.quantityTone === 'positive') return 'text-emerald-700'
+  if (item.quantityTone === 'negative') return 'text-rose-600'
+  return 'text-gray-500'
+}
 
 const mapTransactionHistoryItem = (transaction: EquipmentTransaction): HistoryItem => ({
   id: `transaction-${transaction.id}`,
@@ -89,8 +148,11 @@ const mapTransactionHistoryItem = (transaction: EquipmentTransaction): HistoryIt
   recordType: transaction.transaction_type,
   time: transaction.created_at || transaction.transaction_date,
   person: transaction.team_members?.name || transaction.handled_by || null,
+  source: getTransactionSource(transaction),
+  sourceDetail: getTransactionSourceDetail(transaction),
   size: transaction.size || null,
   quantityLabel: getTransactionQuantityLabel(transaction),
+  quantityTone: transaction.transaction_type === 'return' ? 'positive' : 'negative',
   amount: transaction.transaction_type === 'purchase'
     ? getEquipmentTransactionTotalPrice(transaction, displayEquipment.value)
     : null,
@@ -104,20 +166,58 @@ const mapAdjustmentHistoryItem = (adjustment: EquipmentInventoryAdjustment): His
   recordType: adjustment.adjustment_type || 'stock_in',
   time: adjustment.created_at || adjustment.adjustment_date,
   person: adjustment.team_members?.name || adjustment.handled_by || null,
+  source: '庫存調整',
+  sourceDetail: '新增庫存',
   size: adjustment.size || null,
   quantityLabel: `+${Math.max(Number(adjustment.quantity_delta || 0), 0)}`,
+  quantityTone: 'positive',
   amount: null,
   notes: adjustment.notes || null
 })
 
+const mapRequestHistoryItem = (item: EquipmentRequestHistoryItem): HistoryItem => ({
+  id: `request-item-${item.request_item_id}`,
+  kind: 'request_item',
+  recordType: `request:${item.request_status}`,
+  time: getRequestHistoryTime(item),
+  person: item.member_name || null,
+  source: '裝備加購',
+  sourceDetail: getEquipmentRequestStatusLabel(item.request_status),
+  size: item.size || null,
+  quantityLabel: getRequestQuantityLabel(item),
+  quantityTone: isRequestItemReserved(item) ? 'negative' : 'neutral',
+  amount: getEquipmentRequestItemTotalPrice({
+    unit_price_snapshot: item.unit_price,
+    quantity: item.quantity
+  }),
+  notes: `申請 ${String(item.request_id).slice(0, 8)}`,
+  requestItem: item
+})
+
 const historyItems = computed(() => [
   ...transactions.value.map(mapTransactionHistoryItem),
-  ...inventoryAdjustments.value.map(mapAdjustmentHistoryItem)
+  ...inventoryAdjustments.value.map(mapAdjustmentHistoryItem),
+  ...requestHistoryItems.value.map(mapRequestHistoryItem)
 ].sort((a, b) => {
   const aTime = dayjs(a.time).isValid() ? dayjs(a.time).valueOf() : 0
   const bTime = dayjs(b.time).isValid() ? dayjs(b.time).valueOf() : 0
   return bTime - aTime
 }))
+
+const loadDialogHistory = async () => {
+  if (!props.equipment?.id) return
+  isRequestHistoryLoading.value = true
+
+  try {
+    const [, requestItems] = await Promise.all([
+      equipmentStore.loadHistory(props.equipment.id),
+      fetchEquipmentRequestHistoryItems(props.equipment.id)
+    ])
+    requestHistoryItems.value = requestItems
+  } finally {
+    isRequestHistoryLoading.value = false
+  }
+}
 
 const removeTransaction = async (transaction: EquipmentTransaction) => {
   try {
@@ -138,7 +238,9 @@ const removeTransaction = async (transaction: EquipmentTransaction) => {
 
 watch(() => props.modelValue, (value) => {
   if (value && props.equipment?.id) {
-    void equipmentStore.loadHistory(props.equipment.id)
+    void loadDialogHistory()
+  } else if (!value) {
+    requestHistoryItems.value = []
   }
 })
 </script>
@@ -155,7 +257,7 @@ watch(() => props.modelValue, (value) => {
       <p class="mt-1 text-xs font-bold text-gray-400">{{ displayEquipment.category }}</p>
     </div>
 
-    <div v-if="equipmentStore.isLoading" class="flex items-center justify-center gap-3 py-10 text-gray-500 font-bold">
+    <div v-if="isHistoryLoading" class="flex items-center justify-center gap-3 py-10 text-gray-500 font-bold">
       <el-icon class="is-loading text-primary"><Loading /></el-icon>
       讀取交易紀錄中...
     </div>
@@ -165,11 +267,12 @@ watch(() => props.modelValue, (value) => {
     </div>
 
     <div v-else class="overflow-x-auto">
-      <table class="w-full min-w-[860px] text-left">
+      <table class="w-full min-w-[980px] text-left">
         <thead>
           <tr class="border-b border-gray-100 bg-gray-50 text-sm text-gray-500">
             <th class="px-4 py-3 font-bold">時間</th>
             <th class="px-4 py-3 font-bold">紀錄</th>
+            <th class="px-4 py-3 font-bold">來源</th>
             <th class="px-4 py-3 font-bold">人員</th>
             <th class="px-4 py-3 font-bold">尺寸規格</th>
             <th class="px-4 py-3 font-bold">庫存異動</th>
@@ -186,9 +289,13 @@ watch(() => props.modelValue, (value) => {
                 {{ typeLabel(item.recordType) }}
               </span>
             </td>
+            <td class="px-4 py-3 text-sm text-gray-600">
+              <div class="font-black text-slate-700">{{ item.source }}</div>
+              <div v-if="item.sourceDetail" class="mt-0.5 text-xs font-bold text-gray-400">{{ item.sourceDetail }}</div>
+            </td>
             <td class="px-4 py-3 text-sm text-gray-600">{{ item.person || '未指定' }}</td>
             <td class="px-4 py-3 text-sm text-gray-600">{{ item.size || '-' }}</td>
-            <td class="px-4 py-3 font-black" :class="quantityClass(item.quantityLabel)">{{ item.quantityLabel }}</td>
+            <td class="px-4 py-3 font-black" :class="quantityClass(item)">{{ item.quantityLabel }}</td>
             <td class="px-4 py-3 font-black text-primary">
               {{ item.amount !== null ? formatCurrency(item.amount) : '-' }}
             </td>

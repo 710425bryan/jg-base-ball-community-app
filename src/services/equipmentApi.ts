@@ -13,6 +13,7 @@ import type {
   EquipmentPendingRequestPaymentItem,
   EquipmentPaymentSubmission,
   EquipmentPurchaseRequest,
+  EquipmentRequestHistoryItem,
   EquipmentRequestItem,
   EquipmentTransaction,
   EquipmentTransactionPayload
@@ -88,6 +89,13 @@ const normalizePaymentSubmission = (row: any): EquipmentPaymentSubmission => ({
 })
 
 const normalizePendingRequestPaymentItem = (row: any): EquipmentPendingRequestPaymentItem => ({
+  ...row,
+  quantity: normalizeNumber(row?.quantity),
+  unit_price: normalizeNumber(row?.unit_price),
+  total_amount: normalizeNumber(row?.total_amount)
+})
+
+const normalizeRequestHistoryItem = (row: any): EquipmentRequestHistoryItem => ({
   ...row,
   quantity: normalizeNumber(row?.quantity),
   unit_price: normalizeNumber(row?.unit_price),
@@ -254,6 +262,84 @@ export const fetchEquipmentInventoryAdjustments = async (equipmentId: string) =>
     throw error
   }
   return (data || []).map(normalizeInventoryAdjustment)
+}
+
+export const fetchEquipmentRequestHistoryItems = async (equipmentId: string) => {
+  const { data: itemRows, error: itemError } = await supabase
+    .from('equipment_purchase_request_items')
+    .select(`
+      id,
+      request_id,
+      equipment_id,
+      size,
+      quantity,
+      unit_price_snapshot,
+      equipment_transaction_id
+    `)
+    .eq('equipment_id', equipmentId)
+
+  if (itemError) {
+    if (itemError.code === '42P01') return [] as EquipmentRequestHistoryItem[]
+    throw itemError
+  }
+
+  const items = itemRows || []
+  const requestIds = unique(items.map((item: any) => item.request_id))
+  if (requestIds.length === 0) return [] as EquipmentRequestHistoryItem[]
+
+  const { data: requestRows, error: requestError } = await supabase
+    .from('equipment_purchase_requests')
+    .select(`
+      id,
+      member_id,
+      status,
+      requested_at,
+      approved_at,
+      ready_at,
+      picked_up_at,
+      rejected_at,
+      cancelled_at
+    `)
+    .in('id', requestIds)
+
+  if (requestError) throw requestError
+
+  const requestMap = new Map((requestRows || []).map((request: any) => [String(request.id), request]))
+  const memberMap = await fetchMembersMap((requestRows || []).map((request: any) => request.member_id))
+
+  return items
+    .map((item: any) => {
+      const request = requestMap.get(String(item.request_id))
+      if (!request) return null
+
+      const requestStatus = String(request.status || '')
+      if (item.equipment_transaction_id && requestStatus === 'picked_up') return null
+
+      const member = memberMap.get(String(request.member_id))
+      const quantity = normalizeNumber(item.quantity, 1)
+      const unitPrice = normalizeNumber(item.unit_price_snapshot)
+
+      return normalizeRequestHistoryItem({
+        request_item_id: item.id,
+        request_id: item.request_id,
+        equipment_id: item.equipment_id,
+        member_id: request.member_id,
+        member_name: member?.name || '未知成員',
+        size: item.size || null,
+        quantity,
+        unit_price: unitPrice,
+        total_amount: unitPrice * quantity,
+        request_status: requestStatus,
+        requested_at: request.requested_at,
+        approved_at: request.approved_at,
+        ready_at: request.ready_at,
+        picked_up_at: request.picked_up_at,
+        rejected_at: request.rejected_at,
+        cancelled_at: request.cancelled_at,
+        equipment_transaction_id: item.equipment_transaction_id || null
+      })
+    })
+    .filter(Boolean) as EquipmentRequestHistoryItem[]
 }
 
 export const fetchEquipmentMembers = async () => {
