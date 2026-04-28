@@ -213,6 +213,25 @@ export type EquipmentPaymentItem = {
   picked_up_at: string | null
 }
 
+export type EquipmentManualPurchaseRecord = {
+  transaction_id: string
+  member_id: string
+  member_name: string
+  equipment_id: string
+  equipment_name: string
+  size: string | null
+  quantity: number
+  unit_price: number
+  total_amount: number
+  payment_status: EquipmentPaymentStatus | string
+  payment_submission_id: string | null
+  transaction_date: string
+  notes: string | null
+  handled_by: string | null
+  created_at: string
+  updated_at: string
+}
+
 export type EquipmentPendingRequestPaymentItem = {
   request_item_id: string
   request_id: string

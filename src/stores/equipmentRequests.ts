@@ -7,6 +7,7 @@ import {
   deleteEquipmentPurchaseRequestWithRollback,
   fetchMyEquipmentRequests,
   fetchReviewEquipmentRequests,
+  listMyEquipmentManualPurchaseRecords,
   markEquipmentRequestPickedUp,
   markEquipmentRequestReady,
   rejectEquipmentRequest
@@ -14,6 +15,7 @@ import {
 import { useAuthStore } from '@/stores/auth'
 import type {
   CreateEquipmentPurchaseRequestPayload,
+  EquipmentManualPurchaseRecord,
   EquipmentPurchaseRequest
 } from '@/types/equipment'
 
@@ -29,6 +31,7 @@ export const useEquipmentRequestsStore = defineStore('equipmentRequests', () => 
   const authStore = useAuthStore()
   const myRequests = ref<EquipmentPurchaseRequest[]>([])
   const reviewRequests = ref<EquipmentPurchaseRequest[]>([])
+  const manualPurchaseRecords = ref<EquipmentManualPurchaseRecord[]>([])
   const isLoading = ref(false)
   const isSaving = ref(false)
   const error = ref<string | null>(null)
@@ -48,7 +51,7 @@ export const useEquipmentRequestsStore = defineStore('equipmentRequests', () => 
     reviewRequests.value = upsert(reviewRequests.value)
   }
 
-  const loadMyRequests = async () => {
+  const loadMyRequests = async (linkedMemberIdsOverride?: string[]) => {
     const userId = authStore.user?.id
     if (!userId) {
       myRequests.value = []
@@ -59,9 +62,14 @@ export const useEquipmentRequestsStore = defineStore('equipmentRequests', () => 
     error.value = null
 
     try {
-      const linkedMemberIds = Array.isArray(authStore.profile?.linked_team_member_ids)
-        ? authStore.profile.linked_team_member_ids
-        : []
+      let linkedMemberIds: string[] = []
+
+      if (Array.isArray(linkedMemberIdsOverride)) {
+        linkedMemberIds = linkedMemberIdsOverride
+      } else if (Array.isArray(authStore.profile?.linked_team_member_ids)) {
+        linkedMemberIds = authStore.profile.linked_team_member_ids
+      }
+
       myRequests.value = await fetchMyEquipmentRequests(userId, linkedMemberIds)
       return myRequests.value
     } catch (err: any) {
@@ -81,6 +89,21 @@ export const useEquipmentRequestsStore = defineStore('equipmentRequests', () => 
       return reviewRequests.value
     } catch (err: any) {
       error.value = err?.message || '無法載入裝備請購審核'
+      throw err
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  const loadManualPurchaseRecords = async (memberId?: string | null) => {
+    isLoading.value = true
+    error.value = null
+
+    try {
+      manualPurchaseRecords.value = await listMyEquipmentManualPurchaseRecords(memberId || null)
+      return manualPurchaseRecords.value
+    } catch (err: any) {
+      error.value = err?.message || '無法載入管理員新增的裝備購買紀錄'
       throw err
     } finally {
       isLoading.value = false
@@ -150,11 +173,13 @@ export const useEquipmentRequestsStore = defineStore('equipmentRequests', () => 
   return {
     myRequests,
     reviewRequests,
+    manualPurchaseRecords,
     isLoading,
     isSaving,
     error,
     loadMyRequests,
     loadReviewRequests,
+    loadManualPurchaseRecords,
     createRequest,
     approveRequest,
     markReady,

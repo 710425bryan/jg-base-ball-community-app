@@ -8,6 +8,7 @@ import type {
   EquipmentFormPayload,
   EquipmentInventoryAdjustment,
   EquipmentInventoryAdjustmentPayload,
+  EquipmentManualPurchaseRecord,
   EquipmentMemberSummary,
   EquipmentPendingRequestPaymentItem,
   EquipmentPaymentSubmission,
@@ -87,6 +88,13 @@ const normalizePaymentSubmission = (row: any): EquipmentPaymentSubmission => ({
 })
 
 const normalizePendingRequestPaymentItem = (row: any): EquipmentPendingRequestPaymentItem => ({
+  ...row,
+  quantity: normalizeNumber(row?.quantity),
+  unit_price: normalizeNumber(row?.unit_price),
+  total_amount: normalizeNumber(row?.total_amount)
+})
+
+const normalizeManualPurchaseRecord = (row: any): EquipmentManualPurchaseRecord => ({
   ...row,
   quantity: normalizeNumber(row?.quantity),
   unit_price: normalizeNumber(row?.unit_price),
@@ -515,6 +523,15 @@ export const fetchReviewEquipmentRequests = async () => {
 
   if (error) throw error
   return hydrateEquipmentRequests(data || [])
+}
+
+export const listMyEquipmentManualPurchaseRecords = async (memberId?: string | null) => {
+  const { data, error } = await supabase.rpc('list_my_equipment_manual_purchase_records', {
+    p_member_id: memberId || null
+  })
+
+  if (error) throw error
+  return unwrapRows<any>(data).map(normalizeManualPurchaseRecord)
 }
 
 export const fetchEquipmentRequestById = async (requestId: string) => {

@@ -6,10 +6,16 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Goods, Loading, Refresh, ShoppingCart } from '@element-plus/icons-vue'
 import PreviewableImage from '@/components/common/PreviewableImage.vue'
 import { listMyPaymentMembers } from '@/services/myPayments'
+import { useAuthStore } from '@/stores/auth'
 import { useEquipmentStore } from '@/stores/equipment'
 import { useEquipmentRequestsStore } from '@/stores/equipmentRequests'
 import { usePermissionsStore } from '@/stores/permissions'
-import type { Equipment, EquipmentRequestItem } from '@/types/equipment'
+import type {
+  Equipment,
+  EquipmentManualPurchaseRecord,
+  EquipmentPurchaseRequest,
+  EquipmentRequestItem
+} from '@/types/equipment'
 import type { MyPaymentMember } from '@/types/payments'
 import {
   getEquipmentRemainingOverallQuantity,
@@ -29,8 +35,23 @@ type CartItem = {
   quantity: number
 }
 
+type AddonHistoryItem =
+  | {
+    type: 'request'
+    id: string
+    sortAt: string
+    request: EquipmentPurchaseRequest
+  }
+  | {
+    type: 'manual_purchase'
+    id: string
+    sortAt: string
+    manualPurchase: EquipmentManualPurchaseRecord
+  }
+
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 const equipmentStore = useEquipmentStore()
 const requestStore = useEquipmentRequestsStore()
 const permissionsStore = usePermissionsStore()
@@ -60,8 +81,41 @@ const selectedMember = computed(() =>
   purchaseMemberOptions.value.find((member) => member.member_id === selectedMemberId.value) || null
 )
 
-const visibleRequests = computed(() =>
+const loadedRequests = computed(() =>
   canPurchaseForAllMembers.value ? requestStore.reviewRequests : requestStore.myRequests
+)
+
+const visibleRequestRecords = computed(() => {
+  if (!selectedMemberId.value) return loadedRequests.value
+
+  return loadedRequests.value.filter((request) => request.member_id === selectedMemberId.value)
+})
+
+const visibleManualPurchaseRecords = computed(() => {
+  if (!selectedMemberId.value) return requestStore.manualPurchaseRecords
+
+  return requestStore.manualPurchaseRecords.filter((record) => record.member_id === selectedMemberId.value)
+})
+
+const visibleHistoryItems = computed<AddonHistoryItem[]>(() => {
+  const requestItems = visibleRequestRecords.value.map((request) => ({
+    type: 'request' as const,
+    id: request.id,
+    sortAt: request.updated_at || request.created_at || request.requested_at,
+    request
+  }))
+  const manualPurchaseItems = visibleManualPurchaseRecords.value.map((manualPurchase) => ({
+    type: 'manual_purchase' as const,
+    id: manualPurchase.transaction_id,
+    sortAt: manualPurchase.updated_at || manualPurchase.created_at || manualPurchase.transaction_date,
+    manualPurchase
+  }))
+
+  return [...requestItems, ...manualPurchaseItems].sort((left, right) => right.sortAt.localeCompare(left.sortAt))
+})
+
+const loadedHistoryRecordCount = computed(() =>
+  loadedRequests.value.length + requestStore.manualPurchaseRecords.length
 )
 
 const availableEquipments = computed(() =>
@@ -116,6 +170,11 @@ const formatDateTime = (value?: string | null) => {
   return parsed.isValid() ? parsed.format('YYYY-MM-DD HH:mm') : '尚無資料'
 }
 
+const formatDate = (value?: string | null) => {
+  const parsed = dayjs(value)
+  return parsed.isValid() ? parsed.format('YYYY-MM-DD') : '尚無資料'
+}
+
 const getAvailableSizes = (equipment: Equipment) =>
   getEquipmentSizeInventoryList(equipment).filter((item) => item.remaining > 0)
 
@@ -124,6 +183,83 @@ const getRequestTotal = (items: EquipmentRequestItem[]) =>
 
 const buildMemberOptionLabel = (member: MyPaymentMember) =>
   `${member.name}｜${member.role}`
+
+const memberSelectorHelperText = computed(() => {
+  if (canPurchaseForAllMembers.value) {
+    return '管理員可切換加購成員，申請紀錄會同步篩選該成員。'
+  }
+
+  if (purchaseMemberOptions.value.length > 1) {
+    return '切換不同關聯成員時，申請紀錄會同步顯示該成員。'
+  }
+
+  return '系統會自動使用你目前綁定的成員。'
+})
+
+const requestSectionDescription = computed(() => {
+  if (selectedMember.value) {
+    return `目前顯示 ${selectedMember.value.name} 的裝備加購紀錄。`
+  }
+
+  return '查看申請、管理員新增、領取與付款狀態。'
+})
+
+const emptyRequestText = computed(() => {
+  if (loadedHistoryRecordCount.value > 0 && selectedMember.value) {
+    return `${selectedMember.value.name} 目前沒有裝備加購紀錄。`
+  }
+
+  return '目前沒有裝備加購紀錄。'
+})
+
+const getLinkedMemberIds = (source = members.value) =>
+  source
+    .filter((member) => member.is_linked !== false)
+    .map((member) => member.member_id)
+
+const getMemberNameById = (memberId: string) =>
+  members.value.find((member) => member.member_id === memberId)?.name || ''
+
+const getManualPurchaseStatusLabel = (status?: string | null) => {
+  if (status === 'paid') return '已確認付款'
+  if (status === 'pending_review') return '付款待確認'
+  if (status === 'cancelled') return '已取消'
+  return '待付款'
+}
+
+const getManualPurchaseStatusTagType = (status?: string | null) => {
+  if (status === 'paid') return 'success'
+  if (status === 'pending_review') return 'warning'
+  if (status === 'cancelled') return 'info'
+  return 'danger'
+}
+
+const getManualPurchaseNote = (record: EquipmentManualPurchaseRecord) =>
+  ['管理員新增', record.notes?.trim()].filter(Boolean).join('｜')
+
+const ensureSelectedMember = () => {
+  if (purchaseMemberOptions.value.length === 0) {
+    selectedMemberId.value = ''
+    return
+  }
+
+  const stillSelectable = purchaseMemberOptions.value.some((member) => member.member_id === selectedMemberId.value)
+  if (!stillSelectable) {
+    selectedMemberId.value = linkedMembers.value[0]?.member_id || purchaseMemberOptions.value[0].member_id
+  }
+}
+
+const selectHighlightedRequestMember = (requestId: string) => {
+  const highlightedRequest = loadedRequests.value.find((request) => request.id === requestId)
+  if (!highlightedRequest?.member_id) return
+
+  const canSelectHighlightedMember = purchaseMemberOptions.value.some(
+    (member) => member.member_id === highlightedRequest.member_id
+  )
+  if (canSelectHighlightedMember) {
+    selectedMemberId.value = highlightedRequest.member_id
+  }
+}
 
 const addToCart = (equipment: Equipment) => {
   const sizes = getAvailableSizes(equipment)
@@ -221,7 +357,7 @@ const submitRequest = async () => {
     ElMessage.success('已送出裝備加購申請')
     await Promise.all([
       equipmentStore.loadEquipments(),
-      loadAddonRequests()
+      loadAddonRecords()
     ])
   } catch (error: any) {
     ElMessage.error(error?.message || '送出加購申請失敗')
@@ -246,20 +382,35 @@ const cancelRequest = async (requestId: string) => {
   }
 }
 
+const canCancelRequest = (request: EquipmentPurchaseRequest) => (
+  request.status === EQUIPMENT_REQUEST_STATUS.PENDING
+  && (canPurchaseForAllMembers.value || request.requester_user_id === authStore.user?.id)
+)
+
 const goToEquipmentPayment = (requestId: string) => {
   router.push(`/my-payments?view=equipment&highlight_id=${requestId}`)
 }
 
-const loadAddonRequests = () => (
+const goToManualPurchasePayment = (transactionId: string) => {
+  router.push(`/my-payments?view=equipment&highlight_transaction_id=${transactionId}`)
+}
+
+const loadAddonRequests = (linkedMemberIds = getLinkedMemberIds()) => (
   canPurchaseForAllMembers.value
     ? requestStore.loadReviewRequests()
-    : requestStore.loadMyRequests()
+    : requestStore.loadMyRequests(linkedMemberIds)
 )
+
+const loadAddonRecords = (linkedMemberIds = getLinkedMemberIds()) => Promise.all([
+  loadAddonRequests(linkedMemberIds),
+  requestStore.loadManualPurchaseRecords()
+])
 
 const highlightFromRoute = async () => {
   const id = String(route.query.highlight_id || '').trim()
   if (!id) return
 
+  selectHighlightedRequestMember(id)
   activeTab.value = 'requests'
   await nextTick()
 
@@ -276,13 +427,11 @@ const bootstrap = async () => {
   try {
     const [paymentMembers] = await Promise.all([
       listMyPaymentMembers(),
-      equipmentStore.loadEquipments(),
-      loadAddonRequests()
+      equipmentStore.loadEquipments()
     ])
     members.value = paymentMembers
-    if (!selectedMemberId.value && purchaseMemberOptions.value.length > 0) {
-      selectedMemberId.value = linkedMembers.value[0]?.member_id || purchaseMemberOptions.value[0].member_id
-    }
+    ensureSelectedMember()
+    await loadAddonRecords(getLinkedMemberIds(paymentMembers))
     if (route.query.tab === 'requests') activeTab.value = 'requests'
     await highlightFromRoute()
   } catch (error: any) {
@@ -372,6 +521,9 @@ onMounted(() => {
                 :value="member.member_id"
               />
             </el-select>
+            <p class="mt-2 text-xs text-gray-400">
+              {{ memberSelectorHelperText }}
+            </p>
           </section>
 
           <div v-show="activeTab === 'shop'" class="flex flex-col gap-4 md:flex-row md:items-start">
@@ -565,85 +717,133 @@ onMounted(() => {
             <div class="flex items-center justify-between gap-3">
               <div>
                 <h3 class="text-lg font-black text-slate-800">申請紀錄</h3>
-                <p class="mt-1 text-xs text-gray-400">查看審核、備貨、領取與付款狀態。</p>
+                <p class="mt-1 text-xs text-gray-400">{{ requestSectionDescription }}</p>
               </div>
               <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-black text-gray-600">
-                {{ visibleRequests.length }} 筆
+                {{ visibleHistoryItems.length }} 筆
               </span>
             </div>
 
-            <div v-if="visibleRequests.length === 0" class="mt-4 rounded-2xl bg-gray-50 px-4 py-8 text-center text-sm font-bold text-gray-400">
-              目前沒有裝備加購申請。
+            <div v-if="visibleHistoryItems.length === 0" class="mt-4 rounded-2xl bg-gray-50 px-4 py-8 text-center text-sm font-bold text-gray-400">
+              {{ emptyRequestText }}
             </div>
 
             <div v-else class="mt-4 grid gap-3">
               <article
-                v-for="request in visibleRequests"
-                :id="`equipment-addon-request-${request.id}`"
-                :key="request.id"
+                v-for="historyItem in visibleHistoryItems"
+                :id="historyItem.type === 'request' ? `equipment-addon-request-${historyItem.request.id}` : `equipment-addon-manual-purchase-${historyItem.manualPurchase.transaction_id}`"
+                :key="`${historyItem.type}-${historyItem.id}`"
                 class="rounded-2xl border border-gray-100 bg-gray-50/70 p-4 transition-all"
               >
-                <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                  <div>
-                    <div class="font-black text-slate-800">{{ request.member?.name || selectedMember?.name || '未知成員' }}</div>
-                    <div class="mt-1 text-xs text-gray-400">{{ formatDateTime(request.requested_at) }}</div>
+                <template v-if="historyItem.type === 'request'">
+                  <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <div class="font-black text-slate-800">{{ historyItem.request.member?.name || getMemberNameById(historyItem.request.member_id) || selectedMember?.name || '未知成員' }}</div>
+                      <div class="mt-1 text-xs text-gray-400">{{ formatDateTime(historyItem.request.requested_at) }}</div>
+                    </div>
+                    <el-tag :type="getEquipmentRequestStatusTagType(historyItem.request.status)" effect="light">
+                      {{ getEquipmentRequestStatusLabel(historyItem.request.status) }}
+                    </el-tag>
                   </div>
-                  <el-tag :type="getEquipmentRequestStatusTagType(request.status)" effect="light">
-                    {{ getEquipmentRequestStatusLabel(request.status) }}
-                  </el-tag>
-                </div>
 
-                <div class="mt-4 grid gap-2">
-                  <div
-                    v-for="item in request.items"
-                    :key="item.id"
-                    class="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 text-sm"
-                  >
-                    <span class="font-bold text-gray-700">{{ item.equipment_name_snapshot }} <span class="text-gray-400">{{ item.size || '' }}</span></span>
-                    <span class="font-black text-primary">{{ item.quantity }} 件 / {{ formatCurrency(getEquipmentRequestItemTotalPrice(item)) }}</span>
-                  </div>
-                </div>
-
-                <div v-if="request.ready_image_url || request.pickup_image_url" class="mt-4 grid gap-3 sm:grid-cols-2">
-                  <div v-if="request.ready_image_url" class="rounded-2xl border border-gray-100 bg-white p-3">
-                    <div class="mb-2 text-xs font-black text-gray-400">備貨照片</div>
-                    <PreviewableImage
-                      :src="request.ready_image_url"
-                      alt="備貨照片"
-                      class="h-28 w-full rounded-xl border border-gray-100"
-                    />
-                  </div>
-                  <div v-if="request.pickup_image_url" class="rounded-2xl border border-gray-100 bg-white p-3">
-                    <div class="mb-2 text-xs font-black text-gray-400">領取照片</div>
-                    <PreviewableImage
-                      :src="request.pickup_image_url"
-                      alt="領取照片"
-                      class="h-28 w-full rounded-xl border border-gray-100"
-                    />
-                  </div>
-                </div>
-
-                <div class="mt-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                  <div class="font-black text-primary">合計 {{ formatCurrency(getRequestTotal(request.items)) }}</div>
-                  <div class="flex flex-wrap gap-2">
-                    <button
-                      v-if="request.status === EQUIPMENT_REQUEST_STATUS.PENDING"
-                      type="button"
-                      class="rounded-xl border border-red-100 bg-red-50 px-4 py-2 text-sm font-bold text-red-500 hover:bg-red-100 transition-colors"
-                      @click="cancelRequest(request.id)"
+                  <div class="mt-4 grid gap-2">
+                    <div
+                      v-for="item in historyItem.request.items"
+                      :key="item.id"
+                      class="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 text-sm"
                     >
-                      取消申請
-                    </button>
-                    <button
-                      v-if="request.status === EQUIPMENT_REQUEST_STATUS.PICKED_UP"
-                      type="button"
-                      class="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary-hover transition-colors"
-                      @click="goToEquipmentPayment(request.id)"
-                    >
-                      前往付款回報
-                    </button>
+                      <span class="font-bold text-gray-700">{{ item.equipment_name_snapshot }} <span class="text-gray-400">{{ item.size || '' }}</span></span>
+                      <span class="font-black text-primary">{{ item.quantity }} 件 / {{ formatCurrency(getEquipmentRequestItemTotalPrice(item)) }}</span>
+                    </div>
                   </div>
-                </div>
+
+                  <div v-if="historyItem.request.ready_image_url || historyItem.request.pickup_image_url" class="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div v-if="historyItem.request.ready_image_url" class="rounded-2xl border border-gray-100 bg-white p-3">
+                      <div class="mb-2 text-xs font-black text-gray-400">備貨照片</div>
+                      <PreviewableImage
+                        :src="historyItem.request.ready_image_url"
+                        alt="備貨照片"
+                        class="h-28 w-full rounded-xl border border-gray-100"
+                      />
+                    </div>
+                    <div v-if="historyItem.request.pickup_image_url" class="rounded-2xl border border-gray-100 bg-white p-3">
+                      <div class="mb-2 text-xs font-black text-gray-400">領取照片</div>
+                      <PreviewableImage
+                        :src="historyItem.request.pickup_image_url"
+                        alt="領取照片"
+                        class="h-28 w-full rounded-xl border border-gray-100"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="mt-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                    <div class="font-black text-primary">合計 {{ formatCurrency(getRequestTotal(historyItem.request.items)) }}</div>
+                    <div class="flex flex-wrap gap-2">
+                      <button
+                        v-if="canCancelRequest(historyItem.request)"
+                        type="button"
+                        class="rounded-xl border border-red-100 bg-red-50 px-4 py-2 text-sm font-bold text-red-500 hover:bg-red-100 transition-colors"
+                        @click="cancelRequest(historyItem.request.id)"
+                      >
+                        取消申請
+                      </button>
+                      <button
+                        v-if="historyItem.request.status === EQUIPMENT_REQUEST_STATUS.PICKED_UP"
+                        type="button"
+                        class="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary-hover transition-colors"
+                        @click="goToEquipmentPayment(historyItem.request.id)"
+                      >
+                        前往付款回報
+                      </button>
+                    </div>
+                  </div>
+                </template>
+
+                <template v-else>
+                  <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <div class="font-black text-slate-800">{{ historyItem.manualPurchase.member_name || getMemberNameById(historyItem.manualPurchase.member_id) || selectedMember?.name || '未知成員' }}</div>
+                      <div class="mt-1 text-xs text-gray-400">{{ formatDate(historyItem.manualPurchase.transaction_date) }}</div>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                      <el-tag type="info" effect="light">管理員新增</el-tag>
+                      <el-tag :type="getManualPurchaseStatusTagType(historyItem.manualPurchase.payment_status)" effect="light">
+                        {{ getManualPurchaseStatusLabel(historyItem.manualPurchase.payment_status) }}
+                      </el-tag>
+                    </div>
+                  </div>
+
+                  <div class="mt-4 grid gap-2">
+                    <div class="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 text-sm">
+                      <span class="font-bold text-gray-700">
+                        {{ historyItem.manualPurchase.equipment_name }}
+                        <span class="text-gray-400">{{ historyItem.manualPurchase.size || '' }}</span>
+                      </span>
+                      <span class="font-black text-primary">
+                        {{ historyItem.manualPurchase.quantity }} 件 / {{ formatCurrency(historyItem.manualPurchase.total_amount) }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div class="mt-4 rounded-xl border border-blue-100 bg-blue-50/60 px-3 py-2 text-sm font-bold text-blue-700">
+                    備註：{{ getManualPurchaseNote(historyItem.manualPurchase) }}
+                    <span v-if="historyItem.manualPurchase.handled_by" class="text-blue-500">｜經手人：{{ historyItem.manualPurchase.handled_by }}</span>
+                  </div>
+
+                  <div class="mt-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                    <div class="font-black text-primary">合計 {{ formatCurrency(historyItem.manualPurchase.total_amount) }}</div>
+                    <div class="flex flex-wrap gap-2">
+                      <button
+                        v-if="historyItem.manualPurchase.payment_status === 'unpaid'"
+                        type="button"
+                        class="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary-hover transition-colors"
+                        @click="goToManualPurchasePayment(historyItem.manualPurchase.transaction_id)"
+                      >
+                        前往付款回報
+                      </button>
+                    </div>
+                  </div>
+                </template>
               </article>
             </div>
           </section>

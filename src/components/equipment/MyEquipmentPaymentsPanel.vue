@@ -178,12 +178,15 @@ const submit = async () => {
 const highlightFromRoute = async () => {
   const requestId = String(route.query.highlight_id || '').trim()
   const submissionId = String(route.query.highlight_submission_id || '').trim()
-  if (!requestId && !submissionId) return
+  const transactionId = String(route.query.highlight_transaction_id || '').trim()
+  if (!requestId && !submissionId && !transactionId) return
 
   await nextTick()
   const selector = requestId
     ? `[data-equipment-request-id="${requestId}"]`
-    : `[data-equipment-submission-id="${submissionId}"]`
+    : submissionId
+      ? `[data-equipment-submission-id="${submissionId}"]`
+      : `[data-equipment-transaction-id="${transactionId}"]`
   const target = document.querySelector(selector) as HTMLElement | null
   if (!target) return
 
@@ -204,6 +207,10 @@ watch(() => route.query.highlight_id, () => {
 watch(() => route.query.highlight_submission_id, () => {
   void highlightFromRoute()
 })
+
+watch(() => route.query.highlight_transaction_id, () => {
+  void highlightFromRoute()
+})
 </script>
 
 <template>
@@ -211,7 +218,7 @@ watch(() => route.query.highlight_submission_id, () => {
     <div class="px-5 md:px-6 py-4 border-b border-gray-100 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <div>
         <h3 class="text-lg font-black text-slate-800">裝備待付款</h3>
-        <p class="text-xs text-gray-400 mt-1">已領取的裝備加購會列在這裡，可勾選後送出付款回報。</p>
+        <p class="text-xs text-gray-400 mt-1">已領取的裝備加購與管理員新增的購買項目會列在這裡，可勾選後送出付款回報。</p>
       </div>
       <div class="flex items-center gap-2">
         <button
@@ -281,6 +288,7 @@ watch(() => route.query.highlight_submission_id, () => {
             v-for="item in unpaidItems"
             :key="item.transaction_id"
             :data-equipment-request-id="item.request_id || undefined"
+            :data-equipment-transaction-id="item.transaction_id"
             class="flex cursor-pointer gap-3 rounded-2xl border border-white bg-white/90 p-4 shadow-sm transition-all hover:border-primary/30"
           >
             <input
@@ -313,6 +321,7 @@ watch(() => route.query.highlight_submission_id, () => {
             v-for="item in pendingItems"
             :key="item.transaction_id"
             :data-equipment-submission-id="item.payment_submission_id || undefined"
+            :data-equipment-transaction-id="item.transaction_id"
             class="rounded-2xl border border-white bg-white/90 p-4 shadow-sm"
           >
             <div class="font-black text-slate-800">{{ item.equipment_name }}</div>
@@ -329,6 +338,7 @@ watch(() => route.query.highlight_submission_id, () => {
             v-for="item in paidItems.slice(0, 6)"
             :key="item.transaction_id"
             :data-equipment-submission-id="item.payment_submission_id || undefined"
+            :data-equipment-transaction-id="item.transaction_id"
             class="rounded-2xl border border-white bg-white/90 p-4 shadow-sm"
           >
             <div class="font-black text-slate-800">{{ item.equipment_name }}</div>
