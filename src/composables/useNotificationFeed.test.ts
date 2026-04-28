@@ -125,4 +125,28 @@ describe('notification feed controller', () => {
       link: '/announcements?highlight_announcement_id=announcement-1'
     })
   })
+
+  it('maps equipment purchase request notifications', async () => {
+    const fetcher = vi.fn().mockResolvedValue([
+      {
+        id: 'equipment-request-1',
+        source: 'equipment',
+        title: '收到裝備加購申請',
+        body: '小明 送出 2 項裝備加購申請。',
+        created_at: '2026-04-14T15:00:00.000Z',
+        link: '/fees?tab=equipment&highlight_id=equipment-request-1',
+        highlight_member_id: 'member-1'
+      }
+    ])
+
+    const controller = createNotificationFeedController(fetcher)
+    await controller.loadNotificationFeed(10)
+
+    expect(controller.notifications.value[0]).toMatchObject({
+      id: 'equipment:equipment-request-1',
+      source: 'equipment',
+      link: '/fees?tab=equipment&highlight_id=equipment-request-1',
+      highlightMemberId: 'member-1'
+    })
+  })
 })

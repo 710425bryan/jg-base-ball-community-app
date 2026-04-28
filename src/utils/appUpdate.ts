@@ -1,6 +1,11 @@
 const APP_RELOAD_QUERY_PARAM = 'app_reload'
 const DEFAULT_RELOAD_TARGET = '/dashboard'
 const SERVICE_WORKER_ACTIVATION_TIMEOUT_MS = 4000
+const SERVICE_WORKER_MAX_UPDATE_ATTEMPTS = 5
+const SERVICE_WORKER_PENDING_INSTALL_STATES = new Set<ServiceWorkerState>([
+  'parsed',
+  'installing'
+])
 
 export const normalizeRouteFullPath = (
   fullPath: string | null | undefined,
@@ -81,24 +86,16 @@ export const reloadAppShell = (targetFullPath?: string | null) => {
   }
 }
 
-const activateWaitingServiceWorker = async (
-  registration: ServiceWorkerRegistration,
-  targetFullPath: string
-) => {
-  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
-    return false
+const waitForServiceWorkerToFinishInstall = async (worker: ServiceWorker) => {
+  if (!SERVICE_WORKER_PENDING_INSTALL_STATES.has(worker.state)) {
+    return worker
   }
 
-  const waitingWorker = registration.waiting
-  if (!waitingWorker || !('serviceWorker' in navigator)) {
-    return false
-  }
-
-  return new Promise<boolean>((resolve) => {
+  return new Promise<ServiceWorker>((resolve) => {
     let resolved = false
     let timeoutId: number | null = null
 
-    const finish = (didActivate: boolean) => {
+    const finish = () => {
       if (resolved) return
       resolved = true
 
@@ -106,34 +103,127 @@ const activateWaitingServiceWorker = async (
         window.clearTimeout(timeoutId)
       }
 
+      worker.removeEventListener('statechange', handleStateChange)
+      resolve(worker)
+    }
+
+    const handleStateChange = () => {
+      if (!SERVICE_WORKER_PENDING_INSTALL_STATES.has(worker.state)) {
+        finish()
+      }
+    }
+
+    worker.addEventListener('statechange', handleStateChange)
+
+    timeoutId = window.setTimeout(() => {
+      finish()
+    }, SERVICE_WORKER_ACTIVATION_TIMEOUT_MS)
+  })
+}
+
+const activateLatestServiceWorker = async (registration: ServiceWorkerRegistration) => {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    return false
+  }
+
+  if (!('serviceWorker' in navigator) || !navigator.serviceWorker) {
+    return false
+  }
+
+  let controllerChanged = false
+  let cleanupControllerChangeListener = () => {}
+
+  const controllerChangePromise = new Promise<boolean>((resolve) => {
+    const handleControllerChange = () => {
+      controllerChanged = true
+      resolve(true)
+    }
+
+    navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange, { once: true })
+
+    cleanupControllerChangeListener = () => {
       navigator.serviceWorker.removeEventListener(
         'controllerchange',
         handleControllerChange
       )
-      resolve(didActivate)
-    }
-
-    const handleControllerChange = () => {
-      finish(true)
-      reloadAppShell(targetFullPath)
-    }
-
-    navigator.serviceWorker.addEventListener(
-      'controllerchange',
-      handleControllerChange
-    )
-
-    timeoutId = window.setTimeout(() => {
-      finish(false)
-    }, SERVICE_WORKER_ACTIVATION_TIMEOUT_MS)
-
-    try {
-      waitingWorker.postMessage({ type: 'SKIP_WAITING' })
-    } catch (error) {
-      console.warn('[AppUpdate] Failed to activate waiting service worker', error)
-      finish(false)
     }
   })
+
+  try {
+    await registration.update()
+
+    let updateWorker = registration.installing || registration.waiting
+    if (updateWorker && SERVICE_WORKER_PENDING_INSTALL_STATES.has(updateWorker.state)) {
+      await Promise.race([
+        waitForServiceWorkerToFinishInstall(updateWorker),
+        controllerChangePromise
+      ])
+    }
+
+    if (controllerChanged) {
+      return true
+    }
+
+    updateWorker = registration.waiting || updateWorker
+
+    if (!updateWorker || updateWorker.state === 'redundant') {
+      return false
+    }
+
+    if (updateWorker.state === 'activated') {
+      return true
+    }
+
+    try {
+      updateWorker.postMessage({ type: 'SKIP_WAITING' })
+    } catch (error) {
+      console.warn('[AppUpdate] Failed to activate waiting service worker', error)
+      return false
+    }
+
+    return new Promise<boolean>((resolve) => {
+      const timeoutId = window.setTimeout(() => {
+        resolve(controllerChanged)
+      }, SERVICE_WORKER_ACTIVATION_TIMEOUT_MS)
+
+      controllerChangePromise.then((didChange) => {
+        window.clearTimeout(timeoutId)
+        resolve(didChange)
+      })
+    })
+  } finally {
+    cleanupControllerChangeListener()
+  }
+}
+
+const applyServiceWorkerUpdates = async () => {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator) || !navigator.serviceWorker) {
+    return false
+  }
+
+  let activatedUpdate = false
+
+  for (let attempt = 0; attempt < SERVICE_WORKER_MAX_UPDATE_ATTEMPTS; attempt += 1) {
+    const registrations = await navigator.serviceWorker.getRegistrations()
+
+    if (registrations.length === 0) {
+      break
+    }
+
+    let activatedThisRound = false
+
+    for (const registration of registrations) {
+      activatedThisRound = await activateLatestServiceWorker(registration) || activatedThisRound
+    }
+
+    if (!activatedThisRound) {
+      break
+    }
+
+    activatedUpdate = true
+  }
+
+  return activatedUpdate
 }
 
 export const refreshAppShell = async (targetFullPath?: string | null) => {
@@ -144,17 +234,7 @@ export const refreshAppShell = async (targetFullPath?: string | null) => {
   )
 
   try {
-    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
-      const registrations = await navigator.serviceWorker.getRegistrations()
-
-      for (const registration of registrations) {
-        await registration.update()
-
-        if (await activateWaitingServiceWorker(registration, routePath)) {
-          return
-        }
-      }
-    }
+    await applyServiceWorkerUpdates()
   } catch (error) {
     console.warn('[AppUpdate] Failed to prepare app shell refresh', error)
   }

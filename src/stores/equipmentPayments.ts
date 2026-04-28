@@ -2,18 +2,21 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import {
   createEquipmentPaymentSubmission,
+  listMyEquipmentPendingRequestPaymentItems,
   listEquipmentPaymentSubmissions,
   listMyEquipmentPaymentItems,
   reviewEquipmentPaymentSubmission
 } from '@/services/equipmentApi'
 import type {
   CreateEquipmentPaymentSubmissionPayload,
+  EquipmentPendingRequestPaymentItem,
   EquipmentPaymentItem,
   EquipmentPaymentSubmission
 } from '@/types/equipment'
 
 export const useEquipmentPaymentsStore = defineStore('equipmentPayments', () => {
   const myItems = ref<EquipmentPaymentItem[]>([])
+  const myPendingRequestItems = ref<EquipmentPendingRequestPaymentItem[]>([])
   const reviewSubmissions = ref<EquipmentPaymentSubmission[]>([])
   const isLoading = ref(false)
   const isSaving = ref(false)
@@ -24,7 +27,12 @@ export const useEquipmentPaymentsStore = defineStore('equipmentPayments', () => 
     error.value = null
 
     try {
-      myItems.value = await listMyEquipmentPaymentItems(memberId)
+      const [paymentItems, pendingRequestItems] = await Promise.all([
+        listMyEquipmentPaymentItems(memberId),
+        listMyEquipmentPendingRequestPaymentItems(memberId)
+      ])
+      myItems.value = paymentItems
+      myPendingRequestItems.value = pendingRequestItems
       return myItems.value
     } catch (err: any) {
       error.value = err?.message || '無法載入裝備付款資料'
@@ -71,6 +79,7 @@ export const useEquipmentPaymentsStore = defineStore('equipmentPayments', () => 
 
   return {
     myItems,
+    myPendingRequestItems,
     reviewSubmissions,
     isLoading,
     isSaving,

@@ -155,14 +155,18 @@
     </header>
 
     <!-- 系統更新提示列 (登入後專屬，接績在 Topbar 下方) -->
-    <div v-if="hasUpdateAvailable" 
-         @click="refreshApp" 
-         class="flex-none h-11 overflow-hidden bg-[#D88F22] hover:bg-[#b87a1d] text-white text-xs sm:text-sm font-bold px-3 text-center flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-sm animate-fade-in-down relative z-[45]"
-         title="點擊以重新載入系統獲取最新功能">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 sm:h-5 sm:w-5 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <div
+         v-if="isUpdateBarVisible"
+         role="button"
+         :aria-disabled="isApplyingUpdate"
+         @click="!isApplyingUpdate && refreshApp()"
+         class="flex-none h-11 overflow-hidden bg-[#D88F22] text-white text-xs sm:text-sm font-bold px-3 text-center flex items-center justify-center gap-2 transition-colors shadow-sm animate-fade-in-down relative z-[45]"
+         :class="isApplyingUpdate ? 'cursor-wait' : 'cursor-pointer hover:bg-[#b87a1d]'"
+         :title="isApplyingUpdate ? '正在套用最新版本' : '點擊以重新載入系統獲取最新功能'">
+      <svg xmlns="http://www.w3.org/2000/svg" :class="['h-4 w-4 sm:h-5 sm:w-5', isApplyingUpdate ? 'animate-spin' : 'animate-bounce']" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
       </svg>
-      <span class="truncate">系統已發布新版本，點擊重新整理以取得最新功能</span>
+      <span class="truncate">{{ isApplyingUpdate ? '正在套用最新版本...' : '系統已發布新版本，點擊重新整理以取得最新功能' }}</span>
     </div>
 
     <HolidayThemeRibbon />
@@ -359,7 +363,7 @@ const {
   upsertNotification,
   resetNotificationFeed
 } = useNotificationFeed();
-const { hasUpdateAvailable, refreshApp } = useVersionCheck();
+const { hasUpdateAvailable, isApplyingUpdate, refreshApp } = useVersionCheck();
 const isMobileMenuOpen = ref(false);
 const isPushSettingsOpen = ref(false);
 const notificationPopover = ref<any>(null);
@@ -389,6 +393,7 @@ const canManagePerformanceFeature = (feature: string) =>
 const canOpenBaseballAbility = computed(() => canManagePerformanceFeature('baseball_ability') || hasLinkedTeamMembers.value);
 const canOpenPhysicalTests = computed(() => canManagePerformanceFeature('physical_tests') || hasLinkedTeamMembers.value);
 const hasPerformanceMenuAccess = computed(() => canOpenBaseballAbility.value || canOpenPhysicalTests.value);
+const isUpdateBarVisible = computed(() => hasUpdateAvailable.value || isApplyingUpdate.value);
 const primaryPerformancePath = computed(() => {
   if (canOpenBaseballAbility.value) return '/baseball-ability';
   if (canOpenPhysicalTests.value) return '/physical-tests';
@@ -415,8 +420,8 @@ const filteredNotifications = computed(() => {
   return notifications.value.filter((note) => note.source === activeNotificationSource.value);
 });
 const mobileMenuStyle = computed(() => {
-  const updateBarOffset = hasUpdateAvailable.value ? ' - 2.75rem' : ''
-  const updateBarTopOffset = hasUpdateAvailable.value ? ' + 2.75rem' : ''
+  const updateBarOffset = isUpdateBarVisible.value ? ' - 2.75rem' : ''
+  const updateBarTopOffset = isUpdateBarVisible.value ? ' + 2.75rem' : ''
 
   return {
     top: `calc(4rem + env(safe-area-inset-top)${updateBarTopOffset})`,

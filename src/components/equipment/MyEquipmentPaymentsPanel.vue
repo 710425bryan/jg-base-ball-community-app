@@ -5,7 +5,10 @@ import { ElMessage } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
 import { useRoute } from 'vue-router'
 import { useEquipmentPaymentsStore } from '@/stores/equipmentPayments'
-import type { EquipmentPaymentItem } from '@/types/equipment'
+import {
+  EQUIPMENT_REQUEST_STATUS,
+  getEquipmentRequestStatusLabel
+} from '@/utils/equipmentRequestStatus'
 import {
   normalizeAccountLast5,
   PAYMENT_METHOD_OPTIONS,
@@ -33,6 +36,8 @@ const form = reactive({
 const paymentMethodOptions = PAYMENT_METHOD_OPTIONS
 const requiresLast5 = computed(() => requiresAccountLast5(form.payment_method))
 
+const pendingRequestItems = computed(() => paymentsStore.myPendingRequestItems)
+
 const unpaidItems = computed(() =>
   paymentsStore.myItems.filter((item) => item.payment_status === 'unpaid')
 )
@@ -43,6 +48,10 @@ const pendingItems = computed(() =>
 
 const paidItems = computed(() =>
   paymentsStore.myItems.filter((item) => item.payment_status === 'paid')
+)
+
+const hasAnyItems = computed(() =>
+  pendingRequestItems.value.length > 0 || paymentsStore.myItems.length > 0
 )
 
 const selectedItems = computed(() =>
@@ -97,6 +106,18 @@ const getPaymentStatusClass = (status?: string | null) => {
   if (status === 'pending_review') return 'bg-amber-50 border-amber-200 text-amber-700'
   if (status === 'cancelled') return 'bg-gray-100 border-gray-200 text-gray-500'
   return 'bg-red-50 border-red-100 text-red-600'
+}
+
+const getRequestStatusClass = (status?: string | null) => {
+  if (status === EQUIPMENT_REQUEST_STATUS.PENDING) {
+    return 'bg-amber-50 border-amber-200 text-amber-700'
+  }
+
+  if (status === EQUIPMENT_REQUEST_STATUS.READY_FOR_PICKUP) {
+    return 'bg-emerald-50 border-emerald-200 text-emerald-700'
+  }
+
+  return 'bg-blue-50 border-blue-200 text-blue-700'
 }
 
 const loadItems = async () => {
@@ -217,11 +238,42 @@ watch(() => route.query.highlight_submission_id, () => {
       讀取裝備付款資料中...
     </div>
 
-    <div v-else-if="paymentsStore.myItems.length === 0" class="p-6 text-sm text-gray-400 font-bold">
+    <div v-else-if="!hasAnyItems" class="p-6 text-sm text-gray-400 font-bold">
       目前沒有裝備付款項目。
     </div>
 
     <div v-else class="p-4 md:p-5 space-y-4">
+      <div v-if="pendingRequestItems.length > 0" class="rounded-2xl border border-blue-100 bg-blue-50/50 p-4">
+        <div class="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <div class="font-black text-blue-700">申請中 / 尚未可付款</div>
+          <div class="text-xs font-bold text-blue-500">完成領取後會移到待付款</div>
+        </div>
+        <div class="grid gap-3 md:grid-cols-2">
+          <article
+            v-for="item in pendingRequestItems"
+            :key="item.request_item_id"
+            :data-equipment-request-id="item.request_id || undefined"
+            class="rounded-2xl border border-white bg-white/90 p-4 shadow-sm"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <div class="font-black text-slate-800">{{ item.equipment_name }}</div>
+                <p class="mt-1 text-xs text-gray-400">
+                  {{ item.member_name }}｜{{ item.size || '無尺寸' }}｜{{ formatDate(item.ready_at || item.approved_at || item.requested_at) }}
+                </p>
+              </div>
+              <span :class="getRequestStatusClass(item.request_status)" class="shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold">
+                {{ getEquipmentRequestStatusLabel(item.request_status) }}
+              </span>
+            </div>
+            <div class="mt-3 flex items-center justify-between gap-3 text-sm">
+              <span class="text-gray-500">{{ item.quantity }} 件 x {{ formatCurrency(item.unit_price) }}</span>
+              <span class="font-black text-primary">{{ formatCurrency(item.total_amount) }}</span>
+            </div>
+          </article>
+        </div>
+      </div>
+
       <div v-if="unpaidItems.length > 0" class="rounded-2xl border border-red-100 bg-red-50/50 p-4">
         <div class="mb-3 font-black text-red-700">待付款</div>
         <div class="grid gap-3 md:grid-cols-2">

@@ -79,16 +79,17 @@
     </header>
 
     <button
-      v-if="hasUpdateAvailable"
+      v-if="hasUpdateAvailable || isApplyingUpdate"
       type="button"
+      :disabled="isApplyingUpdate"
       @click="refreshApp"
-      class="sticky top-20 z-40 flex h-11 w-full items-center justify-center gap-2 overflow-hidden bg-[#D88F22] px-3 text-center text-xs font-bold text-white shadow-sm transition-colors touch-manipulation animate-fade-in-down hover:bg-[#b87a1d] sm:text-sm"
-      title="點擊以重新載入系統獲取最新功能"
+      class="sticky top-20 z-40 flex h-11 w-full items-center justify-center gap-2 overflow-hidden bg-[#D88F22] px-3 text-center text-xs font-bold text-white shadow-sm transition-colors touch-manipulation animate-fade-in-down hover:bg-[#b87a1d] disabled:cursor-wait disabled:hover:bg-[#D88F22] sm:text-sm"
+      :title="isApplyingUpdate ? '正在套用最新版本' : '點擊以重新載入系統獲取最新功能'"
     >
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 animate-bounce sm:h-5 sm:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <svg xmlns="http://www.w3.org/2000/svg" :class="['h-4 w-4 shrink-0 sm:h-5 sm:w-5', isApplyingUpdate ? 'animate-spin' : 'animate-bounce']" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
       </svg>
-      <span class="truncate">系統已發布新版本，點擊重新整理以取得最新功能</span>
+      <span class="truncate">{{ isApplyingUpdate ? '正在套用最新版本...' : '系統已發布新版本，點擊重新整理以取得最新功能' }}</span>
     </button>
 
     <HolidayThemeRibbon />
@@ -96,7 +97,7 @@
     <nav
       v-if="isMobileMenuOpen"
       class="sticky z-30 border-b border-slate-800 bg-slate-950 px-4 py-4 text-white shadow-xl md:hidden"
-      :class="hasUpdateAvailable ? 'top-[7.75rem]' : 'top-20'"
+      :class="hasUpdateAvailable || isApplyingUpdate ? 'top-[7.75rem]' : 'top-20'"
       aria-label="手機導覽"
     >
       <div class="grid grid-cols-2 gap-3">
@@ -193,7 +194,7 @@ const authStore = useAuthStore()
 const router = useRouter()
 const showLogin = ref(false)
 const isMobileMenuOpen = ref(false)
-const { hasUpdateAvailable, refreshApp } = useVersionCheck()
+const { hasUpdateAvailable, isApplyingUpdate, refreshApp } = useVersionCheck()
 
 const getRoleName = (role?: string) => {
   const dict: Record<string, string> = {

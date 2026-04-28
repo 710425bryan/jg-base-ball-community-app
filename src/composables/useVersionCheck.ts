@@ -1,15 +1,18 @@
 import { ref } from 'vue'
-import { getCurrentRouteFullPathFromLocation, reloadAppShell, refreshAppShell } from '@/utils/appUpdate'
+import { getCurrentRouteFullPathFromLocation, refreshAppShell } from '@/utils/appUpdate'
 
 const hasUpdateAvailable = ref(false)
+const isApplyingUpdate = ref(false)
 const currentVersion = __APP_VERSION__
 const isVersionCheckEnabled = true
 const DEV_UPDATE_VERSION_STORAGE_KEY = 'jg-baseball-dev-update-version'
+const DEV_DISMISSED_UPDATE_VERSION_STORAGE_KEY = 'jg-baseball-dev-dismissed-update-version'
+const DEV_UPDATE_QUERY_PARAM_KEYS = ['dev_update', 'dev_update_version'] as const
 
 let hasStartedVersionPolling = false
 let intervalId: number | null = null
 let initialTimeoutId: number | null = null
-let isRefreshingApp = false
+let pendingUpdateVersion: string | null = null
 
 const normalizeVersion = (version: unknown) => {
   if (typeof version !== 'string') return null
@@ -56,19 +59,110 @@ const getDevVersionOverride = () => {
   return normalizeVersion(window.localStorage.getItem(DEV_UPDATE_VERSION_STORAGE_KEY))
 }
 
+const fetchVersionJson = async () => {
+  const response = await fetch(`/version.json?t=${Date.now()}`, {
+    cache: 'no-store'
+  })
+  if (!response.ok) return null
+
+  const data = await response.json()
+
+  return normalizeVersion(data?.version)
+}
+
+const getDismissedDevUpdateVersion = () => {
+  if (!import.meta.env.DEV || typeof window === 'undefined') return null
+
+  return normalizeVersion(window.localStorage.getItem(DEV_DISMISSED_UPDATE_VERSION_STORAGE_KEY))
+}
+
+const dismissCurrentDevUpdate = async () => {
+  if (!import.meta.env.DEV || typeof window === 'undefined') return
+
+  let dismissedVersion = pendingUpdateVersion || getDismissedDevUpdateVersion()
+
+  if (!dismissedVersion) {
+    try {
+      dismissedVersion = await fetchVersionJson()
+    } catch {
+      dismissedVersion = getDevVersionOverride()
+    }
+  }
+
+  if (dismissedVersion) {
+    window.localStorage.setItem(DEV_DISMISSED_UPDATE_VERSION_STORAGE_KEY, dismissedVersion)
+  }
+
+  pendingUpdateVersion = null
+}
+
+const removeDevUpdateParams = (params: URLSearchParams) => {
+  let didRemove = false
+
+  DEV_UPDATE_QUERY_PARAM_KEYS.forEach((key) => {
+    if (params.has(key)) {
+      params.delete(key)
+      didRemove = true
+    }
+  })
+
+  return didRemove
+}
+
+const removeDevUpdateParamsFromRoute = (routeFullPath: string) => {
+  const routeHashIndex = routeFullPath.indexOf('#')
+  const pathAndQuery = routeHashIndex >= 0
+    ? routeFullPath.slice(0, routeHashIndex)
+    : routeFullPath
+  const routeHash = routeHashIndex >= 0 ? routeFullPath.slice(routeHashIndex) : ''
+  const queryIndex = pathAndQuery.indexOf('?')
+
+  if (queryIndex < 0) return routeFullPath
+
+  const path = pathAndQuery.slice(0, queryIndex)
+  const queryParams = new URLSearchParams(pathAndQuery.slice(queryIndex + 1))
+
+  if (!removeDevUpdateParams(queryParams)) return routeFullPath
+
+  const nextQuery = queryParams.toString()
+
+  return `${path}${nextQuery ? `?${nextQuery}` : ''}${routeHash}`
+}
+
+const getRefreshTargetRoute = () => {
+  const currentRoute = getCurrentRouteFullPathFromLocation()
+
+  if (!import.meta.env.DEV || typeof window === 'undefined') {
+    return currentRoute
+  }
+
+  window.localStorage.removeItem(DEV_UPDATE_VERSION_STORAGE_KEY)
+
+  const targetRoute = removeDevUpdateParamsFromRoute(currentRoute)
+  const nextUrl = new URL(window.location.href)
+  const didRemoveDocumentParams = removeDevUpdateParams(nextUrl.searchParams)
+  const didRemoveRouteParams = targetRoute !== currentRoute
+
+  if (didRemoveDocumentParams || didRemoveRouteParams) {
+    nextUrl.hash = `#${targetRoute}`
+    window.history.replaceState(window.history.state, '', nextUrl.toString())
+  }
+
+  return targetRoute
+}
+
 const checkForUpdate = async () => {
-  if (!isVersionCheckEnabled || hasUpdateAvailable.value) return
+  if (!isVersionCheckEnabled || hasUpdateAvailable.value || isApplyingUpdate.value) return
 
   try {
-    const response = await fetch(`/version.json?t=${Date.now()}`, {
-      cache: 'no-store'
-    })
-    if (!response.ok) return
+    const latestVersion = getDevVersionOverride() || await fetchVersionJson()
 
-    const data = await response.json()
-    const latestVersion = getDevVersionOverride() || normalizeVersion(data?.version)
-
-    if (latestVersion && latestVersion !== currentVersion) {
+    if (
+      latestVersion &&
+      latestVersion !== currentVersion &&
+      latestVersion !== getDismissedDevUpdateVersion()
+    ) {
+      pendingUpdateVersion = latestVersion
       hasUpdateAvailable.value = true
       console.log(`[VersionCheck] 發現新版本: ${latestVersion} (目前: ${currentVersion})`)
     }
@@ -108,59 +202,20 @@ const ensureVersionPollingStarted = () => {
   document.addEventListener('visibilitychange', handleVisibilityChange)
 }
 
-const activateWaitingServiceWorker = async (registration: ServiceWorkerRegistration) => {
-  const waitingWorker = registration.waiting
-  if (!waitingWorker || typeof navigator === 'undefined') return false
-
-  return new Promise<boolean>((resolve) => {
-    let resolved = false
-
-    const finish = (didActivate: boolean) => {
-      if (resolved) return
-      resolved = true
-      navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange)
-      resolve(didActivate)
-    }
-
-    const handleControllerChange = () => {
-      finish(true)
-      reloadAppShell(getCurrentRouteFullPathFromLocation())
-    }
-
-    navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange)
-    waitingWorker.postMessage({ type: 'SKIP_WAITING' })
-
-    window.setTimeout(() => {
-      finish(false)
-    }, 4000)
-  })
-}
-
 const refreshApp = async () => {
-  if (typeof window === 'undefined' || isRefreshingApp) return
+  if (typeof window === 'undefined' || isApplyingUpdate.value) return
 
-  isRefreshingApp = true
+  isApplyingUpdate.value = true
   hasUpdateAvailable.value = false
 
   try {
-    if ('serviceWorker' in navigator) {
-      const registrations = await navigator.serviceWorker.getRegistrations()
-      let activatedWaitingWorker = false
-
-      for (const registration of registrations) {
-        await registration.update()
-        activatedWaitingWorker = await activateWaitingServiceWorker(registration) || activatedWaitingWorker
-      }
-
-      if (activatedWaitingWorker) {
-        return
-      }
-    }
+    await dismissCurrentDevUpdate()
+    await refreshAppShell(getRefreshTargetRoute())
   } catch (err) {
     console.warn('[VersionCheck] 重新整理更新版本失敗', err)
+  } finally {
+    isApplyingUpdate.value = false
   }
-
-  await refreshAppShell(getCurrentRouteFullPathFromLocation())
 }
 
 export function useVersionCheck() {
@@ -168,6 +223,7 @@ export function useVersionCheck() {
 
   return {
     hasUpdateAvailable,
+    isApplyingUpdate,
     refreshApp,
     currentVersion
   }

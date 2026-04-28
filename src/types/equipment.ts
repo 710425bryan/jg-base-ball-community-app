@@ -213,6 +213,23 @@ export type EquipmentPaymentItem = {
   picked_up_at: string | null
 }
 
+export type EquipmentPendingRequestPaymentItem = {
+  request_item_id: string
+  request_id: string
+  member_id: string
+  member_name: string
+  equipment_id: string
+  equipment_name: string
+  size: string | null
+  quantity: number
+  unit_price: number
+  total_amount: number
+  request_status: EquipmentRequestStatus | string
+  requested_at: string
+  approved_at: string | null
+  ready_at: string | null
+}
+
 export type EquipmentPaymentSubmission = {
   id: string
   profile_id: string

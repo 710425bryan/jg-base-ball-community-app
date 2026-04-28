@@ -59,6 +59,7 @@
                   v-model="selectedMemberId"
                   class="w-full mt-2"
                   size="large"
+                  filterable
                   placeholder="請選擇成員"
                 >
                   <el-option
@@ -245,7 +246,7 @@
             </div>
           </section>
 
-          <MyEquipmentPaymentsPanel />
+          <MyEquipmentPaymentsPanel :member-id="selectedMemberId" />
         </template>
       </div>
     </div>

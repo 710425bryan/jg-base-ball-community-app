@@ -9,6 +9,7 @@ import type {
   EquipmentInventoryAdjustment,
   EquipmentInventoryAdjustmentPayload,
   EquipmentMemberSummary,
+  EquipmentPendingRequestPaymentItem,
   EquipmentPaymentSubmission,
   EquipmentPurchaseRequest,
   EquipmentRequestItem,
@@ -83,6 +84,13 @@ const normalizePaymentSubmission = (row: any): EquipmentPaymentSubmission => ({
       total_amount: normalizeNumber(item?.total_amount)
     }))
     : []
+})
+
+const normalizePendingRequestPaymentItem = (row: any): EquipmentPendingRequestPaymentItem => ({
+  ...row,
+  quantity: normalizeNumber(row?.quantity),
+  unit_price: normalizeNumber(row?.unit_price),
+  total_amount: normalizeNumber(row?.total_amount)
 })
 
 const buildStoragePath = (folder: string, file: File) => {
@@ -747,6 +755,15 @@ export const listMyEquipmentPaymentItems = async (memberId?: string | null) => {
     unit_price: normalizeNumber(item?.unit_price),
     total_amount: normalizeNumber(item?.total_amount)
   }))
+}
+
+export const listMyEquipmentPendingRequestPaymentItems = async (memberId?: string | null) => {
+  const { data, error } = await supabase.rpc('list_my_equipment_pending_request_payment_items', {
+    p_member_id: memberId || null
+  })
+
+  if (error) throw error
+  return unwrapRows<any>(data).map(normalizePendingRequestPaymentItem)
 }
 
 export const createEquipmentPaymentSubmission = async (
