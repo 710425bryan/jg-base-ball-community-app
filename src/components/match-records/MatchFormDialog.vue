@@ -1,14 +1,21 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Plus, Minus, Position, DataAnalysis, Connection, Upload, Document, Check, Delete, Loading } from '@element-plus/icons-vue'
 import type { MatchRecordInput, LineupEntry, InningLog, BattingStat, PitchingStat, LineScoreData } from '@/types/match'
 import { useMatchesStore } from '@/stores/matches'
 import { supabase } from '@/services/supabase'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import dayjs from 'dayjs'
-import { onMounted } from 'vue'
 import { compressImage } from '@/utils/imageCompressor'
+import {
+  buildLineupRowsFromParsedResult,
+  buildRosterCandidates,
+  imageBlobToLineupDataUrl,
+  type LineupPlayerOption,
+  type ParsedLineupResponse
+} from '@/utils/lineupPhotoParser'
 import MatchLiveController from './MatchLiveController.vue'
+import MatchLineupTab from './MatchLineupTab.vue'
 import { cloneLineScoreData, createDefaultLineScoreData, finalizeInningScore, getNextInning } from '@/utils/liveMatchScoreboard'
 
 const props = defineProps<{
@@ -24,6 +31,7 @@ const emit = defineEmits<{
 const matchesStore = useMatchesStore()
 const activeTab = ref('basic')
 const submitting = ref(false)
+const LINEUP_SCAN_SECRET = 'jg-baseball-secret-auth'
 
 interface TeamMemberOption {
   id: string
@@ -287,7 +295,110 @@ const availablePlayerNames = computed(() => {
   return Array.from(names).filter(Boolean).sort((a, b) => a.localeCompare(b, 'zh-Hant'))
 })
 
+const getPlayerNumberByName = (playerName: string) => {
+  const player = activeMembers.value.find((member) => member.name === playerName)
+  return player?.jersey_number ? String(player.jersey_number) : ''
+}
+
+const availableLineupPlayerOptions = computed<LineupPlayerOption[]>(() =>
+  availablePlayerNames.value.map((name) => {
+    const number = getPlayerNumberByName(name)
+    return {
+      name,
+      number,
+      label: `${name}${number ? ` #${number}` : ''}`
+    }
+  })
+)
+
+const getAvailableLineupPlayers = (currentIndex: number) => {
+  const currentName = formData.value.lineup[currentIndex]?.name || ''
+  const usedNames = new Set(
+    formData.value.lineup
+      .filter((_, index) => index !== currentIndex)
+      .map((player) => player.name)
+      .filter(Boolean)
+  )
+
+  const options = availableLineupPlayerOptions.value.filter((player) =>
+    player.name === currentName || !usedNames.has(player.name)
+  )
+
+  if (currentName && !options.some((player) => player.name === currentName)) {
+    options.unshift({
+      name: currentName,
+      number: formData.value.lineup[currentIndex]?.number || getPlayerNumberByName(currentName),
+      label: currentName
+    })
+  }
+
+  return options
+}
+
 const currentLineupMode = ref<'synced' | 'manual'>('synced')
+const syncWorkspaceRef = ref<HTMLElement | null>(null)
+const syncLeftPanePercent = ref(46)
+const isSyncPaneResizing = ref(false)
+const lineupPhotoInput = ref<HTMLInputElement | null>(null)
+const isScanningLineup = ref(false)
+
+const syncWorkspaceStyle = computed(() => ({
+  '--sync-left-pane': `${syncLeftPanePercent.value}%`
+}))
+
+const getSyncPanePercentFromPointer = (clientX: number) => {
+  const container = syncWorkspaceRef.value
+  if (!container) return syncLeftPanePercent.value
+
+  const rect = container.getBoundingClientRect()
+  if (rect.width <= 0) return syncLeftPanePercent.value
+
+  const reservedWidth = 38
+  const minLeftWidth = 320
+  const minRightWidth = 360
+  const maxLeftWidth = Math.max(minLeftWidth, rect.width - reservedWidth - minRightWidth)
+  const rawLeftWidth = clientX - rect.left
+  const nextLeftWidth = Math.min(maxLeftWidth, Math.max(minLeftWidth, rawLeftWidth))
+
+  return (nextLeftWidth / rect.width) * 100
+}
+
+const handleSyncPaneResize = (event: PointerEvent) => {
+  if (!isSyncPaneResizing.value) return
+  syncLeftPanePercent.value = getSyncPanePercentFromPointer(event.clientX)
+}
+
+const stopSyncPaneResize = () => {
+  if (!isSyncPaneResizing.value) return
+
+  isSyncPaneResizing.value = false
+  document.body.style.cursor = ''
+  document.body.style.userSelect = ''
+  window.removeEventListener('pointermove', handleSyncPaneResize)
+  window.removeEventListener('pointerup', stopSyncPaneResize)
+  window.removeEventListener('pointercancel', stopSyncPaneResize)
+}
+
+const startSyncPaneResize = (event: PointerEvent) => {
+  if (window.innerWidth < 768) return
+
+  event.preventDefault()
+  isSyncPaneResizing.value = true
+  document.body.style.cursor = 'col-resize'
+  document.body.style.userSelect = 'none'
+  syncLeftPanePercent.value = getSyncPanePercentFromPointer(event.clientX)
+  window.addEventListener('pointermove', handleSyncPaneResize)
+  window.addEventListener('pointerup', stopSyncPaneResize)
+  window.addEventListener('pointercancel', stopSyncPaneResize)
+}
+
+const resetSyncPaneWidth = () => {
+  syncLeftPanePercent.value = 46
+}
+
+onBeforeUnmount(() => {
+  stopSyncPaneResize()
+})
 
 const syncCurrentLineupFromStarting = () => {
   formData.value.current_lineup = cloneLineup(formData.value.lineup)
@@ -356,6 +467,112 @@ const activeGameLineup = computed(() =>
     ? formData.value.current_lineup || []
     : formData.value.lineup
 )
+
+const confirmLineupOverwriteIfNeeded = async () => {
+  if (!lineupHasNamedPlayers(formData.value.lineup)) return true
+
+  try {
+    await ElMessageBox.confirm(
+      '目前先發與打線已有資料，解析照片會覆蓋這份名單。是否繼續？',
+      '覆蓋先發與打線',
+      {
+        confirmButtonText: '繼續解析',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    return true
+  } catch {
+    return false
+  }
+}
+
+const getLineupRosterCandidates = () =>
+  buildRosterCandidates({
+    selectedPlayers: selectedPlayers.value,
+    playerOptions: playerOptions.value,
+    lineups: [formData.value.lineup, formData.value.current_lineup]
+  })
+
+const parseLineupImage = async (image: { dataUrl: string; mimeType: string }) => {
+  const { data, error } = await supabase.functions.invoke<ParsedLineupResponse>('parse-lineup', {
+    body: {
+      image: image.dataUrl,
+      mimeType: image.mimeType,
+      roster: getLineupRosterCandidates(),
+      secretAuth: LINEUP_SCAN_SECRET
+    }
+  })
+
+  if (error) throw error
+  return data
+}
+
+const applyParsedLineup = (parsedResult: ParsedLineupResponse | null | undefined) => {
+  const { lineup, playerNames, players } = buildLineupRowsFromParsedResult(parsedResult)
+
+  if (!playerNames.length) {
+    ElMessage.warning('照片中沒有解析到可對應的球員，請確認照片是否清楚。')
+    return
+  }
+
+  formData.value.lineup = lineup
+  formData.value.players = players
+
+  if (currentLineupMode.value === 'synced') {
+    formData.value.current_lineup = cloneLineup(lineup)
+  }
+
+  ElMessage.success(`成功解析 ${playerNames.length} 位球員，請再人工確認名單與守位。`)
+}
+
+const runLineupScan = async (loadImage: () => Promise<{ dataUrl: string; mimeType: string }>) => {
+  if (isScanningLineup.value) return
+
+  const shouldContinue = await confirmLineupOverwriteIfNeeded()
+  if (!shouldContinue) return
+
+  isScanningLineup.value = true
+  try {
+    const image = await loadImage()
+    const parsedResult = await parseLineupImage(image)
+    applyParsedLineup(parsedResult)
+  } catch (error: any) {
+    ElMessage.error(`解析失敗：${error?.message || '請稍後再試'}`)
+  } finally {
+    isScanningLineup.value = false
+  }
+}
+
+const handleScanExistingLineupPhoto = async () => {
+  const photoUrl = formData.value.photo_url?.trim()
+  if (!photoUrl) {
+    ElMessage.warning('請先上傳賽事照片')
+    return
+  }
+
+  await runLineupScan(async () => {
+    const response = await fetch(photoUrl)
+    if (!response.ok) {
+      throw new Error(`賽事照片讀取失敗：HTTP ${response.status}`)
+    }
+    return imageBlobToLineupDataUrl(await response.blob())
+  })
+}
+
+const triggerLineupPhotoImport = () => {
+  if (isScanningLineup.value) return
+  lineupPhotoInput.value?.click()
+}
+
+const handleLineupPhotoImport = async (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+
+  await runLineupScan(() => imageBlobToLineupDataUrl(file))
+}
 
 const currentPitcher = computed(() =>
   activeGameLineup.value.find((player) => player.position === '1' && player.name)?.name || ''
@@ -788,31 +1005,31 @@ const handlePhotoUpload = async (event: Event) => {
 
 <template>
   <el-dialog v-model="visible" :title="mode === 'add' ? '新增比賽紀錄' : '編輯比賽紀錄'" width="100%" class="!rounded-2xl max-w-6xl custom-dialog" destroy-on-close align-center top="5vh">
-    <div class="h-[75vh] flex flex-col md:flex-row -mx-4 -my-6 md:m-0 h-full">
-      <!-- Left Sidebar Tabs (Desktop) / Top Tabs (Mobile) -->
-      <div class="bg-gray-50 md:w-48 xl:w-56 shrink-0 border-b md:border-b-0 md:border-r border-gray-100 flex md:flex-col overflow-x-auto md:overflow-y-auto hide-scrollbar z-10 p-2 md:p-4 gap-1">
-        <button @click="activeTab = 'basic'" :class="{'bg-white text-primary shadow-sm border border-gray-200': activeTab === 'basic', 'text-gray-500 hover:bg-gray-100 border border-transparent': activeTab !== 'basic'}" class="px-4 py-3 md:py-4 rounded-xl flex items-center justify-center md:justify-start gap-2.5 font-bold transition-all shrink-0 min-w-[120px] md:min-w-0">
+    <div class="flex h-[75vh] min-h-0 flex-col -mx-4 -my-6 md:m-0">
+      <!-- Top Tabs -->
+      <div class="z-10 flex shrink-0 gap-1 overflow-x-auto border-b border-gray-100 bg-gray-50 p-2 md:gap-2 md:p-3 hide-scrollbar">
+        <button @click="activeTab = 'basic'" :class="{'bg-white text-primary shadow-sm border border-gray-200': activeTab === 'basic', 'text-gray-500 hover:bg-gray-100 border border-transparent': activeTab !== 'basic'}" class="px-4 py-3 rounded-xl flex items-center justify-center gap-2.5 font-bold transition-all shrink-0 min-w-[120px]">
           <el-icon class="text-lg"><Document /></el-icon> <span>基本與賽況</span>
         </button>
-        <button @click="activeTab = 'sync'" :class="{'bg-white text-primary shadow-sm border border-gray-200': activeTab === 'sync', 'text-gray-500 hover:bg-gray-100 border border-transparent': activeTab !== 'sync'}" class="px-4 py-3 md:py-4 rounded-xl flex items-center justify-center md:justify-start gap-2.5 font-bold transition-all shrink-0 min-w-[120px] md:min-w-0">
+        <button @click="activeTab = 'sync'" :class="{'bg-white text-primary shadow-sm border border-gray-200': activeTab === 'sync', 'text-gray-500 hover:bg-gray-100 border border-transparent': activeTab !== 'sync'}" class="px-4 py-3 rounded-xl flex items-center justify-center gap-2.5 font-bold transition-all shrink-0 min-w-[120px]">
           <el-icon class="text-lg"><Connection /></el-icon> <span>同步編輯</span>
         </button>
-        <button @click="activeTab = 'lineup'" :class="{'bg-white text-primary shadow-sm border border-gray-200': activeTab === 'lineup', 'text-gray-500 hover:bg-gray-100 border border-transparent': activeTab !== 'lineup'}" class="px-4 py-3 md:py-4 rounded-xl flex items-center justify-center md:justify-start gap-2.5 font-bold transition-all shrink-0 min-w-[120px] md:min-w-0">
+        <button @click="activeTab = 'lineup'" :class="{'bg-white text-primary shadow-sm border border-gray-200': activeTab === 'lineup', 'text-gray-500 hover:bg-gray-100 border border-transparent': activeTab !== 'lineup'}" class="px-4 py-3 rounded-xl flex items-center justify-center gap-2.5 font-bold transition-all shrink-0 min-w-[120px]">
           <el-icon class="text-lg"><Position /></el-icon> <span>先發與打線</span>
         </button>
-        <button @click="activeTab = 'innings'" :class="{'bg-white text-primary shadow-sm border border-gray-200': activeTab === 'innings', 'text-gray-500 hover:bg-gray-100 border border-transparent': activeTab !== 'innings'}" class="px-4 py-3 md:py-4 rounded-xl flex items-center justify-center md:justify-start gap-2.5 font-bold transition-all shrink-0 min-w-[120px] md:min-w-0">
+        <button @click="activeTab = 'innings'" :class="{'bg-white text-primary shadow-sm border border-gray-200': activeTab === 'innings', 'text-gray-500 hover:bg-gray-100 border border-transparent': activeTab !== 'innings'}" class="px-4 py-3 rounded-xl flex items-center justify-center gap-2.5 font-bold transition-all shrink-0 min-w-[120px]">
           <el-icon class="text-lg"><Connection /></el-icon> <span>逐局轉播</span>
         </button>
-        <button @click="activeTab = 'batting'" :class="{'bg-white text-primary shadow-sm border border-gray-200': activeTab === 'batting', 'text-gray-500 hover:bg-gray-100 border border-transparent': activeTab !== 'batting'}" class="px-4 py-3 md:py-4 rounded-xl flex items-center justify-center md:justify-start gap-2.5 font-bold transition-all shrink-0 min-w-[150px] md:min-w-0">
+        <button @click="activeTab = 'batting'" :class="{'bg-white text-primary shadow-sm border border-gray-200': activeTab === 'batting', 'text-gray-500 hover:bg-gray-100 border border-transparent': activeTab !== 'batting'}" class="px-4 py-3 rounded-xl flex items-center justify-center gap-2.5 font-bold transition-all shrink-0 min-w-[150px]">
           <el-icon class="text-lg"><DataAnalysis /></el-icon> <span>比賽成績 (打擊)</span>
         </button>
-        <button @click="activeTab = 'pitching'" :class="{'bg-white text-primary shadow-sm border border-gray-200': activeTab === 'pitching', 'text-gray-500 hover:bg-gray-100 border border-transparent': activeTab !== 'pitching'}" class="px-4 py-3 md:py-4 rounded-xl flex items-center justify-center md:justify-start gap-2.5 font-bold transition-all shrink-0 min-w-[150px] md:min-w-0">
+        <button @click="activeTab = 'pitching'" :class="{'bg-white text-primary shadow-sm border border-gray-200': activeTab === 'pitching', 'text-gray-500 hover:bg-gray-100 border border-transparent': activeTab !== 'pitching'}" class="px-4 py-3 rounded-xl flex items-center justify-center gap-2.5 font-bold transition-all shrink-0 min-w-[150px]">
           <el-icon class="text-lg"><DataAnalysis /></el-icon> <span>比賽成績 (投手)</span>
         </button>
       </div>
 
       <!-- Main Form Area -->
-      <div class="flex-1 overflow-y-auto p-4 md:p-8 bg-white max-h-[75vh]" id="modal-scroll-area">
+      <div class="min-h-0 flex-1 overflow-y-auto bg-white p-4 md:p-8" id="modal-scroll-area">
         
         <!-- === TAB 1: BASIC === -->
         <div v-show="activeTab === 'basic'" class="space-y-6 animate-fade-in pr-2">
@@ -972,7 +1189,12 @@ const handlePhotoUpload = async (event: Event) => {
 
         <!-- === TAB 2: SYNC WORKSPACE === -->
         <div v-show="activeTab === 'sync'" class="space-y-5 animate-fade-in pr-1">
-          <div class="grid grid-cols-1 items-start gap-5 md:grid-cols-[minmax(320px,0.9fr)_minmax(360px,1.1fr)] xl:grid-cols-[minmax(0,0.9fr)_minmax(420px,1.1fr)]">
+          <div
+            ref="syncWorkspaceRef"
+            class="sync-resizable-workspace grid grid-cols-1 items-start gap-5"
+            :class="{ 'is-resizing': isSyncPaneResizing }"
+            :style="syncWorkspaceStyle"
+          >
             <section class="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4">
               <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                 <div>
@@ -1022,6 +1244,18 @@ const handlePhotoUpload = async (event: Event) => {
                 尚未建立目前場上名單
               </div>
             </section>
+
+            <button
+              type="button"
+              class="sync-resize-handle hidden md:flex"
+              :class="{ 'is-resizing': isSyncPaneResizing }"
+              aria-label="調整同步編輯左右欄寬度"
+              title="拖拉調整左右欄寬度"
+              @dblclick="resetSyncPaneWidth"
+              @pointerdown="startSyncPaneResize"
+            >
+              <span aria-hidden="true"></span>
+            </button>
 
             <section class="min-w-0 space-y-4 md:sticky md:top-0">
               <MatchLiveController
@@ -1079,44 +1313,28 @@ const handlePhotoUpload = async (event: Event) => {
 
         <!-- === TAB 2: LINEUP === -->
         <div v-show="activeTab === 'lineup'" class="space-y-4 animate-fade-in pr-2">
-          <div class="flex items-center justify-between mb-4 bg-yellow-50 text-yellow-800 p-3 rounded-xl border border-yellow-100">
-            <div>
-              <h3 class="font-extrabold text-sm flex items-center"><el-icon class="mr-1.5"><Position /></el-icon>攻守打序設定</h3>
-              <p class="text-xs mt-0.5 opacity-80">請依照棒次順序填寫，您也可以拖曳微調或增加替補球員。</p>
-            </div>
-            <el-button @click="addLineup" type="primary" size="small"><el-icon class="mr-1"><Plus /></el-icon>增加列</el-button>
-          </div>
-
-          <div class="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
-            <!-- Header -->
-            <div class="grid grid-cols-[60px_120px_1fr_100px_100px] gap-2 p-3 bg-gray-100/80 border-b border-gray-200 text-xs font-bold text-gray-500">
-              <div class="text-center">棒次</div>
-              <div>守位</div>
-              <div>球員姓名</div>
-              <div>背號</div>
-              <div class="text-center">操作</div>
-            </div>
-            <!-- Rows -->
-            <div v-for="(p, i) in formData.lineup" :key="i" class="grid grid-cols-[60px_120px_1fr_100px_100px] gap-2 p-2.5 items-center border-b border-gray-100 bg-white hover:bg-primary/5 transition-colors">
-              <div class="text-center font-black text-gray-400 text-lg">{{ p.order }}</div>
-              <div>
-                <el-select v-model="p.position" size="small" class="w-full">
-                  <el-option v-for="opt in posOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
-                </el-select>
-              </div>
-              <div>
-                <el-select v-model="p.name" size="small" placeholder="選擇球員" filterable allow-create clearable @change="(val: string) => handleLineupPlayerChange(p, val)" class="w-full">
-                  <el-option v-for="name in availablePlayerNames" :key="name" :label="name" :value="name" />
-                </el-select>
-              </div>
-              <div><el-input v-model="p.number" size="small" placeholder="#" /></div>
-              <div class="flex items-center justify-center space-x-1">
-                <el-button size="small" text @click="moveLineup(i, -1)" :disabled="i === 0">▲</el-button>
-                <el-button size="small" text @click="moveLineup(i, 1)" :disabled="i === formData.lineup.length - 1">▼</el-button>
-                <el-button type="danger" size="small" circle plain @click="removeLineup(i)"><el-icon><Minus /></el-icon></el-button>
-              </div>
-            </div>
-          </div>
+          <input
+            ref="lineupPhotoInput"
+            type="file"
+            class="hidden"
+            accept="image/*"
+            @change="handleLineupPhotoImport"
+          />
+          <MatchLineupTab
+            :lineup="formData.lineup"
+            title="攻守名單"
+            :photo-url="formData.photo_url || ''"
+            :is-scanning-lineup="isScanningLineup"
+            :positions="posOptions"
+            :get-available-lineup-players="getAvailableLineupPlayers"
+            :handle-player-change="handleLineupPlayerChange"
+            add-button-label="新增打者"
+            @scan-existing="handleScanExistingLineupPhoto"
+            @trigger-scan="triggerLineupPhotoImport"
+            @add-player="addLineup"
+            @remove-player="removeLineup"
+            @move-player="moveLineup"
+          />
         </div>
 
         <!-- === TAB 3: INNING LOGS === -->
@@ -1388,6 +1606,63 @@ const handlePhotoUpload = async (event: Event) => {
 /* Reset Element Plus Dialog body padding to allow edge-to-edge layout */
 .custom-dialog .el-dialog__body {
   padding: 0 !important;
+}
+
+.sync-resizable-workspace {
+  --sync-left-pane: 46%;
+}
+
+@media (min-width: 768px) {
+  .sync-resizable-workspace {
+    column-gap: 0.75rem;
+    grid-template-columns: minmax(320px, var(--sync-left-pane)) 14px minmax(360px, 1fr);
+  }
+
+  .sync-resizable-workspace.is-resizing,
+  .sync-resizable-workspace.is-resizing * {
+    cursor: col-resize !important;
+  }
+
+  .sync-resize-handle {
+    align-items: center;
+    align-self: stretch;
+    background: transparent;
+    border: 0;
+    border-radius: 999px;
+    cursor: col-resize;
+    justify-content: center;
+    min-height: 480px;
+    padding: 0;
+    position: relative;
+    touch-action: none;
+    width: 14px;
+  }
+
+  .sync-resize-handle::before {
+    background: #cbd5e1;
+    border-radius: 999px;
+    content: '';
+    height: 100%;
+    min-height: 120px;
+    transition: background-color 0.15s ease, box-shadow 0.15s ease, width 0.15s ease;
+    width: 4px;
+  }
+
+  .sync-resize-handle span {
+    border-left: 1px solid rgba(255, 255, 255, 0.85);
+    border-right: 1px solid rgba(255, 255, 255, 0.85);
+    height: 38px;
+    pointer-events: none;
+    position: absolute;
+    width: 4px;
+  }
+
+  .sync-resize-handle:hover::before,
+  .sync-resize-handle.is-resizing::before {
+    background: #D88F22;
+    box-shadow: 0 0 0 4px rgba(216, 143, 34, 0.12);
+    width: 5px;
+  }
 }
 
 .animate-fade-in {

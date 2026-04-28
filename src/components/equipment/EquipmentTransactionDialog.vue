@@ -40,9 +40,9 @@ const isOpen = computed({
 
 const typeOptions: Array<{ value: EquipmentTransactionType; label: string; helper: string }> = [
   { value: 'purchase', label: '購買', helper: '管理端直接記錄購買交易。' },
+  { value: 'receive', label: '領取', helper: '永久發放給成員。' },
   { value: 'borrow', label: '借出', helper: '會扣除可用庫存，歸還後補回。' },
-  { value: 'return', label: '歸還', helper: '會補回已借出數量。' },
-  { value: 'receive', label: '領取', helper: '永久發放給成員。' }
+  { value: 'return', label: '歸還', helper: '會補回已借出數量。' }
 ]
 
 const currentType = computed(() => typeOptions.find((option) => option.value === form.transaction_type))

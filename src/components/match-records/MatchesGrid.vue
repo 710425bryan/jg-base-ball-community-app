@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { MatchRecord } from '@/types/match'
-import { Calendar, Location, Delete, Operation } from '@element-plus/icons-vue'
+import { Calendar, Delete, Location, Operation, Trophy } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 
 const UNKNOWN_MONTH_KEY = '__unknown__'
@@ -30,7 +30,7 @@ const getMonthKey = (match: MatchRecord) => {
 
 const getMonthLabel = (monthKey: string) => {
   if (monthKey === UNKNOWN_MONTH_KEY) return '未設定日期'
-  return dayjs(`${monthKey}-01`).format('YYYY年M月')
+  return dayjs(`${monthKey}-01`).format('YYYY 年 M 月')
 }
 
 const getMatchSortValue = (match: MatchRecord) => {
@@ -82,93 +82,136 @@ const groupedMatches = computed(() => {
     }))
 })
 
-const isFuture = (date: string) => dayjs(date).isAfter(dayjs(), 'day')
+const isFuture = (date?: string) => Boolean(date && dayjs(date).isAfter(dayjs(), 'day'))
 
 const getResult = (match: MatchRecord) => {
-  if (isFuture(match.match_date)) return { label: '未開賽', class: 'bg-blue-100 text-blue-700' }
-  if (match.home_score > match.opponent_score) return { label: 'W', class: 'bg-green-100 text-green-700' }
-  if (match.home_score < match.opponent_score) return { label: 'L', class: 'bg-red-100 text-red-700' }
-  return { label: 'T', class: 'bg-yellow-100 text-yellow-700' }
+  if (isFuture(match.match_date)) {
+    return { label: '未賽', class: 'bg-sky-500 text-white ring-1 ring-sky-300/70' }
+  }
+  if (match.home_score > match.opponent_score) {
+    return { label: 'W', class: 'bg-emerald-500 text-white ring-1 ring-emerald-300/70' }
+  }
+  if (match.home_score < match.opponent_score) {
+    return { label: 'L', class: 'bg-rose-500 text-white ring-1 ring-rose-300/70' }
+  }
+  return { label: 'T', class: 'bg-amber-500 text-white ring-1 ring-amber-300/70' }
+}
+
+const getGoogleMapsUrl = (location?: string) => {
+  const normalizedLocation = location?.trim()
+  if (!normalizedLocation) return ''
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(normalizedLocation)}`
+}
+
+const formatMatchDate = (date?: string) => {
+  if (!date) return '未設定日期'
+  return dayjs(date).format('YYYY/MM/DD')
 }
 </script>
 
 <template>
-  <div class="space-y-8">
+  <div class="space-y-6">
     <div v-for="group in groupedMatches" :key="group.month" class="animate-fade-in">
-      <div class="sticky top-0 z-20 -mx-4 md:-mx-6 px-4 md:px-6 py-3 mb-4 bg-background/95 backdrop-blur-md shadow-[0_1px_0_0_#e5e7eb] flex items-center space-x-3">
-        <h2 class="text-lg font-extrabold text-gray-800">{{ group.month }}</h2>
-        <div class="h-px bg-gray-200 flex-1"></div>
-        <span class="text-xs font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{{ group.items.length }} 筆</span>
+      <div class="sticky top-0 z-20 -mx-4 mb-3 flex items-center gap-3 bg-background/95 px-4 py-2.5 shadow-[0_1px_0_0_#e2e8f0] backdrop-blur-md md:-mx-6 md:px-6">
+        <h2 class="text-base font-black text-slate-800 md:text-lg">{{ group.month }}</h2>
+        <div class="h-px flex-1 bg-slate-200"></div>
+        <span class="rounded-full bg-slate-800 px-2 py-0.5 text-[11px] font-bold text-white">{{ group.items.length }} 場</span>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-5">
-        <div
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        <article
           v-for="match in group.items"
           :key="match.id"
+          class="relative cursor-pointer overflow-hidden rounded-lg border border-slate-200 bg-gradient-to-br from-orange-50 via-white to-sky-50 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
           @click="emit('view', match.id)"
-          class="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-primary/30 transition-all duration-200 overflow-hidden cursor-pointer relative"
         >
-          <div class="flex justify-between items-center px-5 py-3.5 border-b border-gray-50 bg-gray-50/50">
-            <div class="flex items-center space-x-2 text-gray-500 font-medium text-xs">
-              <el-icon class="text-sm"><Calendar /></el-icon>
-              <span>{{ dayjs(match.match_date).format('MM/DD') }}</span>
-              <span v-if="match.match_time" class="text-gray-400">{{ match.match_time }}</span>
+          <div class="flex items-center justify-between gap-3 bg-slate-900 px-4 py-2.5 text-white">
+            <div class="flex min-w-0 items-center gap-2 text-xs font-bold text-slate-100">
+              <el-icon class="shrink-0 text-sm text-primary"><Calendar /></el-icon>
+              <span class="whitespace-nowrap">{{ match.match_date ? dayjs(match.match_date).format('MM/DD') : '未定' }}</span>
+              <span v-if="match.match_time" class="truncate text-slate-300">{{ match.match_time }}</span>
             </div>
-            <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold tracking-widest" :class="getResult(match).class">
+            <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black tracking-widest" :class="getResult(match).class">
               {{ getResult(match).label }}
             </span>
           </div>
 
-          <div class="p-5 flex flex-col">
-            <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
-              <div class="flex flex-wrap gap-2">
-                <span v-if="match.category_group" class="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded border border-indigo-100 font-bold whitespace-nowrap">{{ match.category_group }}</span>
-                <span v-if="match.match_level" class="text-[10px] bg-orange-50 text-orange-600 px-2 py-0.5 rounded border border-orange-100 font-bold whitespace-nowrap">{{ match.match_level }}</span>
+          <div class="space-y-3 p-4">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0 space-y-2">
+                <div v-if="match.tournament_name" class="flex min-w-0 items-center gap-1.5 text-xs font-black text-orange-700">
+                  <el-icon class="shrink-0 text-sm"><Trophy /></el-icon>
+                  <span class="truncate" :title="match.tournament_name">{{ match.tournament_name }}</span>
+                </div>
+                <h3 class="line-clamp-1 text-base font-black leading-snug text-slate-900" :title="match.match_name">
+                  {{ match.match_name }}
+                </h3>
               </div>
-              <div v-if="props.canEdit || props.canDelete" class="flex items-center gap-2" @click.stop>
-                <el-button v-if="props.canEdit" plain round size="small" class="!font-bold !border-gray-300" @click.stop="emit('edit', match.id)">
-                  <el-icon class="mr-1"><Operation /></el-icon> 編輯
-                </el-button>
-                <el-button v-if="props.canDelete" plain round size="small" type="danger" class="!font-bold" @click.stop="emit('delete', match.id)">
-                  <el-icon class="mr-1"><Delete /></el-icon> 刪除
-                </el-button>
+
+              <div v-if="props.canEdit || props.canDelete" class="flex shrink-0 items-center gap-1" @click.stop>
+                <el-tooltip v-if="props.canEdit" content="編輯" placement="top">
+                  <el-button circle size="small" class="!border-slate-200 !bg-white/80 !text-slate-500 hover:!border-primary/40 hover:!text-primary" @click.stop="emit('edit', match.id)">
+                    <el-icon><Operation /></el-icon>
+                  </el-button>
+                </el-tooltip>
+                <el-tooltip v-if="props.canDelete" content="刪除" placement="top">
+                  <el-button circle size="small" class="!border-slate-200 !bg-white/80 !text-slate-500 hover:!border-rose-200 hover:!text-rose-500" @click.stop="emit('delete', match.id)">
+                    <el-icon><Delete /></el-icon>
+                  </el-button>
+                </el-tooltip>
               </div>
             </div>
 
-            <h3 class="font-extrabold text-base text-gray-800 line-clamp-1 mb-1">{{ match.match_name }}</h3>
-            <div class="flex items-center text-xs text-gray-500 mb-5 line-clamp-1">
-              <el-icon class="mr-1"><Location /></el-icon>
-              {{ match.location || '未設定地點' }}
+            <div class="flex flex-wrap gap-1.5">
+              <span v-if="match.category_group" class="rounded-md border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-[10px] font-black text-indigo-700">{{ match.category_group }}</span>
+              <span v-if="match.match_level" class="rounded-md border border-orange-200 bg-orange-100/80 px-2 py-0.5 text-[10px] font-black text-orange-800">{{ match.match_level }}</span>
             </div>
 
-            <div class="bg-gray-50/80 rounded-xl p-3 flex items-center justify-between border border-gray-100">
-              <div class="flex flex-col items-center flex-1">
-                <span class="text-xs text-gray-400 font-bold mb-1">主隊</span>
-                <span class="font-extrabold text-sm text-gray-800 line-clamp-1">中港熊戰</span>
-                <span class="text-2xl font-black mt-1" :class="{'text-primary': match.home_score > match.opponent_score, 'text-gray-800': match.home_score <= match.opponent_score}">
+            <a
+              v-if="match.location"
+              :href="getGoogleMapsUrl(match.location)"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="flex min-w-0 items-center gap-1.5 rounded-md border border-slate-200 bg-white/70 px-2.5 py-1.5 text-xs font-bold text-slate-700 transition-colors hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700"
+              :title="match.location"
+              @click.stop
+            >
+              <el-icon class="shrink-0 text-sm text-sky-600"><Location /></el-icon>
+              <span class="truncate">{{ match.location }}</span>
+            </a>
+            <div v-else class="flex items-center gap-1.5 rounded-md border border-dashed border-slate-200 bg-white/50 px-2.5 py-1.5 text-xs font-bold text-slate-400">
+              <el-icon class="text-sm"><Location /></el-icon>
+              <span>未設定地點</span>
+            </div>
+
+            <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-md border border-slate-200 bg-white/75 px-3 py-2.5">
+              <div class="min-w-0 text-center">
+                <span class="block text-[10px] font-black uppercase tracking-normal text-slate-400">本隊</span>
+                <span class="mt-0.5 block truncate text-xs font-extrabold text-slate-700">中港熊戰</span>
+                <span class="mt-1 block text-2xl font-black leading-none" :class="{'text-primary': match.home_score > match.opponent_score, 'text-slate-800': match.home_score <= match.opponent_score}">
                   {{ isFuture(match.match_date) ? '-' : match.home_score }}
                 </span>
               </div>
 
-              <div class="w-8 h-8 rounded-full bg-white shadow-sm border border-gray-200 flex items-center justify-center text-[10px] font-black italic text-gray-300 mx-2 shrink-0">
+              <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-900 text-[10px] font-black italic text-white shadow-sm">
                 VS
               </div>
 
-              <div class="flex flex-col items-center flex-1">
-                <span class="text-xs text-gray-400 font-bold mb-1">客隊</span>
-                <span class="font-extrabold text-sm text-gray-800 line-clamp-1" :title="match.opponent">{{ match.opponent }}</span>
-                <span class="text-2xl font-black mt-1" :class="{'text-red-500': match.opponent_score > match.home_score, 'text-gray-800': match.opponent_score <= match.home_score}">
+              <div class="min-w-0 text-center">
+                <span class="block text-[10px] font-black uppercase tracking-normal text-slate-400">對手</span>
+                <span class="mt-0.5 block truncate text-xs font-extrabold text-slate-700" :title="match.opponent">{{ match.opponent }}</span>
+                <span class="mt-1 block text-2xl font-black leading-none" :class="{'text-rose-500': match.opponent_score > match.home_score, 'text-slate-800': match.opponent_score <= match.home_score}">
                   {{ isFuture(match.match_date) ? '-' : match.opponent_score }}
                 </span>
               </div>
             </div>
 
-            <div class="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between text-xs text-gray-400">
-              <span>點卡片查看詳情</span>
-              <span class="font-semibold text-gray-500">{{ match.match_date ? dayjs(match.match_date).format('YYYY/MM/DD') : '未設定日期' }}</span>
+            <div class="flex items-center justify-between border-t border-slate-200 pt-2 text-[11px] font-bold text-slate-500">
+              <span>比賽日期</span>
+              <span class="text-slate-700">{{ formatMatchDate(match.match_date) }}</span>
             </div>
           </div>
-        </div>
+        </article>
       </div>
     </div>
   </div>
