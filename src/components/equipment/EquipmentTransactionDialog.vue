@@ -47,10 +47,37 @@ const typeOptions: Array<{ value: EquipmentTransactionType; label: string; helpe
 
 const currentType = computed(() => typeOptions.find((option) => option.value === form.transaction_type))
 const sizeOptions = computed(() => props.equipment?.sizes_stock?.filter((item) => item.size) || [])
+const requiresSize = computed(() => sizeOptions.value.length > 0)
+const requiresMember = computed(() => form.transaction_type === 'purchase')
+const normalizeSize = (value?: string | null) => String(value || '').trim()
 
 const rules = {
   transaction_type: [{ required: true, message: '請選擇交易類型', trigger: 'change' }],
   transaction_date: [{ required: true, message: '請選擇日期', trigger: 'change' }],
+  member_id: [
+    {
+      validator: (_rule: unknown, value: string | null, callback: (error?: Error) => void) => {
+        if (requiresMember.value && !value) {
+          callback(new Error('請選擇付款歸屬成員'))
+          return
+        }
+        callback()
+      },
+      trigger: ['blur', 'change']
+    }
+  ],
+  size: [
+    {
+      validator: (_rule: unknown, value: string | null, callback: (error?: Error) => void) => {
+        if (requiresSize.value && !normalizeSize(value)) {
+          callback(new Error('請選擇尺寸或序號'))
+          return
+        }
+        callback()
+      },
+      trigger: ['blur', 'change']
+    }
+  ],
   quantity: [
     {
       validator: (_rule: unknown, value: number, callback: (error?: Error) => void) => {
@@ -72,7 +99,7 @@ const resetForm = async () => {
   form.transaction_date = dayjs().format('YYYY-MM-DD')
   form.member_id = null
   form.handled_by = ''
-  form.size = null
+  form.size = sizeOptions.value.length === 1 ? sizeOptions.value[0].size : null
   form.quantity = 1
   form.notes = ''
   form.unit_price = nextType === 'purchase' ? Number(props.equipment?.purchase_price || 0) : null
@@ -96,6 +123,7 @@ const submit = async () => {
         ...form,
         equipment_id: equipment.id,
         handled_by: form.handled_by?.trim() || null,
+        size: normalizeSize(form.size) || null,
         notes: form.notes?.trim() || null,
         unit_price: form.transaction_type === 'purchase'
           ? Number(form.unit_price ?? equipment.purchase_price ?? 0)
@@ -122,6 +150,7 @@ watch(() => form.transaction_type, (type) => {
   } else {
     form.unit_price = null
   }
+  formRef.value?.clearValidate?.(['member_id'])
 })
 </script>
 
@@ -159,8 +188,19 @@ watch(() => form.transaction_type, (type) => {
           />
         </el-form-item>
 
-        <el-form-item label="成員" prop="member_id" class="font-bold">
-          <el-select v-model="form.member_id" class="w-full" size="large" clearable filterable placeholder="請選擇成員">
+        <el-form-item
+          :label="form.transaction_type === 'purchase' ? '付款歸屬成員' : '成員'"
+          prop="member_id"
+          class="font-bold"
+        >
+          <el-select
+            v-model="form.member_id"
+            class="w-full"
+            size="large"
+            clearable
+            filterable
+            :placeholder="form.transaction_type === 'purchase' ? '請選擇付款歸屬成員' : '請選擇成員'"
+          >
             <el-option
               v-for="member in equipmentStore.members"
               :key="member.id"
@@ -168,6 +208,9 @@ watch(() => form.transaction_type, (type) => {
               :value="member.id"
             />
           </el-select>
+          <p v-if="form.transaction_type === 'purchase'" class="mt-2 text-xs text-gray-400">
+            這位成員綁定的帳號會看到裝備待付款。
+          </p>
         </el-form-item>
       </div>
 

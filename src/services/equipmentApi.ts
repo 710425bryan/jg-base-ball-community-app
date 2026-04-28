@@ -302,6 +302,10 @@ export const deleteEquipment = async (equipmentId: string) => {
 }
 
 export const createEquipmentTransaction = async (payload: EquipmentTransactionPayload) => {
+  if (payload.transaction_type === 'purchase' && !payload.member_id) {
+    throw new Error('請選擇付款歸屬成員')
+  }
+
   const { data, error } = await supabase
     .from('equipment_transactions')
     .insert({

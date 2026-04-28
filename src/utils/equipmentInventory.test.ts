@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
   getEquipmentMemberAllocationBalances,
+  getEquipmentOverAllocatedSizeQuantity,
   getEquipmentRemainingOverallQuantity,
   getEquipmentRemainingSizeQuantity,
+  getEquipmentSizeInventoryList,
+  getEquipmentUnassignedAllocatedQuantity,
   isEquipmentSerialNumberAvailable
 } from './equipmentInventory'
-import type { Equipment } from '@/types/equipment'
+import type { Equipment, EquipmentTransaction } from '@/types/equipment'
 
 const createEquipment = (overrides: Partial<Equipment> = {}): Equipment => ({
   id: 'equipment-1',
@@ -29,6 +32,28 @@ const createEquipment = (overrides: Partial<Equipment> = {}): Equipment => ({
   ...overrides
 })
 
+const createTransaction = (overrides: Partial<EquipmentTransaction>): EquipmentTransaction => ({
+  id: 'transaction-1',
+  equipment_id: 'equipment-1',
+  transaction_type: 'purchase',
+  transaction_date: '2026-04-01',
+  member_id: 'm1',
+  handled_by: null,
+  size: null,
+  quantity: 1,
+  notes: null,
+  unit_price: null,
+  request_item_id: null,
+  carryover_month: null,
+  payment_status: 'unpaid',
+  payment_submission_id: null,
+  paid_at: null,
+  paid_by: null,
+  created_at: '',
+  updated_at: '',
+  ...overrides
+})
+
 describe('equipmentInventory', () => {
   it('deducts outgoing transactions and replenishes returns', () => {
     const equipment = createEquipment({
@@ -40,6 +65,54 @@ describe('equipmentInventory', () => {
 
     expect(getEquipmentRemainingOverallQuantity(equipment)).toBe(9)
     expect(getEquipmentRemainingSizeQuantity(equipment, 'M')).toBe(4)
+  })
+
+  it('keeps size availability within total availability when old transactions have no size', () => {
+    const equipment = createEquipment({
+      total_quantity: 85,
+      sizes_stock: [
+        { size: '15-17CM', quantity: 17 },
+        { size: '17-20CM', quantity: 60 },
+        { size: '22-26CM', quantity: 8 }
+      ],
+      equipment_transactions: [
+        createTransaction({ id: 't1', size: '15-17CM', quantity: 17 }),
+        createTransaction({ id: 't2', size: '17-20CM', quantity: 23 }),
+        createTransaction({ id: 't3', size: '22-26CM', quantity: 8 }),
+        createTransaction({ id: 't4', size: null, quantity: 3 })
+      ]
+    })
+
+    const sizeInventory = getEquipmentSizeInventoryList(equipment)
+
+    expect(getEquipmentRemainingOverallQuantity(equipment)).toBe(34)
+    expect(getEquipmentUnassignedAllocatedQuantity(equipment)).toBe(3)
+    expect(sizeInventory.find((item) => item.size === '17-20CM')?.remaining).toBe(34)
+    expect(sizeInventory.reduce((total, item) => total + item.remaining, 0)).toBe(34)
+  })
+
+  it('keeps size availability within total availability when a size is over-reserved', () => {
+    const equipment = createEquipment({
+      total_quantity: 85,
+      sizes_stock: [
+        { size: '15-17CM', quantity: 17 },
+        { size: '17-20CM', quantity: 60 },
+        { size: '22-26CM', quantity: 8 }
+      ],
+      reserved_request_items: [
+        { id: 'r1', request_id: 'request-1', equipment_id: 'equipment-1', size: '15-17CM', quantity: 17, unit_price_snapshot: 150 },
+        { id: 'r2', request_id: 'request-1', equipment_id: 'equipment-1', size: '17-20CM', quantity: 23, unit_price_snapshot: 150 },
+        { id: 'r3', request_id: 'request-1', equipment_id: 'equipment-1', size: '22-26CM', quantity: 11, unit_price_snapshot: 150 }
+      ]
+    })
+
+    const sizeInventory = getEquipmentSizeInventoryList(equipment)
+
+    expect(getEquipmentRemainingOverallQuantity(equipment)).toBe(34)
+    expect(getEquipmentUnassignedAllocatedQuantity(equipment)).toBe(0)
+    expect(getEquipmentOverAllocatedSizeQuantity(equipment)).toBe(3)
+    expect(sizeInventory.find((item) => item.size === '17-20CM')?.remaining).toBe(34)
+    expect(sizeInventory.reduce((total, item) => total + item.remaining, 0)).toBe(34)
   })
 
   it('counts reserved request items before pickup', () => {

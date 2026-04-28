@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import { Calendar, Location, Refresh, UserFilled } from '@element-plus/icons-vue'
 import type { MyHomeSnapshot, MyHomeTodoItem } from '@/types/myHome'
 import {
@@ -27,6 +27,7 @@ const emit = defineEmits<{
   refresh: []
 }>()
 
+const router = useRouter()
 const members = computed(() => props.snapshot.members)
 const selectedMember = computed(() => getSelectedMyHomeMember(members.value, props.selectedMemberId))
 const selectedLeave = computed(() => getMyHomeMemberLeave(props.snapshot, selectedMember.value?.id))
@@ -72,6 +73,11 @@ const getTodoClass = (todo: MyHomeTodoItem) => {
 
 const handleMemberChange = (value: string) => {
   emit('update:selectedMemberId', value)
+}
+
+const navigateToTodo = (todo: MyHomeTodoItem) => {
+  if (!todo.route) return
+  void router.push(todo.route)
 }
 </script>
 
@@ -219,13 +225,14 @@ const handleMemberChange = (value: string) => {
             >
               <div class="font-black">{{ todo.title }}</div>
               <p class="mt-1 text-sm font-semibold leading-6 opacity-80">{{ todo.body }}</p>
-              <RouterLink
+              <button
                 v-if="todo.route"
-                :to="todo.route"
-                class="mt-3 inline-flex min-h-10 items-center justify-center rounded-xl bg-white/80 px-3 text-xs font-black text-slate-800 transition-colors hover:bg-white"
+                type="button"
+                class="mt-3 inline-flex min-h-11 w-full touch-manipulation select-none items-center justify-center rounded-xl bg-white/80 px-4 text-sm font-black text-slate-800 transition-colors hover:bg-white sm:w-auto"
+                @click.stop="navigateToTodo(todo)"
               >
                 {{ todo.actionLabel }}
-              </RouterLink>
+              </button>
             </article>
           </div>
 

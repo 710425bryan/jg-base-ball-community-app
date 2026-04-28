@@ -62,6 +62,93 @@ const getReservedRequestQuantity = (
   }, 0)
 }
 
+const getEquipmentTotalAllocatedQuantity = (
+  equipment: Partial<Equipment> | null | undefined
+) => {
+  const transactions = Array.isArray(equipment?.equipment_transactions)
+    ? equipment?.equipment_transactions || []
+    : []
+  const reservedRequestItems = Array.isArray(equipment?.reserved_request_items)
+    ? equipment?.reserved_request_items || []
+    : []
+
+  return getEquipmentNetAllocatedQuantity(transactions) + getReservedRequestQuantity(reservedRequestItems)
+}
+
+const getSizeAllocatedQuantity = (
+  equipment: Partial<Equipment> | null | undefined,
+  size: string
+) => {
+  const transactions = Array.isArray(equipment?.equipment_transactions)
+    ? equipment?.equipment_transactions || []
+    : []
+  const reservedRequestItems = Array.isArray(equipment?.reserved_request_items)
+    ? equipment?.reserved_request_items || []
+    : []
+
+  return Math.max(
+    0,
+    getEquipmentNetAllocatedQuantity(transactions, { size })
+      + getReservedRequestQuantity(reservedRequestItems, { size })
+  )
+}
+
+const getEquipmentSizeTotalQuantity = (equipment: Partial<Equipment> | null | undefined) => {
+  const sizes = Array.isArray(equipment?.sizes_stock) ? equipment?.sizes_stock || [] : []
+  return sizes.reduce((total, sizeObj) => total + Math.max(0, normalizeNumber(sizeObj?.quantity)), 0)
+}
+
+const getEquipmentAssignedAllocatedQuantity = (
+  equipment: Partial<Equipment> | null | undefined,
+  options: { capBySizeStock?: boolean } = {}
+) => {
+  const sizes = Array.isArray(equipment?.sizes_stock) ? equipment?.sizes_stock || [] : []
+
+  return sizes.reduce((total, sizeObj) => {
+    const sizeKey = sizeObj?.size || ''
+    if (!sizeKey) return total
+
+    const sizeTotal = Math.max(0, normalizeNumber(sizeObj?.quantity))
+    const allocated = getSizeAllocatedQuantity(equipment, sizeKey)
+    return total + (options.capBySizeStock ? Math.min(sizeTotal, allocated) : allocated)
+  }, 0)
+}
+
+export const getEquipmentUnassignedAllocatedQuantity = (
+  equipment: Partial<Equipment> | null | undefined
+) => {
+  const allocatedQuantity = getEquipmentTotalAllocatedQuantity(equipment)
+  const assignedQuantity = getEquipmentAssignedAllocatedQuantity(equipment)
+
+  return Math.max(0, allocatedQuantity - assignedQuantity)
+}
+
+export const getEquipmentOverAllocatedSizeQuantity = (
+  equipment: Partial<Equipment> | null | undefined
+) => {
+  const sizes = Array.isArray(equipment?.sizes_stock) ? equipment?.sizes_stock || [] : []
+
+  return sizes.reduce((total, sizeObj) => {
+    const sizeKey = sizeObj?.size || ''
+    if (!sizeKey) return total
+
+    const sizeTotal = Math.max(0, normalizeNumber(sizeObj?.quantity))
+    const allocated = getSizeAllocatedQuantity(equipment, sizeKey)
+    return total + Math.max(0, allocated - sizeTotal)
+  }, 0)
+}
+
+const getEquipmentUnrepresentedAllocatedQuantity = (
+  equipment: Partial<Equipment> | null | undefined
+) => {
+  const totalQuantity = Math.max(0, normalizeNumber(equipment?.total_quantity))
+  const spareQuantityWithoutSize = Math.max(0, totalQuantity - getEquipmentSizeTotalQuantity(equipment))
+  const unrepresentedAllocatedQuantity = getEquipmentTotalAllocatedQuantity(equipment)
+    - getEquipmentAssignedAllocatedQuantity(equipment, { capBySizeStock: true })
+
+  return Math.max(0, unrepresentedAllocatedQuantity - spareQuantityWithoutSize)
+}
+
 export const getEquipmentRemainingOverallQuantity = (equipment: Partial<Equipment> | null | undefined) => {
   const totalQuantity = Math.max(0, normalizeNumber(equipment?.total_quantity))
   const allocatedQuantity = getEquipmentNetAllocatedQuantity(equipment?.equipment_transactions || [])
@@ -81,6 +168,7 @@ export const getEquipmentSizeInventoryList = (
   const reservedRequestItems = Array.isArray(equipment?.reserved_request_items)
     ? equipment?.reserved_request_items || []
     : []
+  let unrepresentedAllocatedQuantity = getEquipmentUnrepresentedAllocatedQuantity(equipment)
 
   return sizes.map((sizeObj) => {
     const sizeKey = sizeObj?.size || ''
@@ -90,13 +178,17 @@ export const getEquipmentSizeInventoryList = (
     const memberUsed = memberId
       ? getEquipmentNetAllocatedQuantity(transactions, { size: sizeKey, memberId })
       : 0
+    const rawRemaining = clamp(total - used - reserved, 0, total)
+    const unrepresentedUsed = Math.min(rawRemaining, unrepresentedAllocatedQuantity)
+    unrepresentedAllocatedQuantity -= unrepresentedUsed
 
     return {
       size: sizeKey,
       total,
       used: Math.max(0, used),
       reserved: Math.max(0, reserved),
-      remaining: clamp(total - used - reserved, 0, total),
+      unrepresentedUsed,
+      remaining: rawRemaining - unrepresentedUsed,
       memberUsed: Math.max(0, memberUsed)
     }
   })

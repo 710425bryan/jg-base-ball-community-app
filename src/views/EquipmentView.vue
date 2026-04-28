@@ -20,8 +20,10 @@ import { useEquipmentStore } from '@/stores/equipment'
 import { usePermissionsStore } from '@/stores/permissions'
 import type { Equipment, EquipmentTransactionType } from '@/types/equipment'
 import {
+  getEquipmentOverAllocatedSizeQuantity,
   getEquipmentRemainingOverallQuantity,
-  getEquipmentSizeInventoryList
+  getEquipmentSizeInventoryList,
+  getEquipmentUnassignedAllocatedQuantity
 } from '@/utils/equipmentInventory'
 
 const equipmentStore = useEquipmentStore()
@@ -342,6 +344,18 @@ onMounted(() => {
                 >
                   {{ size.size }}：{{ size.remaining }}/{{ size.total }}
                 </span>
+                <span
+                  v-if="getEquipmentUnassignedAllocatedQuantity(equipment) > 0"
+                  class="rounded-full border border-amber-100 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700"
+                >
+                  未指定尺寸扣除 {{ getEquipmentUnassignedAllocatedQuantity(equipment) }}
+                </span>
+                <span
+                  v-if="getEquipmentOverAllocatedSizeQuantity(equipment) > 0"
+                  class="rounded-full border border-amber-100 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700"
+                >
+                  尺寸超量扣除 {{ getEquipmentOverAllocatedSizeQuantity(equipment) }}
+                </span>
               </div>
 
               <p v-if="equipment.specs || equipment.notes" class="mt-4 line-clamp-2 text-sm leading-relaxed text-gray-500">
@@ -443,7 +457,15 @@ onMounted(() => {
                   <td class="px-5 py-4 font-black text-primary">{{ formatCurrency(equipment.purchase_price) }}</td>
                   <td class="px-5 py-4 text-sm text-gray-500">
                     <span v-if="getEquipmentSizeInventoryList(equipment).length === 0">-</span>
-                    <span v-else>{{ getEquipmentSizeInventoryList(equipment).map((size) => `${size.size}:${size.remaining}`).join('、') }}</span>
+                    <span v-else>
+                      {{ getEquipmentSizeInventoryList(equipment).map((size) => `${size.size}:${size.remaining}`).join('、') }}
+                      <span v-if="getEquipmentUnassignedAllocatedQuantity(equipment) > 0" class="font-bold text-amber-600">
+                        ｜未指定尺寸扣除 {{ getEquipmentUnassignedAllocatedQuantity(equipment) }}
+                      </span>
+                      <span v-if="getEquipmentOverAllocatedSizeQuantity(equipment) > 0" class="font-bold text-amber-600">
+                        ｜尺寸超量扣除 {{ getEquipmentOverAllocatedSizeQuantity(equipment) }}
+                      </span>
+                    </span>
                   </td>
                   <td class="px-5 py-4">
                     <div class="flex justify-end gap-2">

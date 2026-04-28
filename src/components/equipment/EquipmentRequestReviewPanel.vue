@@ -4,6 +4,7 @@ import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading, Refresh } from '@element-plus/icons-vue'
 import { useRoute } from 'vue-router'
+import { useEquipmentStore } from '@/stores/equipment'
 import { useEquipmentRequestsStore } from '@/stores/equipmentRequests'
 import { usePermissionsStore } from '@/stores/permissions'
 import { deleteEquipmentPurchaseRequestWithRollback } from '@/services/equipmentApi'
@@ -20,6 +21,7 @@ import { buildPushEventKey, dispatchPushNotification } from '@/utils/pushNotific
 import EquipmentRequestActionDialog from './EquipmentRequestActionDialog.vue'
 
 const route = useRoute()
+const equipmentStore = useEquipmentStore()
 const requestStore = useEquipmentRequestsStore()
 const permissionsStore = usePermissionsStore()
 const processingIds = ref(new Set<string>())
@@ -58,7 +60,7 @@ const actionDialogConfirmText = computed(() =>
   actionDialog.value.mode === 'ready' ? '標記可領取' : '完成領取'
 )
 
-const canDeleteHistory = computed(() =>
+const canDeleteRequest = computed(() =>
   permissionsStore.can('fees', 'DELETE') || permissionsStore.can('equipment', 'DELETE')
 )
 
@@ -201,15 +203,19 @@ const reject = async (request: EquipmentPurchaseRequest) => {
   }
 }
 
-const deleteHistoryRequest = async (request: EquipmentPurchaseRequest) => {
+const deleteRequest = async (request: EquipmentPurchaseRequest) => {
   const isPickedUp = request.status === EQUIPMENT_REQUEST_STATUS.PICKED_UP
+  const restoresReservedStock = request.status === EQUIPMENT_REQUEST_STATUS.APPROVED
+    || request.status === EQUIPMENT_REQUEST_STATUS.READY_FOR_PICKUP
 
   try {
     await ElMessageBox.confirm(
       isPickedUp
         ? '刪除後會一併移除這筆請購產生的裝備購買交易，裝備庫存數量會回補。已有付款回報或已確認付款的紀錄不可直接刪除。'
-        : '確定要刪除這筆裝備請購歷史紀錄嗎？',
-      '刪除歷史紀錄',
+        : restoresReservedStock
+          ? '刪除後會移除這筆請購預留數量，裝備可用庫存會回補。確定要刪除嗎？'
+          : '確定要刪除這筆裝備請購紀錄嗎？',
+      '刪除裝備請購',
       {
         confirmButtonText: '刪除',
         cancelButtonText: '取消',
@@ -220,11 +226,18 @@ const deleteHistoryRequest = async (request: EquipmentPurchaseRequest) => {
 
     setProcessing(request.id, true)
     await deleteEquipmentPurchaseRequestWithRollback(request.id)
-    await requestStore.loadReviewRequests()
-    ElMessage.success(isPickedUp ? '已刪除歷史紀錄並回補裝備庫存' : '已刪除歷史紀錄')
+    await Promise.all([
+      requestStore.loadReviewRequests(),
+      equipmentStore.loadEquipments()
+    ])
+    ElMessage.success(
+      isPickedUp || restoresReservedStock
+        ? '已刪除請購並回補裝備庫存'
+        : '已刪除裝備請購紀錄'
+    )
   } catch (error: any) {
     if (error !== 'cancel' && error !== 'close') {
-      ElMessage.error(error?.message || '刪除歷史紀錄失敗')
+      ElMessage.error(error?.message || '刪除裝備請購失敗')
     }
   } finally {
     setProcessing(request.id, false)
@@ -323,6 +336,15 @@ watch(() => route.query.highlight_id, () => {
 
               <div class="mt-4 flex flex-wrap justify-end gap-2">
                 <button
+                  v-if="canDeleteRequest"
+                  type="button"
+                  class="rounded-xl border border-red-100 bg-white px-4 py-2 text-sm font-bold text-red-500 hover:bg-red-50 transition-colors disabled:opacity-70"
+                  :disabled="processingIds.has(request.id)"
+                  @click="deleteRequest(request)"
+                >
+                  刪除
+                </button>
+                <button
                   type="button"
                   class="rounded-xl border border-red-100 bg-red-50 px-4 py-2 text-sm font-bold text-red-500 hover:bg-red-100 transition-colors disabled:opacity-70"
                   :disabled="processingIds.has(request.id)"
@@ -386,6 +408,15 @@ watch(() => route.query.highlight_id, () => {
 
               <div class="mt-4 flex flex-wrap justify-end gap-2">
                 <button
+                  v-if="canDeleteRequest"
+                  type="button"
+                  class="rounded-xl border border-red-100 bg-white px-4 py-2 text-sm font-bold text-red-500 hover:bg-red-50 transition-colors disabled:opacity-70"
+                  :disabled="processingIds.has(request.id)"
+                  @click="deleteRequest(request)"
+                >
+                  刪除
+                </button>
+                <button
                   v-if="request.status === EQUIPMENT_REQUEST_STATUS.APPROVED"
                   type="button"
                   class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 transition-colors disabled:opacity-70"
@@ -436,11 +467,11 @@ watch(() => route.query.highlight_id, () => {
             <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
               <p class="text-sm font-bold text-primary">{{ formatCurrency(getRequestTotal(request)) }}</p>
               <button
-                v-if="canDeleteHistory"
+                v-if="canDeleteRequest"
                 type="button"
                 class="rounded-xl border border-red-100 bg-red-50 px-4 py-2 text-sm font-bold text-red-500 hover:bg-red-100 transition-colors disabled:opacity-70"
                 :disabled="processingIds.has(request.id)"
-                @click="deleteHistoryRequest(request)"
+                @click="deleteRequest(request)"
               >
                 刪除
               </button>
