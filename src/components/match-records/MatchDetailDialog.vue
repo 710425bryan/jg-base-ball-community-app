@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, watch } from 'vue'
 import { Trophy, Location, Calendar, Position, Avatar, WarnTriangleFilled, ArrowLeft, ArrowRight, Delete, Edit, Document, Timer, DataAnalysis } from '@element-plus/icons-vue'
 import { useMatchesStore } from '@/stores/matches'
 import type { MatchRecord } from '@/types/match'
@@ -30,6 +30,18 @@ const matchData = computed(() => {
   if (!props.matchId) return null
   return matchesStore.matches.find(m => m.id === props.matchId) || null
 })
+
+watch(
+  () => [visible.value, props.matchId] as const,
+  ([isVisible, matchId]) => {
+    if (!isVisible || !matchId) return
+    void matchesStore.fetchMatch(matchId).catch((error) => {
+      console.error('Unable to load match detail:', error)
+      ElMessage.error('載入比賽詳情失敗，請稍後再試')
+    })
+  },
+  { immediate: true }
+)
 
 const activeDetailLineup = computed(() => {
   const currentLineup = matchData.value?.current_lineup || []

@@ -440,7 +440,7 @@ const handleNotificationClick = (link: string | undefined) => {
 };
 
 const handleNotificationBellClick = () => {
-  void loadNotificationFeedSafely(true);
+  void loadNotificationFeedSafely(true, { includeFeeReminders: true });
 };
 
 const translateRole = (role: string | undefined) => {
@@ -732,9 +732,16 @@ type IdleCapableWindow = Window & typeof globalThis & {
 let notificationIdleHandle: number | null = null;
 let notificationDelayHandle: number | null = null;
 
-const loadNotificationFeedSafely = async (force = false) => {
+const loadNotificationFeedSafely = async (
+  force = false,
+  options: { includeFeeReminders?: boolean } = {}
+) => {
   try {
-    await loadNotificationFeed(10, { force });
+    await loadNotificationFeed(10, {
+      force,
+      includeFeeReminders: Boolean(options.includeFeeReminders),
+      staleMs: force ? 30_000 : 60_000
+    });
   } catch (error) {
     console.error('Error fetching notification feed:', error);
   }
@@ -891,7 +898,10 @@ const buildRealtimeQuarterlyFeeBufferKey = (record: any) => JSON.stringify({
   otherItemNote: record.other_item_note || ''
 })
 
-const fetchNotificationFeedLegacy = async (limit: number): Promise<NotificationFeedRow[]> => {
+const fetchNotificationFeedLegacy = async (
+  limit: number,
+  options: { includeFeeReminders?: boolean } = {}
+): Promise<NotificationFeedRow[]> => {
   const role = authStore.profile?.role
   if (!role) return []
 
@@ -936,7 +946,7 @@ const fetchNotificationFeedLegacy = async (limit: number): Promise<NotificationF
     )
   }
 
-  if (permissionsStore.can('fees', 'VIEW')) {
+  if (options.includeFeeReminders && permissionsStore.can('fees', 'VIEW')) {
     promises.push(
       supabase.from('quarterly_fees')
         .select('id, member_id, member_ids, year_quarter, payment_method, amount, created_at, status, remittance_date, account_last_5, payment_items, other_item_note')

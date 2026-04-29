@@ -32,6 +32,31 @@ const normalizeNumber = (value: unknown, fallback = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
+const EQUIPMENT_SELECT = `
+  id,
+  name,
+  category,
+  specs,
+  notes,
+  image_url,
+  purchase_price,
+  quick_purchase_enabled,
+  total_quantity,
+  purchased_by,
+  sizes_stock,
+  created_at,
+  updated_at
+`
+
+const EQUIPMENT_INVENTORY_TRANSACTION_SELECT = `
+  id,
+  equipment_id,
+  transaction_type,
+  member_id,
+  size,
+  quantity
+`
+
 const normalizeEquipment = (row: any): Equipment => ({
   ...row,
   purchase_price: normalizeNumber(row?.purchase_price),
@@ -149,6 +174,7 @@ const fetchReservedRequestItems = async (equipmentIds: string[] = []) => {
     .from('equipment_purchase_request_items')
     .select('id, request_id, equipment_id, size, quantity, unit_price_snapshot')
     .in('request_id', requestIds)
+    .is('equipment_transaction_id', null)
 
   if (scopedEquipmentIds.length > 0) {
     query = query.in('equipment_id', scopedEquipmentIds)
@@ -164,48 +190,54 @@ const fetchReservedRequestItems = async (equipmentIds: string[] = []) => {
   return data || []
 }
 
+const groupRowsByEquipmentId = (rows: any[]) => {
+  const grouped = new Map<string, any[]>()
+
+  for (const row of rows) {
+    const equipmentId = String(row.equipment_id || '')
+    if (!equipmentId) continue
+    if (!grouped.has(equipmentId)) grouped.set(equipmentId, [])
+    grouped.get(equipmentId)?.push(row)
+  }
+
+  return grouped
+}
+
+const fetchEquipmentInventoryTransactions = async (equipmentIds: string[] = []) => {
+  const scopedEquipmentIds = unique(equipmentIds)
+  let query = supabase
+    .from('equipment_transactions')
+    .select(EQUIPMENT_INVENTORY_TRANSACTION_SELECT)
+
+  if (scopedEquipmentIds.length > 0) {
+    query = query.in('equipment_id', scopedEquipmentIds)
+  }
+
+  const { data, error } = await query
+  if (error) throw error
+
+  return data || []
+}
+
 export const fetchEquipments = async () => {
   const { data, error } = await supabase
     .from('equipment')
-    .select(`
-      *,
-      equipment_transactions (
-        id,
-        equipment_id,
-        transaction_type,
-        transaction_date,
-        member_id,
-        handled_by,
-        size,
-        quantity,
-        notes,
-        unit_price,
-        request_item_id,
-        carryover_month,
-        payment_status,
-        payment_submission_id,
-        paid_at,
-        paid_by,
-        created_at,
-        updated_at,
-        team_members ( name, role )
-      )
-    `)
+    .select(EQUIPMENT_SELECT)
     .order('created_at', { ascending: false })
 
   if (error) throw error
 
-  const reservedItems = await fetchReservedRequestItems()
-  const reservedByEquipmentId = new Map<string, any[]>()
-  for (const item of reservedItems) {
-    const equipmentId = String(item.equipment_id || '')
-    if (!equipmentId) continue
-    if (!reservedByEquipmentId.has(equipmentId)) reservedByEquipmentId.set(equipmentId, [])
-    reservedByEquipmentId.get(equipmentId)?.push(item)
-  }
+  const equipmentIds = (data || []).map((row: any) => row.id)
+  const [reservedItems, inventoryTransactions] = await Promise.all([
+    fetchReservedRequestItems(equipmentIds),
+    fetchEquipmentInventoryTransactions(equipmentIds)
+  ])
+  const reservedByEquipmentId = groupRowsByEquipmentId(reservedItems)
+  const transactionsByEquipmentId = groupRowsByEquipmentId(inventoryTransactions)
 
   return (data || []).map((row: any) => normalizeEquipment({
     ...row,
+    equipment_transactions: transactionsByEquipmentId.get(String(row.id)) || [],
     reserved_request_items: reservedByEquipmentId.get(String(row.id)) || []
   }))
 }
@@ -366,7 +398,7 @@ export const createEquipment = async (payload: EquipmentFormPayload, imageFile?:
   const { data, error } = await supabase
     .from('equipment')
     .insert({ ...payload, image_url: imageUrl })
-    .select('*')
+    .select(EQUIPMENT_SELECT)
     .single()
 
   if (error) throw error
@@ -383,7 +415,7 @@ export const updateEquipment = async (
     .from('equipment')
     .update({ ...payload, image_url: imageUrl, updated_at: new Date().toISOString() })
     .eq('id', equipmentId)
-    .select('*')
+    .select(EQUIPMENT_SELECT)
     .single()
 
   if (error) throw error
@@ -413,7 +445,26 @@ export const createEquipmentTransaction = async (payload: EquipmentTransactionPa
       notes: payload.notes || null,
       unit_price: payload.unit_price ?? null
     })
-    .select('*')
+    .select(`
+      id,
+      equipment_id,
+      transaction_type,
+      transaction_date,
+      member_id,
+      handled_by,
+      size,
+      quantity,
+      notes,
+      unit_price,
+      request_item_id,
+      carryover_month,
+      payment_status,
+      payment_submission_id,
+      paid_at,
+      paid_by,
+      created_at,
+      updated_at
+    `)
     .single()
 
   if (error) throw error
@@ -519,7 +570,7 @@ const fetchEquipmentsMap = async (equipmentIds: string[]) => {
 
   const { data, error } = await supabase
     .from('equipment')
-    .select('*')
+    .select(EQUIPMENT_SELECT)
     .in('id', ids)
 
   if (error) throw error
@@ -532,46 +583,23 @@ const fetchEquipmentsWithAvailabilityMap = async (equipmentIds: string[]) => {
 
   const { data, error } = await supabase
     .from('equipment')
-    .select(`
-      *,
-      equipment_transactions (
-        id,
-        equipment_id,
-        transaction_type,
-        transaction_date,
-        member_id,
-        handled_by,
-        size,
-        quantity,
-        notes,
-        unit_price,
-        request_item_id,
-        carryover_month,
-        payment_status,
-        payment_submission_id,
-        paid_at,
-        paid_by,
-        created_at,
-        updated_at
-      )
-    `)
+    .select(EQUIPMENT_SELECT)
     .in('id', ids)
 
   if (error) throw error
 
-  const reservedItems = await fetchReservedRequestItems(ids)
-  const reservedByEquipmentId = new Map<string, any[]>()
-  for (const item of reservedItems) {
-    const equipmentId = String(item.equipment_id || '')
-    if (!equipmentId) continue
-    if (!reservedByEquipmentId.has(equipmentId)) reservedByEquipmentId.set(equipmentId, [])
-    reservedByEquipmentId.get(equipmentId)?.push(item)
-  }
+  const [reservedItems, inventoryTransactions] = await Promise.all([
+    fetchReservedRequestItems(ids),
+    fetchEquipmentInventoryTransactions(ids)
+  ])
+  const reservedByEquipmentId = groupRowsByEquipmentId(reservedItems)
+  const transactionsByEquipmentId = groupRowsByEquipmentId(inventoryTransactions)
 
   return new Map((data || []).map((equipment: any) => [
     String(equipment.id),
     normalizeEquipment({
       ...equipment,
+      equipment_transactions: transactionsByEquipmentId.get(String(equipment.id)) || [],
       reserved_request_items: reservedByEquipmentId.get(String(equipment.id)) || []
     })
   ]))
@@ -583,7 +611,26 @@ const fetchRequestTransactionsMap = async (transactionIds: string[]) => {
 
   const { data, error } = await supabase
     .from('equipment_transactions')
-    .select('*')
+    .select(`
+      id,
+      equipment_id,
+      transaction_type,
+      transaction_date,
+      member_id,
+      handled_by,
+      size,
+      quantity,
+      notes,
+      unit_price,
+      request_item_id,
+      carryover_month,
+      payment_status,
+      payment_submission_id,
+      paid_at,
+      paid_by,
+      created_at,
+      updated_at
+    `)
     .in('id', ids)
 
   if (error) throw error

@@ -165,7 +165,7 @@ const initForm = async () => {
   currentLineupMode.value = 'synced'
   if (props.mode === 'edit' && props.matchId) {
     audioDraftScopeId.value = props.matchId
-    const data = await matchesStore.matches.find(m => m.id === props.matchId)
+    const data = await matchesStore.fetchMatch(props.matchId)
     if (data) {
       currentLineupMode.value = data.current_lineup?.length ? 'manual' : 'synced'
       // deep clone array fields

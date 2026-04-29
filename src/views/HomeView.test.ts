@@ -254,8 +254,9 @@ const mountHomeView = async ({
     action: 'VIEW'
   }))
 
-  vi.spyOn(matchesStore, 'fetchMatches').mockImplementation(async () => {
+  vi.spyOn(matchesStore, 'fetchDashboardMatches').mockImplementation(async () => {
     matchesStore.matches = matches as any
+    return matches as any
   })
 
   teamMembersInMock.mockResolvedValue({
@@ -370,16 +371,16 @@ describe('HomeView dashboard redesign', () => {
     expect(wrapper.text()).not.toContain('戰績表')
   })
 
-  it('hides match sections when the user has no matches permission', async () => {
+  it('keeps the dashboard match sections available to authenticated users', async () => {
     const { wrapper } = await mountHomeView({
       role: 'MANAGER',
       permissions: ['announcements'],
       matches: []
     })
 
-    expect(wrapper.find('[data-test="upcoming-section"]').exists()).toBe(false)
-    expect(wrapper.find('[data-test="recent-section"]').exists()).toBe(false)
-    expect(wrapper.find('[data-test="hero-action-panel"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="upcoming-section"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="recent-section"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="hero-action-panel"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="hero-match-info"]').exists()).toBe(false)
   })
 

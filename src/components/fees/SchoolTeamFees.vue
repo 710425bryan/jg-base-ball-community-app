@@ -617,7 +617,7 @@ const calculateFees = async () => {
     // 撈取資料庫中已寫入的 monthly_fees 紀錄
     const { data: existingFees, error: existingErr } = await supabase
       .from('monthly_fees')
-      .select('*')
+      .select('id, member_id, year_month, total_sessions, leave_sessions, per_session_fee, payable_amount, deduction_amount, status, created_at, updated_at')
       .eq('year_month', selectedMonth.value)
     if (existingErr) throw existingErr
 
@@ -796,20 +796,19 @@ const fetchRemittances = async (schoolTeamMembers: any[]) => {
     const stIds = schoolTeamMembers.map(m => m.id)
     if (stIds.length === 0) return
 
-    // 撈取近期 30 筆最新表單資料就好，這區塊只作為提示使用
+    const nextMonthStart = dayjs(selectedMonth.value).add(1, 'month').startOf('month').format('YYYY-MM-DD')
+    const nextMonthEnd = dayjs(selectedMonth.value).add(2, 'month').startOf('month').format('YYYY-MM-DD')
+
     const { data, error } = await supabase
       .from('quarterly_fees')
-      .select('*')
+      .select('id, member_id, member_ids, year_quarter, payment_method, amount, created_at, updated_at, status, remittance_date, account_last_5, payment_items, other_item_note')
+      .or(`and(remittance_date.gte.${nextMonthStart},remittance_date.lt.${nextMonthEnd}),and(remittance_date.is.null,created_at.gte.${nextMonthStart},created_at.lt.${nextMonthEnd})`)
       .order('created_at', { ascending: false })
       .limit(30)
       
     if (error) throw error
     
     if (data) {
-      // 根據使用者要求：「結算月份三月，匯款是四月份才顯示」 (後收制)
-      // 算出目前選擇的結算月份的「下一個月」
-      const nextMonthPrefix = dayjs(selectedMonth.value).add(1, 'month').format('YYYY-MM')
-
       schoolTeamRemittances.value = data.filter(fee => {
         let extractedIds: string[] = []
         if (Array.isArray(fee.member_ids) && fee.member_ids.length > 0) {
@@ -819,10 +818,7 @@ const fetchRemittances = async (schoolTeamMembers: any[]) => {
         }
         
         const isTeamMember = extractedIds.some(id => stIds.includes(id))
-        const dateToCheck = fee.remittance_date || fee.created_at || ''
-        const isNextMonth = dateToCheck.startsWith(nextMonthPrefix)
-
-        return isTeamMember && fee.status !== 'paid' && isNextMonth
+        return isTeamMember && fee.status !== 'paid'
       }).map(fee => {
         // 將 ID 解析為實際的球員名稱
         let extractedIds: string[] = []

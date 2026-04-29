@@ -11,9 +11,14 @@ import {
   markSupabaseRpcUnavailable
 } from '@/utils/supabaseRpc'
 
-type NotificationFeedFetcher = (limit: number) => Promise<NotificationFeedRow[]>
+type NotificationFeedFetcherOptions = {
+  includeFeeReminders?: boolean
+}
+type NotificationFeedFetcher = (limit: number, options?: NotificationFeedFetcherOptions) => Promise<NotificationFeedRow[]>
 type NotificationFeedLoadOptions = {
   force?: boolean
+  includeFeeReminders?: boolean
+  staleMs?: number
 }
 
 const normalizeLimit = (limit: number) => Math.min(Math.max(limit, 1), 50)
@@ -48,9 +53,10 @@ export const mergeNotificationFeedItems = (
     .slice(0, normalizeLimit(limit))
 }
 
-const fetchNotificationFeedFromRpc: NotificationFeedFetcher = async (limit) => {
+const fetchNotificationFeedFromRpc: NotificationFeedFetcher = async (limit, options = {}) => {
   const { data, error } = await supabase.rpc('get_notification_feed', {
-    p_limit: normalizeLimit(limit)
+    p_limit: normalizeLimit(limit),
+    p_include_fee_reminders: Boolean(options.includeFeeReminders)
   })
 
   if (error) throw error
@@ -80,18 +86,28 @@ export const createNotificationFeedController = (
   let inFlight: Promise<NotificationFeedItem[]> | null = null
   let feedLimit = 10
   let generation = 0
+  let lastLoadedAt = 0
+  let loadedWithFeeReminders = false
 
   const loadNotificationFeed = async (limit = 10, loadOptions: NotificationFeedLoadOptions = {}) => {
     feedLimit = normalizeLimit(limit)
+    const includeFeeReminders = Boolean(loadOptions.includeFeeReminders)
+    const now = Date.now()
+    const staleMs = Math.max(0, loadOptions.staleMs ?? 60_000)
+
+    if (
+      isLoaded.value &&
+      !inFlight &&
+      (!includeFeeReminders || loadedWithFeeReminders) &&
+      now - lastLoadedAt < staleMs
+    ) {
+      return notifications.value
+    }
 
     if (loadOptions.force) {
       generation += 1
       inFlight = null
       isLoaded.value = false
-    }
-
-    if (isLoaded.value && !inFlight) {
-      return notifications.value
     }
 
     if (inFlight) {
@@ -104,16 +120,16 @@ export const createNotificationFeedController = (
       const fallbackFetcher = options.getFallbackFetcher?.() || null
 
       if (options.rpcName && fallbackFetcher && isSupabaseRpcUnavailable(options.rpcName)) {
-        return fallbackFetcher(feedLimit)
+        return fallbackFetcher(feedLimit, { includeFeeReminders })
       }
 
       try {
-        return await fetcher(feedLimit)
+        return await fetcher(feedLimit, { includeFeeReminders })
       } catch (error) {
         if (options.rpcName && fallbackFetcher && isSupabaseRpcMissingError(error, options.rpcName)) {
           markSupabaseRpcUnavailable(options.rpcName)
           console.warn(`${options.rpcName} RPC 尚未部署，改用前端查詢 fallback。`)
-          return fallbackFetcher(feedLimit)
+          return fallbackFetcher(feedLimit, { includeFeeReminders })
         }
 
         throw error
@@ -130,6 +146,8 @@ export const createNotificationFeedController = (
           feedLimit
         )
         isLoaded.value = true
+        lastLoadedAt = Date.now()
+        loadedWithFeeReminders = includeFeeReminders || loadedWithFeeReminders
         return notifications.value
       })
       .finally(() => {
@@ -155,6 +173,8 @@ export const createNotificationFeedController = (
     isLoading.value = false
     inFlight = null
     feedLimit = 10
+    lastLoadedAt = 0
+    loadedWithFeeReminders = false
   }
 
   return {

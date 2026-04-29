@@ -659,7 +659,7 @@ const openUpcomingMatch = async (matchId: string) => {
   }
 
   try {
-    await matchesStore.fetchMatches()
+    await matchesStore.fetchMatch(matchId)
 
     if (!matchesStore.matches.some((match) => match.id === matchId)) {
       upcomingMatchDialogVisible.value = false

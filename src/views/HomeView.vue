@@ -360,7 +360,11 @@ const fetchMatchesData = async () => {
   }
 
   try {
-    await matchesStore.fetchMatches()
+    await matchesStore.fetchDashboardMatches({
+      fromDate: now.value.format('YYYY-MM-DD'),
+      upcomingLimit: 8,
+      recentLimit: 4
+    })
   } catch (error) {
     console.error('Error fetching dashboard matches:', error)
   }
@@ -509,7 +513,7 @@ const openMatchDetail = async (matchId: string) => {
   }
 
   try {
-    await matchesStore.fetchMatches()
+    await matchesStore.fetchMatch(matchId)
     if (!matchesStore.matches.some((match) => match.id === matchId)) {
       detailVisible.value = false
       ElMessage.warning('找不到這筆比賽資料')

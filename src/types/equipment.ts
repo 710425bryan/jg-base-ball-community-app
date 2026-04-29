@@ -210,6 +210,7 @@ export type EquipmentPaymentItem = {
   payment_status: EquipmentPaymentStatus | string
   payment_submission_id: string | null
   transaction_date: string
+  request_status: EquipmentRequestStatus | string | null
   picked_up_at: string | null
 }
 

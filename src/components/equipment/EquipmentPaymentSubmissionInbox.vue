@@ -6,6 +6,7 @@ import { Loading, Refresh } from '@element-plus/icons-vue'
 import { useRoute } from 'vue-router'
 import { useEquipmentPaymentsStore } from '@/stores/equipmentPayments'
 import type { EquipmentPaymentSubmission } from '@/types/equipment'
+import { getEquipmentRequestStatusLabel } from '@/utils/equipmentRequestStatus'
 import { buildPushEventKey, dispatchPushNotification } from '@/utils/pushNotifications'
 
 const route = useRoute()
@@ -176,7 +177,15 @@ watch(() => route.query.highlight_submission_id, () => {
 
             <div class="mt-3 grid gap-1 text-sm text-gray-500">
               <div v-for="item in submission.items" :key="item.transaction_id" class="flex items-center justify-between gap-3">
-                <span>{{ item.equipment_name }} <span class="text-gray-400">{{ item.size || '' }}</span></span>
+                <span>
+                  {{ item.equipment_name }} <span class="text-gray-400">{{ item.size || '' }}</span>
+                  <span
+                    v-if="item.request_status"
+                    class="ml-2 inline-flex rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] font-bold text-gray-500"
+                  >
+                    {{ getEquipmentRequestStatusLabel(item.request_status) }}
+                  </span>
+                </span>
                 <span class="font-bold text-primary">{{ item.quantity }} 件 / {{ formatCurrency(item.total_amount) }}</span>
               </div>
             </div>

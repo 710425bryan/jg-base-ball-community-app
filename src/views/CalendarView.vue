@@ -37,7 +37,7 @@ const activeScheduleTabDescription = computed(() =>
 )
 
 const fetchMatches = async () => {
-  await matchesStore.fetchMatches()
+  await matchesStore.fetchUpcomingMatches(8, dayjs().format('YYYY-MM-DD'))
 }
 
 const openMatchDetail = (matchId: string) => {

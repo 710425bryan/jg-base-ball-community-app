@@ -621,7 +621,7 @@ const fetchData = async () => {
 
     const { data: existingFees, error: fErr } = await supabase
       .from('quarterly_fees')
-      .select('*')
+      .select('id, member_id, member_ids, year_quarter, payment_method, amount, created_at, updated_at, status, remittance_date, account_last_5, payment_items, other_item_note')
       .eq('year_quarter', selectedPeriodLabel.value)
       
     if (fErr) throw fErr
@@ -722,7 +722,9 @@ const fetchRemittances = async (
 
     const { data, error } = await supabase
       .from('quarterly_fees')
-      .select('*')
+      .select('id, member_id, member_ids, year_quarter, payment_method, amount, created_at, updated_at, status, remittance_date, account_last_5, payment_items, other_item_note')
+      .eq('year_quarter', selectedPeriodLabel.value)
+      .or('status.is.null,status.neq.paid')
       .order('created_at', { ascending: false })
       .limit(30)
       
@@ -732,7 +734,7 @@ const fetchRemittances = async (
       const extractedIds = resolveLinkedMemberIds(fee, siblingGroupMap)
       const isPlayer = extractedIds.some((id) => playerIds.has(id))
 
-      return isPlayer && fee.status !== 'paid' && fee.year_quarter === selectedPeriodLabel.value
+      return isPlayer
     })
 
     playerRemittances.value = groupQuarterlyFeeRecordsByPayment(relevantRecords, siblingGroupMap)

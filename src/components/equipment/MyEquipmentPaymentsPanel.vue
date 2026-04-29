@@ -4,6 +4,7 @@ import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
 import { useRoute } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 import { useEquipmentPaymentsStore } from '@/stores/equipmentPayments'
 import {
   EQUIPMENT_REQUEST_STATUS,
@@ -21,6 +22,7 @@ const props = defineProps<{
 }>()
 
 const route = useRoute()
+const authStore = useAuthStore()
 const paymentsStore = useEquipmentPaymentsStore()
 const formRef = ref()
 const isDialogOpen = ref(false)
@@ -130,11 +132,21 @@ const openDialog = () => {
     ElMessage.warning('請先勾選要回報付款的裝備項目')
     return
   }
-  form.payment_method = ''
-  form.account_last_5 = ''
+  form.payment_method = authStore.profile?.preferred_payment_method || paymentMethodOptions[0]
+  form.account_last_5 = requiresAccountLast5(form.payment_method)
+    ? authStore.profile?.preferred_account_last_5 || ''
+    : ''
   form.remittance_date = dayjs().format('YYYY-MM-DD')
   form.note = ''
   isDialogOpen.value = true
+  void nextTick(() => formRef.value?.clearValidate?.())
+}
+
+const handlePaymentMethodChange = (value: string | undefined) => {
+  if (!requiresAccountLast5(value)) {
+    form.account_last_5 = ''
+  }
+  formRef.value?.clearValidate?.('account_last_5')
 }
 
 const handleAccountLast5Input = (value: string) => {
@@ -252,8 +264,8 @@ watch(() => route.query.highlight_transaction_id, () => {
     <div v-else class="p-4 md:p-5 space-y-4">
       <div v-if="pendingRequestItems.length > 0" class="rounded-2xl border border-blue-100 bg-blue-50/50 p-4">
         <div class="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-          <div class="font-black text-blue-700">申請中 / 尚未可付款</div>
-          <div class="text-xs font-bold text-blue-500">完成領取後會移到待付款</div>
+          <div class="font-black text-blue-700">待審核 / 尚未可付款</div>
+          <div class="text-xs font-bold text-blue-500">核准後會移到待付款，可先完成付款回報</div>
         </div>
         <div class="grid gap-3 md:grid-cols-2">
           <article
@@ -300,9 +312,18 @@ watch(() => route.query.highlight_transaction_id, () => {
             <div class="min-w-0 flex-1">
               <div class="flex items-start justify-between gap-3">
                 <div class="font-black text-slate-800">{{ item.equipment_name }}</div>
-                <span :class="getPaymentStatusClass(item.payment_status)" class="rounded-full border px-2.5 py-1 text-xs font-bold">
-                  {{ getPaymentStatusLabel(item.payment_status) }}
-                </span>
+                <div class="flex shrink-0 flex-wrap justify-end gap-1.5">
+                  <span
+                    v-if="item.request_status"
+                    :class="getRequestStatusClass(item.request_status)"
+                    class="rounded-full border px-2.5 py-1 text-xs font-bold"
+                  >
+                    {{ getEquipmentRequestStatusLabel(item.request_status) }}
+                  </span>
+                  <span :class="getPaymentStatusClass(item.payment_status)" class="rounded-full border px-2.5 py-1 text-xs font-bold">
+                    {{ getPaymentStatusLabel(item.payment_status) }}
+                  </span>
+                </div>
               </div>
               <p class="mt-1 text-xs text-gray-400">{{ item.member_name }}｜{{ item.size || '無尺寸' }}｜{{ formatDate(item.transaction_date) }}</p>
               <div class="mt-3 flex items-center justify-between gap-3 text-sm">
@@ -326,6 +347,11 @@ watch(() => route.query.highlight_transaction_id, () => {
           >
             <div class="font-black text-slate-800">{{ item.equipment_name }}</div>
             <p class="mt-1 text-xs text-gray-400">{{ item.member_name }}｜{{ item.size || '無尺寸' }}｜{{ item.quantity }} 件</p>
+            <div v-if="item.request_status" class="mt-3">
+              <span :class="getRequestStatusClass(item.request_status)" class="rounded-full border px-2.5 py-1 text-xs font-bold">
+                {{ getEquipmentRequestStatusLabel(item.request_status) }}
+              </span>
+            </div>
             <p class="mt-3 font-black text-primary">{{ formatCurrency(item.total_amount) }}</p>
           </article>
         </div>
@@ -343,6 +369,11 @@ watch(() => route.query.highlight_transaction_id, () => {
           >
             <div class="font-black text-slate-800">{{ item.equipment_name }}</div>
             <p class="mt-1 text-xs text-gray-400">{{ item.member_name }}｜{{ item.size || '無尺寸' }}｜{{ item.quantity }} 件</p>
+            <div v-if="item.request_status" class="mt-3">
+              <span :class="getRequestStatusClass(item.request_status)" class="rounded-full border px-2.5 py-1 text-xs font-bold">
+                {{ getEquipmentRequestStatusLabel(item.request_status) }}
+              </span>
+            </div>
             <p class="mt-3 font-black text-emerald-700">{{ formatCurrency(item.total_amount) }}</p>
           </article>
         </div>
@@ -364,7 +395,13 @@ watch(() => route.query.highlight_transaction_id, () => {
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top" class="space-y-4">
         <div class="grid gap-4 sm:grid-cols-2">
           <el-form-item label="匯款方式" prop="payment_method" class="font-bold">
-            <el-select v-model="form.payment_method" class="w-full" size="large" placeholder="請選擇匯款方式">
+            <el-select
+              v-model="form.payment_method"
+              class="w-full"
+              size="large"
+              placeholder="請選擇匯款方式"
+              @change="handlePaymentMethodChange"
+            >
               <el-option v-for="option in paymentMethodOptions" :key="option" :label="option" :value="option" />
             </el-select>
           </el-form-item>

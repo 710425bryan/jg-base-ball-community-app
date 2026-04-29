@@ -326,6 +326,45 @@ const getManualPurchaseStatusTagType = (status?: string | null) => {
   return 'danger'
 }
 
+const requestPaymentEligibleStatuses = new Set([
+  EQUIPMENT_REQUEST_STATUS.APPROVED,
+  EQUIPMENT_REQUEST_STATUS.READY_FOR_PICKUP,
+  EQUIPMENT_REQUEST_STATUS.PICKED_UP
+])
+
+const getRequestTransactionPaymentStatuses = (request: EquipmentPurchaseRequest) =>
+  request.items
+    .map((item) => item.equipment_transaction?.payment_status || null)
+    .filter(Boolean) as string[]
+
+const getRequestPaymentStatus = (request: EquipmentPurchaseRequest) => {
+  const statuses = getRequestTransactionPaymentStatuses(request)
+
+  if (statuses.length === 0) {
+    return requestPaymentEligibleStatuses.has(request.status as any) ? 'unpaid' : null
+  }
+
+  if (statuses.length < request.items.length) return 'unpaid'
+  if (statuses.every((status) => status === 'paid')) return 'paid'
+  if (statuses.some((status) => status === 'pending_review')) return 'pending_review'
+  if (statuses.some((status) => status === 'unpaid')) return 'unpaid'
+  if (statuses.every((status) => status === 'cancelled')) return 'cancelled'
+  return 'unpaid'
+}
+
+const getRequestPaymentStatusLabel = (request: EquipmentPurchaseRequest) => {
+  const status = getRequestPaymentStatus(request)
+  return status ? getManualPurchaseStatusLabel(status) : ''
+}
+
+const getRequestPaymentStatusTagType = (request: EquipmentPurchaseRequest) =>
+  getManualPurchaseStatusTagType(getRequestPaymentStatus(request))
+
+const canGoToEquipmentPayment = (request: EquipmentPurchaseRequest) => (
+  requestPaymentEligibleStatuses.has(request.status as any)
+  && getRequestPaymentStatus(request) === 'unpaid'
+)
+
 const getManualPurchaseNote = (record: EquipmentManualPurchaseRecord) =>
   ['管理員新增', record.notes?.trim()].filter(Boolean).join('｜')
 
@@ -876,9 +915,18 @@ onMounted(() => {
                       <div class="font-black text-slate-800">{{ historyItem.request.member?.name || getMemberNameById(historyItem.request.member_id) || selectedMember?.name || '未知成員' }}</div>
                       <div class="mt-1 text-xs text-gray-400">{{ formatDateTime(historyItem.request.requested_at) }}</div>
                     </div>
-                    <el-tag :type="getEquipmentRequestStatusTagType(historyItem.request.status)" effect="light">
-                      {{ getEquipmentRequestStatusLabel(historyItem.request.status) }}
-                    </el-tag>
+                    <div class="flex flex-wrap gap-2">
+                      <el-tag :type="getEquipmentRequestStatusTagType(historyItem.request.status)" effect="light">
+                        {{ getEquipmentRequestStatusLabel(historyItem.request.status) }}
+                      </el-tag>
+                      <el-tag
+                        v-if="getRequestPaymentStatus(historyItem.request)"
+                        :type="getRequestPaymentStatusTagType(historyItem.request)"
+                        effect="light"
+                      >
+                        {{ getRequestPaymentStatusLabel(historyItem.request) }}
+                      </el-tag>
+                    </div>
                   </div>
 
                   <div class="mt-4 grid gap-2">
@@ -923,7 +971,7 @@ onMounted(() => {
                         取消申請
                       </button>
                       <button
-                        v-if="historyItem.request.status === EQUIPMENT_REQUEST_STATUS.PICKED_UP"
+                        v-if="canGoToEquipmentPayment(historyItem.request)"
                         type="button"
                         class="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary-hover transition-colors"
                         @click="goToEquipmentPayment(historyItem.request.id)"
