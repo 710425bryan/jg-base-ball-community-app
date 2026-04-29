@@ -18,8 +18,11 @@ import type {
 } from '@/types/equipment'
 import type { MyPaymentMember } from '@/types/payments'
 import {
+  getEquipmentPurchaseAvailability,
   getEquipmentRemainingOverallQuantity,
-  getEquipmentSizeInventoryList
+  getEquipmentSizeInventoryList,
+  isEquipmentPurchasable,
+  validateEquipmentPurchaseItemsAvailability
 } from '@/utils/equipmentInventory'
 import {
   EQUIPMENT_REQUEST_STATUS,
@@ -122,7 +125,6 @@ const availableEquipments = computed(() =>
   equipmentStore.equipments.filter((equipment) =>
     equipment.quick_purchase_enabled
     && Number(equipment.purchase_price || 0) > 0
-    && getEquipmentRemainingOverallQuantity(equipment) > 0
   )
 )
 
@@ -143,6 +145,15 @@ const cartItemsWithEquipment = computed(() =>
     equipment: equipmentStore.equipmentById.get(item.equipment_id) || null
   }))
 )
+
+const getCartAvailabilityValidation = () =>
+  validateEquipmentPurchaseItemsAvailability(cart.value, equipmentStore.equipmentById)
+
+const cartAvailabilityValidation = computed(getCartAvailabilityValidation)
+
+const cartAvailabilityFailures = computed(() => cartAvailabilityValidation.value.failures)
+
+const hasUnavailableCartItems = computed(() => !cartAvailabilityValidation.value.isValid)
 
 const isValidQuantity = (value: unknown) => {
   const quantity = Number(value)
@@ -175,8 +186,89 @@ const formatDate = (value?: string | null) => {
   return parsed.isValid() ? parsed.format('YYYY-MM-DD') : '尚無資料'
 }
 
-const getAvailableSizes = (equipment: Equipment) =>
-  getEquipmentSizeInventoryList(equipment).filter((item) => item.remaining > 0)
+const getEquipmentSizeOptions = (equipment: Equipment) =>
+  getEquipmentSizeInventoryList(equipment)
+
+const hasEquipmentSizeOptions = (equipment: Equipment) =>
+  getEquipmentSizeOptions(equipment).length > 0
+
+const getPurchasableSizeCount = (equipment: Equipment) =>
+  getEquipmentSizeOptions(equipment).filter((item) => item.remaining > 0).length
+
+const isEquipmentAvailableForPurchase = (equipment: Equipment) =>
+  isEquipmentPurchasable(equipment)
+
+const getEquipmentPurchaseStatusLabel = (equipment: Equipment) =>
+  isEquipmentAvailableForPurchase(equipment) ? '可申請' : '售完'
+
+const getEquipmentPurchaseStatusClass = (equipment: Equipment) =>
+  isEquipmentAvailableForPurchase(equipment)
+    ? 'bg-emerald-50 text-emerald-700'
+    : 'bg-gray-100 text-gray-500'
+
+const getEquipmentInventoryPillClass = (equipment: Equipment) =>
+  isEquipmentAvailableForPurchase(equipment)
+    ? 'bg-primary/10 text-primary'
+    : 'bg-gray-100 text-gray-500'
+
+const getEquipmentInventoryLabel = (equipment: Equipment) => {
+  const sizeOptions = getEquipmentSizeOptions(equipment)
+  if (sizeOptions.length > 0) {
+    return `${getPurchasableSizeCount(equipment)} / ${sizeOptions.length} 個尺寸可申請`
+  }
+
+  return `可用 ${getEquipmentRemainingOverallQuantity(equipment)}`
+}
+
+const getCartQuantity = (equipmentId: string, size?: string | null, excludedIndex: number | null = null) =>
+  cart.value.reduce((total, item, index) => {
+    if (excludedIndex !== null && index === excludedIndex) return total
+    if (item.equipment_id !== equipmentId) return total
+    if ((item.size || null) !== (size || null)) return total
+    return total + (isValidQuantity(item.quantity) ? Number(item.quantity) : 0)
+  }, 0)
+
+const getEquipmentAddAvailability = (equipment: Equipment) => {
+  const selectedSize = hasEquipmentSizeOptions(equipment)
+    ? selectedSizeByEquipmentId.value[equipment.id] || null
+    : null
+
+  return getEquipmentPurchaseAvailability(equipment, {
+    size: selectedSize,
+    quantity: quantityByEquipmentId.value[equipment.id],
+    existingQuantity: getCartQuantity(equipment.id, selectedSize)
+  })
+}
+
+const isAddToCartDisabled = (equipment: Equipment) =>
+  !getEquipmentAddAvailability(equipment).isPurchasable
+
+const getAddToCartButtonLabel = (equipment: Equipment) => {
+  if (!isEquipmentAvailableForPurchase(equipment)) return '已售完'
+  if (hasEquipmentSizeOptions(equipment) && !selectedSizeByEquipmentId.value[equipment.id]) return '選擇尺寸'
+  return '加入請購單'
+}
+
+const getEquipmentAddHelperText = (equipment: Equipment) => {
+  if (!isEquipmentAvailableForPurchase(equipment)) {
+    return hasEquipmentSizeOptions(equipment) ? '此商品所有尺寸已售完' : '此商品已售完'
+  }
+
+  const availability = getEquipmentAddAvailability(equipment)
+  if (availability.reason === '請先填寫加購數量') return ''
+  return availability.reason || ''
+}
+
+const getEquipmentQuantityMax = (equipment: Equipment) => {
+  const availability = getEquipmentAddAvailability(equipment)
+  return Math.max(1, availability.availableQuantity - availability.existingQuantity)
+}
+
+const getCartItemAvailabilityFailure = (item: CartItem) =>
+  cartAvailabilityFailures.value.find((failure) =>
+    failure.equipmentId === item.equipment_id
+    && (failure.size || null) === (item.size || null)
+  ) || null
 
 const getRequestTotal = (items: EquipmentRequestItem[]) =>
   items.reduce((total, item) => total + getEquipmentRequestItemTotalPrice(item), 0)
@@ -262,25 +354,40 @@ const selectHighlightedRequestMember = (requestId: string) => {
 }
 
 const addToCart = (equipment: Equipment) => {
-  const sizes = getAvailableSizes(equipment)
+  const sizes = getEquipmentSizeOptions(equipment)
   const selectedSize = sizes.length > 0
     ? selectedSizeByEquipmentId.value[equipment.id]
     : ''
-
-  if (sizes.length > 0 && !selectedSize) {
-    ElMessage.warning('請先選擇尺寸或序號')
-    return
-  }
-
-  const rawQuantity = quantityByEquipmentId.value[equipment.id]
-  if (!isValidQuantity(rawQuantity)) {
-    ElMessage.warning('請先填寫加購數量')
-    return
-  }
-
-  const quantity = Number(rawQuantity)
   const size = selectedSize || null
+  const availability = getEquipmentAddAvailability(equipment)
+
+  if (!availability.isPurchasable) {
+    ElMessage.warning(availability.reason || '裝備庫存不足')
+    return
+  }
+
+  const quantity = availability.requestedQuantity
   const exists = cart.value.find((item) => item.equipment_id === equipment.id && (item.size || null) === size)
+  const candidateCart = exists
+    ? cart.value.map((item) => (
+      item === exists
+        ? { ...item, quantity: item.quantity + quantity }
+        : item
+    ))
+    : [
+      ...cart.value,
+      {
+        equipment_id: equipment.id,
+        size,
+        quantity
+      }
+    ]
+  const validation = validateEquipmentPurchaseItemsAvailability(candidateCart, equipmentStore.equipmentById)
+
+  if (!validation.isValid) {
+    ElMessage.warning(validation.failures[0]?.reason || '裝備庫存不足')
+    return
+  }
 
   if (exists) {
     exists.quantity += quantity
@@ -330,6 +437,13 @@ const submitRequest = async () => {
 
   isSubmitting.value = true
   try {
+    await equipmentStore.loadEquipments()
+    const validation = getCartAvailabilityValidation()
+    if (!validation.isValid) {
+      ElMessage.warning(validation.failures[0]?.reason || '部分裝備庫存不足，請調整請購數量')
+      return
+    }
+
     const request = await requestStore.createRequest({
       member_id: selectedMember.value.member_id,
       notes: requestNote.value,
@@ -548,7 +662,8 @@ onMounted(() => {
                 <article
                   v-for="(item, index) in cartItemsWithEquipment"
                   :key="`${item.equipment_id}-${item.size || 'none'}`"
-                  class="rounded-2xl border border-gray-100 bg-gray-50/70 p-4"
+                  class="rounded-2xl border p-4"
+                  :class="getCartItemAvailabilityFailure(item) ? 'border-red-100 bg-red-50/70' : 'border-gray-100 bg-gray-50/70'"
                 >
                   <div class="flex flex-col gap-4 md:flex-row md:items-center">
                     <div class="min-w-0 flex-1">
@@ -580,6 +695,9 @@ onMounted(() => {
                       移除
                     </button>
                   </div>
+                  <p v-if="getCartItemAvailabilityFailure(item)" class="mt-3 rounded-xl border border-red-100 bg-white px-3 py-2 text-sm font-bold text-red-600">
+                    {{ getCartItemAvailabilityFailure(item)?.reason }}
+                  </p>
                 </article>
               </div>
 
@@ -602,12 +720,15 @@ onMounted(() => {
                 <div v-if="hasInvalidCartQuantity" class="mt-3 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-sm font-bold text-red-600">
                   請確認每個加購項目都有填寫大於 0 的數量。
                 </div>
+                <div v-else-if="hasUnavailableCartItems" class="mt-3 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-sm font-bold text-red-600">
+                  {{ cartAvailabilityFailures[0]?.reason || '部分裝備庫存不足，請調整請購數量。' }}
+                </div>
 
                 <div class="mt-4 flex justify-end">
                   <button
                     type="button"
                     class="rounded-2xl bg-primary px-5 py-3 font-bold text-white hover:bg-primary-hover transition-colors disabled:opacity-70"
-                    :disabled="isSubmitting || cart.length === 0 || hasInvalidCartQuantity"
+                    :disabled="isSubmitting || cart.length === 0 || hasInvalidCartQuantity || hasUnavailableCartItems"
                     @click="submitRequest"
                   >
                     {{ isSubmitting ? '送出中...' : '送出請購' }}
@@ -657,8 +778,11 @@ onMounted(() => {
                           <h4 class="truncate font-black text-slate-800">{{ equipment.name }}</h4>
                           <p class="mt-1 line-clamp-1 text-xs text-gray-400">{{ equipment.specs || equipment.notes || '無額外規格說明' }}</p>
                         </div>
-                        <span class="shrink-0 rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-black text-emerald-700">
-                          可申請
+                        <span
+                          class="shrink-0 rounded-full px-2 py-1 text-[11px] font-black"
+                          :class="getEquipmentPurchaseStatusClass(equipment)"
+                        >
+                          {{ getEquipmentPurchaseStatusLabel(equipment) }}
                         </span>
                       </div>
 
@@ -666,24 +790,29 @@ onMounted(() => {
                         <span class="rounded-full bg-white px-2.5 py-1 text-xs font-black text-gray-600">
                           售價 {{ formatCurrency(equipment.purchase_price) }}
                         </span>
-                        <span class="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-black text-primary">
-                          {{ getAvailableSizes(equipment).length > 0 ? `${getAvailableSizes(equipment).length} 個可選尺寸` : `可用 ${getEquipmentRemainingOverallQuantity(equipment)}` }}
+                        <span
+                          class="rounded-full px-2.5 py-1 text-xs font-black"
+                          :class="getEquipmentInventoryPillClass(equipment)"
+                        >
+                          {{ getEquipmentInventoryLabel(equipment) }}
                         </span>
                       </div>
 
                       <div class="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_112px]">
                         <el-select
-                          v-if="getAvailableSizes(equipment).length > 0"
+                          v-if="getEquipmentSizeOptions(equipment).length > 0"
                           v-model="selectedSizeByEquipmentId[equipment.id]"
                           size="large"
                           class="w-full"
                           placeholder="選尺寸"
+                          :disabled="getPurchasableSizeCount(equipment) === 0"
                         >
                           <el-option
-                            v-for="size in getAvailableSizes(equipment)"
+                            v-for="size in getEquipmentSizeOptions(equipment)"
                             :key="size.size"
-                            :label="`${size.size}｜可用 ${size.remaining}`"
+                            :label="`${size.size}｜${size.remaining > 0 ? `可用 ${size.remaining}` : '已售完'}`"
                             :value="size.size"
+                            :disabled="size.remaining <= 0"
                           />
                         </el-select>
                         <div v-else class="rounded-xl border border-gray-100 bg-white px-3 py-3 text-sm font-bold text-gray-400">
@@ -693,18 +822,24 @@ onMounted(() => {
                         <el-input-number
                           v-model="quantityByEquipmentId[equipment.id]"
                           :min="1"
+                          :max="getEquipmentQuantityMax(equipment)"
                           :precision="0"
                           size="large"
                           class="!w-full"
+                          :disabled="!isEquipmentAvailableForPurchase(equipment) || (hasEquipmentSizeOptions(equipment) && !selectedSizeByEquipmentId[equipment.id])"
                         />
                       </div>
+                      <p v-if="getEquipmentAddHelperText(equipment)" class="mt-2 text-xs font-bold text-red-500">
+                        {{ getEquipmentAddHelperText(equipment) }}
+                      </p>
 
                       <button
                         type="button"
-                        class="mt-3 w-full rounded-2xl bg-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-primary-hover transition-colors"
+                        class="mt-3 w-full rounded-2xl bg-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-primary-hover transition-colors disabled:bg-gray-200 disabled:text-gray-500"
+                        :disabled="isAddToCartDisabled(equipment)"
                         @click="addToCart(equipment)"
                       >
-                        加入請購單
+                        {{ getAddToCartButtonLabel(equipment) }}
                       </button>
                     </div>
                   </div>

@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import {
+  getEquipmentPurchaseAvailability,
   getEquipmentMemberAllocationBalances,
   getEquipmentOverAllocatedSizeQuantity,
   getEquipmentRemainingOverallQuantity,
   getEquipmentRemainingSizeQuantity,
   getEquipmentSizeInventoryList,
   getEquipmentUnassignedAllocatedQuantity,
-  isEquipmentSerialNumberAvailable
+  isEquipmentPurchasable,
+  isEquipmentSerialNumberAvailable,
+  validateEquipmentPurchaseItemsAvailability
 } from './equipmentInventory'
 import type { Equipment, EquipmentTransaction } from '@/types/equipment'
 
@@ -125,6 +128,90 @@ describe('equipmentInventory', () => {
     expect(getEquipmentRemainingOverallQuantity(equipment)).toBe(7)
     expect(getEquipmentRemainingSizeQuantity(equipment, 'L')).toBe(2)
     expect(isEquipmentSerialNumberAvailable(equipment, 'L')).toBe(true)
+  })
+
+  it('blocks purchase when stock is exhausted for equipment without sizes', () => {
+    const equipment = createEquipment({
+      sizes_stock: [],
+      total_quantity: 2,
+      equipment_transactions: [
+        createTransaction({ id: 't1', size: null, quantity: 2 })
+      ]
+    })
+
+    const availability = getEquipmentPurchaseAvailability(equipment, { quantity: 1 })
+
+    expect(isEquipmentPurchasable(equipment)).toBe(false)
+    expect(availability.availableQuantity).toBe(0)
+    expect(availability.isPurchasable).toBe(false)
+    expect(availability.reason).toBe('此商品已售完')
+  })
+
+  it('keeps sold-out sizes visible while allowing sizes with stock', () => {
+    const equipment = createEquipment({
+      sizes_stock: [
+        { size: 'M', quantity: 1 },
+        { size: 'L', quantity: 2 }
+      ],
+      equipment_transactions: [
+        createTransaction({ id: 't1', size: 'M', quantity: 1 })
+      ]
+    })
+
+    const sizeInventory = getEquipmentSizeInventoryList(equipment)
+    const medium = getEquipmentPurchaseAvailability(equipment, { size: 'M', quantity: 1 })
+    const large = getEquipmentPurchaseAvailability(equipment, { size: 'L', quantity: 2 })
+
+    expect(sizeInventory.map((item) => item.size)).toEqual(['M', 'L'])
+    expect(medium.isPurchasable).toBe(false)
+    expect(medium.reason).toBe('此尺寸「M」已售完')
+    expect(large.isPurchasable).toBe(true)
+  })
+
+  it('blocks cart quantities that exceed the remaining size stock', () => {
+    const equipment = createEquipment({
+      sizes_stock: [
+        { size: 'M', quantity: 2 }
+      ]
+    })
+
+    const validation = validateEquipmentPurchaseItemsAvailability([
+      { equipment_id: equipment.id, size: 'M', quantity: 1 },
+      { equipment_id: equipment.id, size: 'M', quantity: 2 }
+    ], new Map([[equipment.id, equipment]]))
+
+    expect(validation.isValid).toBe(false)
+    expect(validation.failures[0]?.availableQuantity).toBe(2)
+    expect(validation.failures[0]?.reason).toContain('此尺寸「M」剩 2 件')
+  })
+
+  it('blocks cart quantities that exceed the overall equipment stock across sizes', () => {
+    const equipment = createEquipment({
+      total_quantity: 2,
+      sizes_stock: [
+        { size: 'M', quantity: 2 },
+        { size: 'L', quantity: 2 }
+      ]
+    })
+
+    const validation = validateEquipmentPurchaseItemsAvailability([
+      { equipment_id: equipment.id, size: 'M', quantity: 2 },
+      { equipment_id: equipment.id, size: 'L', quantity: 1 }
+    ], new Map([[equipment.id, equipment]]))
+
+    expect(validation.isValid).toBe(false)
+    expect(validation.failures[0]?.availableQuantity).toBe(2)
+    expect(validation.failures[0]?.reason).toContain('商品可用庫存不足')
+  })
+
+  it('does not deduct pending request items from the purchase availability snapshot', () => {
+    const equipment = createEquipment({
+      total_quantity: 2,
+      sizes_stock: [],
+      reserved_request_items: []
+    })
+
+    expect(getEquipmentPurchaseAvailability(equipment, { quantity: 2 }).isPurchasable).toBe(true)
   })
 
   it('returns per-member active allocation balances', () => {

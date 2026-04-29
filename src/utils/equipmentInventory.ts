@@ -8,6 +8,34 @@ export const OUTGOING_EQUIPMENT_TRANSACTION_TYPES = ['borrow', 'receive', 'purch
 
 const RETURN_TRANSACTION_TYPE = 'return'
 
+export type EquipmentPurchaseValidationItem = {
+  equipment_id: string
+  size?: string | null
+  quantity?: number | null
+}
+
+export type EquipmentPurchaseAvailability = {
+  equipmentId: string
+  equipmentName: string
+  size: string | null
+  hasSizeOptions: boolean
+  requestedQuantity: number
+  existingQuantity: number
+  totalRequestedQuantity: number
+  availableQuantity: number
+  isPurchasable: boolean
+  reason: string | null
+}
+
+export type EquipmentPurchaseAvailabilityFailure = {
+  equipmentId: string
+  equipmentName: string
+  size: string | null
+  requestedQuantity: number
+  availableQuantity: number
+  reason: string
+}
+
 const normalizeNumber = (value: unknown, fallback = 0) => {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : fallback
@@ -16,6 +44,16 @@ const normalizeNumber = (value: unknown, fallback = 0) => {
 const normalizeQuantity = (quantity: unknown) => {
   if (quantity === null || quantity === undefined) return 1
   return normalizeNumber(quantity, 1)
+}
+
+const normalizeRequestedQuantity = (quantity: unknown) => {
+  const parsed = normalizeNumber(quantity, 0)
+  return Math.max(0, Math.floor(parsed))
+}
+
+const normalizeSize = (size?: string | null) => {
+  const value = String(size || '').trim()
+  return value || null
 }
 
 const clamp = (value: number, min = 0, max = Number.POSITIVE_INFINITY) =>
@@ -198,8 +236,9 @@ export const getEquipmentRemainingSizeQuantity = (
   equipment: Partial<Equipment> | null | undefined,
   size?: string | null
 ) => {
-  if (!size) return 0
-  const sizeInfo = getEquipmentSizeInventoryList(equipment).find((item) => item.size === size)
+  const targetSize = normalizeSize(size)
+  if (!targetSize) return 0
+  const sizeInfo = getEquipmentSizeInventoryList(equipment).find((item) => item.size === targetSize)
   return sizeInfo ? sizeInfo.remaining : 0
 }
 
@@ -207,6 +246,202 @@ export const isEquipmentSerialNumberAvailable = (
   equipment: Partial<Equipment> | null | undefined,
   size?: string | null
 ) => getEquipmentRemainingSizeQuantity(equipment, size) > 0
+
+export const getEquipmentAvailablePurchaseQuantity = (
+  equipment: Partial<Equipment> | null | undefined,
+  size?: string | null
+) => {
+  const overallRemaining = getEquipmentRemainingOverallQuantity(equipment)
+  const sizeOptions = getEquipmentSizeInventoryList(equipment)
+  const targetSize = normalizeSize(size)
+
+  if (sizeOptions.length === 0) return overallRemaining
+  if (!targetSize) return 0
+
+  return Math.max(0, Math.min(overallRemaining, getEquipmentRemainingSizeQuantity(equipment, targetSize)))
+}
+
+export const isEquipmentPurchasable = (equipment: Partial<Equipment> | null | undefined) => {
+  const sizeOptions = getEquipmentSizeInventoryList(equipment)
+  if (sizeOptions.length > 0) return sizeOptions.some((item) => item.remaining > 0)
+  return getEquipmentRemainingOverallQuantity(equipment) > 0
+}
+
+export const getEquipmentPurchaseAvailability = (
+  equipment: Partial<Equipment> | null | undefined,
+  options: {
+    size?: string | null
+    quantity?: unknown
+    existingQuantity?: unknown
+  } = {}
+): EquipmentPurchaseAvailability => {
+  const targetSize = normalizeSize(options.size)
+  const requestedQuantity = normalizeRequestedQuantity(options.quantity)
+  const existingQuantity = normalizeRequestedQuantity(options.existingQuantity)
+  const totalRequestedQuantity = requestedQuantity + existingQuantity
+  const sizeOptions = getEquipmentSizeInventoryList(equipment)
+  const hasSizeOptions = sizeOptions.length > 0
+  const equipmentId = String(equipment?.id || '')
+  const equipmentName = String(equipment?.name || '裝備')
+
+  if (hasSizeOptions && !targetSize) {
+    return {
+      equipmentId,
+      equipmentName,
+      size: null,
+      hasSizeOptions,
+      requestedQuantity,
+      existingQuantity,
+      totalRequestedQuantity,
+      availableQuantity: 0,
+      isPurchasable: false,
+      reason: '請先選擇尺寸或序號'
+    }
+  }
+
+  const availableQuantity = getEquipmentAvailablePurchaseQuantity(equipment, targetSize)
+  const sizeLabel = targetSize ? `「${targetSize}」` : ''
+  let reason: string | null = null
+
+  if (requestedQuantity <= 0) {
+    reason = '請先填寫加購數量'
+  } else if (availableQuantity <= 0) {
+    reason = hasSizeOptions ? `此尺寸${sizeLabel}已售完` : '此商品已售完'
+  } else if (totalRequestedQuantity > availableQuantity) {
+    reason = hasSizeOptions
+      ? `此尺寸${sizeLabel}剩 ${availableQuantity} 件`
+      : `商品可用庫存不足，剩 ${availableQuantity} 件`
+  }
+
+  return {
+    equipmentId,
+    equipmentName,
+    size: targetSize,
+    hasSizeOptions,
+    requestedQuantity,
+    existingQuantity,
+    totalRequestedQuantity,
+    availableQuantity,
+    isPurchasable: !reason,
+    reason
+  }
+}
+
+export const validateEquipmentPurchaseItemsAvailability = (
+  items: EquipmentPurchaseValidationItem[] = [],
+  equipmentById: ReadonlyMap<string, Partial<Equipment> | null | undefined>
+) => {
+  const groupedItems = new Map<string, EquipmentPurchaseValidationItem & { quantity: number }>()
+
+  for (const item of items) {
+    const equipmentId = String(item?.equipment_id || '')
+    if (!equipmentId) continue
+    const size = normalizeSize(item.size)
+    const key = `${equipmentId}::${size || ''}`
+    const quantity = normalizeRequestedQuantity(item.quantity)
+    const current = groupedItems.get(key)
+
+    if (current) {
+      current.quantity += quantity
+    } else {
+      groupedItems.set(key, {
+        equipment_id: equipmentId,
+        size,
+        quantity
+      })
+    }
+  }
+
+  const failures: EquipmentPurchaseAvailabilityFailure[] = []
+  const requestedByEquipmentId = new Map<string, number>()
+
+  for (const item of groupedItems.values()) {
+    requestedByEquipmentId.set(
+      item.equipment_id,
+      (requestedByEquipmentId.get(item.equipment_id) || 0) + item.quantity
+    )
+
+    const equipment = equipmentById.get(item.equipment_id)
+    const equipmentName = String(equipment?.name || '未知裝備')
+
+    if (!equipment) {
+      failures.push({
+        equipmentId: item.equipment_id,
+        equipmentName,
+        size: item.size || null,
+        requestedQuantity: item.quantity,
+        availableQuantity: 0,
+        reason: `${equipmentName} 找不到裝備資料`
+      })
+      continue
+    }
+
+    if (!equipment.quick_purchase_enabled) {
+      failures.push({
+        equipmentId: item.equipment_id,
+        equipmentName,
+        size: item.size || null,
+        requestedQuantity: item.quantity,
+        availableQuantity: 0,
+        reason: `${equipmentName} 目前未開放加購`
+      })
+      continue
+    }
+
+    if (normalizeNumber(equipment.purchase_price) <= 0) {
+      failures.push({
+        equipmentId: item.equipment_id,
+        equipmentName,
+        size: item.size || null,
+        requestedQuantity: item.quantity,
+        availableQuantity: 0,
+        reason: `${equipmentName} 尚未設定加購售價`
+      })
+      continue
+    }
+
+    const availability = getEquipmentPurchaseAvailability(equipment, {
+      size: item.size,
+      quantity: item.quantity
+    })
+
+    if (!availability.isPurchasable) {
+      failures.push({
+        equipmentId: item.equipment_id,
+        equipmentName,
+        size: availability.size,
+        requestedQuantity: availability.totalRequestedQuantity,
+        availableQuantity: availability.availableQuantity,
+        reason: `${equipmentName}${availability.size ? ` ${availability.size}` : ''}：${availability.reason || '庫存不足'}`
+      })
+    }
+  }
+
+  for (const [equipmentId, requestedQuantity] of requestedByEquipmentId.entries()) {
+    if (failures.some((failure) => failure.equipmentId === equipmentId)) continue
+
+    const equipment = equipmentById.get(equipmentId)
+    if (!equipment) continue
+
+    const availableQuantity = getEquipmentRemainingOverallQuantity(equipment)
+    if (requestedQuantity > availableQuantity) {
+      const equipmentName = String(equipment.name || '未知裝備')
+      failures.push({
+        equipmentId,
+        equipmentName,
+        size: null,
+        requestedQuantity,
+        availableQuantity,
+        reason: `${equipmentName}：商品可用庫存不足，剩 ${availableQuantity} 件`
+      })
+    }
+  }
+
+  return {
+    isValid: failures.length === 0,
+    failures
+  }
+}
 
 export const getEquipmentMemberAllocationBalances = (transactions: EquipmentTransaction[] = []) => {
   return transactions.reduce<Record<string, number>>((balances, transaction) => {

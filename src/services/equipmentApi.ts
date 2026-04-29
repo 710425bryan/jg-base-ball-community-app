@@ -1,6 +1,7 @@
 import { supabase } from '@/services/supabase'
 import { compressImage } from '@/utils/imageCompressor'
 import { EQUIPMENT_REQUEST_RESERVED_STATUSES } from '@/utils/equipmentRequestStatus'
+import { validateEquipmentPurchaseItemsAvailability } from '@/utils/equipmentInventory'
 import type {
   CreateEquipmentPaymentSubmissionPayload,
   CreateEquipmentPurchaseRequestPayload,
@@ -129,7 +130,8 @@ export const uploadEquipmentImage = async (file: File, folder = 'equipment_image
   return data.publicUrl
 }
 
-const fetchReservedRequestItems = async () => {
+const fetchReservedRequestItems = async (equipmentIds: string[] = []) => {
+  const scopedEquipmentIds = unique(equipmentIds)
   const { data: requests, error: requestError } = await supabase
     .from('equipment_purchase_requests')
     .select('id')
@@ -143,10 +145,16 @@ const fetchReservedRequestItems = async () => {
   const requestIds = unique((requests || []).map((row: any) => row.id))
   if (requestIds.length === 0) return []
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('equipment_purchase_request_items')
     .select('id, request_id, equipment_id, size, quantity, unit_price_snapshot')
     .in('request_id', requestIds)
+
+  if (scopedEquipmentIds.length > 0) {
+    query = query.in('equipment_id', scopedEquipmentIds)
+  }
+
+  const { data, error } = await query
 
   if (error) {
     if (error.code === '42P01') return []
@@ -518,6 +526,57 @@ const fetchEquipmentsMap = async (equipmentIds: string[]) => {
   return new Map((data || []).map((equipment: any) => [String(equipment.id), normalizeEquipment(equipment)]))
 }
 
+const fetchEquipmentsWithAvailabilityMap = async (equipmentIds: string[]) => {
+  const ids = unique(equipmentIds)
+  if (ids.length === 0) return new Map<string, Equipment>()
+
+  const { data, error } = await supabase
+    .from('equipment')
+    .select(`
+      *,
+      equipment_transactions (
+        id,
+        equipment_id,
+        transaction_type,
+        transaction_date,
+        member_id,
+        handled_by,
+        size,
+        quantity,
+        notes,
+        unit_price,
+        request_item_id,
+        carryover_month,
+        payment_status,
+        payment_submission_id,
+        paid_at,
+        paid_by,
+        created_at,
+        updated_at
+      )
+    `)
+    .in('id', ids)
+
+  if (error) throw error
+
+  const reservedItems = await fetchReservedRequestItems(ids)
+  const reservedByEquipmentId = new Map<string, any[]>()
+  for (const item of reservedItems) {
+    const equipmentId = String(item.equipment_id || '')
+    if (!equipmentId) continue
+    if (!reservedByEquipmentId.has(equipmentId)) reservedByEquipmentId.set(equipmentId, [])
+    reservedByEquipmentId.get(equipmentId)?.push(item)
+  }
+
+  return new Map((data || []).map((equipment: any) => [
+    String(equipment.id),
+    normalizeEquipment({
+      ...equipment,
+      reserved_request_items: reservedByEquipmentId.get(String(equipment.id)) || []
+    })
+  ]))
+}
+
 const fetchRequestTransactionsMap = async (transactionIds: string[]) => {
   const ids = unique(transactionIds)
   if (ids.length === 0) return new Map<string, EquipmentTransaction>()
@@ -640,8 +699,17 @@ export const createEquipmentPurchaseRequest = async (
   payload: CreateEquipmentPurchaseRequestPayload,
   requesterUserId: string
 ) => {
+  if (!Array.isArray(payload.items) || payload.items.length === 0) {
+    throw new Error('請先加入至少一項裝備')
+  }
+
   const equipmentIds = unique(payload.items.map((item) => item.equipment_id))
-  const equipmentMap = await fetchEquipmentsMap(equipmentIds)
+  const equipmentMap = await fetchEquipmentsWithAvailabilityMap(equipmentIds)
+  const availability = validateEquipmentPurchaseItemsAvailability(payload.items, equipmentMap)
+
+  if (!availability.isValid) {
+    throw new Error(availability.failures[0]?.reason || '部分裝備庫存不足，請調整請購數量')
+  }
 
   const { data: request, error: requestError } = await supabase
     .from('equipment_purchase_requests')
@@ -663,7 +731,7 @@ export const createEquipmentPurchaseRequest = async (
       request_id: request.id,
       equipment_id: item.equipment_id,
       size: item.size || null,
-      quantity: Math.max(Number(item.quantity || 0), 1),
+      quantity: Math.max(Math.floor(Number(item.quantity || 0)), 1),
       equipment_name_snapshot: equipment?.name || '未知裝備',
       unit_price_snapshot: Number(equipment?.purchase_price || 0)
     }
@@ -679,15 +747,10 @@ export const createEquipmentPurchaseRequest = async (
 }
 
 export const approveEquipmentRequest = async (requestId: string, userId: string) => {
-  const { error } = await supabase
-    .from('equipment_purchase_requests')
-    .update({
-      status: 'approved',
-      approved_at: new Date().toISOString(),
-      approved_by: userId,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', requestId)
+  const { error } = await supabase.rpc('approve_equipment_purchase_request', {
+    p_request_id: requestId,
+    p_user_id: userId
+  })
 
   if (error) throw error
   return fetchEquipmentRequestById(requestId)
