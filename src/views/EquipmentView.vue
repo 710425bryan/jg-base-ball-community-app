@@ -11,10 +11,10 @@ import {
   Tickets
 } from '@element-plus/icons-vue'
 import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
-import PreviewableImage from '@/components/common/PreviewableImage.vue'
 import EquipmentFormDialog from '@/components/equipment/EquipmentFormDialog.vue'
 import EquipmentHistoryDialog from '@/components/equipment/EquipmentHistoryDialog.vue'
 import EquipmentInventoryAdjustmentDialog from '@/components/equipment/EquipmentInventoryAdjustmentDialog.vue'
+import EquipmentPhotoCarousel from '@/components/equipment/EquipmentPhotoCarousel.vue'
 import EquipmentTransactionDialog from '@/components/equipment/EquipmentTransactionDialog.vue'
 import { useEquipmentStore } from '@/stores/equipment'
 import { usePermissionsStore } from '@/stores/permissions'
@@ -296,9 +296,9 @@ onMounted(() => {
             class="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm"
           >
             <div class="aspect-[16/9] bg-gray-100">
-              <PreviewableImage
-                v-if="equipment.image_url"
-                :src="equipment.image_url"
+              <EquipmentPhotoCarousel
+                v-if="equipment.image_urls.length > 0"
+                :photos="equipment.image_urls"
                 :alt="equipment.name"
                 class="h-full w-full"
               />
@@ -433,10 +433,12 @@ onMounted(() => {
                   <td class="px-5 py-4">
                     <div class="flex items-center gap-3">
                       <div class="h-12 w-12 overflow-hidden rounded-2xl bg-gray-100">
-                        <PreviewableImage
-                          v-if="equipment.image_url"
-                          :src="equipment.image_url"
+                        <EquipmentPhotoCarousel
+                          v-if="equipment.image_urls.length > 0"
+                          :photos="equipment.image_urls"
                           :alt="equipment.name"
+                          :show-controls="false"
+                          :show-counter="false"
                           class="h-full w-full"
                         />
                         <div v-else class="flex h-full items-center justify-center text-gray-300">

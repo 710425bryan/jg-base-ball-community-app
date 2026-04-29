@@ -88,6 +88,7 @@ export type Equipment = {
   specs: string | null
   notes: string | null
   image_url: string | null
+  image_urls: string[]
   purchase_price: number
   quick_purchase_enabled: boolean
   total_quantity: number
@@ -106,6 +107,7 @@ export type EquipmentFormPayload = {
   specs?: string | null
   notes?: string | null
   image_url?: string | null
+  image_urls?: string[]
   purchase_price: number
   quick_purchase_enabled: boolean
   total_quantity: number
@@ -158,8 +160,10 @@ export type EquipmentPurchaseRequest = {
   notes: string | null
   ready_note: string | null
   ready_image_url: string | null
+  ready_image_urls: string[]
   pickup_note: string | null
   pickup_image_url: string | null
+  pickup_image_urls: string[]
   rejection_reason: string | null
   cancel_reason: string | null
   requested_at: string

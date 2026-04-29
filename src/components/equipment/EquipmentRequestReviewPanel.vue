@@ -8,7 +8,7 @@ import { useEquipmentStore } from '@/stores/equipment'
 import { useEquipmentRequestsStore } from '@/stores/equipmentRequests'
 import { usePermissionsStore } from '@/stores/permissions'
 import { deleteEquipmentPurchaseRequestWithRollback } from '@/services/equipmentApi'
-import PreviewableImage from '@/components/common/PreviewableImage.vue'
+import EquipmentPhotoCarousel from '@/components/equipment/EquipmentPhotoCarousel.vue'
 import type { EquipmentPurchaseRequest } from '@/types/equipment'
 import {
   EQUIPMENT_REQUEST_HISTORY_STATUSES,
@@ -136,15 +136,15 @@ const openActionDialog = (mode: 'ready' | 'picked_up', request: EquipmentPurchas
   }
 }
 
-const submitActionDialog = async (payload: { note: string; imageFile: File | null }) => {
+const submitActionDialog = async (payload: { note: string; imageFiles: File[] }) => {
   const target = actionDialog.value.request
   if (!target) return
 
   setProcessing(target.id, true)
   try {
     const updated = actionDialog.value.mode === 'ready'
-      ? await requestStore.markReady(target.id, payload.note, payload.imageFile)
-      : await requestStore.markPickedUp(target.id, payload.note, payload.imageFile)
+      ? await requestStore.markReady(target.id, payload.note, payload.imageFiles)
+      : await requestStore.markPickedUp(target.id, payload.note, payload.imageFiles)
 
     actionDialog.value.visible = false
     ElMessage.success(actionDialog.value.mode === 'ready' ? '已標記可領取' : '已完成領取')
@@ -397,10 +397,10 @@ watch(() => route.query.highlight_id, () => {
                 </div>
               </div>
 
-              <div v-if="request.ready_image_url" class="mt-4 rounded-2xl border border-blue-100 bg-blue-50/60 p-3">
+              <div v-if="request.ready_image_urls.length > 0" class="mt-4 rounded-2xl border border-blue-100 bg-blue-50/60 p-3">
                 <div class="mb-2 text-xs font-black text-blue-700">備貨照片</div>
-                <PreviewableImage
-                  :src="request.ready_image_url"
+                <EquipmentPhotoCarousel
+                  :photos="request.ready_image_urls"
                   alt="備貨照片"
                   class="h-28 w-full rounded-xl border border-blue-100"
                 />
@@ -476,19 +476,19 @@ watch(() => route.query.highlight_id, () => {
                 刪除
               </button>
             </div>
-            <div v-if="request.ready_image_url || request.pickup_image_url" class="mt-3 grid gap-3 sm:grid-cols-2">
-              <div v-if="request.ready_image_url" class="rounded-2xl border border-gray-100 bg-white p-3">
+            <div v-if="request.ready_image_urls.length > 0 || request.pickup_image_urls.length > 0" class="mt-3 grid gap-3 sm:grid-cols-2">
+              <div v-if="request.ready_image_urls.length > 0" class="rounded-2xl border border-gray-100 bg-white p-3">
                 <div class="mb-2 text-xs font-black text-gray-400">備貨照片</div>
-                <PreviewableImage
-                  :src="request.ready_image_url"
+                <EquipmentPhotoCarousel
+                  :photos="request.ready_image_urls"
                   alt="備貨照片"
                   class="h-24 w-full rounded-xl border border-gray-100"
                 />
               </div>
-              <div v-if="request.pickup_image_url" class="rounded-2xl border border-gray-100 bg-white p-3">
+              <div v-if="request.pickup_image_urls.length > 0" class="rounded-2xl border border-gray-100 bg-white p-3">
                 <div class="mb-2 text-xs font-black text-gray-400">領取照片</div>
-                <PreviewableImage
-                  :src="request.pickup_image_url"
+                <EquipmentPhotoCarousel
+                  :photos="request.pickup_image_urls"
                   alt="領取照片"
                   class="h-24 w-full rounded-xl border border-gray-100"
                 />

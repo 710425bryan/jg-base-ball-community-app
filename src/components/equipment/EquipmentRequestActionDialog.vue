@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { Loading } from '@element-plus/icons-vue'
-import PreviewableImage from '@/components/common/PreviewableImage.vue'
+import EquipmentPhotoCarousel from '@/components/equipment/EquipmentPhotoCarousel.vue'
 
 const props = defineProps<{
   modelValue: boolean
@@ -15,48 +15,56 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void
-  (e: 'confirm', payload: { note: string; imageFile: File | null }): void
+  (e: 'confirm', payload: { note: string; imageFiles: File[] }): void
 }>()
 
 const note = ref('')
-const imageFile = ref<File | null>(null)
-const imagePreview = ref<string | null>(null)
+const imageFiles = ref<File[]>([])
+const imagePreviews = ref<string[]>([])
+const uploadRef = ref()
 
 const isOpen = computed({
   get: () => props.modelValue,
   set: (value: boolean) => emit('update:modelValue', value)
 })
 
-const revokeImagePreview = () => {
-  if (imagePreview.value?.startsWith('blob:')) {
-    URL.revokeObjectURL(imagePreview.value)
+const revokeImagePreviews = () => {
+  for (const preview of imagePreviews.value) {
+    if (preview.startsWith('blob:')) URL.revokeObjectURL(preview)
   }
-  imagePreview.value = null
+  imagePreviews.value = []
 }
 
-const handleImageChange = (file: any) => {
-  revokeImagePreview()
-  imageFile.value = file?.raw || null
-  imagePreview.value = imageFile.value ? URL.createObjectURL(imageFile.value) : null
+const handleImageChange = (_file: any, uploadFiles: any[] = []) => {
+  revokeImagePreviews()
+  imageFiles.value = uploadFiles
+    .map((file) => file?.raw)
+    .filter(Boolean) as File[]
+  imagePreviews.value = imageFiles.value.map((file) => URL.createObjectURL(file))
+}
+
+const resetImages = () => {
+  revokeImagePreviews()
+  imageFiles.value = []
+  uploadRef.value?.clearFiles?.()
 }
 
 const submit = () => {
   emit('confirm', {
     note: note.value.trim(),
-    imageFile: imageFile.value
+    imageFiles: imageFiles.value
   })
 }
 
 watch(() => props.modelValue, (value) => {
   if (value) {
     note.value = ''
-    revokeImagePreview()
-    imageFile.value = null
   }
+  resetImages()
 })
 
 onBeforeUnmount(() => {
-  revokeImagePreview()
+  revokeImagePreviews()
 })
 </script>
 
@@ -86,16 +94,19 @@ onBeforeUnmount(() => {
             <el-upload
               accept="image/*"
               :auto-upload="false"
-              :limit="1"
+              :limit="8"
+              multiple
               :on-change="handleImageChange"
+              :on-remove="handleImageChange"
+              ref="uploadRef"
             >
               <button type="button" class="rounded-2xl border border-gray-200 px-5 py-3 font-bold text-gray-600 hover:border-primary hover:text-primary transition-colors">
                 選擇照片
               </button>
             </el-upload>
-            <PreviewableImage
-              v-if="imagePreview"
-              :src="imagePreview"
+            <EquipmentPhotoCarousel
+              v-if="imagePreviews.length > 0"
+              :photos="imagePreviews"
               alt="處理照片"
               class="h-40 w-full rounded-2xl border border-gray-100"
             />

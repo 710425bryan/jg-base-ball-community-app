@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Goods, Loading, Refresh, ShoppingCart } from '@element-plus/icons-vue'
-import PreviewableImage from '@/components/common/PreviewableImage.vue'
+import EquipmentPhotoCarousel from '@/components/equipment/EquipmentPhotoCarousel.vue'
 import { listMyPaymentMembers } from '@/services/myPayments'
 import { useAuthStore } from '@/stores/auth'
 import { useEquipmentStore } from '@/stores/equipment'
@@ -800,10 +800,12 @@ onMounted(() => {
                 >
                   <div class="flex gap-3">
                     <div class="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-gray-100">
-                      <PreviewableImage
-                        v-if="equipment.image_url"
-                        :src="equipment.image_url"
+                      <EquipmentPhotoCarousel
+                        v-if="equipment.image_urls.length > 0"
+                        :photos="equipment.image_urls"
                         :alt="equipment.name"
+                        :show-controls="false"
+                        :show-counter="false"
                         class="h-full w-full"
                       />
                       <div v-else class="flex h-full w-full items-center justify-center text-gray-300">
@@ -940,19 +942,19 @@ onMounted(() => {
                     </div>
                   </div>
 
-                  <div v-if="historyItem.request.ready_image_url || historyItem.request.pickup_image_url" class="mt-4 grid gap-3 sm:grid-cols-2">
-                    <div v-if="historyItem.request.ready_image_url" class="rounded-2xl border border-gray-100 bg-white p-3">
+                  <div v-if="historyItem.request.ready_image_urls.length > 0 || historyItem.request.pickup_image_urls.length > 0" class="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div v-if="historyItem.request.ready_image_urls.length > 0" class="rounded-2xl border border-gray-100 bg-white p-3">
                       <div class="mb-2 text-xs font-black text-gray-400">備貨照片</div>
-                      <PreviewableImage
-                        :src="historyItem.request.ready_image_url"
+                      <EquipmentPhotoCarousel
+                        :photos="historyItem.request.ready_image_urls"
                         alt="備貨照片"
                         class="h-28 w-full rounded-xl border border-gray-100"
                       />
                     </div>
-                    <div v-if="historyItem.request.pickup_image_url" class="rounded-2xl border border-gray-100 bg-white p-3">
+                    <div v-if="historyItem.request.pickup_image_urls.length > 0" class="rounded-2xl border border-gray-100 bg-white p-3">
                       <div class="mb-2 text-xs font-black text-gray-400">領取照片</div>
-                      <PreviewableImage
-                        :src="historyItem.request.pickup_image_url"
+                      <EquipmentPhotoCarousel
+                        :photos="historyItem.request.pickup_image_urls"
                         alt="領取照片"
                         class="h-28 w-full rounded-xl border border-gray-100"
                       />

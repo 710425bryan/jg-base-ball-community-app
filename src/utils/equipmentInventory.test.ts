@@ -20,6 +20,7 @@ const createEquipment = (overrides: Partial<Equipment> = {}): Equipment => ({
   specs: null,
   notes: null,
   image_url: null,
+  image_urls: [],
   purchase_price: 500,
   quick_purchase_enabled: true,
   total_quantity: 10,

@@ -179,7 +179,7 @@
 - 裝備資料流集中在 `src/types/equipment.ts`、`src/services/equipmentApi.ts`、`src/stores/equipment*.ts`、`src/components/equipment/*`。
 - 主要資料表包含 `equipment`、`equipment_transactions`、`equipment_inventory_adjustments`、`equipment_purchase_requests`、`equipment_purchase_request_items`、`equipment_payment_submissions`、`equipment_payment_submission_items`。
 - 裝備流程：加購申請 `pending` -> 審核 `approved` -> 備貨 `ready_for_pickup` -> 領取 `picked_up` -> 裝備付款回報 `pending_review` -> 費用端確認 `approved` 或退回 `rejected`。
-- 裝備圖片與處理照片使用 `equipments` bucket。
+- 裝備圖片與處理照片使用 `equipments` bucket；主檔 / 備貨 / 領取照片可多張，並保留 `image_url`、`ready_image_url`、`pickup_image_url` 首圖相容欄位。
 - 裝備交易 `purchase` 產生後才進入付款回報；不要把來源專案的 `fee_records` 或月結關帳模型直接搬進本專案。
 
 ### 棒球能力與體能測驗

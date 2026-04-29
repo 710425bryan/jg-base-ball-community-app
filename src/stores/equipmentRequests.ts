@@ -132,18 +132,18 @@ export const useEquipmentRequestsStore = defineStore('equipmentRequests', () => 
     return request
   }
 
-  const markReady = async (requestId: string, note?: string | null, imageFile?: File | null) => {
+  const markReady = async (requestId: string, note?: string | null, imageFiles: File[] = []) => {
     const userId = authStore.user?.id
     if (!userId) throw new Error('尚未登入')
-    const request = await markEquipmentRequestReady(requestId, userId, note, imageFile)
+    const request = await markEquipmentRequestReady(requestId, userId, note, imageFiles)
     upsertLocalRequest(request)
     return request
   }
 
-  const markPickedUp = async (requestId: string, note?: string | null, imageFile?: File | null) => {
+  const markPickedUp = async (requestId: string, note?: string | null, imageFiles: File[] = []) => {
     const userId = authStore.user?.id
     if (!userId) throw new Error('尚未登入')
-    const request = await markEquipmentRequestPickedUp(requestId, userId, note, imageFile)
+    const request = await markEquipmentRequestPickedUp(requestId, userId, note, imageFiles)
     upsertLocalRequest(request)
     return request
   }

@@ -288,6 +288,8 @@
 - `equipment_payment_submissions`
 - `equipment_payment_submission_items`
 - Storage bucket：`equipments`
+- 裝備主檔保留 `image_url` 作為首圖相容欄位，實際多圖清單使用 `image_urls`。
+- 加購備貨 / 領取處理照片保留 `ready_image_url`、`pickup_image_url` 作為首圖相容欄位，實際多圖清單使用 `ready_image_urls`、`pickup_image_urls`。
 
 流程：
 
@@ -302,7 +304,7 @@
 
 - `/equipment` 需要 `equipment:VIEW`。
 - `/equipment-addons` 只要求登入，資料安全靠 `linked_team_member_ids` 與 DB RLS。
-- 裝備圖片與處理照片使用 `equipments` bucket。
+- 裝備圖片與處理照片可多張上傳，使用 `equipments` bucket，前端顯示需支援左右滑動。
 - 不要把來源專案的 `fee_records` 或月結模型搬進本專案。
 
 ## 12. 棒球能力與體能測驗

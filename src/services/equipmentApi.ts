@@ -32,6 +32,31 @@ const normalizeNumber = (value: unknown, fallback = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
+const normalizeUrlList = (value: unknown, fallback: Array<string | null | undefined> = []) => {
+  let values: unknown[] = []
+
+  if (Array.isArray(value)) {
+    values = value
+  } else if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed)
+        values = Array.isArray(parsed) ? parsed : [trimmed]
+      } catch {
+        values = [trimmed]
+      }
+    } else if (trimmed) {
+      values = [trimmed]
+    }
+  }
+
+  return unique([
+    ...values.map((item) => (typeof item === 'string' ? item.trim() : '')),
+    ...fallback.map((item) => (typeof item === 'string' ? item.trim() : ''))
+  ])
+}
+
 const EQUIPMENT_SELECT = `
   id,
   name,
@@ -39,6 +64,7 @@ const EQUIPMENT_SELECT = `
   specs,
   notes,
   image_url,
+  image_urls,
   purchase_price,
   quick_purchase_enabled,
   total_quantity,
@@ -59,6 +85,7 @@ const EQUIPMENT_INVENTORY_TRANSACTION_SELECT = `
 
 const normalizeEquipment = (row: any): Equipment => ({
   ...row,
+  image_urls: normalizeUrlList(row?.image_urls, [row?.image_url]),
   purchase_price: normalizeNumber(row?.purchase_price),
   total_quantity: normalizeNumber(row?.total_quantity),
   quick_purchase_enabled: Boolean(row?.quick_purchase_enabled),
@@ -153,6 +180,26 @@ export const uploadEquipmentImage = async (file: File, folder = 'equipment_image
 
   const { data } = supabase.storage.from('equipments').getPublicUrl(filePath)
   return data.publicUrl
+}
+
+export const uploadEquipmentImages = async (files: File[] = [], folder = 'equipment_images') => {
+  const validFiles = files.filter(Boolean)
+  if (validFiles.length === 0) return [] as string[]
+  return Promise.all(validFiles.map((file) => uploadEquipmentImage(file, folder)))
+}
+
+const buildEquipmentImageValues = async (payload: EquipmentFormPayload, imageFiles: File[] = []) => {
+  const uploadedImageUrls = await uploadEquipmentImages(imageFiles)
+  const imageUrls = normalizeUrlList([
+    ...(Array.isArray(payload.image_urls) ? payload.image_urls : []),
+    ...(!Array.isArray(payload.image_urls) && payload.image_url ? [payload.image_url] : []),
+    ...uploadedImageUrls
+  ])
+
+  return {
+    image_url: imageUrls[0] || null,
+    image_urls: imageUrls
+  }
 }
 
 const fetchReservedRequestItems = async (equipmentIds: string[] = []) => {
@@ -393,11 +440,11 @@ export const fetchEquipmentMembers = async () => {
   return (data || []) as EquipmentMemberSummary[]
 }
 
-export const createEquipment = async (payload: EquipmentFormPayload, imageFile?: File | null) => {
-  const imageUrl = imageFile ? await uploadEquipmentImage(imageFile) : payload.image_url || null
+export const createEquipment = async (payload: EquipmentFormPayload, imageFiles: File[] = []) => {
+  const imageValues = await buildEquipmentImageValues(payload, imageFiles)
   const { data, error } = await supabase
     .from('equipment')
-    .insert({ ...payload, image_url: imageUrl })
+    .insert({ ...payload, ...imageValues })
     .select(EQUIPMENT_SELECT)
     .single()
 
@@ -408,12 +455,12 @@ export const createEquipment = async (payload: EquipmentFormPayload, imageFile?:
 export const updateEquipment = async (
   equipmentId: string,
   payload: EquipmentFormPayload,
-  imageFile?: File | null
+  imageFiles: File[] = []
 ) => {
-  const imageUrl = imageFile ? await uploadEquipmentImage(imageFile) : payload.image_url || null
+  const imageValues = await buildEquipmentImageValues(payload, imageFiles)
   const { data, error } = await supabase
     .from('equipment')
-    .update({ ...payload, image_url: imageUrl, updated_at: new Date().toISOString() })
+    .update({ ...payload, ...imageValues, updated_at: new Date().toISOString() })
     .eq('id', equipmentId)
     .select(EQUIPMENT_SELECT)
     .single()
@@ -501,8 +548,10 @@ const REQUEST_SELECT = `
   notes,
   ready_note,
   ready_image_url,
+  ready_image_urls,
   pickup_note,
   pickup_image_url,
+  pickup_image_urls,
   rejection_reason,
   cancel_reason,
   requested_at,
@@ -687,6 +736,8 @@ const hydrateEquipmentRequests = async (rows: any[]) => {
 
   return rows.map((row: any) => ({
     ...row,
+    ready_image_urls: normalizeUrlList(row?.ready_image_urls, [row?.ready_image_url]),
+    pickup_image_urls: normalizeUrlList(row?.pickup_image_urls, [row?.pickup_image_url]),
     member: memberMap.get(String(row.member_id)) || null,
     requester_profile: profileMap.get(String(row.requester_user_id)) || null,
     items: itemsByRequestId.get(String(row.id)) || []
@@ -807,9 +858,12 @@ export const markEquipmentRequestReady = async (
   requestId: string,
   userId: string,
   note?: string | null,
-  imageFile?: File | null
+  imageFiles: File[] = []
 ) => {
-  const imageUrl = imageFile ? await uploadEquipmentImage(imageFile, 'equipment_request_actions/ready') : null
+  const imageUrls = await uploadEquipmentImages(
+    imageFiles,
+    'equipment_request_actions/ready'
+  )
   const { error } = await supabase
     .from('equipment_purchase_requests')
     .update({
@@ -817,7 +871,8 @@ export const markEquipmentRequestReady = async (
       ready_at: new Date().toISOString(),
       ready_by: userId,
       ready_note: note || null,
-      ready_image_url: imageUrl,
+      ready_image_url: imageUrls[0] || null,
+      ready_image_urls: imageUrls,
       updated_at: new Date().toISOString()
     })
     .eq('id', requestId)
@@ -830,13 +885,16 @@ export const markEquipmentRequestPickedUp = async (
   requestId: string,
   userId: string,
   note?: string | null,
-  imageFile?: File | null
+  imageFiles: File[] = []
 ) => {
   const request = await fetchEquipmentRequestById(requestId)
   if (!request) throw new Error('找不到加購申請')
 
   const now = new Date().toISOString()
-  const imageUrl = imageFile ? await uploadEquipmentImage(imageFile, 'equipment_request_actions/pickup') : null
+  const imageUrls = await uploadEquipmentImages(
+    imageFiles,
+    'equipment_request_actions/pickup'
+  )
 
   for (const item of request.items) {
     if (item.equipment_transaction_id) continue
@@ -879,7 +937,8 @@ export const markEquipmentRequestPickedUp = async (
       picked_up_at: now,
       picked_up_by: userId,
       pickup_note: note || null,
-      pickup_image_url: imageUrl,
+      pickup_image_url: imageUrls[0] || null,
+      pickup_image_urls: imageUrls,
       updated_at: now
     })
     .eq('id', requestId)

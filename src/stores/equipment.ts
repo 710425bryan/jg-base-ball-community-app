@@ -51,14 +51,14 @@ export const useEquipmentStore = defineStore('equipment', () => {
 
   const saveEquipment = async (
     payload: EquipmentFormPayload,
-    options: { id?: string | null; imageFile?: File | null } = {}
+    options: { id?: string | null; imageFiles?: File[] } = {}
   ) => {
     isSaving.value = true
 
     try {
       const saved = options.id
-        ? await updateEquipment(options.id, payload, options.imageFile)
-        : await createEquipment(payload, options.imageFile)
+        ? await updateEquipment(options.id, payload, options.imageFiles)
+        : await createEquipment(payload, options.imageFiles)
 
       const index = equipments.value.findIndex((equipment) => equipment.id === saved.id)
       if (index === -1) {

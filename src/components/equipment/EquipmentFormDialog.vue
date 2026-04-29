@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Delete, Loading } from '@element-plus/icons-vue'
-import PreviewableImage from '@/components/common/PreviewableImage.vue'
+import EquipmentPhotoCarousel from '@/components/equipment/EquipmentPhotoCarousel.vue'
 import { useEquipmentStore } from '@/stores/equipment'
 import type { Equipment, EquipmentCategory, EquipmentFormPayload, EquipmentSizeStock } from '@/types/equipment'
 
@@ -18,8 +18,10 @@ const emit = defineEmits<{
 
 const equipmentStore = useEquipmentStore()
 const formRef = ref()
-const imageFile = ref<File | null>(null)
-const imagePreview = ref<string | null>(null)
+const uploadRef = ref()
+const imageFiles = ref<File[]>([])
+const imagePreviews = ref<string[]>([])
+const existingImageUrls = ref<string[]>([])
 
 const categories: EquipmentCategory[] = ['服飾類', '球具類', '消耗品', '其他']
 
@@ -29,6 +31,7 @@ const form = reactive<EquipmentFormPayload>({
   specs: '',
   notes: '',
   image_url: null,
+  image_urls: [],
   purchase_price: 0,
   quick_purchase_enabled: false,
   total_quantity: 0,
@@ -42,6 +45,10 @@ const isOpen = computed({
 })
 
 const dialogTitle = computed(() => props.equipment ? '編輯裝備' : '新增裝備')
+const displayedImageUrls = computed(() => [
+  ...existingImageUrls.value,
+  ...imagePreviews.value
+])
 
 const rules = {
   name: [{ required: true, message: '請輸入裝備名稱', trigger: 'blur' }],
@@ -60,20 +67,32 @@ const rules = {
   ]
 }
 
-const revokeImagePreview = () => {
-  if (imagePreview.value?.startsWith('blob:')) {
-    URL.revokeObjectURL(imagePreview.value)
+const revokeImagePreviews = () => {
+  for (const preview of imagePreviews.value) {
+    if (preview.startsWith('blob:')) URL.revokeObjectURL(preview)
   }
-  imagePreview.value = null
+  imagePreviews.value = []
+}
+
+const syncSelectedImageFiles = (uploadFiles: any[] = []) => {
+  revokeImagePreviews()
+  imageFiles.value = uploadFiles
+    .map((file) => file?.raw)
+    .filter(Boolean) as File[]
+  imagePreviews.value = imageFiles.value.map((file) => URL.createObjectURL(file))
 }
 
 const resetForm = () => {
-  revokeImagePreview()
+  revokeImagePreviews()
   form.name = props.equipment?.name || ''
   form.category = props.equipment?.category || '球具類'
   form.specs = props.equipment?.specs || ''
   form.notes = props.equipment?.notes || ''
-  form.image_url = props.equipment?.image_url || null
+  existingImageUrls.value = props.equipment?.image_urls?.length
+    ? [...props.equipment.image_urls]
+    : (props.equipment?.image_url ? [props.equipment.image_url] : [])
+  form.image_url = existingImageUrls.value[0] || null
+  form.image_urls = [...existingImageUrls.value]
   form.purchase_price = Number(props.equipment?.purchase_price || 0)
   form.quick_purchase_enabled = Boolean(props.equipment?.quick_purchase_enabled)
   form.total_quantity = Number(props.equipment?.total_quantity || 0)
@@ -81,7 +100,8 @@ const resetForm = () => {
   form.sizes_stock = Array.isArray(props.equipment?.sizes_stock)
     ? props.equipment.sizes_stock.map((item) => ({ ...item }))
     : []
-  imageFile.value = null
+  imageFiles.value = []
+  uploadRef.value?.clearFiles?.()
   formRef.value?.clearValidate?.()
 }
 
@@ -93,10 +113,12 @@ const removeSizeStock = (index: number) => {
   form.sizes_stock.splice(index, 1)
 }
 
-const handleImageChange = (file: any) => {
-  revokeImagePreview()
-  imageFile.value = file?.raw || null
-  imagePreview.value = imageFile.value ? URL.createObjectURL(imageFile.value) : null
+const handleImageChange = (_file: any, uploadFiles: any[] = []) => {
+  syncSelectedImageFiles(uploadFiles)
+}
+
+const removeExistingImage = (index: number) => {
+  existingImageUrls.value.splice(index, 1)
 }
 
 const normalizeSizesStock = () => {
@@ -124,6 +146,8 @@ const submit = async () => {
         specs: form.specs?.trim() || null,
         notes: form.notes?.trim() || null,
         purchased_by: form.purchased_by?.trim() || null,
+        image_url: existingImageUrls.value[0] || null,
+        image_urls: [...existingImageUrls.value],
         purchase_price: Math.max(Number(form.purchase_price || 0), 0),
         total_quantity: Math.max(Number(form.total_quantity || 0), 0),
         sizes_stock: normalizeSizesStock()
@@ -131,7 +155,7 @@ const submit = async () => {
 
       await equipmentStore.saveEquipment(payload, {
         id: props.equipment?.id,
-        imageFile: imageFile.value
+        imageFiles: imageFiles.value
       })
 
       ElMessage.success(props.equipment ? '已更新裝備' : '已新增裝備')
@@ -144,11 +168,17 @@ const submit = async () => {
 }
 
 watch(() => props.modelValue, (value) => {
-  if (value) resetForm()
+  if (value) {
+    resetForm()
+  } else {
+    revokeImagePreviews()
+    imageFiles.value = []
+    uploadRef.value?.clearFiles?.()
+  }
 })
 
 onBeforeUnmount(() => {
-  revokeImagePreview()
+  revokeImagePreviews()
 })
 </script>
 
@@ -238,8 +268,11 @@ onBeforeUnmount(() => {
           <el-upload
             accept="image/*"
             :auto-upload="false"
-            :limit="1"
+            :limit="8"
+            multiple
             :on-change="handleImageChange"
+            :on-remove="handleImageChange"
+            ref="uploadRef"
           >
             <button type="button" class="rounded-2xl border border-gray-200 px-5 py-3 font-bold text-gray-600 hover:border-primary hover:text-primary transition-colors">
               選擇照片
@@ -255,12 +288,26 @@ onBeforeUnmount(() => {
         />
       </div>
 
-      <PreviewableImage
-        v-if="imagePreview || form.image_url"
-        :src="imagePreview || form.image_url"
+      <EquipmentPhotoCarousel
+        v-if="displayedImageUrls.length > 0"
+        :photos="displayedImageUrls"
         alt="裝備照片"
-        class="h-32 w-full rounded-2xl border border-gray-100"
-      />
+        class="h-44 w-full rounded-2xl border border-gray-100"
+      >
+        <template #fallback />
+      </EquipmentPhotoCarousel>
+
+      <div v-if="existingImageUrls.length > 0" class="flex flex-wrap gap-2">
+        <button
+          v-for="(url, index) in existingImageUrls"
+          :key="url"
+          type="button"
+          class="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-gray-500 hover:border-red-200 hover:bg-red-50 hover:text-red-500 transition-colors"
+          @click="removeExistingImage(index)"
+        >
+          移除第 {{ index + 1 }} 張
+        </button>
+      </div>
     </el-form>
 
     <template #footer>

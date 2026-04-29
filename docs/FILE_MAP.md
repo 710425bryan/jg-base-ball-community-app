@@ -42,6 +42,7 @@
 | `src/components/RolePermissionsManager.vue` | 角色與 feature/action 權限管理 |
 | `src/components/ViewModeSwitch.vue` | 檢視模式切換 |
 | `src/components/common/PreviewableImage.vue` | 可預覽圖片 |
+| `src/components/equipment/EquipmentPhotoCarousel.vue` | 裝備多照片輪播 / 左右滑動 |
 
 ## 4. Stores
 
@@ -136,6 +137,7 @@
 | 檔案 | 用途 |
 | --- | --- |
 | `src/components/equipment/EquipmentFormDialog.vue` | 裝備主檔新增 / 編輯 |
+| `src/components/equipment/EquipmentPhotoCarousel.vue` | 裝備照片與處理照片輪播 |
 | `src/components/equipment/EquipmentHistoryDialog.vue` | 裝備交易 / 庫存 / 申請歷史 |
 | `src/components/equipment/EquipmentInventoryAdjustmentDialog.vue` | 庫存調整 |
 | `src/components/equipment/EquipmentPaymentSubmissionInbox.vue` | 管理端裝備付款審核 |
@@ -209,7 +211,7 @@
 | 公開首頁 / Dashboard | `supabase_dashboard_snapshot_migration.sql`、`supabase_my_home_snapshot_migration.sql` |
 | 假單 | `supabase_my_leave_requests_migration.sql` |
 | 收費 / 付款 | `supabase_fees_migration.sql`、`supabase_quarterly_fees_migration.sql`、`supabase_profile_payment_submissions_migration.sql` |
-| 裝備 | `supabase_equipment_management_migration.sql`、`supabase_equipment_inventory_adjustments_migration.sql`、`supabase_equipment_manual_purchase_records_migration.sql` |
+| 裝備 | `supabase_equipment_management_migration.sql`、`supabase_equipment_inventory_adjustments_migration.sql`、`supabase_equipment_manual_purchase_records_migration.sql`、`supabase_equipment_multiple_photos_migration.sql` |
 | 能力 / 體測 | `supabase_performance_data_migration.sql`、`supabase_performance_view_scope_migration.sql` |
 | 賽事同步 | `supabase_matches_google_calendar_sync_migration.sql`、`supabase_match_calendar_daily_sync_schedule.sql` |
 | 推播 | `supabase_web_push_subscriptions_migration.sql`、`supabase_push_dispatch_events_migration.sql`、`supabase_match_reminder_notifications_migration.sql` |

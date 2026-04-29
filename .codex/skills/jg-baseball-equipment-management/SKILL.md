@@ -24,7 +24,7 @@ description: "Equipment management workflow for jg-base-ball-community-app. Use 
 - 家長加購路由 `/equipment-addons` 不加 `equipment` feature；一般家長靠登入與 `linked_team_member_ids` 存取自己的資料。
 - 權限 action 使用本專案標準 `VIEW / CREATE / EDIT / DELETE`，不要使用來源專案的 `ADD`。
 - 裝備流程不直接接來源專案的 `fee_records`、月結關帳或收支報表；本專案以 `equipment_payment_submissions` 接到 `/my-payments` 與 `/fees?tab=equipment`。
-- 裝備圖片與請購處理照片使用 `equipments` storage bucket。
+- 裝備圖片與請購處理照片使用 `equipments` storage bucket；多圖清單為 `image_urls`、`ready_image_urls`、`pickup_image_urls`，並保留單圖欄位作為首圖相容。
 - 新增推播要提供穩定 `eventKey`；通知管理者用 feature/action，通知特定申請人時只能透過已授權的 `target_user_ids` 流程。
 - 新增 Element Plus 按鈕不要使用 `size="small"`，保持手機觸控操作。
 - 裝備頁面若變大，要拆到 components/stores/services/utils，不要集中成單一長檔。

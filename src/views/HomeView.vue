@@ -8,6 +8,7 @@ import HomeHolidayHeroOverlay from '@/components/home/HomeHolidayHeroOverlay.vue
 import MyHomeTodayPanel from '@/components/home/MyHomeTodayPanel.vue'
 import MatchDetailDialog from '@/components/match-records/MatchDetailDialog.vue'
 import FeeManagementReminderPanel from '@/components/fees/FeeManagementReminderPanel.vue'
+import EquipmentPhotoCarousel from '@/components/equipment/EquipmentPhotoCarousel.vue'
 import { getMyHomeSnapshot } from '@/services/myHome'
 import { supabase } from '@/services/supabase'
 import { getMatchWeatherForecast, type WeatherSnapshot } from '@/services/weatherApi'
@@ -539,6 +540,7 @@ const openAnnouncements = () => {
 }
 
 const openEquipmentAddons = () => {
+  if (isEquipmentAddonLoading.value) return
   router.push('/equipment-addons')
 }
 
@@ -991,20 +993,23 @@ onUnmounted(() => {
         </button>
       </div>
 
-      <button
-        type="button"
+      <div
+        role="button"
+        tabindex="0"
         class="addon-showcase-card group mt-4 w-full text-left"
-        :disabled="isEquipmentAddonLoading"
+        :aria-disabled="isEquipmentAddonLoading"
         @click="openEquipmentAddons"
+        @keydown.enter.prevent="openEquipmentAddons"
+        @keydown.space.prevent="openEquipmentAddons"
       >
         <div class="grid min-h-[18rem] gap-0 lg:grid-cols-[minmax(280px,0.42fr)_minmax(0,0.58fr)]">
           <div class="relative min-h-[15rem] overflow-hidden bg-slate-900">
-            <img
-              v-if="featuredAddonEquipment?.image_url"
-              :src="featuredAddonEquipment.image_url"
+            <EquipmentPhotoCarousel
+              v-if="featuredAddonEquipment?.image_urls.length"
+              :photos="featuredAddonEquipment.image_urls"
               :alt="featuredAddonEquipment.name"
+              :preview="false"
               class="h-full min-h-[15rem] w-full object-cover transition-transform duration-700 group-hover:scale-105"
-              draggable="false"
             />
             <div
               v-else
@@ -1063,7 +1068,7 @@ onUnmounted(() => {
             </div>
           </div>
         </div>
-      </button>
+      </div>
     </section>
 
     <section class="mx-auto mt-8 w-full max-w-7xl px-3 sm:px-4">
@@ -1523,13 +1528,13 @@ onUnmounted(() => {
   transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.addon-showcase-card:hover:not(:disabled) {
+.addon-showcase-card:hover:not([aria-disabled="true"]) {
   transform: translateY(-3px);
   border-color: rgba(216, 143, 34, 0.4);
   box-shadow: 0 18px 34px rgba(15, 23, 42, 0.11);
 }
 
-.addon-showcase-card:disabled {
+.addon-showcase-card[aria-disabled="true"] {
   cursor: progress;
   opacity: 0.82;
 }
