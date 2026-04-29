@@ -16,7 +16,9 @@ import {
 } from '@/utils/lineupPhotoParser'
 import MatchLiveController from './MatchLiveController.vue'
 import MatchLineupTab from './MatchLineupTab.vue'
+import MatchAudioRecorder from './MatchAudioRecorder.vue'
 import { cloneLineScoreData, createDefaultLineScoreData, finalizeInningScore, getNextInning } from '@/utils/liveMatchScoreboard'
+import { buildMatchAudioRoster } from '@/utils/matchAudioTranscription'
 
 const props = defineProps<{
   modelValue: boolean
@@ -162,6 +164,7 @@ const initForm = async () => {
   activeTab.value = 'basic'
   currentLineupMode.value = 'synced'
   if (props.mode === 'edit' && props.matchId) {
+    audioDraftScopeId.value = props.matchId
     const data = await matchesStore.matches.find(m => m.id === props.matchId)
     if (data) {
       currentLineupMode.value = data.current_lineup?.length ? 'manual' : 'synced'
@@ -191,6 +194,7 @@ const initForm = async () => {
       currentInning.value = formData.value.current_inning || '一上'
     }
   } else {
+    audioDraftScopeId.value = `new-match-${Date.now()}-${Math.random().toString(36).slice(2)}`
     const lineup = defaultLineup()
     formData.value = {
       match_name: '',
@@ -336,6 +340,7 @@ const getAvailableLineupPlayers = (currentIndex: number) => {
 }
 
 const currentLineupMode = ref<'synced' | 'manual'>('synced')
+const audioDraftScopeId = ref('')
 const syncWorkspaceRef = ref<HTMLElement | null>(null)
 const syncLeftPanePercent = ref(46)
 const isSyncPaneResizing = ref(false)
@@ -578,6 +583,15 @@ const currentPitcher = computed(() =>
   activeGameLineup.value.find((player) => player.position === '1' && player.name)?.name || ''
 )
 
+const matchAudioRoster = computed(() =>
+  buildMatchAudioRoster({
+    players: formData.value.players,
+    lineups: [formData.value.lineup, formData.value.current_lineup],
+    battingStats: formData.value.batting_stats,
+    pitchingStats: formData.value.pitching_stats,
+  })
+)
+
 const liveBatterOptions = computed<LiveBatterOptionGroup[]>(() => {
   const seen = new Set<string>()
   const groups: LiveBatterOptionGroup[] = []
@@ -692,6 +706,22 @@ const updateCurrentInning = (inning: string) => {
 const removeLog = (index: number) => {
   formData.value.inning_logs.splice(index, 1)
   if (activeLogIndex.value === index) activeLogIndex.value = -1
+}
+
+const applyAudioLogToInning = ({ inning, log }: { draftId: string; inning: string; log: string; transcript: string }) => {
+  const targetLog = findOrCreateInningLog(inning)
+  if (!isOffensiveHalf(inning) && !targetLog.selectedPlayerId) {
+    targetLog.selectedPlayerId = currentPitcher.value
+  }
+
+  const previousLog = String(targetLog.log || '').trimEnd()
+  targetLog.log = previousLog ? `${previousLog}\n${log}` : log
+  activeTab.value = 'innings'
+  activeLogIndex.value = formData.value.inning_logs.findIndex((item) => item === targetLog)
+
+  recalculateBattingStatsFromLogs()
+  recalculatePitchingStatsFromLogs()
+  ElMessage.success('已套用 AI 逐局文字並重新計算打擊 / 投球成績，請記得儲存比賽紀錄')
 }
 
 // === TAB 4/5: STATS ===
@@ -1361,6 +1391,19 @@ const handlePhotoUpload = async (event: Event) => {
             :opponent-team-name="formData.opponent || '對手'"
             @update="handleLiveStateUpdate"
             @record-action="appendLiveActionToCurrentLog"
+          />
+
+          <MatchAudioRecorder
+            :scope-id="audioDraftScopeId"
+            :current-inning="formData.current_inning || '一上'"
+            :match-id="matchId"
+            :match-name="formData.match_name"
+            :opponent="formData.opponent"
+            :match-date="formData.match_date"
+            :bat-first="formData.bat_first !== false"
+            :is-offensive-half="isOffensiveHalf(formData.current_inning || '一上')"
+            :roster="matchAudioRoster"
+            @apply-log="applyAudioLogToInning"
           />
 
           <div class="flex flex-col gap-3 rounded-2xl border border-blue-100 bg-blue-50/50 p-4 md:flex-row md:items-end md:justify-between">
