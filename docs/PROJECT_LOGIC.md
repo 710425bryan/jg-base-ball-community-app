@@ -142,6 +142,8 @@
 - `src/views/PlayersView.vue`
 - `src/views/UsersView.vue`
 - `src/components/RolePermissionsManager.vue`
+- `src/stores/playerRoster.ts`
+- `src/services/playerRosterApi.ts`
 - `src/utils/playerSync.ts`
 - `src/utils/profileAccess.ts`
 
@@ -157,6 +159,8 @@
 
 - 球員名單管理讀寫 `team_members`。
 - 展示型名單或非敏感選項優先使用 `team_members_safe` 或安全 RPC。
+- 球員名單顯示使用 session 內記憶體快取；進頁先呼叫 `get_team_members_cache_meta()` 比對 `row_count` / `latest_changed_at`，有差異才重新抓完整名單。
+- `get_team_members_cache_meta()` 只回傳版本資訊，不回傳球員個資，且需通過 `players:VIEW`。
 - 使用者新增 / 更新 / 刪除走 admin RPC，例如 `admin_insert_profile()`、`admin_update_profile()`、`admin_delete_user()`。
 - 角色權限 UI 讀寫 `app_roles`、`app_role_permissions`。
 

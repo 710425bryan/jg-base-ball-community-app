@@ -146,6 +146,7 @@
 ### 球員、使用者與權限
 
 - 球員名單主要在 `PlayersView`，資料表為 `team_members`；同步邏輯與 dedupe 在 `src/utils/playerSync.ts`。
+- 球員名單顯示經由 `src/stores/playerRoster.ts` 做 session 內記憶體快取；進頁先呼叫 `get_team_members_cache_meta()` 比對 `team_members` 的 `row_count` / `latest_changed_at`，有差異才重新抓完整名單。
 - Google 表單 / Sheet 同步不得覆蓋既有 `team_members.is_primary_payer` 與 `team_members.is_half_price`；新增球員時兩者預設 `false`。
 - 使用者管理在 `UsersView`，profile 新增 / 更新 / 刪除優先走 `admin_insert_profile()`、`admin_update_profile()`、`admin_delete_user()`。
 - 權限 UI 在 `RolePermissionsManager.vue`，對應 `app_roles` 與 `app_role_permissions`。

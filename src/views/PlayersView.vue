@@ -626,6 +626,7 @@ import {
 import { normalizeSiblingIds } from '@/utils/siblingGroups'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
+import { usePlayerRosterStore } from '@/stores/playerRoster'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading, InfoFilled, Search, Download } from '@element-plus/icons-vue'
 import PreviewableImage from '@/components/common/PreviewableImage.vue'
@@ -634,6 +635,7 @@ import axios from 'axios'
 
 const authStore = useAuthStore()
 const permissionsStore = usePermissionsStore()
+const playerRosterStore = usePlayerRosterStore()
 const canEditPlayers = computed(() => permissionsStore.can('players', 'EDIT'))
 const canCreatePlayers = computed(() => permissionsStore.can('players', 'CREATE'))
 const canDeletePlayers = computed(() => permissionsStore.can('players', 'DELETE'))
@@ -648,9 +650,17 @@ const DEFAULT_SYNC_USER_PASSWORD = '123456'
 const GENERAL_MEMBER_ROLE_FALLBACK = 'MEMBER'
 const GENERAL_MEMBER_ROLE_CANDIDATE_KEYS = ['MEMBER', 'PARENT', 'GENERAL_MEMBER']
 
-const isLoading = ref(true)
+const isLoading = computed(() => playerRosterStore.loading)
+const lastRosterWarning = ref('')
 const isSubmitting = ref(false)
-const members = ref<any[]>([])
+const members = computed(() =>
+  buildMembersWithNormalizedSiblings(playerRosterStore.members).map(m => ({
+    ...m,
+    is_inactive_or_graduated: !!m.is_inactive_or_graduated,
+    is_primary_payer: !!m.is_primary_payer,
+    is_half_price: !!m.is_half_price
+  }))
+)
 const activeTab = ref('全部')
 const viewMode = ref<'grid' | 'table'>('grid')
 const searchQuery = ref('')
@@ -1627,7 +1637,7 @@ const syncFromGoogleSheet = async () => {
         ? `同步完成！新增 ${dedupedInserts.length} 筆，更新 ${dedupedUpdates.length} 筆資料；偵測到 ${duplicateRowCount} 筆重複列，已以最後一筆為準${guardianAccountSummary}`
         : `同步完成！新增 ${dedupedInserts.length} 筆，更新 ${dedupedUpdates.length} 筆資料${guardianAccountSummary}`
     );
-    await fetchData();
+    await fetchData({ force: true });
   } catch (err: any) {
     if (err !== 'cancel') {
       console.error("Sync Error:", err);
@@ -1641,28 +1651,29 @@ const syncFromGoogleSheet = async () => {
 
 
 // --- 讀取資料 ---
-const fetchData = async () => {
-  isLoading.value = true
+const fetchData = async (options: { force?: boolean } = {}) => {
   try {
-    // 使用安全視圖：server 端已依權限 mask 敏感欄位（national_id / guardian_phone / contact_line_id）
-    const sourceTable = canEditPlayers.value ? 'team_members' : 'team_members_safe'
-    const { data, error } = await supabase
-      .from(sourceTable)
-      .select('*')
-      .order('role')
-      .order('name')
-    if (error) throw error
-    
-    members.value = buildMembersWithNormalizedSiblings(data || []).map(m => ({
-      ...m,
-      is_inactive_or_graduated: !!m.is_inactive_or_graduated,
-      is_primary_payer: !!m.is_primary_payer,
-      is_half_price: !!m.is_half_price
-    }))
+    const loadOptions = {
+      userId: authStore.user?.id || null,
+      canEditPlayers: canEditPlayers.value
+    }
+
+    if (options.force) {
+      await playerRosterStore.refreshRoster(loadOptions)
+    } else {
+      await playerRosterStore.loadRoster(loadOptions)
+    }
+
+    if (
+      playerRosterStore.error &&
+      playerRosterStore.members.length > 0 &&
+      playerRosterStore.error !== lastRosterWarning.value
+    ) {
+      lastRosterWarning.value = playerRosterStore.error
+      ElMessage.warning('暫時無法確認球員名單是否有更新，已保留目前快取')
+    }
   } catch (error: any) {
     ElMessage.error('讀取名單失敗：' + error.message)
-  } finally {
-    isLoading.value = false
   }
 }
 
@@ -1775,7 +1786,7 @@ const submitForm = async () => {
     }
 
     isModalOpen.value = false
-    fetchData()
+    await fetchData({ force: true })
   } catch (error: any) {
     console.error("Submit Error:", error)
     ElMessage.error(error.message || '發生錯誤')
@@ -1798,7 +1809,7 @@ const confirmDelete = async () => {
     
     ElMessage.success('刪除成功')
     isModalOpen.value = false
-    fetchData()
+    await fetchData({ force: true })
   } catch (err: any) {
     if (err !== 'cancel') ElMessage.error('刪除失敗：' + err.message)
   } finally {
@@ -1827,7 +1838,7 @@ const getTeamGroupClass = (group: string) => {
 }
 
 onMounted(() => {
-  fetchData()
+  void fetchData()
 })
 </script>
 

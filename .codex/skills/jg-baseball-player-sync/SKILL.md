@@ -22,6 +22,8 @@ description: "Player roster sync workflow for jg-base-ball-community-app. Use wh
 - 只有在新增全新成員時，才把上述兩個欄位預設為 `false`。
 - 對重複同步列做去重時，保留最後一筆資料，並統計重複數。
 - dedupe key 為空白時，不要把多筆資料錯誤合併成同一個人。
+- 球員名單顯示有 `src/stores/playerRoster.ts` 的 session 內快取；Google 同步、新增、編輯、刪除成功後要 force refresh，不能只沿用快取。
+- `get_team_members_cache_meta()` 依 `team_members.updated_at` 判斷名單是否變更；調整寫入流程時要確保更新會推進 `updated_at`。
 
 ## 工作流程
 

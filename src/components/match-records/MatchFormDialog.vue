@@ -962,11 +962,11 @@ const handleSave = async () => {
     if (props.mode === 'add') {
       await matchesStore.createMatch(formData.value)
       ElMessage.success('新增比賽成功')
+      visible.value = false
     } else {
       await matchesStore.updateMatch(props.matchId!, formData.value)
-      ElMessage.success('更新比賽成功')
+      ElMessage.success('更新比賽成功，可繼續編輯')
     }
-    visible.value = false
   } catch (e: any) {
     ElMessage.error('儲存失敗：' + e.message)
   } finally {

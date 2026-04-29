@@ -49,6 +49,7 @@
 | --- | --- | --- |
 | `src/stores/auth.ts` | Session、profile、登入登出、last seen | `src/services/supabase.ts`、`src/stores/permissions.ts` |
 | `src/stores/permissions.ts` | 角色權限讀取與 `can()` | `app_role_permissions` |
+| `src/stores/playerRoster.ts` | 球員名單 session 內快取與版本檢查 | `src/services/playerRosterApi.ts`、`get_team_members_cache_meta()` |
 | `src/stores/matches.ts` | 賽事資料狀態 | `src/services/matchesApi.ts` |
 | `src/stores/equipment.ts` | 裝備主檔、交易、庫存狀態 | `src/services/equipmentApi.ts` |
 | `src/stores/equipmentRequests.ts` | 裝備加購申請 / 審核狀態 | `src/services/equipmentApi.ts` |
@@ -63,6 +64,7 @@
 | `src/services/myHome.ts` | 個人化首頁摘要 | `get_my_home_snapshot()` |
 | `src/services/myLeaveRequests.ts` | 我的假單 RPC | `list_my_leave_members()` 等 |
 | `src/services/myPayments.ts` | 我的繳費 RPC | `profile_payment_submissions` 相關 RPC |
+| `src/services/playerRosterApi.ts` | 球員名單查詢與 cache meta RPC | `team_members` / `team_members_safe` / `get_team_members_cache_meta()` |
 | `src/services/matchesApi.ts` | 賽事 CRUD | `matches` |
 | `src/services/equipmentApi.ts` | 裝備、加購、付款、庫存 API | 裝備 tables / RPC / `equipments` bucket |
 | `src/services/performanceApi.ts` | 棒球能力 / 體測 API | performance tables / RPC |
