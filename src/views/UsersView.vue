@@ -122,6 +122,12 @@
                   <template #default="{ row }">
                     <div class="text-sm font-bold text-gray-700">{{ getLinkedMemberLabel(row) }}</div>
                     <div class="text-xs text-gray-400 mt-1">{{ getLinkedMemberMeta(row) }}</div>
+                    <div
+                      v-if="hasInactiveOrGraduatedLinkedMembers(row)"
+                      class="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-bold leading-relaxed text-amber-800"
+                    >
+                      目前綁定球員已經退隊或畢業
+                    </div>
                   </template>
                 </el-table-column>
 
@@ -235,6 +241,12 @@
                     <div class="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">綁定成員</div>
                     <div class="mt-2 text-sm font-bold text-gray-800">{{ getLinkedMemberLabel(row) }}</div>
                     <div class="mt-1 text-xs text-gray-500 leading-relaxed">{{ getLinkedMemberMeta(row) }}</div>
+                    <div
+                      v-if="hasInactiveOrGraduatedLinkedMembers(row)"
+                      class="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-bold leading-relaxed text-amber-800"
+                    >
+                      目前綁定球員已經退隊或畢業
+                    </div>
                   </div>
 
                   <div class="rounded-2xl border border-gray-100 bg-gray-50/70 p-3">
@@ -383,6 +395,12 @@
             </el-option-group>
           </el-select>
           <p class="text-sm text-gray-400 font-normal mt-1 w-full">可多選綁定多位球員或校隊成員，方便後續識別與管理。</p>
+          <div
+            v-if="selectedInactiveOrGraduatedMembers.length > 0"
+            class="mt-2 w-full rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-bold leading-relaxed text-amber-800"
+          >
+            目前選取的綁定球員已經退隊或畢業：{{ selectedInactiveOrGraduatedMembers.map((member) => member.name).join('、') }}
+          </div>
         </el-form-item>
       </el-form>
 
@@ -436,6 +454,7 @@ type BindingMember = {
   name: string
   role: string
   status?: string | null
+  is_inactive_or_graduated?: boolean | null
   team_group?: string | null
   avatar_url?: string | null
 }
@@ -613,6 +632,12 @@ const bindingOptionGroups = computed(() => {
     .filter((group) => group.members.length > 0)
 })
 
+const selectedInactiveOrGraduatedMembers = computed(() =>
+  form.linked_team_member_ids
+    .map((memberId) => bindingMemberMap.value.get(memberId))
+    .filter((member): member is BindingMember => Boolean(member && isInactiveOrGraduatedMember(member)))
+)
+
 const getRoleName = (role: string) => {
   const matchedRole = permissionsStore.roles.find((item) => item.role_key === role)
   return matchedRole ? matchedRole.role_name : fallbackRoleNames[role] || role
@@ -658,9 +683,19 @@ const getAccessStatusDotClass = (status: ProfileAccessStatus) => {
 }
 
 const buildBindingOptionLabel = (member: BindingMember) => {
-  const detailParts = [member.team_group, member.status && member.status !== '在隊' ? member.status : null].filter(Boolean)
+  const detailParts = [
+    member.team_group,
+    member.status && member.status !== '在隊' ? member.status : null,
+    member.is_inactive_or_graduated ? '關閉/畢業' : null
+  ].filter(Boolean)
   return detailParts.length > 0 ? `${member.name}｜${detailParts.join('｜')}` : member.name
 }
+
+const isInactiveOrGraduatedMember = (member: BindingMember) =>
+  member.is_inactive_or_graduated === true || member.status === '退隊'
+
+const hasInactiveOrGraduatedLinkedMembers = (row: DecoratedUser) =>
+  row.linkedMembers.some(isInactiveOrGraduatedMember)
 
 const getLinkedMemberLabel = (row: DecoratedUser) => {
   if (row.linkedMemberIds.length === 0) return '未綁定'
@@ -833,14 +868,17 @@ const fetchBindingMembers = async () => {
   try {
     const { data, error } = await supabase
       .from('team_members')
-      .select('id, name, role, status, team_group, avatar_url')
+      .select('id, name, role, status, is_inactive_or_graduated, team_group, avatar_url')
       .in('role', ['球員', '校隊'])
       .order('role', { ascending: true })
       .order('status', { ascending: true })
       .order('name', { ascending: true })
 
     if (error) throw error
-    bindingMembers.value = (data || []) as BindingMember[]
+    bindingMembers.value = (data || []).map((member) => ({
+      ...member,
+      is_inactive_or_graduated: !!member.is_inactive_or_graduated
+    })) as BindingMember[]
   } catch (error: any) {
     ElMessage.error('無法載入綁定名單：' + error.message)
   }

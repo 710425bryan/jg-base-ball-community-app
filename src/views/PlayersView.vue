@@ -166,8 +166,11 @@
           </el-table-column>
           <el-table-column label="狀態" width="80" align="center">
             <template #default="{ row }">
-              <span v-if="row.status === '退隊'" class="text-[10px] md:text-xs font-bold px-2 py-0.5 bg-red-50 text-red-600 rounded border border-red-100">退隊</span>
-              <span v-else class="text-[10px] md:text-xs font-bold px-2 py-0.5 bg-green-50 text-green-600 rounded border border-green-100">在隊</span>
+              <div class="inline-flex flex-col items-center gap-1">
+                <span v-if="row.status === '退隊'" class="text-[10px] md:text-xs font-bold px-2 py-0.5 bg-red-50 text-red-600 rounded border border-red-100">退隊</span>
+                <span v-else class="text-[10px] md:text-xs font-bold px-2 py-0.5 bg-green-50 text-green-600 rounded border border-green-100">在隊</span>
+                <span v-if="row.is_inactive_or_graduated" class="text-[10px] md:text-xs font-bold px-2 py-0.5 bg-amber-50 text-amber-700 rounded border border-amber-200">關閉/畢業</span>
+              </div>
             </template>
           </el-table-column>
           <el-table-column prop="guardian_name" label="法定代理人" min-width="100" />
@@ -230,8 +233,11 @@
                 <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/75 via-slate-900/25 to-transparent px-3 pb-2 pt-8">
                   <div class="flex items-center justify-between gap-2 text-white">
                     <h4 class="font-black text-lg leading-tight truncate">{{ member.name }}</h4>
-                    <span v-if="member.status === '退隊'" class="text-[10px] font-bold px-2 py-0.5 rounded-md border border-red-200/70 bg-red-500/90 text-white shrink-0">退隊</span>
-                    <span v-else class="text-[10px] font-bold px-2 py-0.5 rounded-md border border-emerald-200/70 bg-emerald-500/90 text-white shrink-0">在隊</span>
+                    <div class="flex shrink-0 flex-wrap justify-end gap-1">
+                      <span v-if="member.status === '退隊'" class="text-[10px] font-bold px-2 py-0.5 rounded-md border border-red-200/70 bg-red-500/90 text-white">退隊</span>
+                      <span v-else class="text-[10px] font-bold px-2 py-0.5 rounded-md border border-emerald-200/70 bg-emerald-500/90 text-white">在隊</span>
+                      <span v-if="member.is_inactive_or_graduated" class="text-[10px] font-bold px-2 py-0.5 rounded-md border border-amber-200/70 bg-amber-500/95 text-white">關閉/畢業</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -354,6 +360,17 @@
                 <el-option label="在隊" value="在隊" />
                 <el-option label="退隊" value="退隊" />
               </el-select>
+            </el-form-item>
+            <el-form-item prop="is_inactive_or_graduated" class="font-bold mb-0 flex items-center h-[52px]" v-if="form.role === '球員' || form.role === '校隊'">
+              <template #label>
+                <div class="inline-flex items-center gap-1 leading-none mr-3">
+                  關閉球員 / 畢業
+                  <el-tooltip content="開啟後，使用者名單會提示此球員已退隊或畢業，不會刪除資料或解除綁定。" placement="top">
+                    <el-icon class="text-gray-400 cursor-help"><InfoFilled /></el-icon>
+                  </el-tooltip>
+                </div>
+              </template>
+              <el-switch v-model="form.is_inactive_or_graduated" active-text="是" inactive-text="否" />
             </el-form-item>
             <el-form-item label="生日 (西元年)" prop="birth_date" class="font-bold mb-0">
               <el-date-picker v-model="form.birth_date" type="date" placeholder="選擇生日" format="YYYY-MM-DD" value-format="YYYY-MM-DD" class="!w-full" />
@@ -843,6 +860,7 @@ const playerExportColumns = computed<PlayerExportColumn[]>(() => [
   { key: 'name', label: '姓名', basic: true, always: true, getValue: (member) => member.name },
   { key: 'role', label: '稱謂/身分', basic: true, sourceKeys: ['role'], getValue: (member) => member.role },
   { key: 'status', label: '在隊狀態', basic: true, sourceKeys: ['status'], getValue: (member) => member.status || '在隊' },
+  { key: 'is_inactive_or_graduated', label: '關閉球員/畢業', basic: true, sourceKeys: ['is_inactive_or_graduated'], getValue: (member) => formatBoolean(member.is_inactive_or_graduated) },
   { key: 'team_group', label: '比賽組別', basic: true, sourceKeys: ['team_group'], getValue: (member) => member.team_group },
   { key: 'u_level', label: '年級類別', basic: true, getValue: (member) => getULevel(member) },
   { key: 'jersey_number', label: '背號', basic: true, sourceKeys: ['jersey_number'], getValue: (member) => member.jersey_number },
@@ -1080,6 +1098,7 @@ const initialForm = {
   jersey_size: '',
   birth_date: '',
   is_early_enrollment: false,
+  is_inactive_or_graduated: false,
   is_primary_payer: false,
   is_half_price: false,
   low_income_qualification: false,
@@ -1636,6 +1655,7 @@ const fetchData = async () => {
     
     members.value = buildMembersWithNormalizedSiblings(data || []).map(m => ({
       ...m,
+      is_inactive_or_graduated: !!m.is_inactive_or_graduated,
       is_primary_payer: !!m.is_primary_payer,
       is_half_price: !!m.is_half_price
     }))
@@ -1663,6 +1683,7 @@ const openEditModal = (member: any) => {
   Object.assign(form, initialForm)
   Object.assign(form, member)
   if (!form.status) form.status = '在隊'
+  form.is_inactive_or_graduated = !!member.is_inactive_or_graduated
   if (!form.sibling_ids) form.sibling_ids = []
   previewAvatar.value = member.avatar_url || ''
   selectedFile = null
