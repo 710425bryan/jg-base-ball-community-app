@@ -176,6 +176,8 @@ const SUMMARY_EXPAND_SCROLL_TOP = 8
 watch(() => route.query.tab, (newTab) => {
   if (newTab === 'monthly' || newTab === 'quarterly' || newTab === 'equipment' || newTab === 'settings') {
     activeTab.value = newTab as string
+  } else if (route.query.highlight_submission_id && activeTab.value === 'equipment') {
+    activeTab.value = 'monthly'
   }
 }, { immediate: true })
 

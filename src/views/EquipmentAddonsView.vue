@@ -655,7 +655,8 @@ onMounted(() => {
               </div>
 
               <div v-if="cartItemsWithEquipment.length === 0" class="mt-5 rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm font-bold text-gray-400">
-                請從右側「可加購裝備」加入品項。
+                <span class="md:hidden">請從下方「可加購裝備」加入品項。</span>
+                <span class="hidden md:inline">請從右側「可加購裝備」加入品項。</span>
               </div>
 
               <div v-else class="mt-5 space-y-3">

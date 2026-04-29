@@ -149,4 +149,65 @@ describe('notification feed controller', () => {
       highlightMemberId: 'member-1'
     })
   })
+
+  it('maps fee management reminder notifications and keeps current todo ids stable', async () => {
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce([
+        {
+          id: 'profile-payment-pending',
+          source: 'fee',
+          title: '個人付款待確認',
+          body: '2 筆個人付款回報等待確認，合計 $3500。',
+          created_at: '2026-04-29T08:00:00.000Z',
+          link: '/fees?highlight_submission_id=submission-1',
+          highlight_member_id: null
+        },
+        {
+          id: 'equipment-payment-pending',
+          source: 'equipment',
+          title: '裝備付款待確認',
+          body: '1 筆裝備付款回報等待確認，合計 $1200。',
+          created_at: '2026-04-29T08:05:00.000Z',
+          link: '/fees?tab=equipment&highlight_submission_id=equipment-payment-1',
+          highlight_member_id: null
+        }
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: 'profile-payment-pending',
+          source: 'fee',
+          title: '個人付款待確認',
+          body: '3 筆個人付款回報等待確認，合計 $4200。',
+          created_at: '2026-04-29T09:00:00.000Z',
+          link: '/fees?highlight_submission_id=submission-2',
+          highlight_member_id: null
+        }
+      ])
+
+    const controller = createNotificationFeedController(fetcher)
+
+    await controller.loadNotificationFeed(10)
+    await controller.loadNotificationFeed(10, { force: true })
+
+    expect(controller.notifications.value).toEqual([
+      {
+        id: 'fee:profile-payment-pending',
+        source: 'fee',
+        title: '個人付款待確認',
+        body: '3 筆個人付款回報等待確認，合計 $4200。',
+        createdAt: '2026-04-29T09:00:00.000Z',
+        link: '/fees?highlight_submission_id=submission-2',
+        highlightMemberId: null
+      },
+      {
+        id: 'equipment:equipment-payment-pending',
+        source: 'equipment',
+        title: '裝備付款待確認',
+        body: '1 筆裝備付款回報等待確認，合計 $1200。',
+        createdAt: '2026-04-29T08:05:00.000Z',
+        link: '/fees?tab=equipment&highlight_submission_id=equipment-payment-1',
+        highlightMemberId: null
+      }
+    ])
+  })
 })

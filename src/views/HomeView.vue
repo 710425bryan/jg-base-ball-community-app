@@ -7,6 +7,7 @@ import { useRouter } from 'vue-router'
 import HomeHolidayHeroOverlay from '@/components/home/HomeHolidayHeroOverlay.vue'
 import MyHomeTodayPanel from '@/components/home/MyHomeTodayPanel.vue'
 import MatchDetailDialog from '@/components/match-records/MatchDetailDialog.vue'
+import FeeManagementReminderPanel from '@/components/fees/FeeManagementReminderPanel.vue'
 import { getMyHomeSnapshot } from '@/services/myHome'
 import { supabase } from '@/services/supabase'
 import { getMatchWeatherForecast, type WeatherSnapshot } from '@/services/weatherApi'
@@ -120,6 +121,7 @@ let clockId: ReturnType<typeof setInterval> | null = null
 
 const canViewMatches = computed(() => permissionsStore.can('matches', 'VIEW'))
 const canViewAnnouncements = computed(() => permissionsStore.can('announcements', 'VIEW'))
+const canViewFees = computed(() => permissionsStore.can('fees', 'VIEW'))
 const isAdmin = computed(() => permissionsStore.currentRole === 'ADMIN')
 const hasLinkedTeamMembers = computed(() => {
   const linkedIds = authStore.profile?.linked_team_member_ids
@@ -905,6 +907,14 @@ onUnmounted(() => {
       :weather="myHomeWeatherCard"
       @refresh="fetchMyHomeSnapshotData"
     />
+
+    <section
+      v-if="canViewFees"
+      data-test="dashboard-fee-reminders"
+      class="mx-auto mt-6 w-full max-w-7xl px-3 sm:px-4"
+    >
+      <FeeManagementReminderPanel />
+    </section>
 
     <section v-if="isAdmin" data-test="admin-stats" class="mx-auto mt-6 w-full max-w-7xl px-3 sm:px-4">
       <div class="grid gap-4 md:grid-cols-2">
