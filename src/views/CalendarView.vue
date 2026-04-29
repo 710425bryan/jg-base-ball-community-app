@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import dayjs from 'dayjs'
 import { Calendar, InfoFilled, Location, Refresh } from '@element-plus/icons-vue'
+import AppPageHeader from '@/components/common/AppPageHeader.vue'
 import MatchDetailDialog from '@/components/match-records/MatchDetailDialog.vue'
 import { useMatchesStore } from '@/stores/matches'
 import type { MatchRecord } from '@/types/match'
@@ -78,33 +79,32 @@ onMounted(() => {
   <div class="h-full flex-1 flex flex-col animate-fade-in bg-background text-text overflow-y-auto p-4 pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:p-6">
     <div class="mx-auto flex w-full max-w-7xl flex-col gap-5">
       <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h2 class="app-page-title app-page-title--inline">
-            <el-icon class="app-page-title-icon"><Calendar /></el-icon>
-            賽程與行事曆
-          </h2>
-          <p class="app-page-subtitle">切換近期賽程與完整月曆，不需要往下滑找內容。</p>
-        </div>
-
-        <div class="flex gap-2">
-          <button
-            type="button"
-            class="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-600 transition-colors hover:border-primary hover:text-primary disabled:opacity-60"
-            :disabled="matchesStore.loading"
-            @click="fetchMatches"
-          >
-            <el-icon :class="{ 'is-loading': matchesStore.loading }"><Refresh /></el-icon>
-            重新整理
-          </button>
-          <button
-            type="button"
-            class="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-600 transition-colors hover:border-primary hover:text-primary"
-            @click="showParserInfo = true"
-          >
-            <el-icon><InfoFilled /></el-icon>
-            同步說明
-          </button>
-        </div>
+        <AppPageHeader
+          title="賽程與行事曆"
+          subtitle="切換近期賽程與完整月曆，不需要往下滑找內容。"
+          :icon="Calendar"
+          as="h2"
+        >
+          <template #actions>
+            <button
+              type="button"
+              class="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-600 transition-colors hover:border-primary hover:text-primary disabled:opacity-60"
+              :disabled="matchesStore.loading"
+              @click="fetchMatches"
+            >
+              <el-icon :class="{ 'is-loading': matchesStore.loading }"><Refresh /></el-icon>
+              重新整理
+            </button>
+            <button
+              type="button"
+              class="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-600 transition-colors hover:border-primary hover:text-primary"
+              @click="showParserInfo = true"
+            >
+              <el-icon><InfoFilled /></el-icon>
+              同步說明
+            </button>
+          </template>
+        </AppPageHeader>
       </div>
 
       <div class="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-2 shadow-sm md:flex-row md:items-center md:justify-between">

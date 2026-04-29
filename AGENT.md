@@ -218,11 +218,14 @@
 
 ## 8. UI 與行動裝置規則
 
-- 功能頁第一層標題使用 `src/style.css` 的 `.app-page-title`；標題含 icon、徽章或同列元素時加 `.app-page-title--inline`。
-- 頁面標題下方說明文字使用 `.app-page-subtitle`。
-- 預設 title 規格為 mobile `text-xl`、desktop `md:text-2xl`、`font-black`、`leading-tight`、`tracking-normal`、`text-slate-800`；title icon 使用 `.app-page-title-icon`。
-- 不要在功能頁 page title 直接堆疊 `text-3xl`、`text-primary`、`tracking-tight`、`tracking-wider` 或裝飾性 uppercase subtitle。
+- 登入後 route-level 功能頁第一層標題統一使用 `src/components/common/AppPageHeader.vue`，不可在 view 內手寫 page title 結構。
+- `AppPageHeader` 必須提供 Element Plus icon；標題旁的 badge / 計數放 `title-suffix` slot，返回按鈕放 `before` slot，右側操作放 `actions` slot。
+- Page title 樣式由 `src/style.css` 的 `.app-page-header`、`.app-page-title`、`.app-page-title-icon`、`.app-page-subtitle` 統一控制。
+- 預設 title 規格為 mobile `text-xl`、desktop `md:text-2xl`、`font-black`、`leading-tight`、`tracking-normal`、`text-slate-800`；title icon 是小型 inline 主色 icon。
+- 不要在功能頁 page title 直接堆疊 `text-3xl`、`text-primary`、`tracking-tight`、`tracking-wider`、大型方框 icon、漸層 icon、手寫 SVG 或裝飾性 uppercase subtitle。
 - 首頁 hero、公開 landing、卡片標題、section title、dialog title 可依情境保留自己的視覺層級。
+- 全站頁面級或大區塊 loading 統一使用 `src/components/common/AppLoadingState.vue`，維持橘色 loading icon 搭配灰色文字；各頁只改 `text` 文案，不在 view 內手寫大型 spinner / loading 結構。
+- 按鈕內 loading、表單提交中、`v-loading` 的局部遮罩、通知中心等小型互動狀態可依 Element Plus 原本模式處理。
 - 全專案 `el-dialog` 在手機模式（`max-width: 639px`）預設滿版顯示；右上角關閉按鈕避開 `env(safe-area-inset-top/right)`，觸控區不得小於 44px。
 - 若某 Dialog 必須非滿版，需在該元件註明原因並確認手機可操作性。
 - 新增 Element Plus 按鈕盡量避免 `size="small"`，尤其是手機主要操作與裝備流程。

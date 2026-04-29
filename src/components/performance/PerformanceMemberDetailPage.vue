@@ -3,6 +3,8 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, Delete, Edit, Plus, Refresh, TrendCharts } from '@element-plus/icons-vue'
+import AppPageHeader from '@/components/common/AppPageHeader.vue'
+import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import PerformanceRecordFormDialog from '@/components/performance/PerformanceRecordFormDialog.vue'
 import PerformanceTrendChart from '@/components/performance/PerformanceTrendChart.vue'
 import { usePerformanceStore } from '@/stores/performance'
@@ -289,46 +291,49 @@ onMounted(() => {
     <div class="bg-white px-4 md:px-6 py-4 border-b border-gray-200 shadow-sm shrink-0 z-10">
       <div class="max-w-7xl mx-auto flex flex-col gap-4">
         <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div class="min-w-0">
-            <button
-              type="button"
-              class="mb-3 inline-flex items-center gap-2 rounded-2xl border border-gray-200 px-3 py-2 text-sm font-bold text-gray-600 hover:border-primary hover:text-primary transition-colors"
-              @click="router.push(config.routeBase)"
-            >
-              <el-icon><ArrowLeft /></el-icon>
-              返回{{ config.shortTitle }}
-            </button>
-            <h2 class="app-page-title app-page-title--inline">
-              <el-icon class="app-page-title-icon"><TrendCharts /></el-icon>
-              {{ member?.name || '球員' }}｜{{ config.title }}
-            </h2>
-            <p class="app-page-subtitle">
+          <AppPageHeader
+            :title="`${member?.name || '球員'}｜${config.title}`"
+            :icon="TrendCharts"
+            as="h2"
+          >
+            <template #before>
+              <button
+                type="button"
+                class="inline-flex items-center gap-2 rounded-2xl border border-gray-200 px-3 py-2 text-sm font-bold text-gray-600 hover:border-primary hover:text-primary transition-colors"
+                @click="router.push(config.routeBase)"
+              >
+                <el-icon><ArrowLeft /></el-icon>
+                返回{{ config.shortTitle }}
+              </button>
+            </template>
+
+            <template #subtitle>
               {{ member?.role || '球員' }}
               <span v-if="member?.team_group">｜{{ member.team_group }}</span>
               <span v-if="member?.jersey_number">｜#{{ member.jersey_number }}</span>
-            </p>
-          </div>
+            </template>
 
-          <div class="flex flex-wrap gap-2">
-            <button
-              type="button"
-              class="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 px-4 py-3 text-sm font-bold text-gray-600 hover:border-primary hover:text-primary transition-colors disabled:opacity-70"
-              :disabled="performanceStore.isLoading"
-              @click="refresh"
-            >
-              <el-icon :class="{ 'is-loading': performanceStore.isLoading }"><Refresh /></el-icon>
-              重新整理
-            </button>
-            <button
-              v-if="canCreate"
-              type="button"
-              class="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-bold text-white hover:bg-primary-hover transition-colors"
-              @click="openCreateDialog"
-            >
-              <el-icon><Plus /></el-icon>
-              新增紀錄
-            </button>
-          </div>
+            <template #actions>
+              <button
+                type="button"
+                class="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 px-4 py-3 text-sm font-bold text-gray-600 hover:border-primary hover:text-primary transition-colors disabled:opacity-70"
+                :disabled="performanceStore.isLoading"
+                @click="refresh"
+              >
+                <el-icon :class="{ 'is-loading': performanceStore.isLoading }"><Refresh /></el-icon>
+                重新整理
+              </button>
+              <button
+                v-if="canCreate"
+                type="button"
+                class="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-bold text-white hover:bg-primary-hover transition-colors"
+                @click="openCreateDialog"
+              >
+                <el-icon><Plus /></el-icon>
+                新增紀錄
+              </button>
+            </template>
+          </AppPageHeader>
         </div>
 
         <div class="grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-3">
@@ -354,9 +359,7 @@ onMounted(() => {
 
     <div class="flex-1 overflow-y-auto min-h-0 p-4 md:p-6 pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:pb-6 custom-scrollbar">
       <div class="max-w-7xl mx-auto grid gap-4">
-        <div v-if="performanceStore.isLoading" class="min-h-[45vh] flex items-center justify-center">
-          <div class="text-sm font-bold text-gray-400">數據載入中...</div>
-        </div>
+        <AppLoadingState v-if="performanceStore.isLoading" text="數據載入中..." />
 
         <template v-else>
           <section v-if="records.length === 0" class="rounded-3xl border border-gray-100 bg-white p-10 text-center shadow-sm">

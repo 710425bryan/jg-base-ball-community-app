@@ -86,15 +86,15 @@ const isFuture = (date?: string) => Boolean(date && dayjs(date).isAfter(dayjs(),
 
 const getResult = (match: MatchRecord) => {
   if (isFuture(match.match_date)) {
-    return { label: '未賽', class: 'bg-sky-500 text-white ring-1 ring-sky-300/70' }
+    return { label: '未賽', emoji: '', title: '未賽', class: 'bg-sky-500 text-white ring-1 ring-sky-300/70' }
   }
   if (match.home_score > match.opponent_score) {
-    return { label: 'W', class: 'bg-emerald-500 text-white ring-1 ring-emerald-300/70' }
+    return { label: 'W', emoji: '🏆', title: '勝利', class: 'bg-emerald-500 text-white ring-1 ring-emerald-300/70' }
   }
   if (match.home_score < match.opponent_score) {
-    return { label: 'L', class: 'bg-rose-500 text-white ring-1 ring-rose-300/70' }
+    return { label: 'L', emoji: '💔', title: '敗場', class: 'bg-rose-500 text-white ring-1 ring-rose-300/70' }
   }
-  return { label: 'T', class: 'bg-amber-500 text-white ring-1 ring-amber-300/70' }
+  return { label: 'T', emoji: '🤝', title: '平手', class: 'bg-amber-500 text-white ring-1 ring-amber-300/70' }
 }
 
 const getGoogleMapsUrl = (location?: string) => {
@@ -131,8 +131,13 @@ const formatMatchDate = (date?: string) => {
               <span class="whitespace-nowrap">{{ match.match_date ? dayjs(match.match_date).format('MM/DD') : '未定' }}</span>
               <span v-if="match.match_time" class="truncate text-slate-300">{{ match.match_time }}</span>
             </div>
-            <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black tracking-widest" :class="getResult(match).class">
-              {{ getResult(match).label }}
+            <span
+              class="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black leading-none"
+              :class="getResult(match).class"
+              :title="getResult(match).title"
+            >
+              <span v-if="getResult(match).emoji" aria-hidden="true" class="text-[11px] leading-none">{{ getResult(match).emoji }}</span>
+              <span>{{ getResult(match).label }}</span>
             </span>
           </div>
 

@@ -5,48 +5,56 @@
     <div class="bg-white px-4 md:px-6 py-4 border-b border-gray-200 shadow-sm shrink-0 flex flex-col gap-3 z-10 pt-[env(safe-area-inset-top)]">
       <!-- Top Row: Title & Actions -->
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div class="flex items-center gap-3">
-        <button @click="router.push('/attendance')" class="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 hover:text-primary hover:bg-primary/10 transition-colors">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-        </button>
-        <div v-if="eventData">
-          <h2 class="app-page-title">
-            {{ eventData.title }}
-          </h2>
-          <div class="flex items-center gap-2 mt-1">
-            <span class="text-[10px] md:text-xs font-bold px-2 py-0.5 rounded uppercase tracking-wider bg-gray-100 text-gray-600 border border-gray-200">{{ eventData.event_type }}</span>
-            <span class="text-xs md:text-sm font-bold text-gray-500">{{ eventData.date }}</span>
-          </div>
-        </div>
-        <div v-else-if="isLoading" class="flex flex-col gap-2">
-          <div class="w-48 h-6 bg-gray-200 rounded animate-pulse"></div>
-          <div class="w-24 h-4 bg-gray-100 rounded animate-pulse"></div>
-        </div>
-      </div>
-      
-      <div class="flex items-center gap-3 ml-auto md:ml-0">
-        <div class="bg-primary/10 px-3 py-1.5 rounded-lg border border-primary/20 flex items-center gap-2">
-          <span class="text-xs font-bold text-gray-500 hidden sm:inline">出席率</span>
-          <span class="text-sm font-black text-primary">{{ attendanceRate }}%</span>
-        </div>
-        <button v-if="canDelete" @click="confirmDelete" class="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-1.5" title="刪除點名單">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-          <span class="hidden sm:inline">刪除</span>
-        </button>
-        
-        <div v-if="hasAccess" class="flex items-center gap-2 text-sm font-bold bg-gray-50 border border-gray-100 px-3 py-2 rounded-xl transition-colors min-w-[100px] justify-center">
-          <template v-if="isSyncing || pendingChangesSize > 0">
-            <el-icon class="is-loading text-primary"><Loading /></el-icon>
-            <span class="text-primary hidden sm:inline">儲存中</span>
+        <AppPageHeader
+          v-if="eventData"
+          :title="eventData.title"
+          :icon="Checked"
+          as="h2"
+        >
+          <template #before>
+            <button @click="router.push('/attendance')" class="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 hover:text-primary hover:bg-primary/10 transition-colors">
+              <el-icon><ArrowLeft /></el-icon>
+            </button>
           </template>
-          <template v-else>
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
-            </svg>
-            <span class="text-green-600 hidden sm:inline">已存檔</span>
+
+          <template #subtitle>
+            <span class="inline-flex items-center gap-2">
+              <span class="text-[10px] md:text-xs font-bold px-2 py-0.5 rounded uppercase tracking-normal bg-gray-100 text-gray-600 border border-gray-200">{{ eventData.event_type }}</span>
+              <span class="text-xs md:text-sm font-bold text-gray-500">{{ eventData.date }}</span>
+            </span>
           </template>
+
+          <template #actions>
+            <div class="flex items-center gap-3 ml-auto md:ml-0">
+              <div class="bg-primary/10 px-3 py-1.5 rounded-lg border border-primary/20 flex items-center gap-2">
+                <span class="text-xs font-bold text-gray-500 hidden sm:inline">出席率</span>
+                <span class="text-sm font-black text-primary">{{ attendanceRate }}%</span>
+              </div>
+              <button v-if="canDelete" @click="confirmDelete" class="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-1.5" title="刪除點名單">
+                <el-icon><Delete /></el-icon>
+                <span class="hidden sm:inline">刪除</span>
+              </button>
+
+              <div v-if="hasAccess" class="flex items-center gap-2 text-sm font-bold bg-gray-50 border border-gray-100 px-3 py-2 rounded-xl transition-colors min-w-[100px] justify-center">
+                <template v-if="isSyncing || pendingChangesSize > 0">
+                  <el-icon class="is-loading text-primary"><Loading /></el-icon>
+                  <span class="text-primary hidden sm:inline">儲存中</span>
+                </template>
+                <template v-else>
+                  <el-icon class="text-green-500"><Check /></el-icon>
+                  <span class="text-green-600 hidden sm:inline">已存檔</span>
+                </template>
+              </div>
+            </div>
+          </template>
+        </AppPageHeader>
+
+        <div v-else-if="isLoading" class="flex items-center gap-3">
+          <button @click="router.push('/attendance')" class="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 hover:text-primary hover:bg-primary/10 transition-colors">
+            <el-icon><ArrowLeft /></el-icon>
+          </button>
+          <span class="text-sm font-bold text-gray-500">讀取點名資料中...</span>
         </div>
-      </div>
       </div>
       
       <!-- Bottom Row: Fixed Search Bar & Filters -->
@@ -82,13 +90,15 @@
     </div>
 
     <!-- 點名列表 -->
-    <div class="flex-1 overflow-y-auto min-h-0 p-2 md:p-6 pb-2 md:pb-6 relative custom-scrollbar" v-loading="isLoading">
+    <div class="flex-1 overflow-y-auto min-h-0 p-2 md:p-6 pb-2 md:pb-6 relative custom-scrollbar">
 
-      <div v-if="playersList.length === 0 && !isLoading" class="flex flex-col justify-center items-center h-full text-gray-400 font-bold">
+      <AppLoadingState v-if="isLoading" text="讀取點名資料中..." min-height="50vh" />
+
+      <div v-else-if="playersList.length === 0" class="flex flex-col justify-center items-center h-full text-gray-400 font-bold">
         未找到任何有效之球員名單
       </div>
       
-      <div v-else-if="filteredPlayers.length === 0 && !isLoading" class="flex flex-col justify-center items-center h-48 text-gray-400 font-bold bg-white rounded-2xl border border-gray-100 max-w-4xl mx-auto">
+      <div v-else-if="filteredPlayers.length === 0" class="flex flex-col justify-center items-center h-48 text-gray-400 font-bold bg-white rounded-2xl border border-gray-100 max-w-4xl mx-auto">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
         找不到符合條件的球員
       </div>
@@ -150,7 +160,9 @@ import { supabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Loading, Search } from '@element-plus/icons-vue'
+import { ArrowLeft, Check, Checked, Delete, Loading, Search } from '@element-plus/icons-vue'
+import AppLoadingState from '@/components/common/AppLoadingState.vue'
+import AppPageHeader from '@/components/common/AppPageHeader.vue'
 
 const route = useRoute()
 const router = useRouter()

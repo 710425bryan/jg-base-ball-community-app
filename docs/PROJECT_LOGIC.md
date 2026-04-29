@@ -25,6 +25,13 @@
 4. Router 使用 `createWebHashHistory()`，用於舊版 WebView 相容。
 5. `MainLayout` / `PublicLayout` 掛版本更新提示與節日主題橫幅。
 
+UI 約定：
+
+- 登入後 route-level 功能頁第一層標題使用 `src/components/common/AppPageHeader.vue`。
+- 每個功能頁 title 都提供 Element Plus 小型 inline icon；badge 用 `title-suffix`，返回按鈕用 `before`，右側操作用 `actions`。
+- Page title 的字級、間距、icon 規格集中在 `src/style.css`；公開 landing、Dashboard hero、section title、card title、dialog title 不套用此限制。
+- 頁面級或大區塊 loading 使用 `src/components/common/AppLoadingState.vue`，維持同一個橘色 loading icon + 灰色文字樣式，只更換顯示文案。
+
 ## 3. 路由與權限
 
 公開路由：

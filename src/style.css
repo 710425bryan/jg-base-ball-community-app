@@ -34,6 +34,22 @@ body {
 }
 
 @layer components {
+  .app-page-header {
+    @apply flex w-full min-w-0 flex-col gap-3 md:flex-row md:items-center md:justify-between;
+  }
+
+  .app-page-header-before {
+    @apply flex shrink-0 items-center;
+  }
+
+  .app-page-header-main {
+    @apply flex min-w-0 flex-1 flex-col gap-3 md:flex-row md:items-center md:justify-between;
+  }
+
+  .app-page-heading {
+    @apply min-w-0;
+  }
+
   .app-page-title {
     @apply m-0 break-words text-xl font-black leading-tight tracking-normal text-slate-800 md:text-2xl;
   }
@@ -43,11 +59,19 @@ body {
   }
 
   .app-page-title-icon {
-    @apply shrink-0 text-primary;
+    @apply inline-flex shrink-0 items-center justify-center text-[1.15rem] text-primary md:text-[1.35rem];
+  }
+
+  .app-page-title-text {
+    @apply min-w-0;
   }
 
   .app-page-subtitle {
     @apply mt-1 text-xs font-bold leading-snug tracking-normal text-gray-500 md:text-sm;
+  }
+
+  .app-page-header-actions {
+    @apply flex w-full flex-wrap items-center gap-2 md:w-auto md:justify-end;
   }
 }
 

@@ -2,19 +2,13 @@
   <div class="h-full flex flex-col relative animate-fade-in p-2 md:p-6 pb-0 md:pb-6 bg-background text-text overflow-hidden">
     <!-- 頂部標題與操作區 -->
     <div class="flex flex-col xl:flex-row justify-between xl:items-center mb-5 gap-4 shrink-0 players-page-header">
-      <div class="flex items-center gap-3 md:gap-4 shrink-0">
-        <div class="players-page-logo relative w-12 h-12 bg-white rounded-lg border border-orange-200 flex items-center justify-center shadow-sm overflow-hidden">
-          <span class="absolute inset-x-0 top-0 h-1 bg-primary"></span>
-          <span class="text-sm font-black text-slate-900">JG</span>
-        </div>
-        <div>
-          <h2 class="app-page-title app-page-title--inline">
-            球員名單
-          </h2>
-          <p class="app-page-subtitle">
-            中港熊戰
-          </p>
-        </div>
+      <div class="shrink-0">
+        <AppPageHeader
+          title="球員名單"
+          subtitle="中港熊戰"
+          :icon="Baseball"
+          as="h2"
+        />
       </div>
       
       <div class="players-toolbar bg-white/90 border border-slate-200 rounded-lg shadow-sm p-2 flex flex-wrap items-center gap-2 xl:justify-end w-full xl:w-auto">
@@ -628,7 +622,8 @@ import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
 import { usePlayerRosterStore } from '@/stores/playerRoster'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Loading, InfoFilled, Search, Download } from '@element-plus/icons-vue'
+import { Baseball, Loading, InfoFilled, Search, Download } from '@element-plus/icons-vue'
+import AppPageHeader from '@/components/common/AppPageHeader.vue'
 import PreviewableImage from '@/components/common/PreviewableImage.vue'
 import { downloadUtf8BomCsv } from '@/utils/csvExport'
 import axios from 'axios'
@@ -2018,10 +2013,6 @@ onMounted(() => {
   .players-page-header {
     gap: 0.5rem;
     margin-bottom: 0.625rem;
-  }
-  .players-page-logo {
-    width: 2.25rem;
-    height: 2.25rem;
   }
   .players-toolbar {
     gap: 0.375rem;

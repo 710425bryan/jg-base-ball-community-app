@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Search, Filter, Calendar, Plus } from '@element-plus/icons-vue'
+import { Search, Filter, Calendar, Plus, Trophy } from '@element-plus/icons-vue'
 import { useMatchesStore } from '@/stores/matches'
 import { usePermissionsStore } from '@/stores/permissions'
+import AppPageHeader from '@/components/common/AppPageHeader.vue'
 import MatchesGrid from '@/components/match-records/MatchesGrid.vue'
 import MatchesTable from '@/components/match-records/MatchesTable.vue'
 import MatchDetailDialog from '@/components/match-records/MatchDetailDialog.vue'
@@ -293,38 +294,22 @@ const handleSyncCalendar = () => {
     <!-- Sticky Toolbar -->
     <div class="sticky top-0 z-20 bg-background/95 backdrop-blur-md pt-3 md:pt-4">
       <div class="px-4 pb-0 md:px-6 flex flex-col lg:flex-row gap-4 lg:items-center justify-between">
-      
-      <!-- Title & Icon -->
-      <div class="flex items-center space-x-3 shrink-0 mb-1 lg:mb-4">
-        <div class="bg-primary/10 p-2 md:p-2.5 rounded-xl border border-primary/20 shadow-sm">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 md:w-7 md:h-7 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
-            <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
-            <path d="M4 22h16"></path>
-            <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path>
-            <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path>
-            <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path>
-          </svg>
-        </div>
-        <div>
-          <h1 class="app-page-title">比賽紀錄</h1>
-          <p class="app-page-subtitle">Match Records</p>
-        </div>
-      </div>
-
-        <!-- Action & Filter Bar -->
-        <div class="flex-1 flex flex-wrap items-center lg:justify-end gap-2 sm:gap-3 w-full lg:w-auto mb-2 lg:mb-4">
-          
-          <!-- Search -->
-          <div class="relative flex-1 sm:flex-none sm:min-w-[200px]">
-            <el-input
-              v-model="searchQuery"
-              placeholder="搜尋對手、地點、賽事..."
-              :prefix-icon="Search"
-              clearable
-              class="w-full !rounded-xl"
-            />
-          </div>
+        <AppPageHeader
+          title="比賽紀錄"
+          subtitle="Match Records"
+          :icon="Trophy"
+        >
+          <template #actions>
+            <!-- Search -->
+            <div class="relative flex-1 sm:flex-none sm:min-w-[200px]">
+              <el-input
+                v-model="searchQuery"
+                placeholder="搜尋對手、地點、賽事..."
+                :prefix-icon="Search"
+                clearable
+                class="w-full !rounded-xl"
+              />
+            </div>
 
         <!-- Filter Popover -->
         <el-popover placement="bottom" :width="280" trigger="click" popper-style="border-radius: 12px; padding: 16px;">
@@ -388,8 +373,8 @@ const handleSyncCalendar = () => {
             <el-icon class="mr-1.5 text-lg"><Plus /></el-icon>新增
           </el-button>
         </div>
-
-      </div>
+          </template>
+        </AppPageHeader>
     </div>
       
     <!-- Modern Tabs under Sticky Header -->

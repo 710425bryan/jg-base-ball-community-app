@@ -2,8 +2,9 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Loading, Refresh } from '@element-plus/icons-vue'
+import { Refresh } from '@element-plus/icons-vue'
 import { useRoute } from 'vue-router'
+import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import { useEquipmentStore } from '@/stores/equipment'
 import { useEquipmentRequestsStore } from '@/stores/equipmentRequests'
 import { usePermissionsStore } from '@/stores/permissions'
@@ -293,10 +294,7 @@ watch(() => route.query.highlight_id, () => {
       </div>
     </div>
 
-    <div v-if="requestStore.isLoading" class="flex items-center justify-center gap-3 rounded-2xl border border-gray-100 bg-white py-10 text-gray-500 font-bold">
-      <el-icon class="is-loading text-primary"><Loading /></el-icon>
-      讀取裝備請購中...
-    </div>
+    <AppLoadingState v-if="requestStore.isLoading" text="讀取裝備請購中..." min-height="9rem" />
 
     <template v-else>
       <div class="grid gap-4 xl:grid-cols-2">

@@ -118,6 +118,7 @@ const isAdvancedOpen = ref(false)
 
 const currentBatter = ref(props.initialBatter || '')
 const currentInning = ref(props.initialInning || '一上')
+const lastSyncedInning = ref(currentInning.value)
 const currentB = ref(props.initialB || 0)
 const currentS = ref(props.initialS || 0)
 const currentO = ref(props.initialO || 0)
@@ -229,7 +230,11 @@ watch(() => props.initialBase2, (val) => currentBase2.value = Boolean(val))
 watch(() => props.initialBase3, (val) => currentBase3.value = Boolean(val))
 watch(() => props.initialHomeScore, (val) => homeScore.value = normalizeNumber(val))
 watch(() => props.initialOpponentScore, (val) => opponentScore.value = normalizeNumber(val))
-watch(() => props.initialInning, (val) => currentInning.value = val || '一上')
+watch(() => props.initialInning, (val) => {
+  const nextInning = val || '一上'
+  currentInning.value = nextInning
+  lastSyncedInning.value = nextInning
+})
 watch(() => props.initialBatFirst, (val) => currentBatFirst.value = val !== false)
 watch(() => props.initialShowLineupIntro, (val) => showLineupIntro.value = Boolean(val))
 watch(() => props.initialShowLineScore, (val) => showLineScore.value = Boolean(val))
@@ -326,6 +331,19 @@ const advanceHalfInning = () => {
   currentBase2.value = false
   currentBase3.value = false
   currentInning.value = getNextInning(currentInning.value)
+  lastSyncedInning.value = currentInning.value
+}
+
+const handleInningChange = (nextInning: string) => {
+  const previousInning = lastSyncedInning.value
+
+  if (previousInning && previousInning !== nextInning) {
+    lineScoreData.value = finalizeInningScore(lineScoreData.value, previousInning, currentBatFirst.value)
+  }
+
+  currentInning.value = nextInning || '一上'
+  lastSyncedInning.value = currentInning.value
+  syncState()
 }
 
 const advanceNextBatter = () => {
@@ -516,10 +534,15 @@ const handleQuickAction = (action: string) => {
   lastRecordedBatter.value = currentBatter.value
   const recordedBatter = currentBatter.value || ''
   const isHitAction = ['一安', '二安', '三安', '全壘打', '內安', '被一安', '被二安', '被三安', '被全壘打', '被內安'].includes(action)
+  const isErrorReachAction = ['失誤上壘', '對手失誤上壘'].includes(action)
   let isInningEnded = false
 
   if (isHitAction) {
     adjustCurrentHalfOffenseStat('h', 1)
+  }
+
+  if (isErrorReachAction) {
+    adjustCurrentHalfDefenseStat('e', 1)
   }
 
   if (['四壞', '投出保送', '觸身', '投出觸身', '投出四壞'].includes(action)) {
@@ -535,7 +558,7 @@ const handleQuickAction = (action: string) => {
     currentBase1.value = true
     currentB.value = 0
     currentS.value = 0
-  } else if (['一安', '被一安', '內安', '失誤上壘', '不死三振'].includes(action)) {
+  } else if (['一安', '被一安', '內安', '被內安', '失誤上壘', '對手失誤上壘', '不死三振'].includes(action)) {
     currentBase1.value = true
     currentB.value = 0
     currentS.value = 0
@@ -704,7 +727,7 @@ const selectInputText = (event: FocusEvent) => {
           size="small"
           class="w-[92px] live-dark-select"
           placeholder="局數"
-          @change="syncState()"
+          @change="handleInningChange"
         >
           <el-option v-for="inn in ['一上','一下','二上','二下','三上','三下','四上','四下','五上','五下','六上','六下','七上','七下','八上','八下','九上','九下','延長']" :key="inn" :label="inn" :value="inn" />
         </el-select>

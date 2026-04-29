@@ -2,34 +2,26 @@
   <div class="h-full flex flex-col relative animate-fade-in p-2 md:p-6 pb-0 md:pb-6 bg-background text-text overflow-hidden">
     <!-- 頂部標題與操作區 -->
     <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-6 gap-4 shrink-0">
-      <div class="flex items-center gap-4">
-        <!-- Logo -->
-        <div class="w-12 h-12 bg-white rounded-xl border-2 border-primary flex items-center justify-center shadow-sm">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </div>
-        <div>
-          <h2 class="app-page-title app-page-title--inline">
-            點名管理系統
-          </h2>
-          <p class="app-page-subtitle">
-            中港熊戰・Attendance
-          </p>
-        </div>
-      </div>
-      
-      <div class="flex items-center gap-3">
-        <button v-if="hasAccess" @click="openCreateModal()" class="bg-primary hover:bg-primary-hover active:scale-95 text-white px-5 py-2.5 rounded-lg shadow-md text-sm font-bold transition-all flex items-center gap-2 tracking-wide">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
-          建立點名單
-        </button>
-      </div>
+      <AppPageHeader
+        title="點名管理系統"
+        subtitle="中港熊戰・Attendance"
+        :icon="Checked"
+        as="h2"
+      >
+        <template #actions>
+          <button v-if="hasAccess" @click="openCreateModal()" class="bg-primary hover:bg-primary-hover active:scale-95 text-white px-5 py-2.5 rounded-lg shadow-md text-sm font-bold transition-all flex items-center gap-2 tracking-normal">
+            <el-icon><Plus /></el-icon>
+            建立點名單
+          </button>
+        </template>
+      </AppPageHeader>
     </div>
 
     <!-- 內容展示區 -->
-    <div class="flex-1 overflow-y-auto min-h-0 pb-4 relative custom-scrollbar pr-2" v-loading="isLoading" element-loading-background="rgba(255, 255, 255, 0.8)">
-      <div v-if="events.length === 0 && !isLoading" class="flex flex-col justify-center items-center h-full text-slate-500">
+    <div class="flex-1 overflow-y-auto min-h-0 pb-4 relative custom-scrollbar pr-2">
+      <AppLoadingState v-if="isLoading" text="讀取點名紀錄中..." min-height="50vh" />
+
+      <div v-else-if="events.length === 0" class="flex flex-col justify-center items-center h-full text-slate-500">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
         <span class="font-bold text-lg tracking-widest">尚未建立任何點名紀錄</span>
       </div>
@@ -129,7 +121,9 @@ import { supabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Calendar, Loading } from '@element-plus/icons-vue'
+import { Calendar, Checked, Loading, Plus } from '@element-plus/icons-vue'
+import AppLoadingState from '@/components/common/AppLoadingState.vue'
+import AppPageHeader from '@/components/common/AppPageHeader.vue'
 import dayjs from 'dayjs'
 
 const router = useRouter()

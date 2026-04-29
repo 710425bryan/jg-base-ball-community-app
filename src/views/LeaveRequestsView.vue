@@ -2,24 +2,24 @@
   <div class="h-full flex flex-col relative animate-fade-in p-2 md:p-6 pb-0 md:pb-6">
     <!-- 頂部標題區 -->
     <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4 shrink-0">
-      <div>
-        <h2 class="app-page-title app-page-title--inline">
-          出缺勤管理
-        </h2>
-        <p class="app-page-subtitle">管理各級球員與教練的請假紀錄、統計與月曆，請假將自動生效。</p>
-      </div>
+      <AppPageHeader
+        title="出缺勤管理"
+        subtitle="管理各級球員與教練的請假紀錄、統計與月曆，請假將自動生效。"
+        :icon="Memo"
+        as="h2"
+      >
+        <template #actions>
+          <!-- 齒輪按鈕 (推播設定用) -->
+          <button @click="isSettingsOpen = true" class="bg-white border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50 p-2.5 rounded-xl shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-gray-200" title="系統推播通知">
+            <el-icon><Setting /></el-icon>
+          </button>
 
-      <div class="flex items-center gap-3">
-        <!-- 齒輪按鈕 (推播設定用) -->
-        <button @click="isSettingsOpen = true" class="bg-white border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50 p-2.5 rounded-xl shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-gray-200" title="系統推播通知">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" /></svg>
-        </button>
-
-        <button @click="openCreateModal" class="bg-primary hover:bg-primary-hover active:scale-95 text-white px-5 py-2.5 rounded-xl shadow-[0_8px_20px_rgba(216,143,34,0.25)] text-sm font-bold transition-all flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
-          新增假單
-        </button>
-      </div>
+          <button @click="openCreateModal" class="bg-primary hover:bg-primary-hover active:scale-95 text-white px-5 py-2.5 rounded-xl shadow-[0_8px_20px_rgba(216,143,34,0.25)] text-sm font-bold transition-all flex items-center gap-2">
+            <el-icon><Plus /></el-icon>
+            新增假單
+          </button>
+        </template>
+      </AppPageHeader>
     </div>
 
     <!-- 頁籤與內容區塊 -->
@@ -84,11 +84,13 @@
             </div>
 
             <!-- 列表 -->
-            <el-table 
+            <AppLoadingState v-if="isLoading" text="讀取請假紀錄中..." min-height="30rem" />
+
+            <el-table
+              v-else
               :data="filteredLeaveRequests" 
               style="width: 100%; height: 100%" 
               height="100%"
-              v-loading="isLoading" 
               empty-text="目前沒有請假紀錄"
               :row-class-name="tableRowClassName"
             >
@@ -427,7 +429,9 @@ import {
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Loading } from '@element-plus/icons-vue'
+import { Loading, Memo, Plus, Setting } from '@element-plus/icons-vue'
+import AppLoadingState from '@/components/common/AppLoadingState.vue'
+import AppPageHeader from '@/components/common/AppPageHeader.vue'
 import dayjs from 'dayjs'
 
 import { use } from 'echarts/core'

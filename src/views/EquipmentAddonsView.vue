@@ -3,7 +3,9 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Goods, Loading, Refresh, ShoppingCart } from '@element-plus/icons-vue'
+import { Goods, Refresh, ShoppingCart } from '@element-plus/icons-vue'
+import AppPageHeader from '@/components/common/AppPageHeader.vue'
+import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import EquipmentPhotoCarousel from '@/components/equipment/EquipmentPhotoCarousel.vue'
 import { listMyPaymentMembers } from '@/services/myPayments'
 import { useAuthStore } from '@/stores/auth'
@@ -608,24 +610,24 @@ onMounted(() => {
     <div class="bg-white px-4 md:px-6 py-4 border-b border-gray-200 shadow-sm shrink-0 z-10">
       <div class="max-w-6xl mx-auto flex flex-col gap-4">
         <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h2 class="app-page-title app-page-title--inline">
-              <el-icon class="app-page-title-icon"><ShoppingCart /></el-icon>
-              裝備加購
-            </h2>
-            <p class="app-page-subtitle">
-              為已綁定成員申請裝備加購，管理員確認領取後再回報付款
-            </p>
-          </div>
-          <button
-            type="button"
-            class="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 px-4 py-3 text-sm font-bold text-gray-600 hover:border-primary hover:text-primary transition-colors disabled:opacity-70"
-            :disabled="isBootstrapping"
-            @click="bootstrap"
+          <AppPageHeader
+            title="裝備加購"
+            subtitle="為已綁定成員申請裝備加購，管理員確認領取後再回報付款"
+            :icon="ShoppingCart"
+            as="h2"
           >
-            <el-icon :class="{ 'is-loading': isBootstrapping }"><Refresh /></el-icon>
-            重新整理
-          </button>
+            <template #actions>
+              <button
+                type="button"
+                class="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 px-4 py-3 text-sm font-bold text-gray-600 hover:border-primary hover:text-primary transition-colors disabled:opacity-70"
+                :disabled="isBootstrapping"
+                @click="bootstrap"
+              >
+                <el-icon :class="{ 'is-loading': isBootstrapping }"><Refresh /></el-icon>
+                重新整理
+              </button>
+            </template>
+          </AppPageHeader>
         </div>
 
         <div class="flex gap-2 overflow-x-auto">
@@ -650,12 +652,7 @@ onMounted(() => {
     </div>
 
     <div class="flex-1 overflow-y-auto min-h-0 p-4 md:p-6 pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:pb-6 custom-scrollbar">
-      <div v-if="isBootstrapping" class="min-h-[50vh] flex items-center justify-center">
-        <div class="flex items-center gap-3 text-gray-500 font-bold">
-          <el-icon class="is-loading text-primary text-2xl"><Loading /></el-icon>
-          讀取裝備加購資料中...
-        </div>
-      </div>
+      <AppLoadingState v-if="isBootstrapping" text="讀取裝備加購資料中..." min-height="50vh" />
 
       <div v-else class="max-w-6xl mx-auto">
         <section v-if="purchaseMemberOptions.length === 0" class="rounded-3xl border border-gray-100 bg-white p-8 text-center shadow-sm">

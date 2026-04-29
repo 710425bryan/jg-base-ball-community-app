@@ -2,54 +2,53 @@
   <div class="h-full flex flex-col relative animate-fade-in bg-gray-50 text-text overflow-hidden">
     <div class="bg-white px-4 md:px-6 py-4 border-b border-gray-200 shadow-sm shrink-0">
       <div class="max-w-6xl mx-auto flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h2 class="app-page-title">系統公告設定</h2>
-          <p class="app-page-subtitle">管理官方佈告欄，將會同步顯示於前台首頁</p>
-        </div>
+        <AppPageHeader
+          title="系統公告設定"
+          subtitle="管理官方佈告欄，將會同步顯示於前台首頁"
+          :icon="Bell"
+          as="h2"
+        >
+          <template #actions>
+            <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+              <div class="inline-grid grid-cols-2 gap-1 rounded-2xl border border-gray-200 bg-gray-100 p-1 text-sm font-black">
+                <button
+                  type="button"
+                  class="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-4 transition-colors"
+                  :class="viewMode === 'card' ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-slate-700'"
+                  @click="viewMode = 'card'"
+                >
+                  <el-icon><Grid /></el-icon>
+                  卡片
+                </button>
+                <button
+                  type="button"
+                  class="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-4 transition-colors"
+                  :class="viewMode === 'table' ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-slate-700'"
+                  @click="viewMode = 'table'"
+                >
+                  <el-icon><List /></el-icon>
+                  表格
+                </button>
+              </div>
 
-        <div class="flex flex-col sm:flex-row sm:items-center gap-3">
-          <div class="inline-grid grid-cols-2 gap-1 rounded-2xl border border-gray-200 bg-gray-100 p-1 text-sm font-black">
-            <button
-              type="button"
-              class="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-4 transition-colors"
-              :class="viewMode === 'card' ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-slate-700'"
-              @click="viewMode = 'card'"
-            >
-              <el-icon><Grid /></el-icon>
-              卡片
-            </button>
-            <button
-              type="button"
-              class="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-4 transition-colors"
-              :class="viewMode === 'table' ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-slate-700'"
-              @click="viewMode = 'table'"
-            >
-              <el-icon><List /></el-icon>
-              表格
-            </button>
-          </div>
-
-          <button
-            v-if="canCreateAnnouncements"
-            type="button"
-            class="inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-primary-hover active:scale-95"
-            @click="openCreateDialog"
-          >
-            <el-icon><Plus /></el-icon>
-            新增公告
-          </button>
-        </div>
+              <button
+                v-if="canCreateAnnouncements"
+                type="button"
+                class="inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-primary-hover active:scale-95"
+                @click="openCreateDialog"
+              >
+                <el-icon><Plus /></el-icon>
+                新增公告
+              </button>
+            </div>
+          </template>
+        </AppPageHeader>
       </div>
     </div>
 
     <div class="flex-1 overflow-y-auto min-h-0 p-4 md:p-6 pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:pb-6 custom-scrollbar">
       <div class="max-w-6xl mx-auto relative">
-        <div v-if="isLoading" class="min-h-[45vh] flex items-center justify-center">
-          <div class="flex items-center gap-3 text-gray-500 font-bold">
-            <el-icon class="is-loading text-primary text-2xl"><Loading /></el-icon>
-            載入公告資料中...
-          </div>
-        </div>
+        <AppLoadingState v-if="isLoading" text="載入公告資料中..." />
 
         <template v-else>
           <section
@@ -374,6 +373,8 @@ import {
   StarFilled,
   UploadFilled
 } from '@element-plus/icons-vue'
+import AppPageHeader from '@/components/common/AppPageHeader.vue'
+import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import { supabase } from '@/services/supabase'
 import { usePermissionsStore } from '@/stores/permissions'
 import { useNotificationFeed } from '@/composables/useNotificationFeed'

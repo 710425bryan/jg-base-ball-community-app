@@ -17,6 +17,7 @@ import {
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
+import AppPageHeader from '@/components/common/AppPageHeader.vue'
 import { supabase } from '@/services/supabase'
 import { usePermissionsStore } from '@/stores/permissions'
 import HolidayThemePreviewStage from '@/components/settings/HolidayThemePreviewStage.vue'
@@ -809,32 +810,28 @@ onMounted(async () => {
   <div class="holiday-theme-settings-container w-full min-h-[calc(100vh-60px)] bg-slate-50 px-4 py-4 md:px-6 md:py-6">
     <div class="sticky top-0 z-40 mb-8 rounded-3xl border border-white/70 bg-white/88 p-4 shadow-sm backdrop-blur-md">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div class="flex items-center gap-4">
-          <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500 to-amber-400 text-white shadow-lg">
-            <el-icon :size="24"><StarFilled /></el-icon>
-          </div>
-          <div>
-            <h1 class="app-page-title">{{ TEXTS.pageTitle }}</h1>
-            <p class="app-page-subtitle">{{ TEXTS.pageIntro }}</p>
-          </div>
-        </div>
-
-        <div class="flex flex-wrap items-center gap-3">
-          <el-button :loading="isLoading" class="rounded-full px-5" plain @click="loadConfig">
-            <el-icon class="mr-1"><Refresh /></el-icon>
-            {{ TEXTS.reload }}
-          </el-button>
-          <el-button
-            v-if="canEditHolidayTheme"
-            type="primary"
-            class="rounded-full px-6"
-            :loading="isSaving"
-            data-test="holiday-save"
-            @click="saveConfig"
-          >
-            {{ TEXTS.save }}
-          </el-button>
-        </div>
+        <AppPageHeader
+          :title="TEXTS.pageTitle"
+          :subtitle="TEXTS.pageIntro"
+          :icon="StarFilled"
+        >
+          <template #actions>
+            <el-button :loading="isLoading" class="rounded-full px-5" plain @click="loadConfig">
+              <el-icon class="mr-1"><Refresh /></el-icon>
+              {{ TEXTS.reload }}
+            </el-button>
+            <el-button
+              v-if="canEditHolidayTheme"
+              type="primary"
+              class="rounded-full px-6"
+              :loading="isSaving"
+              data-test="holiday-save"
+              @click="saveConfig"
+            >
+              {{ TEXTS.save }}
+            </el-button>
+          </template>
+        </AppPageHeader>
       </div>
     </div>
 

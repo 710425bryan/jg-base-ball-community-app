@@ -23,13 +23,10 @@ const playerDetailVisible = ref(false)
 const tournamentOptions = computed(() => getTournamentNames(props.matches))
 
 watch(tournamentOptions, (options) => {
-  if (!options.length) {
+  if (selectedTournament.value && !options.includes(selectedTournament.value)) {
     selectedTournament.value = ''
-    return
-  }
-
-  if (!selectedTournament.value || !options.includes(selectedTournament.value)) {
-    selectedTournament.value = options[0]
+    selectedPlayerName.value = ''
+    playerDetailVisible.value = false
   }
 }, { immediate: true })
 
@@ -124,6 +121,7 @@ const getMatchResultMeta = (match: MatchRecord) => {
         class="w-full md:w-80"
         size="large"
         filterable
+        clearable
         placeholder="選擇盃賽或賽事名稱"
         :disabled="tournamentOptions.length === 0"
       >
@@ -133,8 +131,12 @@ const getMatchResultMeta = (match: MatchRecord) => {
 
     <div v-if="!selectedTournament" class="flex min-h-64 flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 bg-white p-8 text-center">
       <el-icon class="mb-3 text-5xl text-slate-300"><Trophy /></el-icon>
-      <h3 class="text-base font-black text-slate-700">尚無可彙總的賽事紀錄</h3>
-      <p class="mt-2 max-w-md text-sm font-medium text-slate-500">目前篩選範圍內沒有可用的比賽紀錄資料。</p>
+      <h3 class="text-base font-black text-slate-700">
+        {{ tournamentOptions.length === 0 ? '尚無可彙總的賽事紀錄' : '請先選擇賽事名稱' }}
+      </h3>
+      <p class="mt-2 max-w-md text-sm font-medium text-slate-500">
+        {{ tournamentOptions.length === 0 ? '目前篩選範圍內沒有可用的比賽紀錄資料。' : '選擇盃賽或賽事名稱後，再彙總該賽事的球員成績。' }}
+      </p>
     </div>
 
     <template v-else>

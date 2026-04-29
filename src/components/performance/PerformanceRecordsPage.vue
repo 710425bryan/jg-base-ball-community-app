@@ -3,6 +3,8 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { DataLine, Delete, Edit, Plus, Refresh, TrendCharts } from '@element-plus/icons-vue'
+import AppPageHeader from '@/components/common/AppPageHeader.vue'
+import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import PerformanceRecordFormDialog from '@/components/performance/PerformanceRecordFormDialog.vue'
 import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
 import { usePerformanceStore } from '@/stores/performance'
@@ -39,6 +41,9 @@ const isFormDialogOpen = ref(false)
 const editingRecord = ref<PerformanceRecord | null>(null)
 
 const config = computed(() => getPerformanceConfig(props.kind))
+const pageTitleIcon = computed(() => (
+  props.kind === BASEBALL_ABILITY_FEATURE ? TrendCharts : DataLine
+))
 const records = computed<PerformanceRecord[]>(() => (
   props.kind === BASEBALL_ABILITY_FEATURE
     ? performanceStore.baseballAbilityRecords
@@ -200,34 +205,33 @@ onMounted(() => {
     <div class="bg-white px-4 md:px-6 py-4 border-b border-gray-200 shadow-sm shrink-0 z-10">
       <div class="max-w-7xl mx-auto flex flex-col gap-4">
         <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h2 class="app-page-title app-page-title--inline">
-              <el-icon class="app-page-title-icon"><DataLine /></el-icon>
-              {{ config.title }}
-            </h2>
-            <p class="app-page-subtitle">{{ config.description }}</p>
-          </div>
-
-          <div class="flex flex-wrap gap-2">
-            <button
-              type="button"
-              class="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 px-4 py-3 text-sm font-bold text-gray-600 hover:border-primary hover:text-primary transition-colors disabled:opacity-70"
-              :disabled="performanceStore.isLoading"
-              @click="refresh"
-            >
-              <el-icon :class="{ 'is-loading': performanceStore.isLoading }"><Refresh /></el-icon>
-              重新整理
-            </button>
-            <button
-              v-if="canCreate"
-              type="button"
-              class="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-bold text-white hover:bg-primary-hover transition-colors"
-              @click="openCreateDialog"
-            >
-              <el-icon><Plus /></el-icon>
-              {{ config.addButtonLabel }}
-            </button>
-          </div>
+          <AppPageHeader
+            :title="config.title"
+            :subtitle="config.description"
+            :icon="pageTitleIcon"
+            as="h2"
+          >
+            <template #actions>
+              <button
+                type="button"
+                class="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 px-4 py-3 text-sm font-bold text-gray-600 hover:border-primary hover:text-primary transition-colors disabled:opacity-70"
+                :disabled="performanceStore.isLoading"
+                @click="refresh"
+              >
+                <el-icon :class="{ 'is-loading': performanceStore.isLoading }"><Refresh /></el-icon>
+                重新整理
+              </button>
+              <button
+                v-if="canCreate"
+                type="button"
+                class="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-bold text-white hover:bg-primary-hover transition-colors"
+                @click="openCreateDialog"
+              >
+                <el-icon><Plus /></el-icon>
+                {{ config.addButtonLabel }}
+              </button>
+            </template>
+          </AppPageHeader>
         </div>
 
         <div
@@ -249,9 +253,7 @@ onMounted(() => {
 
     <div class="flex-1 overflow-y-auto min-h-0 p-4 md:p-6 pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:pb-6 custom-scrollbar">
       <div class="max-w-7xl mx-auto">
-        <div v-if="performanceStore.isLoading" class="min-h-[45vh] flex items-center justify-center">
-          <div class="text-sm font-bold text-gray-400">數據載入中...</div>
-        </div>
+        <AppLoadingState v-if="performanceStore.isLoading" text="數據載入中..." />
 
         <section v-else-if="filteredLatestRecords.length === 0" class="rounded-3xl border border-gray-100 bg-white p-10 text-center shadow-sm">
           <el-icon class="text-6xl text-gray-200"><DataLine /></el-icon>

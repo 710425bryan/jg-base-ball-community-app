@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { Plus, Minus, Position, DataAnalysis, Connection, Upload, Document, Check, Delete, Loading } from '@element-plus/icons-vue'
+import { ArrowDown, Plus, Minus, Position, DataAnalysis, Connection, Upload, Document, Check, Delete, Loading } from '@element-plus/icons-vue'
 import type { MatchRecordInput, LineupEntry, InningLog, BattingStat, PitchingStat, LineScoreData } from '@/types/match'
 import { useMatchesStore } from '@/stores/matches'
 import { supabase } from '@/services/supabase'
@@ -17,6 +17,7 @@ import {
 import MatchLiveController from './MatchLiveController.vue'
 import MatchLineupTab from './MatchLineupTab.vue'
 import MatchAudioRecorder from './MatchAudioRecorder.vue'
+import MatchFieldEditor from './MatchFieldEditor.vue'
 import { cloneLineScoreData, createDefaultLineScoreData, finalizeInningScore, getNextInning } from '@/utils/liveMatchScoreboard'
 import { buildMatchAudioRoster } from '@/utils/matchAudioTranscription'
 
@@ -41,7 +42,6 @@ interface TeamMemberOption {
   role: string | null
   status: string | null
   jersey_number?: string | null
-  avatar_url?: string | null
 }
 
 interface LiveBatterOption {
@@ -69,7 +69,7 @@ const playerOptions = computed(() => activeMembers.value.filter(m => m.role === 
 onMounted(async () => {
   const { data } = await supabase
     .from('team_members_safe')
-    .select('id, name, role, status, jersey_number, avatar_url')
+    .select('id, name, role, status, jersey_number')
     .order('role')
     .order('name')
   if (data) allMembers.value = data
@@ -163,6 +163,8 @@ const normalizeBoolean = (value: unknown, fallback = false) => {
 const initForm = async () => {
   activeTab.value = 'basic'
   currentLineupMode.value = 'synced'
+  currentLineupCollapsed.value = false
+  currentLineupDetailsCollapsed.value = true
   if (props.mode === 'edit' && props.matchId) {
     audioDraftScopeId.value = props.matchId
     const data = await matchesStore.fetchMatch(props.matchId)
@@ -340,6 +342,8 @@ const getAvailableLineupPlayers = (currentIndex: number) => {
 }
 
 const currentLineupMode = ref<'synced' | 'manual'>('synced')
+const currentLineupCollapsed = ref(false)
+const currentLineupDetailsCollapsed = ref(true)
 const audioDraftScopeId = ref('')
 const syncWorkspaceRef = ref<HTMLElement | null>(null)
 const syncLeftPanePercent = ref(46)
@@ -408,6 +412,7 @@ onBeforeUnmount(() => {
 const syncCurrentLineupFromStarting = () => {
   formData.value.current_lineup = cloneLineup(formData.value.lineup)
   currentLineupMode.value = 'synced'
+  currentLineupCollapsed.value = false
   ElMessage.success('已套用先發與打線為目前場上名單')
 }
 
@@ -420,6 +425,8 @@ const addCurrentLineup = () => {
     number: ''
   })
   currentLineupMode.value = 'manual'
+  currentLineupCollapsed.value = false
+  currentLineupDetailsCollapsed.value = false
 }
 
 const removeCurrentLineup = (index: number) => {
@@ -441,6 +448,40 @@ const moveCurrentLineup = (index: number, dir: -1 | 1) => {
 const handleCurrentLineupPlayerChange = (lineupEntry: LineupEntry, playerName: string) => {
   currentLineupMode.value = 'manual'
   handleLineupPlayerChange(lineupEntry, playerName)
+}
+
+const normalizePlayerName = (value: unknown) => String(value || '').trim()
+
+const currentLineupPlayerMetaByName = computed(() => {
+  const playerMeta: Record<string, { name: string; number: string }> = {}
+
+  activeMembers.value.forEach((player) => {
+    const normalizedName = normalizePlayerName(player.name)
+    if (!normalizedName) return
+
+    playerMeta[normalizedName] = {
+      name: normalizedName,
+      number: String(player.jersey_number || '').trim()
+    }
+  })
+
+  formData.value.current_lineup?.forEach((player) => {
+    const normalizedName = normalizePlayerName(player.name)
+    if (!normalizedName) return
+
+    playerMeta[normalizedName] = {
+      ...(playerMeta[normalizedName] || { name: normalizedName }),
+      name: normalizedName,
+      number: String(player.number || playerMeta[normalizedName]?.number || '').trim()
+    }
+  })
+
+  return playerMeta
+})
+
+const handleCurrentLineupFieldUpdate = (nextLineup: LineupEntry[]) => {
+  formData.value.current_lineup = cloneLineup(nextLineup)
+  currentLineupMode.value = 'manual'
 }
 
 // === TAB 3: INNING LOGS ===
@@ -1226,53 +1267,109 @@ const handlePhotoUpload = async (event: Event) => {
             :style="syncWorkspaceStyle"
           >
             <section class="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-                <div>
-                  <h3 class="text-sm font-extrabold text-slate-900">目前場上名單</h3>
-                  <div class="mt-1 flex flex-wrap gap-1.5">
-                    <el-tag size="small" effect="plain" class="font-bold">共 {{ formData.current_lineup?.length || 0 }} 人</el-tag>
-                    <el-tag size="small" type="success" effect="plain" class="font-bold">{{ currentPitcher ? `投手 ${currentPitcher}` : '未標記投手' }}</el-tag>
+              <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <button
+                  type="button"
+                  class="flex min-w-0 flex-1 items-start gap-2 text-left"
+                  data-testid="current-lineup-collapse-toggle"
+                  :aria-expanded="!currentLineupCollapsed"
+                  @click="currentLineupCollapsed = !currentLineupCollapsed"
+                >
+                  <el-icon class="mt-0.5 text-slate-500"><Position /></el-icon>
+                  <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <h3 class="text-sm font-extrabold text-slate-900">目前場上名單</h3>
+                      <el-icon class="transition-transform duration-200" :class="{ 'rotate-180': !currentLineupCollapsed }">
+                        <ArrowDown />
+                      </el-icon>
+                    </div>
+                    <div class="mt-1 flex flex-wrap gap-1.5">
+                      <el-tag size="small" effect="plain" class="font-bold">共 {{ formData.current_lineup?.length || 0 }} 人</el-tag>
+                      <el-tag size="small" type="success" effect="plain" class="font-bold">{{ currentPitcher ? `投手 ${currentPitcher}` : '未標記投手' }}</el-tag>
+                    </div>
                   </div>
-                </div>
+                </button>
+
                 <div class="flex flex-wrap gap-2">
                   <el-tag :type="currentLineupMode === 'synced' ? 'success' : 'warning'" effect="plain" class="font-bold">
                     {{ currentLineupMode === 'synced' ? '跟隨先發' : '獨立編輯' }}
                   </el-tag>
                   <el-button size="small" type="primary" plain @click="syncCurrentLineupFromStarting">套用先發打線</el-button>
-                  <el-button size="small" color="#D99026" class="!text-white" @click="addCurrentLineup"><el-icon class="mr-1"><Plus /></el-icon>新增</el-button>
+                  <el-button size="small" color="#D99026" class="!text-white" data-testid="add-current-lineup-player" @click="addCurrentLineup"><el-icon class="mr-1"><Plus /></el-icon>新增</el-button>
                 </div>
               </div>
 
-              <div class="overflow-x-auto custom-scrollbar pb-1">
-                <div class="min-w-[560px] space-y-2">
-                  <div class="grid grid-cols-[48px_116px_minmax(170px,1fr)_72px_96px] gap-2 px-2 text-[11px] font-black tracking-widest text-slate-400">
-                    <div class="text-center">棒次</div>
-                    <div>守位</div>
-                    <div>球員</div>
-                    <div>背號</div>
-                    <div class="text-center">排序</div>
-                  </div>
-                  <div v-for="(p, i) in formData.current_lineup" :key="`current-${i}`" class="grid grid-cols-[48px_116px_minmax(170px,1fr)_72px_96px] gap-2 items-center rounded-xl border border-slate-100 bg-white p-2">
-                    <div class="text-center text-sm font-black text-slate-400">{{ p.order }}</div>
-                    <el-select v-model="p.position" size="small" class="w-full" @change="currentLineupMode = 'manual'">
-                      <el-option v-for="opt in posOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
-                    </el-select>
-                    <el-select v-model="p.name" size="small" placeholder="球員姓名" filterable allow-create clearable class="w-full" @change="(val: string) => handleCurrentLineupPlayerChange(p, val)">
-                      <el-option v-for="name in availablePlayerNames" :key="`current-name-${name}`" :label="name" :value="name" />
-                    </el-select>
-                    <el-input v-model="p.number" size="small" placeholder="#" @change="currentLineupMode = 'manual'" />
-                    <div class="flex justify-center gap-1">
-                      <el-button size="small" text @click="moveCurrentLineup(i, -1)" :disabled="i === 0">▲</el-button>
-                      <el-button size="small" text @click="moveCurrentLineup(i, 1)" :disabled="i === (formData.current_lineup?.length || 0) - 1">▼</el-button>
-                      <el-button type="danger" size="small" circle plain @click="removeCurrentLineup(i)"><el-icon><Minus /></el-icon></el-button>
+              <el-collapse-transition>
+                <div v-show="!currentLineupCollapsed" class="mt-4 space-y-4" data-testid="current-lineup-editor-body">
+                  <MatchFieldEditor
+                    :lineup="formData.current_lineup || []"
+                    :player-meta-by-name="currentLineupPlayerMetaByName"
+                    title="目前場上守備球場"
+                    @update:lineup="handleCurrentLineupFieldUpdate"
+                  />
+
+                  <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <button
+                        type="button"
+                        class="flex min-w-0 items-start gap-2 text-left"
+                        data-testid="current-lineup-details-toggle"
+                        :aria-expanded="!currentLineupDetailsCollapsed"
+                        @click="currentLineupDetailsCollapsed = !currentLineupDetailsCollapsed"
+                      >
+                        <el-icon class="mt-0.5 text-slate-500"><Document /></el-icon>
+                        <div>
+                          <div class="flex flex-wrap items-center gap-2">
+                            <h4 class="text-sm font-extrabold text-slate-900">進階細修</h4>
+                            <el-tag size="small" effect="plain" class="font-bold">背號 / 備註 / 空白列</el-tag>
+                            <el-icon class="transition-transform duration-200" :class="{ 'rotate-180': !currentLineupDetailsCollapsed }">
+                              <ArrowDown />
+                            </el-icon>
+                          </div>
+                          <p class="mt-1 text-xs font-semibold leading-5 text-slate-500">需要補空白列、改背號或微調欄位時，可展開這裡處理；上方球場會同步更新。</p>
+                        </div>
+                      </button>
                     </div>
+
+                    <el-collapse-transition>
+                      <div v-show="!currentLineupDetailsCollapsed" class="mt-4" data-testid="current-lineup-details-body">
+                        <div class="overflow-x-auto custom-scrollbar pb-1">
+                          <div class="min-w-[640px] space-y-2">
+                            <div class="grid grid-cols-[48px_116px_minmax(170px,1fr)_72px_minmax(120px,1fr)_96px] gap-2 px-2 text-[11px] font-black text-slate-400">
+                              <div class="text-center">棒次</div>
+                              <div>守位</div>
+                              <div>球員</div>
+                              <div>背號</div>
+                              <div>備註</div>
+                              <div class="text-center">排序</div>
+                            </div>
+                            <div v-for="(p, i) in formData.current_lineup" :key="`current-${i}`" class="grid grid-cols-[48px_116px_minmax(170px,1fr)_72px_minmax(120px,1fr)_96px] items-center gap-2 rounded-xl border border-slate-100 bg-white p-2">
+                              <div class="text-center text-sm font-black text-slate-400">{{ p.order }}</div>
+                              <el-select v-model="p.position" size="small" class="w-full" @change="currentLineupMode = 'manual'">
+                                <el-option v-for="opt in posOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+                              </el-select>
+                              <el-select v-model="p.name" size="small" placeholder="球員姓名" filterable allow-create clearable class="w-full" @change="(val: string) => handleCurrentLineupPlayerChange(p, val)">
+                                <el-option v-for="name in availablePlayerNames" :key="`current-name-${name}`" :label="name" :value="name" />
+                              </el-select>
+                              <el-input v-model="p.number" size="small" placeholder="#" @change="currentLineupMode = 'manual'" />
+                              <el-input v-model="p.remark" size="small" placeholder="備註" @change="currentLineupMode = 'manual'" />
+                              <div class="flex justify-center gap-1">
+                                <el-button size="small" text @click="moveCurrentLineup(i, -1)" :disabled="i === 0">▲</el-button>
+                                <el-button size="small" text @click="moveCurrentLineup(i, 1)" :disabled="i === (formData.current_lineup?.length || 0) - 1">▼</el-button>
+                                <el-button type="danger" size="small" circle plain @click="removeCurrentLineup(i)"><el-icon><Minus /></el-icon></el-button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div v-if="!formData.current_lineup?.length" class="mt-3 rounded-xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-400">
+                          尚未建立目前場上名單
+                        </div>
+                      </div>
+                    </el-collapse-transition>
                   </div>
                 </div>
-              </div>
-
-              <div v-if="!formData.current_lineup?.length" class="mt-3 rounded-xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-400">
-                尚未建立目前場上名單
-              </div>
+              </el-collapse-transition>
             </section>
 
             <button

@@ -2,7 +2,8 @@
 import { computed, ref, watch } from 'vue'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Loading } from '@element-plus/icons-vue'
+import { Delete } from '@element-plus/icons-vue'
+import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import { useEquipmentStore } from '@/stores/equipment'
 import { fetchEquipmentRequestHistoryItems } from '@/services/equipmentApi'
 import type {
@@ -257,10 +258,7 @@ watch(() => props.modelValue, (value) => {
       <p class="mt-1 text-xs font-bold text-gray-400">{{ displayEquipment.category }}</p>
     </div>
 
-    <div v-if="isHistoryLoading" class="flex items-center justify-center gap-3 py-10 text-gray-500 font-bold">
-      <el-icon class="is-loading text-primary"><Loading /></el-icon>
-      讀取交易紀錄中...
-    </div>
+    <AppLoadingState v-if="isHistoryLoading" text="讀取交易紀錄中..." min-height="8rem" />
 
     <div v-else-if="historyItems.length === 0" class="rounded-2xl border border-gray-100 bg-gray-50 px-5 py-8 text-center text-sm font-bold text-gray-400">
       目前尚無紀錄。

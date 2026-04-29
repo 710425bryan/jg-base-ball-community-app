@@ -2,23 +2,19 @@
   <div class="p-4 md:p-8 animate-fade-in max-w-6xl mx-auto w-full h-full flex flex-col">
     <!-- Header -->
     <div class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-end gap-4 shrink-0">
-      <div>
-        <h2 class="app-page-title app-page-title--inline">
-          <svg xmlns="http://www.w3.org/2000/svg" class="app-page-title-icon h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
-            <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z" />
-          </svg>
-          家長入隊申請
-        </h2>
-        <p class="app-page-subtitle">
-          查看並聯繫從首頁送出入隊詢問的家長。
-        </p>
-      </div>
-      <div>
-        <button @click="fetchInquiries" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl text-sm transition-colors flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-          重新整理
-        </button>
-      </div>
+      <AppPageHeader
+        title="家長入隊申請"
+        subtitle="查看並聯繫從首頁送出入隊詢問的家長。"
+        :icon="UserFilled"
+        as="h2"
+      >
+        <template #actions>
+          <button @click="fetchInquiries" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl text-sm transition-colors flex items-center gap-2">
+            <el-icon><Refresh /></el-icon>
+            重新整理
+          </button>
+        </template>
+      </AppPageHeader>
     </div>
 
     <!-- Error State -->
@@ -96,7 +92,8 @@ import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Warning } from '@element-plus/icons-vue'
+import { Refresh, UserFilled, Warning } from '@element-plus/icons-vue'
+import AppPageHeader from '@/components/common/AppPageHeader.vue'
 
 const authStore = useAuthStore()
 const permissionsStore = usePermissionsStore()

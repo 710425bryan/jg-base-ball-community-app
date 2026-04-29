@@ -2,20 +2,17 @@
   <div class="h-full flex flex-col relative animate-fade-in bg-gray-50 text-text overflow-hidden">
     <div class="bg-white px-4 md:px-6 py-4 border-b border-gray-200 shadow-sm shrink-0">
       <div class="max-w-5xl mx-auto">
-        <h2 class="app-page-title">個人設定</h2>
-        <p class="app-page-subtitle">
-          更新大頭照、綽號與常用匯款資訊
-        </p>
+        <AppPageHeader
+          title="個人設定"
+          subtitle="更新大頭照、綽號與常用匯款資訊"
+          :icon="Setting"
+          as="h2"
+        />
       </div>
     </div>
 
     <div class="flex-1 overflow-y-auto min-h-0 p-4 md:p-6 pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:pb-6 custom-scrollbar">
-      <div v-if="isLoading" class="min-h-[50vh] flex items-center justify-center">
-        <div class="flex items-center gap-3 text-gray-500 font-bold">
-          <el-icon class="is-loading text-primary text-2xl"><Loading /></el-icon>
-          讀取個人設定中...
-        </div>
-      </div>
+      <AppLoadingState v-if="isLoading" text="讀取個人設定中..." min-height="50vh" />
 
       <div v-else class="max-w-5xl mx-auto grid gap-4 lg:grid-cols-[320px,1fr]">
         <section class="bg-white rounded-3xl border border-gray-100 shadow-sm p-5 md:p-6">
@@ -202,7 +199,9 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Loading } from '@element-plus/icons-vue'
+import { Setting } from '@element-plus/icons-vue'
+import AppLoadingState from '@/components/common/AppLoadingState.vue'
+import AppPageHeader from '@/components/common/AppPageHeader.vue'
 import PushSettingsDialog from '@/components/PushSettingsDialog.vue'
 import { supabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/auth'

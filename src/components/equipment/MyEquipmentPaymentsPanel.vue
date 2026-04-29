@@ -2,8 +2,8 @@
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
-import { Loading } from '@element-plus/icons-vue'
 import { useRoute } from 'vue-router'
+import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useEquipmentPaymentsStore } from '@/stores/equipmentPayments'
 import {
@@ -252,10 +252,7 @@ watch(() => route.query.highlight_transaction_id, () => {
       </div>
     </div>
 
-    <div v-if="paymentsStore.isLoading" class="p-6 flex items-center gap-3 text-sm text-gray-400 font-bold">
-      <el-icon class="is-loading text-primary"><Loading /></el-icon>
-      讀取裝備付款資料中...
-    </div>
+    <AppLoadingState v-if="paymentsStore.isLoading" text="讀取裝備付款資料中..." min-height="8rem" />
 
     <div v-else-if="!hasAnyItems" class="p-6 text-sm text-gray-400 font-bold">
       目前沒有裝備付款項目。

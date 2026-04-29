@@ -1,49 +1,52 @@
 <template>
   <div class="h-full flex flex-col relative animate-fade-in p-2 md:p-6 pb-0 md:pb-6 overflow-hidden">
     <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4 shrink-0">
-      <div>
-        <h2 class="app-page-title app-page-title--inline">
-          使用者名單
+      <AppPageHeader
+        title="使用者名單"
+        subtitle="管理社區內的教練、經理與球員權限"
+        :icon="UserFilled"
+        as="h2"
+      >
+        <template #title-suffix>
           <span class="rounded-full bg-orange-50 px-3 py-1 text-xs font-bold text-primary align-middle md:text-sm">
             {{ users.length }} 名成員
           </span>
-        </h2>
-        <p class="app-page-subtitle">管理社區內的教練、經理與球員權限</p>
-      </div>
+        </template>
 
-      <div class="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-3 self-start md:flex md:w-auto md:items-center">
-        <el-input
-          v-model="searchQuery"
-          placeholder="搜尋使用者或球員姓名"
-          :prefix-icon="Search"
-          clearable
-          size="large"
-          class="col-span-2 !w-full md:!w-72"
-        />
+        <template #actions>
+          <div class="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-3 self-start md:flex md:w-auto md:items-center">
+            <el-input
+              v-model="searchQuery"
+              placeholder="搜尋使用者或球員姓名"
+              :prefix-icon="Search"
+              clearable
+              size="large"
+              class="col-span-2 !w-full md:!w-72"
+            />
 
-        <el-select v-model="statusFilter" size="large" class="!w-full md:!w-[10.5rem]">
-          <el-option
-            v-for="option in accessStatusFilterOptions"
-            :key="option.value"
-            :label="option.label"
-            :value="option.value"
-          />
-        </el-select>
+            <el-select v-model="statusFilter" size="large" class="!w-full md:!w-[10.5rem]">
+              <el-option
+                v-for="option in accessStatusFilterOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
 
-        <ViewModeSwitch v-model="viewMode" class="justify-self-end" />
+            <ViewModeSwitch v-model="viewMode" class="justify-self-end" />
 
-        <button @click="openCreateModal" class="col-span-2 w-full bg-primary hover:bg-primary-hover active:scale-95 text-white px-4 sm:px-5 py-2.5 rounded-xl shadow-[0_8px_20px_rgba(216,143,34,0.25)] text-sm font-bold transition-all flex items-center justify-center gap-2 md:col-span-1 md:w-auto md:flex-none min-w-0">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
-          新增使用者
-        </button>
-      </div>
+            <button @click="openCreateModal" class="col-span-2 w-full bg-primary hover:bg-primary-hover active:scale-95 text-white px-4 sm:px-5 py-2.5 rounded-xl shadow-[0_8px_20px_rgba(216,143,34,0.25)] text-sm font-bold transition-all flex items-center justify-center gap-2 md:col-span-1 md:w-auto md:flex-none min-w-0">
+              <el-icon><Plus /></el-icon>
+              新增使用者
+            </button>
+          </div>
+        </template>
+      </AppPageHeader>
     </div>
 
     <el-tabs v-model="activeTab" class="flex-1 flex flex-col min-h-0 bg-transparent custom-tabs">
       <el-tab-pane label="系統帳號管理" name="users" class="h-full flex flex-col">
-        <div v-if="isLoading" class="flex-1 flex items-center justify-center py-16">
-          <el-icon class="is-loading text-primary text-3xl"><Loading /></el-icon>
-        </div>
+        <AppLoadingState v-if="isLoading" text="載入使用者名單中..." min-height="16rem" />
 
         <div v-else-if="users.length === 0" class="flex-1 flex flex-col items-center justify-center text-gray-400 py-16">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
@@ -420,7 +423,9 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Loading, Search } from '@element-plus/icons-vue'
+import { Loading, Plus, Search, UserFilled } from '@element-plus/icons-vue'
+import AppPageHeader from '@/components/common/AppPageHeader.vue'
+import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import PreviewableImage from '@/components/common/PreviewableImage.vue'
 import RolePermissionsManager from '@/components/RolePermissionsManager.vue'
 import ViewModeSwitch from '@/components/ViewModeSwitch.vue'

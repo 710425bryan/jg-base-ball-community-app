@@ -2,42 +2,37 @@
   <div class="h-full flex flex-col relative animate-fade-in bg-gray-50 text-text overflow-hidden">
     <div class="bg-white px-4 md:px-6 py-4 border-b border-gray-200 shadow-sm shrink-0">
       <div class="max-w-6xl mx-auto flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h2 class="app-page-title">我的假單</h2>
-          <p class="app-page-subtitle">
-            查看關聯成員的假單紀錄，並可直接送出新的請假申請
-          </p>
-        </div>
+        <AppPageHeader
+          title="我的假單"
+          subtitle="查看關聯成員的假單紀錄，並可直接送出新的請假申請"
+          :icon="Memo"
+          as="h2"
+        >
+          <template #actions>
+            <button
+              type="button"
+              class="flex-1 sm:flex-none rounded-2xl border border-gray-200 text-gray-600 hover:text-gray-800 hover:border-gray-300 font-bold px-4 py-3 transition-colors"
+              :disabled="isRefreshing"
+              @click="refreshCurrentMemberData"
+            >
+              {{ isRefreshing ? '更新中...' : '重新整理' }}
+            </button>
 
-        <div class="flex gap-2 w-full sm:w-auto">
-          <button
-            type="button"
-            class="flex-1 sm:flex-none rounded-2xl border border-gray-200 text-gray-600 hover:text-gray-800 hover:border-gray-300 font-bold px-4 py-3 transition-colors"
-            :disabled="isRefreshing"
-            @click="refreshCurrentMemberData"
-          >
-            {{ isRefreshing ? '更新中...' : '重新整理' }}
-          </button>
-
-          <button
-            type="button"
-            class="flex-1 sm:flex-none rounded-2xl bg-primary hover:bg-primary-hover text-white font-bold px-5 py-3 transition-colors disabled:opacity-70"
-            :disabled="!canCreateLeaveRequest || isRefreshing"
-            @click="openCreateDialog"
-          >
-            新增假單
-          </button>
-        </div>
+            <button
+              type="button"
+              class="flex-1 sm:flex-none rounded-2xl bg-primary hover:bg-primary-hover text-white font-bold px-5 py-3 transition-colors disabled:opacity-70"
+              :disabled="!canCreateLeaveRequest || isRefreshing"
+              @click="openCreateDialog"
+            >
+              新增假單
+            </button>
+          </template>
+        </AppPageHeader>
       </div>
     </div>
 
     <div class="flex-1 overflow-y-auto min-h-0 p-4 md:p-6 pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:pb-6 custom-scrollbar">
-      <div v-if="isBootstrapping" class="min-h-[50vh] flex items-center justify-center">
-        <div class="flex items-center gap-3 text-gray-500 font-bold">
-          <el-icon class="is-loading text-primary text-2xl"><Loading /></el-icon>
-          讀取假單資訊中...
-        </div>
-      </div>
+      <AppLoadingState v-if="isBootstrapping" text="讀取假單資訊中..." min-height="50vh" />
 
       <div v-else class="max-w-6xl mx-auto flex flex-col gap-4">
         <section
@@ -282,7 +277,9 @@
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Loading } from '@element-plus/icons-vue'
+import { Memo } from '@element-plus/icons-vue'
+import AppLoadingState from '@/components/common/AppLoadingState.vue'
+import AppPageHeader from '@/components/common/AppPageHeader.vue'
 import {
   createMyLeaveRequests,
   deleteMyLeaveRequest,

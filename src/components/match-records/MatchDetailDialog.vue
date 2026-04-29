@@ -3,6 +3,7 @@ import { computed, watch } from 'vue'
 import { Trophy, Location, Calendar, Position, Avatar, WarnTriangleFilled, ArrowLeft, ArrowRight, Delete, Edit, Document, Timer, DataAnalysis } from '@element-plus/icons-vue'
 import { useMatchesStore } from '@/stores/matches'
 import type { MatchRecord } from '@/types/match'
+import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import VisualField from '@/components/match-records/VisualField.vue'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -149,7 +150,7 @@ const pitchingTeamStats = computed(() => {
 
 <template>
   <el-dialog v-model="visible" width="100%" class="!rounded-2xl md:max-w-5xl !p-0 !bg-gray-50 custom-dialog-body overflow-hidden" :show-close="false" destroy-on-close align-center top="2vh">
-    <div v-if="loading" class="h-96 flex items-center justify-center" v-loading="true"></div>
+    <AppLoadingState v-if="loading" text="載入比賽詳情中..." min-height="24rem" />
     <div v-else-if="matchData" class="flex h-full flex-col md:h-[85vh]">
       
       <!-- Top Action Bar (Fixed Absolute) -->

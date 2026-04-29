@@ -3,15 +3,12 @@
     <!-- Header -->
     <div class="bg-white px-4 md:px-6 py-4 border-b border-gray-200 shadow-sm shrink-0 flex flex-col gap-3 z-10">
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 class="app-page-title app-page-title--inline">
-            <el-icon class="app-page-title-icon"><Money /></el-icon>
-            收費管理系統
-          </h2>
-          <p class="app-page-subtitle">
-            管理校隊月費、球員季費、裝備付款與收費設定
-          </p>
-        </div>
+        <AppPageHeader
+          title="收費管理系統"
+          subtitle="管理校隊月費、球員季費、裝備付款與收費設定"
+          :icon="Money"
+          as="h2"
+        />
       </div>
       
       <div
@@ -128,6 +125,7 @@ import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { usePermissionsStore } from '@/stores/permissions'
 import { Money, Lock } from '@element-plus/icons-vue'
+import AppPageHeader from '@/components/common/AppPageHeader.vue'
 
 // Import Sub Components
 import SchoolTeamFees from '@/components/fees/SchoolTeamFees.vue'

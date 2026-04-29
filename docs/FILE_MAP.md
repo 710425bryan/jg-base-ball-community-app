@@ -18,7 +18,7 @@
 | `src/router/index.ts` | 路由、登入 guard、feature guard | 保留 `createWebHashHistory()` 與 chunk reload fallback |
 | `src/services/supabase.ts` | Supabase client | 保留手機休眠 token refresh 保護 |
 | `vite.config.ts` | Vite / PWA / version plugin | 一般功能開發不改 version 行為 |
-| `src/style.css` | 全域 CSS 與共用 UI class | page title、dialog 手機滿版規則在這裡 |
+| `src/style.css` | 全域 CSS 與共用 UI class | `AppPageHeader`、page title、dialog 手機滿版規則在這裡 |
 
 ## 2. AI 與文件
 
@@ -41,6 +41,8 @@
 | `src/components/PushSettingsDialog.vue` | Web Push 訂閱設定 |
 | `src/components/RolePermissionsManager.vue` | 角色與 feature/action 權限管理 |
 | `src/components/ViewModeSwitch.vue` | 檢視模式切換 |
+| `src/components/common/AppPageHeader.vue` | 登入後功能頁 page title 標準元件 |
+| `src/components/common/AppLoadingState.vue` | 頁面級 / 大區塊 loading 標準元件，文字用 `text` 傳入 |
 | `src/components/common/PreviewableImage.vue` | 可預覽圖片 |
 | `src/components/equipment/EquipmentPhotoCarousel.vue` | 裝備多照片輪播 / 左右滑動 |
 

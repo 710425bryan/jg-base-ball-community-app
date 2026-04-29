@@ -36,11 +36,14 @@ description: "Project-specific workflow for jg-base-ball-community-app. Use when
 
 ## UI 標題規則
 
-- 功能頁第一層標題統一使用 `src/style.css` 的 `.app-page-title`；標題含 icon、徽章或同列元素時加 `.app-page-title--inline`。
-- 頁面標題下方說明文字統一使用 `.app-page-subtitle`。
-- 預設 title 規格為 mobile `text-xl`、desktop `md:text-2xl`、`font-black`、`leading-tight`、`tracking-normal`、`text-slate-800`；title icon 使用 `.app-page-title-icon`。
-- 不要在功能頁 page title 直接堆疊 `text-3xl`、`text-primary`、`tracking-tight`、`tracking-wider` 或裝飾性 uppercase subtitle。若要調整全站 title 規格，優先改 `src/style.css` 的共用 class。
+- 登入後 route-level 功能頁第一層標題統一使用 `src/components/common/AppPageHeader.vue`，不可在 view 內手寫 page title 結構。
+- `AppPageHeader` 必須提供 Element Plus icon；標題旁的 badge / 計數放 `title-suffix` slot，返回按鈕放 `before` slot，右側操作放 `actions` slot。
+- Page title 樣式由 `src/style.css` 的 `.app-page-header`、`.app-page-title`、`.app-page-title-icon`、`.app-page-subtitle` 統一控制。
+- 預設 title 規格為 mobile `text-xl`、desktop `md:text-2xl`、`font-black`、`leading-tight`、`tracking-normal`、`text-slate-800`；title icon 是小型 inline 主色 icon。
+- 不要在功能頁 page title 直接堆疊 `text-3xl`、`text-primary`、`tracking-tight`、`tracking-wider`、大型方框 icon、漸層 icon、手寫 SVG 或裝飾性 uppercase subtitle。若要調整全站 title 規格，優先改 `src/style.css` 的共用 class 或 `AppPageHeader`。
 - 首頁 hero、公開 landing、卡片標題、section title、dialog title 可依情境保留自己的視覺層級；不要為了統一 page title 而壓平這些區塊。
+- 頁面級或大區塊 loading 統一使用 `src/components/common/AppLoadingState.vue`，只透過 `text` 改文案；不要在 view 內手寫大型 loading spinner / icon / pulse 結構。
+- 小型按鈕 loading、表單提交中、局部 Element Plus `v-loading` 遮罩可保留既有互動樣式。
 
 ## 驗證
 

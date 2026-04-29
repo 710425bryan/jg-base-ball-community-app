@@ -11,6 +11,8 @@ import {
   Tickets
 } from '@element-plus/icons-vue'
 import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
+import AppPageHeader from '@/components/common/AppPageHeader.vue'
+import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import EquipmentFormDialog from '@/components/equipment/EquipmentFormDialog.vue'
 import EquipmentHistoryDialog from '@/components/equipment/EquipmentHistoryDialog.vue'
 import EquipmentInventoryAdjustmentDialog from '@/components/equipment/EquipmentInventoryAdjustmentDialog.vue'
@@ -168,38 +170,35 @@ onMounted(() => {
     <div class="bg-white px-3 py-3 md:px-6 md:py-4 border-b border-gray-200 shadow-sm shrink-0 z-10">
       <div class="max-w-7xl mx-auto flex flex-col gap-3 md:gap-4">
         <div class="flex items-center justify-between gap-3">
-          <div class="min-w-0">
-            <h2 class="app-page-title app-page-title--inline">
-              <el-icon class="app-page-title-icon"><Goods /></el-icon>
-              裝備管理
-            </h2>
-            <p class="app-page-subtitle hidden sm:block">
-              管理裝備庫存、借還領取、加購品項與交易紀錄
-            </p>
-          </div>
-
-          <div class="flex shrink-0 gap-2">
-            <button
-              type="button"
-              class="inline-flex h-11 w-11 items-center justify-center gap-2 rounded-2xl border border-gray-200 text-sm font-bold text-gray-600 hover:border-primary hover:text-primary transition-colors disabled:opacity-70 md:w-auto md:px-4"
-              :disabled="equipmentStore.isLoading"
-              title="重新整理"
-              @click="refresh"
-            >
-              <el-icon :class="{ 'is-loading': equipmentStore.isLoading }"><Refresh /></el-icon>
-              <span class="hidden md:inline">重新整理</span>
-            </button>
-            <button
-              v-if="canCreate"
-              type="button"
-              class="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-primary px-3 text-sm font-bold text-white hover:bg-primary-hover transition-colors md:px-5"
-              @click="openCreateDialog"
-            >
-              <el-icon><Plus /></el-icon>
-              <span class="md:hidden">新增</span>
-              <span class="hidden md:inline">新增裝備</span>
-            </button>
-          </div>
+          <AppPageHeader
+            title="裝備管理"
+            subtitle="管理裝備庫存、借還領取、加購品項與交易紀錄"
+            :icon="Goods"
+            as="h2"
+          >
+            <template #actions>
+              <button
+                type="button"
+                class="inline-flex h-11 w-11 items-center justify-center gap-2 rounded-2xl border border-gray-200 text-sm font-bold text-gray-600 hover:border-primary hover:text-primary transition-colors disabled:opacity-70 md:w-auto md:px-4"
+                :disabled="equipmentStore.isLoading"
+                title="重新整理"
+                @click="refresh"
+              >
+                <el-icon :class="{ 'is-loading': equipmentStore.isLoading }"><Refresh /></el-icon>
+                <span class="hidden md:inline">重新整理</span>
+              </button>
+              <button
+                v-if="canCreate"
+                type="button"
+                class="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-primary px-3 text-sm font-bold text-white hover:bg-primary-hover transition-colors md:px-5"
+                @click="openCreateDialog"
+              >
+                <el-icon><Plus /></el-icon>
+                <span class="md:hidden">新增</span>
+                <span class="hidden md:inline">新增裝備</span>
+              </button>
+            </template>
+          </AppPageHeader>
         </div>
 
         <div class="grid grid-cols-4 gap-1.5 md:gap-3">
@@ -279,9 +278,7 @@ onMounted(() => {
 
     <div class="flex-1 overflow-y-auto min-h-0 p-3 md:p-6 pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:pb-6 custom-scrollbar">
       <div class="max-w-7xl mx-auto">
-        <div v-if="equipmentStore.isLoading" class="min-h-[45vh] flex items-center justify-center">
-          <div class="text-sm font-bold text-gray-400">裝備資料載入中...</div>
-        </div>
+        <AppLoadingState v-if="equipmentStore.isLoading" text="裝備資料載入中..." />
 
         <section v-else-if="filteredEquipments.length === 0" class="rounded-3xl border border-gray-100 bg-white p-10 text-center shadow-sm">
           <el-icon class="text-6xl text-gray-200"><Goods /></el-icon>
