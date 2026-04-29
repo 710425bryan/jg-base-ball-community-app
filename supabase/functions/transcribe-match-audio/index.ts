@@ -114,16 +114,38 @@ const sanitizeRoster = (value: unknown): MatchAudioRosterPlayer[] => {
     .slice(0, 60);
 };
 
-const buildTranscriptionPrompt = (metadata: any, roster: MatchAudioRosterPlayer[]) => {
-  const rosterText = roster.map((player) => `${player.name}${player.number ? ` #${player.number}` : ""}`).join("、");
+const buildTranscriptionPrompt = () => {
   return [
-    "這是一段台灣少棒比賽的逐局轉播錄音，請轉成繁體中文。",
-    "常見棒球詞包含：一安、二安、三安、全壘打、四壞、觸身、空振、站振、滾地、飛球、失誤、盜壘、打點、責失。",
-    `目前半局：${normalizeText(metadata?.inning) || "未知"}`,
-    `本場球員名單：${rosterText || "未提供"}`,
-    "若聽到球員姓名，請優先依本場球員名單修正同音或近似字。",
+    "請只轉錄音訊中實際、清楚聽到的人聲。",
+    "如果沒有清楚人聲、只有環境音、空白、摩擦聲或不確定內容，請回傳空字串。",
+    "不要補字、不要猜測、不要自行加入棒球術語、不要加入球員姓名。",
+    "請使用繁體中文。",
   ].join("\n");
 };
+
+const normalizeTranscriptForEmptyCheck = (value: string) =>
+  normalizeText(value)
+    .replace(/[，,。.!！?？、\s]/g, "")
+    .replace(/[０-９]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 0xfee0))
+    .replace(/一/g, "1")
+
+const isLikelyEmptyTranscription = (transcript: string) => {
+  const normalized = normalizeTranscriptForEmptyCheck(transcript)
+  if (!normalized) return true
+
+  const knownSilenceHallucinations = new Set([
+    "第1球",
+    "1球",
+    "第1局",
+    "1局",
+    "開始",
+    "好",
+    "嗯",
+    "啊",
+  ])
+
+  return knownSilenceHallucinations.has(normalized)
+}
 
 const transcribeBlob = async (file: Blob, filename: string, prompt: string) => {
   if (!OPENAI_API_KEY) {
@@ -154,17 +176,19 @@ const transcribeBlob = async (file: Blob, filename: string, prompt: string) => {
   return normalizeText(data?.text);
 };
 
-const transcribeFiles = async (files: File[], metadata: any, roster: MatchAudioRosterPlayer[]) => {
-  const prompt = buildTranscriptionPrompt(metadata, roster);
+const transcribeFiles = async (files: File[], metadata: any) => {
+  const prompt = buildTranscriptionPrompt();
   const totalSize = files.reduce((sum, file) => sum + file.size, 0);
 
   if (files.length > 1 && totalSize <= MAX_TRANSCRIPTION_FILE_BYTES) {
     const mergedBlob = new Blob(files, { type: files[0]?.type || "audio/webm" });
-    return transcribeBlob(mergedBlob, `match-${normalizeText(metadata?.inning) || "audio"}.webm`, prompt);
+    const transcript = await transcribeBlob(mergedBlob, `match-${normalizeText(metadata?.inning) || "audio"}.webm`, prompt);
+    return isLikelyEmptyTranscription(transcript) ? "" : transcript;
   }
 
   if (files.length === 1 && files[0].size <= MAX_TRANSCRIPTION_FILE_BYTES) {
-    return transcribeBlob(files[0], files[0].name || "match-audio.webm", prompt);
+    const transcript = await transcribeBlob(files[0], files[0].name || "match-audio.webm", prompt);
+    return isLikelyEmptyTranscription(transcript) ? "" : transcript;
   }
 
   const transcripts: string[] = [];
@@ -174,7 +198,7 @@ const transcribeFiles = async (files: File[], metadata: any, roster: MatchAudioR
     }
 
     const text = await transcribeBlob(file, file.name || `match-audio-${index + 1}.webm`, prompt);
-    if (text) transcripts.push(text);
+    if (text && !isLikelyEmptyTranscription(text)) transcripts.push(text);
   }
 
   return transcripts.join("\n");
@@ -324,7 +348,7 @@ serve(async (req) => {
     }
 
     const roster = sanitizeRoster(metadata?.roster);
-    const transcript = await transcribeFiles(files, metadata, roster);
+    const transcript = await transcribeFiles(files, metadata);
     const structuredResult = transcript
       ? await structureTranscript(transcript, metadata, roster)
       : { summary: "", warnings: ["音訊沒有轉出可用文字"], events: [] };
