@@ -246,20 +246,6 @@
           </div>
         </template>
 
-        <el-form-item label="請假時段 (選填)" class="font-bold">
-          <el-time-picker
-            v-model="form.time_range"
-            is-range
-            range-separator="至"
-            start-placeholder="開始時間"
-            end-placeholder="結束時間"
-            format="HH:mm"
-            value-format="HH:mm"
-            size="large"
-            class="!w-full"
-          />
-        </el-form-item>
-
         <el-form-item label="請假原因說明" prop="reason" class="font-bold">
           <el-input v-model="form.reason" type="textarea" :rows="3" placeholder="請簡述請假事由 (選填)" />
           <p class="text-sm text-gray-400 font-normal mt-1 w-full">
