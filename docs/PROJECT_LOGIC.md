@@ -423,8 +423,10 @@ UI 約定：
 主要檔案：
 
 - `src/utils/pushNotifications.ts`
+- `src/utils/pushDeepLink.ts`
 - `src/composables/useNotificationFeed.ts`
 - `src/components/PushSettingsDialog.vue`
+- `public/push-sw.js`
 - `supabase/functions/send-push-notification/index.ts`
 - `supabase/functions/send-training-registration-notifications/index.ts`
 - `supabase/functions/_shared/push.ts`
@@ -444,11 +446,14 @@ UI 約定：
 5. 過期 subscription 由 Edge Function 清理。
 6. 通知中心透過 `get_notification_feed()` 匯整顯示。
 7. 排程型通知如賽事提醒、特訓報名開始，使用專屬 Edge Function 建立 `push_dispatch_events` 並派送 Web Push。
+8. 使用者點擊 Web Push 時，`public/push-sw.js` 以 `?push_target=...`、`#/push-entry?target=...` 與 service worker `postMessage` 三層方式把 target 交回前端；前端用 `pushDeepLink.ts` 正規化後交給 router。
 
 重要規則：
 
 - 不要把所有通知硬綁 `leave_requests`。
 - 多入口可能重複觸發的事件一定要有穩定 `eventKey`。
+- 賽事提醒 URL 統一使用 `/calendar?match_id=<id>`；舊 `/match-records?match_id=<id>` 必須正規化到 `/calendar`，由 `CalendarView` 開啟 `MatchDetailDialog`。
+- 推播 click target 不可只靠 hash route 或只靠 search param，避免 iOS PWA 與已開啟 client 漏掉導向。
 
 ## 16. PWA、版本與更新
 

@@ -10,6 +10,7 @@ import {
   isSupabaseRpcUnavailable,
   markSupabaseRpcUnavailable
 } from '@/utils/supabaseRpc'
+import { normalizePushDeepLinkTarget } from '@/utils/pushDeepLink'
 
 type NotificationFeedFetcherOptions = {
   includeFeeReminders?: boolean
@@ -29,7 +30,7 @@ export const mapNotificationFeedRow = (row: NotificationFeedRow): NotificationFe
   title: row.title,
   body: row.body,
   createdAt: row.created_at,
-  link: row.link,
+  link: normalizePushDeepLinkTarget(row.link),
   highlightMemberId: row.highlight_member_id ?? null
 })
 

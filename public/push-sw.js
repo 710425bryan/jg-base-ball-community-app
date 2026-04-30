@@ -1,3 +1,5 @@
+const PUSH_NOTIFICATION_CLICK_MESSAGE = 'PUSH_NOTIFICATION_CLICK';
+
 const normalizeTargetPath = (rawTarget) => {
   let nextTarget = typeof rawTarget === 'string' ? rawTarget.trim() : '';
 
@@ -9,6 +11,19 @@ const normalizeTargetPath = (rawTarget) => {
     nextTarget = nextTarget.slice(2);
   } else if (nextTarget.startsWith('#')) {
     nextTarget = nextTarget.slice(1);
+  } else {
+    try {
+      const targetUrl = new URL(nextTarget, self.location.origin);
+      if (targetUrl.origin !== self.location.origin) {
+        return '/dashboard';
+      }
+
+      nextTarget = targetUrl.hash.startsWith('#/')
+        ? targetUrl.hash.slice(1)
+        : targetUrl.pathname + targetUrl.search;
+    } catch (e) {
+      // Keep relative non-URL values and normalize them below.
+    }
   }
 
   if (!nextTarget.startsWith('/')) {
@@ -32,6 +47,40 @@ const normalizeTargetPath = (rawTarget) => {
   }
 
   return nextTarget;
+};
+
+const buildPushEntryUrl = (targetPath) => {
+  const encodedTarget = encodeURIComponent(targetPath);
+
+  return new URL(
+    '/?push_target=' + encodedTarget + '#/push-entry?target=' + encodedTarget,
+    self.location.origin
+  ).href;
+};
+
+const postPushClickMessage = (client, targetPath) => {
+  if (client && typeof client.postMessage === 'function') {
+    client.postMessage({
+      type: PUSH_NOTIFICATION_CLICK_MESSAGE,
+      targetPath
+    });
+  }
+};
+
+const focusAndNotifyClient = (client, targetPath) => {
+  if (!client) return undefined;
+
+  if ('focus' in client) {
+    return client.focus()
+      .catch(() => client)
+      .then((focusedClient) => {
+        postPushClickMessage(focusedClient || client, targetPath);
+        return focusedClient || client;
+      });
+  }
+
+  postPushClickMessage(client, targetPath);
+  return client;
 };
 
 self.addEventListener('push', function(event) {
@@ -63,10 +112,7 @@ self.addEventListener('notificationclick', function(event) {
   event.notification.close();
 
   const targetPath = normalizeTargetPath(event.notification.data && event.notification.data.url);
-  const urlToOpen = new URL(
-    '/?push_target=' + encodeURIComponent(targetPath),
-    self.location.origin
-  ).href;
+  const urlToOpen = buildPushEntryUrl(targetPath);
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
@@ -77,29 +123,23 @@ self.addEventListener('notificationclick', function(event) {
         }
 
         if (client.url === urlToOpen && 'focus' in client) {
-          return client.focus();
+          return focusAndNotifyClient(client, targetPath);
         }
 
         if (typeof client.navigate === 'function') {
           return client.navigate(urlToOpen)
-            .catch(() => {
-              if (clients.openWindow) {
-                return clients.openWindow(urlToOpen);
-              }
-
-              return client;
-            })
+            .catch(() => client)
             .then(navigatedClient => {
-              const focusTarget = navigatedClient || client;
-              if (focusTarget && 'focus' in focusTarget) {
-                return focusTarget.focus();
-              }
+              return focusAndNotifyClient(navigatedClient || client, targetPath);
             });
         }
+
+        return focusAndNotifyClient(client, targetPath);
       }
 
       if (clients.openWindow) {
-        return clients.openWindow(urlToOpen);
+        return clients.openWindow(urlToOpen)
+          .then(client => focusAndNotifyClient(client, targetPath));
       }
     })
   );

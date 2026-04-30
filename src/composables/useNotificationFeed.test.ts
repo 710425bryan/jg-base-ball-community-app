@@ -91,7 +91,7 @@ describe('notification feed controller', () => {
     expect(controller.notifications.value[0]).toMatchObject({
       id: 'match:match-event-1',
       source: 'match',
-      link: '/match-records?match_id=match-1'
+      link: '/calendar?match_id=match-1'
     })
 
     await controller.loadNotificationFeed(10, { force: true })
@@ -99,7 +99,7 @@ describe('notification feed controller', () => {
     expect(controller.notifications.value[0]).toMatchObject({
       id: 'match:match-event-2',
       source: 'match',
-      link: '/match-records?match_id=match-2'
+      link: '/calendar?match_id=match-2'
     })
   })
 
