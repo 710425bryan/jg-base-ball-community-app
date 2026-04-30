@@ -177,30 +177,30 @@ const getMatchResultMeta = (match: MatchRecord) => {
           :row-class-name="clickableStatsRowClass"
           @row-click="(row: any) => openPlayerDetail(row.name)"
         >
-          <el-table-column prop="name" label="姓名" width="110" fixed sortable />
-          <el-table-column prop="pa" label="PA" width="80" align="right" sortable />
-          <el-table-column prop="ab" label="AB" width="80" align="right" sortable />
-          <el-table-column prop="avg" label="AVG" width="100" align="right" sortable>
+          <el-table-column prop="name" label="姓名" min-width="110" fixed sortable />
+          <el-table-column prop="pa" label="打席" min-width="80" align="right" sortable />
+          <el-table-column prop="ab" label="打數" min-width="80" align="right" sortable />
+          <el-table-column prop="avg" label="打擊率" min-width="100" align="right" sortable>
             <template #default="{ row }"><span class="font-bold text-blue-600">{{ formatRatio(row.avg) }}</span></template>
           </el-table-column>
-          <el-table-column prop="h" label="H" width="80" align="right" sortable />
-          <el-table-column prop="h1" label="1B" width="80" align="right" sortable />
-          <el-table-column prop="h2" label="2B" width="80" align="right" sortable />
-          <el-table-column prop="h3" label="3B" width="80" align="right" sortable />
-          <el-table-column prop="hr" label="HR" width="80" align="right" sortable />
-          <el-table-column prop="rbi" label="RBI" width="90" align="right" sortable />
-          <el-table-column prop="r" label="R" width="80" align="right" sortable />
-          <el-table-column prop="bb" label="BB" width="80" align="right" sortable />
-          <el-table-column prop="hbp" label="HBP" width="90" align="right" sortable />
-          <el-table-column prop="so" label="SO" width="80" align="right" sortable />
-          <el-table-column prop="sb" label="SB" width="80" align="right" sortable />
-          <el-table-column prop="obp" label="OBP" width="100" align="right" sortable>
+          <el-table-column prop="h" label="安打" min-width="80" align="right" sortable />
+          <el-table-column prop="h1" label="一安" min-width="80" align="right" sortable />
+          <el-table-column prop="h2" label="二安" min-width="80" align="right" sortable />
+          <el-table-column prop="h3" label="三安" min-width="80" align="right" sortable />
+          <el-table-column prop="hr" label="全壘" min-width="80" align="right" sortable />
+          <el-table-column prop="rbi" label="打點" min-width="90" align="right" sortable />
+          <el-table-column prop="r" label="得分" min-width="80" align="right" sortable />
+          <el-table-column prop="bb" label="四壞" min-width="80" align="right" sortable />
+          <el-table-column prop="hbp" label="觸身" min-width="90" align="right" sortable />
+          <el-table-column prop="so" label="三振" min-width="80" align="right" sortable />
+          <el-table-column prop="sb" label="盜壘" min-width="80" align="right" sortable />
+          <el-table-column prop="obp" label="上壘率" min-width="100" align="right" sortable>
             <template #default="{ row }"><span class="font-bold text-teal-600">{{ formatRatio(row.obp) }}</span></template>
           </el-table-column>
-          <el-table-column prop="slg" label="SLG" width="100" align="right" sortable>
+          <el-table-column prop="slg" label="長打率" min-width="100" align="right" sortable>
             <template #default="{ row }"><span class="font-bold text-orange-600">{{ formatRatio(row.slg) }}</span></template>
           </el-table-column>
-          <el-table-column prop="ops" label="OPS" width="100" align="right" sortable>
+          <el-table-column prop="ops" label="攻擊指數" min-width="100" align="right" sortable>
             <template #default="{ row }"><span class="font-bold text-purple-600">{{ formatRatio(row.ops) }}</span></template>
           </el-table-column>
         </el-table>
@@ -220,27 +220,27 @@ const getMatchResultMeta = (match: MatchRecord) => {
           :row-class-name="clickableStatsRowClass"
           @row-click="(row: any) => openPlayerDetail(row.name)"
         >
-          <el-table-column prop="name" label="球員" width="110" fixed sortable />
-          <el-table-column prop="formattedIP" label="IP" width="90" align="right" sortable sort-by="ip_outs" />
-          <el-table-column prop="h" label="H" width="80" align="right" sortable />
-          <el-table-column prop="h2" label="2B" width="80" align="right" sortable />
-          <el-table-column prop="h3" label="3B" width="80" align="right" sortable />
-          <el-table-column prop="hr" label="HR" width="80" align="right" sortable />
-          <el-table-column prop="r" label="R" width="80" align="right" sortable />
-          <el-table-column prop="er" label="ER" width="80" align="right" sortable />
-          <el-table-column prop="bb" label="BB" width="80" align="right" sortable />
-          <el-table-column prop="so" label="SO" width="80" align="right" sortable />
-          <el-table-column prop="np" label="NP" width="90" align="right" sortable />
-          <el-table-column prop="baa" label="BAA" width="100" align="right" sortable>
+          <el-table-column prop="name" label="球員" min-width="110" fixed sortable />
+          <el-table-column prop="formattedIP" label="局數" min-width="90" align="right" sortable sort-by="ip_outs" />
+          <el-table-column prop="h" label="被安" min-width="80" align="right" sortable />
+          <el-table-column prop="h2" label="被二安" min-width="80" align="right" sortable />
+          <el-table-column prop="h3" label="被三安" min-width="80" align="right" sortable />
+          <el-table-column prop="hr" label="被全壘" min-width="80" align="right" sortable />
+          <el-table-column prop="r" label="失分" min-width="80" align="right" sortable />
+          <el-table-column prop="er" label="責失" min-width="80" align="right" sortable />
+          <el-table-column prop="bb" label="四壞" min-width="80" align="right" sortable />
+          <el-table-column prop="so" label="三振" min-width="80" align="right" sortable />
+          <el-table-column prop="np" label="球數" min-width="90" align="right" sortable />
+          <el-table-column prop="baa" label="被打擊率" min-width="100" align="right" sortable>
             <template #default="{ row }"><span v-if="row.hasDetailed">{{ formatRatio(row.baa) }}</span><span v-else class="text-slate-300">-</span></template>
           </el-table-column>
-          <el-table-column prop="slga" label="SLGA" width="100" align="right" sortable>
+          <el-table-column prop="slga" label="被長打率" min-width="100" align="right" sortable>
             <template #default="{ row }"><span v-if="row.hasDetailed">{{ formatRatio(row.slga) }}</span><span v-else class="text-slate-300">-</span></template>
           </el-table-column>
-          <el-table-column prop="era" label="ERA" width="100" align="right" sortable>
+          <el-table-column prop="era" label="防禦率" min-width="100" align="right" sortable>
             <template #default="{ row }"><span class="font-bold text-blue-600">{{ row.era }}</span></template>
           </el-table-column>
-          <el-table-column prop="go_ao" label="GO/AO" width="100" align="right" sortable>
+          <el-table-column prop="go_ao" label="滾飛比" min-width="100" align="right" sortable>
             <template #default="{ row }"><span v-if="row.hasDetailed">{{ row.go_ao }}</span><span v-else class="text-slate-300">-</span></template>
           </el-table-column>
         </el-table>
@@ -300,7 +300,7 @@ const getMatchResultMeta = (match: MatchRecord) => {
             <el-table-column prop="slg" label="長打率" width="90" align="right">
               <template #default="{ row }">{{ formatRatio(row.slg) }}</template>
             </el-table-column>
-            <el-table-column prop="ops" label="OPS" width="90" align="right">
+            <el-table-column prop="ops" label="攻擊指數" width="90" align="right">
               <template #default="{ row }">{{ formatRatio(row.ops) }}</template>
             </el-table-column>
           </el-table>
@@ -340,7 +340,7 @@ const getMatchResultMeta = (match: MatchRecord) => {
               <template #default="{ row }"><span>{{ formatRatio(row.slga) }}</span></template>
             </el-table-column>
             <el-table-column prop="era" label="防禦率" width="90" align="right" />
-            <el-table-column prop="go_ao" label="GO/AO" width="90" align="right" />
+            <el-table-column prop="go_ao" label="滾飛比" width="90" align="right" />
           </el-table>
         </section>
       </div>

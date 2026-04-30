@@ -7,6 +7,7 @@ import { usePermissionsStore } from '../stores/permissions'
 import { getCurrentRouteFullPathFromLocation, refreshAppShell } from '../utils/appUpdate'
 
 const CHUNK_RELOAD_SESSION_KEY = 'router:chunk-reload-target'
+const DEFAULT_AUTHENTICATED_ROUTE = '/dashboard'
 const LINKED_MEMBER_VIEW_FEATURES = new Set(['baseball_ability', 'physical_tests', 'training'])
 const PERFORMANCE_MANAGE_ACTIONS = ['CREATE', 'EDIT', 'DELETE'] as const
 
@@ -215,7 +216,11 @@ router.beforeEach(async (to, from, next) => {
     await authStore.ensureInitialized()
   }
   
-  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
+  const isInitialNavigation = from.matched.length === 0
+
+  if (isInitialNavigation && to.name === 'Landing' && authStore.isAuthenticated) {
+    next({ path: DEFAULT_AUTHENTICATED_ROUTE, replace: true })
+  } else if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     next('/')
   } else if (to.meta.requiresAuth && to.meta.feature) {
     const permissionsStore = usePermissionsStore()
