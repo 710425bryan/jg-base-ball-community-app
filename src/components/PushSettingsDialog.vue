@@ -298,18 +298,18 @@ const loadCurrentDevicePushState = async () => {
   settingsForm.provider_label = detectPushProvider(endpoint)
 
   const { data, error } = await supabase
-    .from('web_push_subscriptions')
-    .select('id, endpoint, subscription, enabled, platform')
-    .eq('user_id', userId)
-    .eq('endpoint', endpoint)
-    .maybeSingle<WebPushSubscriptionRow>()
+    .rpc('get_my_web_push_subscription', {
+      p_endpoint: endpoint
+    })
+    .maybeSingle()
 
   if (error) throw error
 
-  if (data?.enabled) {
+  const currentRow = data as WebPushSubscriptionRow | null
+  if (currentRow?.enabled) {
     settingsForm.receive_notifications = true
-    settingsForm.subscription_id = data.id
-    settingsForm.platform_label = data.platform || settingsForm.platform_label
+    settingsForm.subscription_id = currentRow.id
+    settingsForm.platform_label = currentRow.platform || settingsForm.platform_label
   }
 }
 

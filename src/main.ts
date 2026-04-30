@@ -10,6 +10,22 @@ import App from './App.vue'
 
 import router from './router'
 
+const applyInitialPushTarget = () => {
+  if (typeof window === 'undefined') return
+
+  const currentUrl = new URL(window.location.href)
+  const pushTarget = currentUrl.searchParams.get('push_target')
+  if (!pushTarget) return
+
+  currentUrl.searchParams.delete('push_target')
+  const remainingSearch = currentUrl.searchParams.toString()
+  const nextUrl = `${currentUrl.pathname}${remainingSearch ? `?${remainingSearch}` : ''}#/push-entry?target=${encodeURIComponent(pushTarget)}`
+
+  window.history.replaceState(null, '', nextUrl)
+}
+
+applyInitialPushTarget()
+
 const app = createApp(App)
 
 app.use(createPinia())

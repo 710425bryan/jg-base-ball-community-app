@@ -64,7 +64,7 @@ self.addEventListener('notificationclick', function(event) {
 
   const targetPath = normalizeTargetPath(event.notification.data && event.notification.data.url);
   const urlToOpen = new URL(
-    '/#/push-entry?target=' + encodeURIComponent(targetPath),
+    '/?push_target=' + encodeURIComponent(targetPath),
     self.location.origin
   ).href;
 

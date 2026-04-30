@@ -1,5 +1,45 @@
 begin;
 
+create or replace function public.get_my_web_push_subscription(
+  p_endpoint text
+)
+returns table (
+  id uuid,
+  endpoint text,
+  subscription jsonb,
+  enabled boolean,
+  platform text
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_endpoint text := nullif(btrim(coalesce(p_endpoint, '')), '');
+begin
+  if v_user_id is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if v_endpoint is null then
+    raise exception 'Endpoint is required';
+  end if;
+
+  return query
+  select
+    wps.id,
+    wps.endpoint,
+    wps.subscription,
+    wps.enabled,
+    wps.platform
+  from public.web_push_subscriptions wps
+  where wps.user_id = v_user_id
+    and wps.endpoint = v_endpoint
+  limit 1;
+end;
+$$;
+
 create or replace function public.upsert_my_web_push_subscription(
   p_endpoint text,
   p_subscription jsonb,
@@ -55,7 +95,7 @@ begin
     nullif(btrim(coalesce(p_user_agent, '')), ''),
     coalesce(p_enabled, true)
   )
-  on conflict (endpoint) do update
+  on conflict on constraint web_push_subscriptions_endpoint_key do update
   set
     user_id = excluded.user_id,
     subscription = excluded.subscription,
@@ -70,6 +110,9 @@ begin
     web_push_subscriptions.platform;
 end;
 $$;
+
+revoke all on function public.get_my_web_push_subscription(text) from public;
+grant execute on function public.get_my_web_push_subscription(text) to authenticated, service_role;
 
 revoke all on function public.upsert_my_web_push_subscription(text, jsonb, text, text, boolean) from public;
 grant execute on function public.upsert_my_web_push_subscription(text, jsonb, text, text, boolean) to authenticated, service_role;
