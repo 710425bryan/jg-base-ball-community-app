@@ -111,6 +111,9 @@
                   <span class="tracking-wide">{{ row.is_primary_payer ? '主要繳費人' : '半價優惠' }}</span>
                   <span class="opacity-80 font-medium ml-0.5">· 手足: {{ getSiblingName(row.sibling_ids) }}</span>
                 </span>
+                <span v-if="isFixedMonthlyMember(row)" class="text-[10px] font-bold border px-1.5 py-0.5 rounded-sm mt-0.5 w-max inline-flex items-center gap-1 text-amber-700 border-amber-200 bg-amber-50">
+                  固定月繳
+                </span>
               </div>
             </template>
           </el-table-column>
@@ -280,6 +283,9 @@
                 <span v-else-if="member.is_half_price" class="text-[10px] font-bold px-2 py-1 rounded-md border bg-primary/5 text-primary border-primary/20">
                   半價優惠
                 </span>
+                <span v-if="isFixedMonthlyMember(member)" class="text-[10px] font-bold px-2 py-1 rounded-md border bg-amber-50 text-amber-700 border-amber-200">
+                  固定月繳
+                </span>
                 <span v-if="member.national_id && canEditPlayers" class="text-[10px] font-mono text-gray-400 hidden sm:inline-block">
                   ID: {{ member.national_id }}
                 </span>
@@ -384,6 +390,18 @@
                 <div class="inline-flex items-center gap-1 leading-none mr-3">半價優惠 <el-tooltip content="手動標記此球員強制享有半價優惠" placement="top"><el-icon class="text-gray-400 cursor-help"><InfoFilled /></el-icon></el-tooltip></div>
               </template>
               <el-switch v-model="form.is_half_price" active-text="是" inactive-text="否" />
+            </el-form-item>
+            <el-form-item prop="fee_billing_mode" class="font-bold mb-0 flex items-center h-[52px]" v-if="form.role === '球員'">
+              <template #label>
+                <div class="inline-flex items-center gap-1 leading-none mr-3">固定月繳 <el-tooltip content="開啟後球員身分維持球員，但收費併入月費表並自季費表排除。" placement="top"><el-icon class="text-gray-400 cursor-help"><InfoFilled /></el-icon></el-tooltip></div>
+              </template>
+              <el-switch
+                v-model="form.fee_billing_mode"
+                :active-value="FIXED_MONTHLY_FEE_BILLING_MODE"
+                :inactive-value="ROLE_DEFAULT_FEE_BILLING_MODE"
+                active-text="開啟"
+                inactive-text="關閉"
+              />
             </el-form-item>
             <el-form-item prop="sibling_ids" class="font-bold mb-0 flex flex-col h-[72px]" v-if="form.role === '球員' || form.role === '校隊'">
               <template #label>
@@ -610,6 +628,13 @@ import {
   type GuardianAccountSyncRow
 } from '@/utils/playerSync'
 import { normalizeSiblingIds } from '@/utils/siblingGroups'
+import {
+  FIXED_MONTHLY_FEE_BILLING_MODE,
+  getMemberBillingLabel,
+  isFixedMonthlyBillingMember,
+  normalizeMemberFeeBillingMode,
+  ROLE_DEFAULT_FEE_BILLING_MODE
+} from '@/utils/memberBilling'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
 import { usePlayerRosterStore } from '@/stores/playerRoster'
@@ -690,7 +715,8 @@ const members = computed(() =>
     team_group: isTeamGroupEligibleRole(m.role) ? normalizeTeamGroup(m.team_group) : null,
     is_inactive_or_graduated: !!m.is_inactive_or_graduated,
     is_primary_payer: !!m.is_primary_payer,
-    is_half_price: !!m.is_half_price
+    is_half_price: !!m.is_half_price,
+    fee_billing_mode: normalizeMemberFeeBillingMode(m.fee_billing_mode)
   }))
 )
 const activeTab = ref('全部')
@@ -701,6 +727,7 @@ const filterULevel = ref('全部')
 const filterMemberGroup = ref('全部')
 
 const isSiblingEligibleRole = isTeamGroupEligibleRole
+const isFixedMonthlyMember = (member: any) => isFixedMonthlyBillingMember(member)
 
 type MemberGroup = {
   key: string
@@ -781,6 +808,23 @@ const buildMembersWithNormalizedSiblings = (memberList: any[]) => {
   }))
 }
 
+const getComparableSiblingIds = (siblingIds: unknown) => {
+  if (!Array.isArray(siblingIds)) return []
+
+  return Array.from(
+    new Set(
+      siblingIds.filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+    )
+  ).sort((a, b) => a.localeCompare(b))
+}
+
+const hasSameSiblingIds = (left: unknown, right: unknown) => {
+  const leftIds = getComparableSiblingIds(left)
+  const rightIds = getComparableSiblingIds(right)
+
+  return leftIds.length === rightIds.length && leftIds.every((id, index) => id === rightIds[index])
+}
+
 const fetchMembersForSiblingSync = async () => {
   const { data, error } = await supabase
     .from('team_members')
@@ -797,14 +841,22 @@ const fetchMembersForSiblingSync = async () => {
 
 const persistNormalizedSiblingIds = async (memberList: any[]) => {
   const normalizedMembers = buildMembersWithNormalizedSiblings(memberList)
+  const originalMembersById = new Map(memberList.map((member) => [member.id, member]))
+  const changedMembers = normalizedMembers.filter((member) => {
+    const originalMember = originalMembersById.get(member.id)
+    return !hasSameSiblingIds(originalMember?.sibling_ids, member.sibling_ids)
+  })
 
-  for (const member of normalizedMembers) {
+  if (changedMembers.length > 0) {
     const { error } = await supabase
       .from('team_members')
-      .update({
-        sibling_ids: member.sibling_ids
-      })
-      .eq('id', member.id)
+      .upsert(
+        changedMembers.map((member) => ({
+          id: member.id,
+          sibling_ids: Array.isArray(member.sibling_ids) ? [...member.sibling_ids] : []
+        })),
+        { onConflict: 'id' }
+      )
 
     if (error) throw error
   }
@@ -927,6 +979,7 @@ const playerExportColumns = computed<PlayerExportColumn[]>(() => [
   { key: 'low_income_qualification', label: '清寒低收資格', sourceKeys: ['low_income_qualification'], getValue: (member) => formatBoolean(member.low_income_qualification) },
   { key: 'is_primary_payer', label: '主要繳費人', sourceKeys: ['is_primary_payer'], getValue: (member) => formatBoolean(member.is_primary_payer) },
   { key: 'is_half_price', label: '半價優惠', sourceKeys: ['is_half_price'], getValue: (member) => formatBoolean(member.is_half_price) },
+  { key: 'fee_billing_mode', label: '收費模式', sourceKeys: ['fee_billing_mode'], getValue: (member) => getMemberBillingLabel(member) },
   { key: 'sibling_ids', label: '相關手足', sourceKeys: ['sibling_ids'], getValue: (member) => getSiblingName(member.sibling_ids) },
   { key: 'portrait_auth', label: '肖像授權', sourceKeys: ['portrait_auth'], getValue: (member) => formatBoolean(member.portrait_auth) },
   { key: 'notes', label: '備註', sourceKeys: ['notes'], getValue: (member) => member.notes },
@@ -1149,6 +1202,7 @@ const initialForm = {
   is_inactive_or_graduated: false,
   is_primary_payer: false,
   is_half_price: false,
+  fee_billing_mode: ROLE_DEFAULT_FEE_BILLING_MODE,
   low_income_qualification: false,
   sibling_ids: [] as string[],
   national_id: '',
@@ -1733,6 +1787,7 @@ const openEditModal = (member: any) => {
   Object.assign(form, member)
   if (!form.status) form.status = '在隊'
   form.is_inactive_or_graduated = !!member.is_inactive_or_graduated
+  form.fee_billing_mode = normalizeMemberFeeBillingMode(member.fee_billing_mode)
   if (!form.sibling_ids) form.sibling_ids = []
   previewAvatar.value = member.avatar_url || ''
   selectedFile = null
@@ -1800,6 +1855,10 @@ const submitForm = async () => {
     } else {
       payload.team_group = null
     }
+
+    payload.fee_billing_mode = payload.role === '球員'
+      ? normalizeMemberFeeBillingMode(payload.fee_billing_mode)
+      : ROLE_DEFAULT_FEE_BILLING_MODE
     
     console.log("Submitting payload to team_members:", payload)
 

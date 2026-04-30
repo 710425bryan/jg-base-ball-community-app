@@ -21,19 +21,19 @@
 
 - 路徑：`.codex/skills/jg-baseball-project-workflow/SKILL.md`
 - 用途：本專案通用工作入口，適合大多數 Vue / Supabase 功能修改。
-- 典型情境：頁面調整、store / service / composable / utils 修改、migration、Edge Function、PWA 問題。
+- 典型情境：頁面調整、store / service / composable / utils 修改、migration、Edge Function、PWA 問題；`/my-records` 我的成績頁併入此通用 workflow，不另外新增 skill。
 
 ### `jg-baseball-auth-permissions`
 
 - 路徑：`.codex/skills/jg-baseball-auth-permissions/SKILL.md`
 - 用途：登入、角色、路由守衛、權限控制。
-- 典型情境：新增受保護頁面、調整 `router meta`、按鈕顯示權限、敏感資料可見性。
+- 典型情境：新增受保護頁面、調整 `router meta`、按鈕顯示權限、敏感資料可見性；個人成績頁的全隊切換需確認 `players:VIEW` 與 RPC 安全邊界。
 
 ### `jg-baseball-player-sync`
 
 - 路徑：`.codex/skills/jg-baseball-player-sync/SKILL.md`
 - 用途：球員同步、Google Form / Sheet 匯入、去重與收費旗標保護。
-- 典型情境：調整 roster sync、修改 `team_members` 匯入邏輯、保留 `is_primary_payer` / `is_half_price`。
+- 典型情境：調整 roster sync、修改 `team_members` 匯入邏輯、保留 `is_primary_payer` / `is_half_price` / `fee_billing_mode`。
 
 ### `jg-baseball-push-notifications`
 

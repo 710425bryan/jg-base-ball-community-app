@@ -1,4 +1,5 @@
 export type PaymentBillingMode = 'monthly' | 'quarterly'
+export type PaymentCalculationType = 'per_session' | 'monthly_fixed'
 
 export type PaymentRecordStatus =
   | 'paid'
@@ -13,6 +14,7 @@ export type MyPaymentMember = {
   role: '校隊' | '球員'
   billing_mode: PaymentBillingMode
   is_linked?: boolean
+  balance_amount?: number
 }
 
 export type MyPaymentRecord = {
@@ -22,6 +24,8 @@ export type MyPaymentRecord = {
   period_key: string
   period_label: string
   amount: number
+  balance_amount: number
+  external_amount: number
   status: PaymentRecordStatus | string
   payment_method: string | null
   account_last_5: string | null
@@ -39,6 +43,8 @@ export type MyPaymentSubmission = {
   period_key: string
   period_label: string
   amount: number
+  balance_amount: number
+  external_amount: number
   payment_method: string
   account_last_5: string | null
   remittance_date: string
@@ -52,6 +58,7 @@ export type CreateMyPaymentSubmissionPayload = {
   member_id: string
   period_key: string
   amount: number
+  balance_amount?: number
   payment_method: string
   account_last_5?: string | null
   remittance_date: string
@@ -69,4 +76,6 @@ export type MyPaymentSubmissionEstimate = {
   leave_sessions: number | null
   per_session_fee: number | null
   deduction_amount: number | null
+  calculation_type?: PaymentCalculationType | null
+  fixed_monthly_fee?: number | null
 }

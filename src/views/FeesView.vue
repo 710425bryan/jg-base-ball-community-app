@@ -111,6 +111,9 @@
             <EquipmentPaymentSubmissionInbox />
             <EquipmentRequestReviewPanel />
           </div>
+          <div v-show="activeTab === 'balances'">
+            <PlayerBalanceManager />
+          </div>
           <div v-show="activeTab === 'settings'">
             <FeeSettings />
           </div>
@@ -132,6 +135,7 @@ import SchoolTeamFees from '@/components/fees/SchoolTeamFees.vue'
 import QuarterlyFees from '@/components/fees/QuarterlyFees.vue'
 import FeeSettings from '@/components/fees/FeeSettings.vue'
 import ProfilePaymentSubmissionInbox from '@/components/fees/ProfilePaymentSubmissionInbox.vue'
+import PlayerBalanceManager from '@/components/fees/PlayerBalanceManager.vue'
 import EquipmentRequestReviewPanel from '@/components/equipment/EquipmentRequestReviewPanel.vue'
 import EquipmentPaymentSubmissionInbox from '@/components/equipment/EquipmentPaymentSubmissionInbox.vue'
 
@@ -151,6 +155,7 @@ const tabs = [
   { id: 'monthly', name: '校隊月費結算' },
   { id: 'quarterly', name: '球員季費表單' },
   { id: 'equipment', name: '裝備請購/付款' },
+  { id: 'balances', name: '球員餘額' },
   { id: 'settings', name: '校隊收費設定' }
 ]
 
@@ -172,7 +177,7 @@ const SUMMARY_COLLAPSE_SCROLL_TOP = 32
 const SUMMARY_EXPAND_SCROLL_TOP = 8
 
 watch(() => route.query.tab, (newTab) => {
-  if (newTab === 'monthly' || newTab === 'quarterly' || newTab === 'equipment' || newTab === 'settings') {
+  if (newTab === 'monthly' || newTab === 'quarterly' || newTab === 'equipment' || newTab === 'balances' || newTab === 'settings') {
     activeTab.value = newTab as string
   } else if (route.query.highlight_submission_id && activeTab.value === 'equipment') {
     activeTab.value = 'monthly'

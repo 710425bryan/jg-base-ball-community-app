@@ -57,7 +57,8 @@ export const createMyPaymentSubmission = async (payload: CreateMyPaymentSubmissi
     p_payment_method: payload.payment_method,
     p_account_last_5: payload.account_last_5 || null,
     p_remittance_date: payload.remittance_date,
-    p_note: payload.note || null
+    p_note: payload.note || null,
+    p_balance_amount: payload.balance_amount || 0
   })
 
   if (error) {
@@ -78,4 +79,22 @@ export const getMyPaymentSubmissionEstimate = async (memberId: string, periodKey
   }
 
   return unwrapRows<MyPaymentSubmissionEstimate>(data)[0] || null
+}
+
+export const reviewMyPaymentSubmission = async (
+  submissionId: string,
+  status: 'approved' | 'rejected',
+  overpaymentAmount = 0
+) => {
+  const { data, error } = await supabase.rpc('review_profile_payment_submission', {
+    p_submission_id: submissionId,
+    p_status: status,
+    p_overpayment_amount: overpaymentAmount
+  })
+
+  if (error) {
+    throw error
+  }
+
+  return unwrapRows<MyPaymentSubmission>(data)[0] || null
 }

@@ -134,6 +134,7 @@
               <template #dropdown>
                 <el-dropdown-menu class="!p-1.5 !rounded-xl min-w-[180px] shadow-xl border-gray-100">
                   <el-dropdown-item @click="router.push('/profile')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">個人設定</el-dropdown-item>
+                  <el-dropdown-item @click="router.push('/my-records')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">我的成績</el-dropdown-item>
                   <el-dropdown-item @click="router.push('/my-payments')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">繳費資訊</el-dropdown-item>
                   <el-dropdown-item v-if="canOpenEquipmentAddons" @click="router.push('/equipment-addons')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">裝備加購</el-dropdown-item>
                   <el-dropdown-item v-if="canOpenTraining" @click="router.push('/training')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">特訓報名</el-dropdown-item>
@@ -633,6 +634,7 @@ const mobileMenuGroups = computed<MobileMenuGroup[]>(() => [
     label: '個人專區',
     items: [
       { label: '個人設定', to: '/profile' },
+      { label: '我的成績', to: '/my-records' },
       { label: '繳費資訊', to: '/my-payments' },
       { label: '裝備加購', to: '/equipment-addons', visible: canOpenEquipmentAddons.value },
       { label: '特訓報名', to: '/training', visible: canOpenTraining.value },

@@ -44,7 +44,7 @@
               <div class="flex flex-wrap items-center gap-2">
                 <div class="text-base md:text-lg font-black text-slate-800">{{ submission.member_name }}</div>
                 <span class="rounded-full bg-primary/10 border border-primary/15 px-2.5 py-1 text-[11px] font-bold text-primary">
-                  {{ getBillingModeLabel(submission.billing_mode) }}
+                  {{ getBillingModeLabel(submission) }}
                 </span>
               </div>
 
@@ -56,6 +56,7 @@
                 <div>
                   <div class="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">金額</div>
                   <div class="mt-1 font-black text-primary">{{ formatCurrency(submission.amount) }}</div>
+                  <div class="mt-0.5 text-xs font-bold text-gray-400">{{ formatBreakdown(submission) }}</div>
                 </div>
                 <div>
                   <div class="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">匯款資訊</div>
@@ -77,7 +78,7 @@
                 type="button"
                 class="rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold px-4 py-2 transition-colors disabled:opacity-70"
                 :disabled="processingIds.has(submission.id)"
-                @click="updateSubmissionStatus(submission.id, 'approved')"
+                @click="updateSubmissionStatus(submission, 'approved')"
               >
                 確認收到
               </button>
@@ -85,7 +86,7 @@
                 type="button"
                 class="rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-bold px-4 py-2 transition-colors disabled:opacity-70"
                 :disabled="processingIds.has(submission.id)"
-                @click="updateSubmissionStatus(submission.id, 'rejected')"
+                @click="updateSubmissionStatus(submission, 'rejected')"
               >
                 退回
               </button>
@@ -109,11 +110,13 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import dayjs from 'dayjs'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRoute } from 'vue-router'
 import { supabase } from '@/services/supabase'
-import { useAuthStore } from '@/stores/auth'
+import { reviewMyPaymentSubmission } from '@/services/myPayments'
 import type { MyPaymentSubmissionStatus } from '@/types/payments'
+import { buildPaymentBreakdownText } from '@/utils/playerBalance'
+import { getMemberBillingLabel } from '@/utils/memberBilling'
 
 type AdminPaymentSubmissionRow = {
   id: string
@@ -121,6 +124,8 @@ type AdminPaymentSubmissionRow = {
   billing_mode: 'monthly' | 'quarterly'
   period_key: string
   amount: number
+  balance_amount: number
+  external_amount: number
   payment_method: string
   account_last_5: string | null
   remittance_date: string | null
@@ -130,13 +135,14 @@ type AdminPaymentSubmissionRow = {
   updated_at: string
   team_members?: {
     name?: string | null
+    role?: string | null
+    fee_billing_mode?: string | null
   } | null
   member_name: string
 }
 
 const DEFAULT_VISIBLE_COUNT = 4
 
-const authStore = useAuthStore()
 const route = useRoute()
 
 const isLoading = ref(false)
@@ -156,9 +162,13 @@ const visiblePendingSubmissions = computed(() => {
   return pendingSubmissions.value.slice(0, DEFAULT_VISIBLE_COUNT)
 })
 
-const getBillingModeLabel = (billingMode: 'monthly' | 'quarterly') => {
-  return billingMode === 'quarterly' ? '球員季繳' : '校隊月繳'
-}
+const getBillingModeLabel = (submission: AdminPaymentSubmissionRow) =>
+  getMemberBillingLabel({
+    role: submission.team_members?.role || (submission.billing_mode === 'quarterly' ? '球員' : '校隊'),
+    fee_billing_mode: submission.billing_mode === 'monthly' && submission.team_members?.role === '球員'
+      ? 'monthly_fixed'
+      : submission.team_members?.fee_billing_mode
+  })
 
 const formatCurrency = (amount: number) => {
   const normalizedAmount = Number(amount) || 0
@@ -168,6 +178,9 @@ const formatCurrency = (amount: number) => {
     maximumFractionDigits: 0
   }).format(normalizedAmount)
 }
+
+const formatBreakdown = (submission: AdminPaymentSubmissionRow) =>
+  buildPaymentBreakdownText(submission.amount, submission.balance_amount, formatCurrency)
 
 const formatDateTime = (value?: string | null) => {
   if (!value) return '尚無資料'
@@ -224,6 +237,7 @@ const fetchSubmissions = async () => {
         billing_mode,
         period_key,
         amount,
+        balance_amount,
         payment_method,
         account_last_5,
         remittance_date,
@@ -231,7 +245,7 @@ const fetchSubmissions = async () => {
         status,
         created_at,
         updated_at,
-        team_members(name)
+        team_members(name, role, fee_billing_mode)
       `)
       .order('created_at', { ascending: false })
 
@@ -241,6 +255,8 @@ const fetchSubmissions = async () => {
 
     submissions.value = (data || []).map((submission: any) => ({
       ...submission,
+      balance_amount: Number(submission.balance_amount || 0),
+      external_amount: Math.max(0, Number(submission.amount || 0) - Number(submission.balance_amount || 0)),
       member_name: submission.team_members?.name || '未知成員'
     }))
     await highlightSubmissionFromRoute()
@@ -251,23 +267,39 @@ const fetchSubmissions = async () => {
   }
 }
 
-const updateSubmissionStatus = async (submissionId: string, nextStatus: MyPaymentSubmissionStatus) => {
+const resolveOverpaymentAmount = async (
+  submission: AdminPaymentSubmissionRow,
+  nextStatus: 'approved' | 'rejected'
+) => {
+  if (nextStatus !== 'approved') {
+    return 0
+  }
+
+  const { value } = await ElMessageBox.prompt(
+    '若這筆款項有多收並要轉入球員餘額，請輸入金額；沒有則填 0。',
+    '確認付款',
+    {
+      confirmButtonText: '確認',
+      cancelButtonText: '取消',
+      inputValue: '0',
+      inputPattern: /^[0-9]+$/,
+      inputErrorMessage: '請輸入 0 或正整數'
+    }
+  )
+
+  return Math.max(0, Number(value) || 0)
+}
+
+const updateSubmissionStatus = async (
+  submission: AdminPaymentSubmissionRow,
+  nextStatus: 'approved' | 'rejected'
+) => {
+  const submissionId = submission.id
   processingIds.value.add(submissionId)
 
   try {
-    const { error } = await supabase
-      .from('profile_payment_submissions')
-      .update({
-        status: nextStatus,
-        reviewed_at: new Date().toISOString(),
-        reviewed_by: authStore.user?.id || null,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', submissionId)
-
-    if (error) {
-      throw error
-    }
+    const overpaymentAmount = await resolveOverpaymentAmount(submission, nextStatus)
+    const updatedSubmission = await reviewMyPaymentSubmission(submissionId, nextStatus, overpaymentAmount)
 
     submissions.value = submissions.value.map((submission) => {
       if (submission.id !== submissionId) {
@@ -276,14 +308,17 @@ const updateSubmissionStatus = async (submissionId: string, nextStatus: MyPaymen
 
       return {
         ...submission,
+        ...(updatedSubmission || {}),
         status: nextStatus,
         updated_at: new Date().toISOString()
       }
     })
 
-    ElMessage.success(nextStatus === 'approved' ? '已標記為已確認，請記得同步正式收費紀錄' : '已退回這筆付款回報')
+    ElMessage.success(nextStatus === 'approved' ? '已確認付款並同步正式收費紀錄' : '已退回這筆付款回報')
   } catch (error: any) {
-    ElMessage.error(error?.message || '更新個人付款回報失敗')
+    if (error !== 'cancel') {
+      ElMessage.error(error?.message || '更新個人付款回報失敗')
+    }
   } finally {
     processingIds.value.delete(submissionId)
     processingIds.value = new Set(processingIds.value)

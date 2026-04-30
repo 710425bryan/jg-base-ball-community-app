@@ -16,7 +16,8 @@ describe('playerSync', () => {
   it('defaults new members protected fee flags during Google Form sync', () => {
     expect(getProtectedFeeFlagsPayloadForGoogleFormSync(false)).toEqual({
       is_primary_payer: false,
-      is_half_price: false
+      is_half_price: false,
+      fee_billing_mode: 'role_default'
     })
   })
 

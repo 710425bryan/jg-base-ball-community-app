@@ -3,10 +3,15 @@ import {
   aggregateTournamentBattingStats,
   aggregateTournamentPitchingStats,
   calculateMatchAttendanceStats,
+  filterMatchesForPlayer,
   filterMatchesByTournament,
+  getPlayerBattingGameRows,
+  getPlayerPitchingGameRows,
   getTournamentPlayerBattingGameRows,
   getTournamentPlayerPitchingGameRows,
-  getTournamentNames
+  getTournamentNames,
+  summarizePlayerBattingStats,
+  summarizePlayerPitchingStats
 } from './matchRecordStats'
 import type { MatchRecord } from '@/types/match'
 
@@ -44,6 +49,38 @@ describe('matchRecordStats', () => {
 
     expect(getTournamentNames(matches)).toEqual(['秋季聯賽', '春季聯賽'])
     expect(filterMatchesByTournament(matches, '春季聯賽').map((match) => match.id)).toEqual(['a'])
+  })
+
+  it('matches one player through players, lineup, current lineup, stats, and absent lists', () => {
+    const player = { name: '王小明', jersey_number: '10' }
+    const matches = [
+      buildMatch({ id: 'players', players: '李小華, 王小明' }),
+      buildMatch({ id: 'lineup', lineup: [{ order: 1, position: '投手', name: '王小明', number: '10' }] }),
+      buildMatch({ id: 'current-lineup', current_lineup: [{ order: 2, position: '游擊', name: '王小明', number: '10' }] }),
+      buildMatch({
+        id: 'batting-number',
+        batting_stats: [
+          { name: '舊名', number: '10', pa: 3, ab: 3, h1: 1, h2: 0, h3: 0, hr: 0, rbi: 1, r: 0, bb: 0, hbp: 0, so: 1, sb: 0 }
+        ]
+      }),
+      buildMatch({
+        id: 'pitching-number',
+        pitching_stats: [
+          { name: '舊名', number: '10', ip: 3, h: 0, h2: 0, h3: 0, hr: 0, r: 0, er: 0, bb: 1, so: 2, np: 16, ab: 4, go: 1, ao: 1 }
+        ]
+      }),
+      buildMatch({ id: 'absent', absent_players: [{ name: '王小明', type: '事假' }] }),
+      buildMatch({ id: 'near-miss', players: '王小' })
+    ]
+
+    expect(filterMatchesForPlayer(matches, player).map((match) => match.id)).toEqual([
+      'players',
+      'lineup',
+      'current-lineup',
+      'batting-number',
+      'pitching-number',
+      'absent'
+    ])
   })
 
   it('aggregates batting totals and rate stats including legacy H fields', () => {
@@ -120,6 +157,61 @@ describe('matchRecordStats', () => {
     })
     expect(rows[0].baa).toBeCloseTo(0.25)
     expect(rows[0].slga).toBeCloseTo(7 / 12)
+  })
+
+  it('builds personal batting and pitching summaries with jersey fallback and skips training stats', () => {
+    const player = { name: '王小明', jersey_number: '10' }
+    const matches = [
+      buildMatch({
+        id: 'regular-1',
+        match_name: '春季聯賽 G1',
+        tournament_name: '春季聯賽',
+        match_level: '正式賽',
+        batting_stats: [
+          { name: '王小明', number: '10', pa: 4, ab: 3, h1: 1, h2: 1, h3: 0, hr: 0, rbi: 2, r: 1, bb: 1, hbp: 0, so: 1, sb: 1 }
+        ],
+        pitching_stats: [
+          { name: '王小明', number: '10', ip: 6, h: 2, h2: 1, h3: 0, hr: 0, r: 1, er: 1, bb: 1, so: 3, np: 30, ab: 8, go: 3, ao: 2 }
+        ]
+      }),
+      buildMatch({
+        id: 'regular-2',
+        match_name: '秋季聯賽',
+        match_date: '2026-04-02',
+        match_level: '正式賽',
+        batting_stats: [
+          { name: '舊名', number: '10', pa: 2, ab: 2, h1: 1, h2: 0, h3: 0, hr: 0, rbi: 1, r: 0, bb: 0, hbp: 0, so: 0, sb: 0 }
+        ],
+        pitching_stats: [
+          { name: '舊名', number: '10', ip: 3, h: 1, h2: 0, h3: 0, hr: 0, r: 0, er: 0, bb: 0, so: 1, np: 12, ab: 4, go: 1, ao: 0 }
+        ]
+      }),
+      buildMatch({
+        id: 'training',
+        match_level: '特訓課',
+        batting_stats: [
+          { name: '王小明', number: '10', pa: 9, ab: 9, h1: 9, h2: 0, h3: 0, hr: 0, rbi: 9, r: 9, bb: 0, hbp: 0, so: 0, sb: 0 }
+        ],
+        pitching_stats: [
+          { name: '王小明', number: '10', ip: 9, h: 9, h2: 0, h3: 0, hr: 0, r: 9, er: 9, bb: 9, so: 0, np: 99, ab: 9, go: 0, ao: 0 }
+        ]
+      })
+    ]
+
+    const battingSummary = summarizePlayerBattingStats(matches, player)
+    const pitchingSummary = summarizePlayerPitchingStats(matches, player)
+    const battingRows = getPlayerBattingGameRows(matches, player)
+    const pitchingRows = getPlayerPitchingGameRows(matches, player)
+
+    expect(battingSummary).toMatchObject({ pa: 6, ab: 5, h: 3, rbi: 3, r: 1, bb: 1, so: 1, sb: 1 })
+    expect(battingSummary.avg).toBeCloseTo(0.6)
+    expect(battingSummary.obp).toBeCloseTo(4 / 6)
+    expect(battingSummary.slg).toBeCloseTo(4 / 5)
+    expect(battingSummary.ops).toBeCloseTo((4 / 6) + (4 / 5))
+
+    expect(pitchingSummary).toMatchObject({ ip_outs: 9, formattedIP: '3.0', h: 3, er: 1, bb: 1, so: 4, np: 42, era: '2.33' })
+    expect(battingRows.map((row) => row.matchId)).toEqual(['regular-2', 'regular-1'])
+    expect(pitchingRows.map((row) => row.matchId)).toEqual(['regular-2', 'regular-1'])
   })
 
   it('calculates attendance from match player and absent lists with roster metadata fallback', () => {

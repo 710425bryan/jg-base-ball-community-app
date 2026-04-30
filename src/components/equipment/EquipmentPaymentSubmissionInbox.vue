@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import dayjs from 'dayjs'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading, Refresh } from '@element-plus/icons-vue'
 import { useRoute } from 'vue-router'
 import { useEquipmentPaymentsStore } from '@/stores/equipmentPayments'
 import type { EquipmentPaymentSubmission } from '@/types/equipment'
 import { getEquipmentRequestStatusLabel } from '@/utils/equipmentRequestStatus'
 import { formatEquipmentVariantLabel } from '@/utils/equipmentPricing'
+import { buildPaymentBreakdownText } from '@/utils/playerBalance'
 import { buildPushEventKey, dispatchPushNotification } from '@/utils/pushNotifications'
 
 const route = useRoute()
@@ -42,6 +43,9 @@ const paymentInfo = (submission: EquipmentPaymentSubmission) => [
   formatDate(submission.remittance_date)
 ].filter(Boolean).join(' / ')
 
+const formatBreakdown = (submission: EquipmentPaymentSubmission) =>
+  buildPaymentBreakdownText(submission.amount, submission.balance_amount, formatCurrency)
+
 const getVariantLabel = (item: { size?: string | null; jersey_number?: number | string | null }) =>
   formatEquipmentVariantLabel(item, '')
 
@@ -70,14 +74,35 @@ const notifySubmitter = async (submission: EquipmentPaymentSubmission, status: '
   }
 }
 
+const resolveOverpaymentAmount = async (status: 'approved' | 'rejected') => {
+  if (status !== 'approved') return 0
+
+  const { value } = await ElMessageBox.prompt(
+    '若這筆裝備付款有多收並要轉入球員餘額，請輸入金額；沒有則填 0。',
+    '確認裝備付款',
+    {
+      confirmButtonText: '確認',
+      cancelButtonText: '取消',
+      inputValue: '0',
+      inputPattern: /^[0-9]+$/,
+      inputErrorMessage: '請輸入 0 或正整數'
+    }
+  )
+
+  return Math.max(0, Number(value) || 0)
+}
+
 const review = async (submission: EquipmentPaymentSubmission, status: 'approved' | 'rejected') => {
   setProcessing(submission.id, true)
   try {
-    const updated = await paymentsStore.reviewSubmission(submission.id, status)
+    const overpaymentAmount = await resolveOverpaymentAmount(status)
+    const updated = await paymentsStore.reviewSubmission(submission.id, status, overpaymentAmount)
     ElMessage.success(status === 'approved' ? '已確認裝備付款' : '已退回裝備付款')
     await notifySubmitter(updated, status)
   } catch (error: any) {
-    ElMessage.error(error?.message || '更新裝備付款回報失敗')
+    if (error !== 'cancel') {
+      ElMessage.error(error?.message || '更新裝備付款回報失敗')
+    }
   } finally {
     setProcessing(submission.id, false)
   }
@@ -164,6 +189,7 @@ watch(() => route.query.highlight_submission_id, () => {
               <div>
                 <div class="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">金額</div>
                 <div class="mt-1 font-black text-primary">{{ formatCurrency(submission.amount) }}</div>
+                <div class="mt-0.5 text-xs font-bold text-gray-400">{{ formatBreakdown(submission) }}</div>
               </div>
               <div>
                 <div class="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">匯款資訊</div>

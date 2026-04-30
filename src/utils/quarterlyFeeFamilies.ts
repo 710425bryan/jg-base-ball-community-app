@@ -1,15 +1,19 @@
 import { getSiblingGroupIds, resolveLinkedMemberIds, type SiblingNode } from './siblingGroups'
+import { isQuarterlyBillingMember } from './memberBilling'
 
 export const FULL_QUARTERLY_FEE_AMOUNT = 6000
 export const HALF_QUARTERLY_FEE_AMOUNT = 3000
 
 export type QuarterlyPricingMember = SiblingNode & {
+  role?: string | null
+  fee_billing_mode?: string | null
   is_half_price?: boolean | null
   is_primary_payer?: boolean | null
 }
 
 export type QuarterlyFeeGroupingRecord = {
   amount?: number | null
+  balance_amount?: number | null
   member_id?: string | null
   member_ids?: string[] | null
   year_quarter?: string | null
@@ -48,8 +52,22 @@ const getFamilyMembers = (
 
   return familyIds
     .map((id) => memberMap.get(id))
-    .filter((member): member is QuarterlyPricingMember => Boolean(member))
+    .filter((member): member is QuarterlyPricingMember => {
+      if (!member) return false
+      return isQuarterlyPricingMember(member)
+    })
 }
+
+export const isQuarterlyPricingMember = (member: QuarterlyPricingMember) => {
+  if (member.role === undefined || member.role === null) {
+    return member.fee_billing_mode !== 'monthly_fixed'
+  }
+
+  return isQuarterlyBillingMember(member)
+}
+
+export const filterQuarterlyPricingMembers = <T extends QuarterlyPricingMember>(members: T[]) =>
+  members.filter((member): member is T => isQuarterlyPricingMember(member))
 
 const getCanonicalPrimaryPayerId = (familyMembers: QuarterlyPricingMember[]) => {
   const eligiblePrimaryMembers = familyMembers
@@ -71,6 +89,10 @@ export const getExpectedQuarterlyAmount = (
   members: QuarterlyPricingMember[],
   siblingGroupMap: Map<string, string[]>
 ) => {
+  if (!isQuarterlyPricingMember(member)) {
+    return 0
+  }
+
   if (member.is_half_price) {
     return HALF_QUARTERLY_FEE_AMOUNT
   }
@@ -154,3 +176,12 @@ export const selectLatestQuarterlyRecord = <
 
 export const sumQuarterlyFeeGroupAmount = <T extends Pick<QuarterlyFeeGroupingRecord, 'amount'>>(records: T[]) =>
   records.reduce((sum, record) => sum + (Number(record.amount) || 0), 0)
+
+export const sumQuarterlyFeeGroupBalanceAmount = <
+  T extends Pick<QuarterlyFeeGroupingRecord, 'balance_amount'>
+>(records: T[]) =>
+  records.reduce((sum, record) => sum + (Number(record.balance_amount) || 0), 0)
+
+export const getQuarterlyFeeExternalAmount = (
+  record: Pick<QuarterlyFeeGroupingRecord, 'amount' | 'balance_amount'>
+) => Math.max(0, (Number(record.amount) || 0) - (Number(record.balance_amount) || 0))

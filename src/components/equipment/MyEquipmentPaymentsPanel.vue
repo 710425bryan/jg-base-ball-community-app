@@ -7,16 +7,23 @@ import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import PaymentAccountInfoCard from '@/components/payments/PaymentAccountInfoCard.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useEquipmentPaymentsStore } from '@/stores/equipmentPayments'
+import { getPlayerBalance } from '@/services/playerBalances'
 import {
   EQUIPMENT_REQUEST_STATUS,
   getEquipmentRequestStatusLabel
 } from '@/utils/equipmentRequestStatus'
 import { formatEquipmentVariantLabel } from '@/utils/equipmentPricing'
 import {
+  BALANCE_PAYMENT_METHOD,
   normalizeAccountLast5,
   PAYMENT_METHOD_OPTIONS,
   requiresAccountLast5
 } from '@/utils/paymentMethods'
+import {
+  buildPaymentBreakdownText,
+  clampBalanceDeduction,
+  getExternalPaymentAmount
+} from '@/utils/playerBalance'
 import { buildGroupedPushEventKey, dispatchPushNotification } from '@/utils/pushNotifications'
 
 const props = defineProps<{
@@ -29,8 +36,10 @@ const paymentsStore = useEquipmentPaymentsStore()
 const formRef = ref()
 const isDialogOpen = ref(false)
 const selectedTransactionIds = ref<string[]>([])
+const currentBalance = ref(0)
 
 const form = reactive({
+  balance_amount: 0,
   payment_method: '',
   account_last_5: '',
   remittance_date: dayjs().format('YYYY-MM-DD'),
@@ -38,7 +47,9 @@ const form = reactive({
 })
 
 const paymentMethodOptions = PAYMENT_METHOD_OPTIONS
-const requiresLast5 = computed(() => requiresAccountLast5(form.payment_method))
+const externalPaymentAmount = computed(() => getExternalPaymentAmount(selectedTotal.value, form.balance_amount))
+const isExternalPaymentRequired = computed(() => externalPaymentAmount.value > 0)
+const requiresLast5 = computed(() => isExternalPaymentRequired.value && requiresAccountLast5(form.payment_method))
 
 const pendingRequestItems = computed(() => paymentsStore.myPendingRequestItems)
 
@@ -66,8 +77,44 @@ const selectedTotal = computed(() =>
   selectedItems.value.reduce((total, item) => total + Number(item.total_amount || 0), 0)
 )
 
+const paymentBreakdownText = computed(() =>
+  buildPaymentBreakdownText(selectedTotal.value, form.balance_amount, formatCurrency)
+)
+
 const rules = {
-  payment_method: [{ required: true, message: '請選擇匯款方式', trigger: 'change' }],
+  balance_amount: [
+    {
+      validator: (_rule: unknown, value: number, callback: (error?: Error) => void) => {
+        const normalized = Number(value) || 0
+        if (normalized < 0) {
+          callback(new Error('餘額扣抵不能小於 0'))
+          return
+        }
+        if (normalized > selectedTotal.value) {
+          callback(new Error('餘額扣抵不能超過回報金額'))
+          return
+        }
+        if (normalized > currentBalance.value) {
+          callback(new Error('餘額不足'))
+          return
+        }
+        callback()
+      },
+      trigger: ['blur', 'change']
+    }
+  ],
+  payment_method: [
+    {
+      validator: (_rule: unknown, value: string, callback: (error?: Error) => void) => {
+        if (!isExternalPaymentRequired.value || value) {
+          callback()
+          return
+        }
+        callback(new Error('請選擇匯款方式'))
+      },
+      trigger: 'change'
+    }
+  ],
   account_last_5: [
     {
       validator: (_rule: unknown, value: string, callback: (error?: Error) => void) => {
@@ -84,7 +131,18 @@ const rules = {
       trigger: ['blur', 'change']
     }
   ],
-  remittance_date: [{ required: true, message: '請選擇匯款日期', trigger: 'change' }]
+  remittance_date: [
+    {
+      validator: (_rule: unknown, value: string, callback: (error?: Error) => void) => {
+        if (!isExternalPaymentRequired.value || value) {
+          callback()
+          return
+        }
+        callback(new Error('請選擇匯款日期'))
+      },
+      trigger: 'change'
+    }
+  ]
 }
 
 const formatCurrency = (amount: number) => new Intl.NumberFormat('en-US', {
@@ -129,6 +187,7 @@ const getRequestStatusClass = (status?: string | null) => {
 
 const loadItems = async () => {
   await paymentsStore.loadMyItems(props.memberId || null)
+  currentBalance.value = props.memberId ? await getPlayerBalance(props.memberId) : 0
   await highlightFromRoute()
 }
 
@@ -142,6 +201,7 @@ const openDialog = () => {
     ? authStore.profile?.preferred_account_last_5 || ''
     : ''
   form.remittance_date = dayjs().format('YYYY-MM-DD')
+  form.balance_amount = 0
   form.note = ''
   isDialogOpen.value = true
   void nextTick(() => formRef.value?.clearValidate?.())
@@ -161,16 +221,19 @@ const handleAccountLast5Input = (value: string) => {
 const submit = async () => {
   if (!formRef.value) return
 
+  form.balance_amount = clampBalanceDeduction(form.balance_amount, selectedTotal.value, currentBalance.value)
+
   await formRef.value.validate(async (valid: boolean) => {
     if (!valid) return
 
     try {
       const submission = await paymentsStore.submitPayment({
         transaction_ids: selectedTransactionIds.value,
-        payment_method: form.payment_method,
+        payment_method: isExternalPaymentRequired.value ? form.payment_method : BALANCE_PAYMENT_METHOD,
         account_last_5: requiresLast5.value ? form.account_last_5 : null,
-        remittance_date: form.remittance_date,
-        note: form.note || null
+        remittance_date: isExternalPaymentRequired.value ? form.remittance_date : dayjs().format('YYYY-MM-DD'),
+        note: form.note || null,
+        balance_amount: form.balance_amount
       })
 
       await dispatchPushNotification({
@@ -216,6 +279,10 @@ watch(() => props.memberId, () => {
   selectedTransactionIds.value = []
   void loadItems()
 }, { immediate: true })
+
+watch([selectedTotal, currentBalance], () => {
+  form.balance_amount = clampBalanceDeduction(form.balance_amount, selectedTotal.value, currentBalance.value)
+})
 
 watch(() => route.query.highlight_id, () => {
   void highlightFromRoute()
@@ -392,6 +459,26 @@ watch(() => route.query.highlight_transaction_id, () => {
       <div class="mb-4 rounded-2xl border border-primary/10 bg-primary/5 px-4 py-3">
         <div class="text-xs font-bold uppercase tracking-[0.16em] text-primary/70">回報金額</div>
         <div class="mt-2 text-2xl font-black text-primary">{{ formatCurrency(selectedTotal) }}</div>
+        <div class="mt-1 text-xs font-bold text-primary/70">{{ paymentBreakdownText }}</div>
+      </div>
+
+      <div class="mb-4 grid gap-4 sm:grid-cols-2">
+        <div class="rounded-2xl border border-emerald-100 bg-emerald-50/80 px-4 py-3">
+          <div class="text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-600">目前餘額</div>
+          <div class="mt-2 text-xl font-black text-emerald-700">{{ formatCurrency(currentBalance) }}</div>
+          <p class="mt-1 text-xs font-bold text-emerald-600/80">確認付款時才會正式扣款。</p>
+        </div>
+        <div class="flex flex-col gap-1.5 font-bold">
+          <label class="text-sm text-gray-700">使用餘額扣抵</label>
+          <el-input-number
+            v-model="form.balance_amount"
+            class="!w-full"
+            :min="0"
+            :max="Math.min(currentBalance, selectedTotal)"
+            :step="100"
+            size="large"
+          />
+        </div>
       </div>
 
       <PaymentAccountInfoCard compact class="mb-4" />
@@ -404,6 +491,7 @@ watch(() => route.query.highlight_transaction_id, () => {
               class="w-full"
               size="large"
               placeholder="請選擇匯款方式"
+              :disabled="!isExternalPaymentRequired"
               @change="handlePaymentMethodChange"
             >
               <el-option v-for="option in paymentMethodOptions" :key="option" :label="option" :value="option" />
@@ -429,6 +517,7 @@ watch(() => route.query.highlight_transaction_id, () => {
             value-format="YYYY-MM-DD"
             class="!w-full"
             size="large"
+            :disabled="!isExternalPaymentRequired"
           />
         </el-form-item>
 

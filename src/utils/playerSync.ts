@@ -1,3 +1,5 @@
+import { ROLE_DEFAULT_FEE_BILLING_MODE } from './memberBilling'
+
 export type DedupePlayerSyncRowsResult<T> = {
   rows: T[]
   duplicateCount: number
@@ -24,7 +26,8 @@ export const getProtectedFeeFlagsPayloadForGoogleFormSync = (isExistingMember: b
     ? {}
     : {
         is_primary_payer: false,
-        is_half_price: false
+        is_half_price: false,
+        fee_billing_mode: ROLE_DEFAULT_FEE_BILLING_MODE
       }
 
 export const dedupePlayerSyncRows = <T>(

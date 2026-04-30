@@ -18,8 +18,8 @@ description: "Player roster sync workflow for jg-base-ball-community-app. Use wh
 
 ## 不可破壞規則
 
-- Google 同步不得覆蓋既有成員的 `team_members.is_primary_payer` 與 `team_members.is_half_price`。
-- 只有在新增全新成員時，才把上述兩個欄位預設為 `false`。
+- Google 同步不得覆蓋既有成員的 `team_members.is_primary_payer`、`team_members.is_half_price` 與 `team_members.fee_billing_mode`。
+- 只有在新增全新成員時，才把前兩個欄位預設為 `false`，並把 `fee_billing_mode` 預設為 `role_default`。
 - 對重複同步列做去重時，保留最後一筆資料，並統計重複數。
 - dedupe key 為空白時，不要把多筆資料錯誤合併成同一個人。
 - 球員名單顯示有 `src/stores/playerRoster.ts` 的 session 內快取；Google 同步、新增、編輯、刪除成功後要 force refresh，不能只沿用快取。

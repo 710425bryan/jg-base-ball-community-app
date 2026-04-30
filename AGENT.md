@@ -108,7 +108,7 @@
 
 登入後頁面掛在 `MainLayout`，父層 `meta.requiresAuth = true`。
 
-- 不需額外 feature 的登入頁：`/dashboard`、`/calendar`、`/profile`、`/my-payments`、`/equipment-addons`、`/my-leave-requests`。
+- 不需額外 feature 的登入頁：`/dashboard`、`/calendar`、`/profile`、`/my-records`、`/my-payments`、`/equipment-addons`、`/my-leave-requests`。
 - 需要 `meta.feature` 的後台頁：`leave_requests`、`players`、`users`、`join_inquiries`、`announcements`、`holiday_theme_settings`、`attendance`、`training`、`matches`、`fees`、`baseball_ability`、`physical_tests`、`equipment`。
 - `baseball_ability` 與 `physical_tests` 有 `allowLinkedMemberView` 例外：有綁定球員者可唯讀自己的資料；管理權限者可看全隊。
 - 無權限時導回 `/dashboard`。
@@ -136,7 +136,8 @@
 
 - `HomeView` 同時有後台 dashboard 與個人化區塊；個人化摘要走 `src/services/myHome.ts` 的 `get_my_home_snapshot()`，RPC 未部署時顯示空狀態 fallback。
 - `MyLeaveRequestsView` 走 `src/services/myLeaveRequests.ts`：`list_my_leave_members()`、`list_my_leave_requests()`、`create_my_leave_requests()`、`delete_my_leave_request()`。
-- `MyPaymentsView` 走 `src/services/myPayments.ts`：`list_my_payment_members()`、`get_my_payment_records()`、`list_my_payment_submissions()`、`create_my_payment_submission()`、`get_my_payment_submission_estimate()`。
+- `MyPaymentsView` 走 `src/services/myPayments.ts`：`list_my_payment_members()`、`get_my_payment_records()`、`list_my_payment_submissions()`、`create_my_payment_submission()`、`get_my_payment_submission_estimate()`；一般繳費與裝備付款皆可使用 `player_balance_transactions` 計算出的球員餘額扣抵。
+- `MyPlayerRecordsView` 走 `src/services/myPlayerRecords.ts`：`list_my_player_record_members()`、`get_my_player_match_records()`；一般使用者只能看綁定球員，具 `players:VIEW` 者可切換全隊球員但預設仍優先關聯球員。
 - `ProfileSettingsView` 透過 `update_my_profile_settings()` 更新個人設定，大頭照使用 `avatars` bucket。
 
 ### 後台大廳、公告與通知中心
@@ -149,7 +150,7 @@
 
 - 球員名單主要在 `PlayersView`，資料表為 `team_members`；同步邏輯與 dedupe 在 `src/utils/playerSync.ts`。
 - 球員名單顯示經由 `src/stores/playerRoster.ts` 做 session 內記憶體快取；進頁先呼叫 `get_team_members_cache_meta()` 比對 `team_members` 的 `row_count` / `latest_changed_at`，有差異才重新抓完整名單。
-- Google 表單 / Sheet 同步不得覆蓋既有 `team_members.is_primary_payer` 與 `team_members.is_half_price`；新增球員時兩者預設 `false`。
+- Google 表單 / Sheet 同步不得覆蓋既有 `team_members.is_primary_payer`、`team_members.is_half_price` 與 `team_members.fee_billing_mode`；新增球員時前兩者預設 `false`，收費模式預設 `role_default`。
 - 使用者管理在 `UsersView`，profile 新增 / 更新 / 刪除優先走 `admin_insert_profile()`、`admin_update_profile()`、`admin_delete_user()`。
 - 權限 UI 在 `RolePermissionsManager.vue`，對應 `app_roles` 與 `app_role_permissions`。
 
@@ -163,6 +164,7 @@
 ### 賽事與 Google Calendar 同步
 
 - 賽事資料表為 `matches`，主要 API 在 `src/services/matchesApi.ts`。
+- 個人成績頁 `/my-records` 不直接使用後台 `matchesApi` 讀列表，而是透過 `myPlayerRecords` RPC 依球員可見範圍取回比賽紀錄；打擊 / 投球彙總邏輯在 `src/utils/matchRecordStats.ts`。
 - `matchesApi` 保留 `google_calendar_event_id` 欄位缺失 / schema cache 尚未更新時的 fallback。
 - Google Calendar / iCal parsing 與同步規劃在 `src/utils/googleCalendarParser.ts`，UI 在 `SyncCalendarDialog.vue`。
 - 比賽紀錄相關元件在 `src/components/match-records/*`，照片使用 `matches-photos` bucket。
@@ -183,6 +185,8 @@
 - 收費後台在 `FeesView` 與 `src/components/fees/*`。
 - 主要資料表包含 `fee_settings`、`monthly_fees`、`quarterly_fees`、`profile_payment_submissions`。
 - 個人繳費回報走 `profile_payment_submissions` RPC；管理端審核在費用頁。
+- 球員餘額以 `player_balance_transactions` 流水帳管理，餘額屬於 `team_members`；管理員可手動調整與確認溢繳入帳，家長自助使用餘額後仍需管理端確認才正式扣款。
+- 社區球員固定月繳用 `team_members.fee_billing_mode = 'monthly_fixed'` 表示；球員身分仍是 `球員`，但併入 `monthly_fees`、排除 `quarterly_fees`，金額從 `fee_settings.monthly_fixed_fee` 帶入並在 `monthly_fees.fixed_monthly_fee` 留快照。
 - sibling / quarter fee / monthly settlement 等邏輯已拆在 `src/utils/*fee*` 與相關測試。
 
 ### 裝備管理與加購

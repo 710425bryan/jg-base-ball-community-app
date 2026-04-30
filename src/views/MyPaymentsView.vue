@@ -73,7 +73,7 @@
                 v-if="selectedMember"
                 class="rounded-2xl border border-primary/15 bg-primary/5 px-4 py-3 text-sm text-primary font-bold"
               >
-                目前模式：{{ getBillingModeLabel(selectedMember.billing_mode) }} / {{ selectedMember.role }}
+                目前模式：{{ getPaymentMemberBillingLabel(selectedMember) }} / {{ selectedMember.role }}
               </div>
             </div>
 
@@ -92,7 +92,7 @@
               <div class="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">當前成員</div>
               <div class="mt-3 text-xl font-black text-slate-800">{{ selectedMember.name }}</div>
               <p class="mt-2 text-sm font-bold text-primary">
-                {{ selectedMember.role }}｜{{ getBillingModeLabel(selectedMember.billing_mode) }}
+                {{ selectedMember.role }}｜{{ getPaymentMemberBillingLabel(selectedMember) }}
               </p>
             </section>
 
@@ -136,7 +136,7 @@
                 <p class="text-xs text-gray-400 mt-1">資料來自現有月費 / 季費正式結算紀錄</p>
               </div>
               <div v-if="selectedMember" class="text-sm font-bold text-gray-500">
-                {{ getBillingModeLabel(selectedMember.billing_mode) }}
+                {{ getPaymentMemberBillingLabel(selectedMember) }}
               </div>
             </div>
 
@@ -165,7 +165,12 @@
                       <div class="font-black text-slate-800">{{ record.period_label }}</div>
                       <div class="text-xs text-gray-400 mt-1">{{ record.period_key }}</div>
                     </td>
-                    <td class="py-4 px-5 font-mono font-black text-primary">{{ formatCurrency(record.amount) }}</td>
+                    <td class="py-4 px-5">
+                      <div class="font-mono font-black text-primary">{{ formatCurrency(record.amount) }}</div>
+                      <div class="mt-1 text-xs font-bold text-gray-400">
+                        {{ buildPaymentBreakdownText(record.amount, record.balance_amount, formatCurrency) }}
+                      </div>
+                    </td>
                     <td class="py-4 px-5">
                       <span :class="getStatusPillClass(record.status)" class="inline-flex rounded-full px-3 py-1 text-xs font-bold border">
                         {{ getStatusLabel(record.status) }}
@@ -225,6 +230,10 @@
                   <div class="flex items-center justify-between gap-3">
                     <span class="text-gray-400">金額</span>
                     <span class="font-black text-primary">{{ formatCurrency(submission.amount) }}</span>
+                  </div>
+                  <div class="flex items-center justify-between gap-3">
+                    <span class="text-gray-400">扣款拆分</span>
+                    <span class="font-bold text-right">{{ buildPaymentBreakdownText(submission.amount, submission.balance_amount, formatCurrency) }}</span>
                   </div>
                   <div class="flex items-center justify-between gap-3">
                     <span class="text-gray-400">匯款資訊</span>
@@ -326,6 +335,26 @@
           </el-form-item>
         </div>
 
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div class="rounded-2xl border border-emerald-100 bg-emerald-50/80 px-4 py-3">
+            <div class="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-600">目前餘額</div>
+            <div class="mt-2 text-xl font-black text-emerald-700">{{ formatCurrency(createDialogAvailableBalance) }}</div>
+            <p class="mt-1 text-xs font-bold text-emerald-600/80">送出後待管理員確認，確認時才會正式扣款。</p>
+          </div>
+
+          <el-form-item label="使用餘額扣抵" prop="balance_amount" class="font-bold">
+            <el-input-number
+              v-model="submissionForm.balance_amount"
+              class="!w-full"
+              :min="0"
+              :max="Math.min(createDialogAvailableBalance, Number(submissionForm.amount) || 0)"
+              :step="100"
+              size="large"
+            />
+            <p class="mt-1 text-xs text-gray-500">{{ createDialogPaymentBreakdownText }}</p>
+          </el-form-item>
+        </div>
+
         <PaymentAccountInfoCard compact class="mb-4" />
 
         <div class="grid gap-4 sm:grid-cols-2">
@@ -335,6 +364,7 @@
               class="w-full"
               size="large"
               placeholder="請選擇匯款方式"
+              :disabled="!isExternalPaymentRequired"
               @change="handleSubmissionPaymentMethodChange"
             >
               <el-option
@@ -366,11 +396,12 @@
               value-format="YYYY-MM-DD"
               class="!w-full"
               size="large"
+              :disabled="!isExternalPaymentRequired"
             />
           </el-form-item>
 
           <div class="rounded-2xl border border-amber-100 bg-amber-50/80 px-4 py-3 text-sm text-amber-700 leading-relaxed">
-            送出後會先進入待確認狀態，由管理員核對後再手動對應到正式月費或季費紀錄。
+            送出後會先進入待確認狀態；若使用餘額，管理員確認時才會正式扣款。
           </div>
         </div>
 
@@ -435,10 +466,17 @@ import type {
   MyPaymentSubmission
 } from '@/types/payments'
 import {
+  BALANCE_PAYMENT_METHOD,
   normalizeAccountLast5,
   PAYMENT_METHOD_OPTIONS,
   requiresAccountLast5
 } from '@/utils/paymentMethods'
+import {
+  buildPaymentBreakdownText,
+  clampBalanceDeduction,
+  getExternalPaymentAmount
+} from '@/utils/playerBalance'
+import { getMemberBillingLabel } from '@/utils/memberBilling'
 import { buildPushEventKey, dispatchPushNotification } from '@/utils/pushNotifications'
 
 const authStore = useAuthStore()
@@ -461,6 +499,7 @@ const submissionForm = reactive<CreateMyPaymentSubmissionPayload>({
   member_id: '',
   period_key: '',
   amount: 0,
+  balance_amount: 0,
   payment_method: '',
   account_last_5: '',
   remittance_date: dayjs().format('YYYY-MM-DD'),
@@ -481,7 +520,14 @@ const createDialogMember = computed(() => {
 
 const latestOfficialRecord = computed(() => records.value[0] || null)
 const latestSubmission = computed(() => submissions.value[0] || null)
-const submissionRequiresAccountLast5 = computed(() => requiresAccountLast5(submissionForm.payment_method))
+const createDialogAvailableBalance = computed(() => Number(createDialogMember.value?.balance_amount || 0))
+const createDialogExternalPaymentAmount = computed(() =>
+  getExternalPaymentAmount(submissionForm.amount, submissionForm.balance_amount)
+)
+const isExternalPaymentRequired = computed(() => createDialogExternalPaymentAmount.value > 0)
+const submissionRequiresAccountLast5 = computed(() =>
+  isExternalPaymentRequired.value && requiresAccountLast5(submissionForm.payment_method)
+)
 const isViewingUnlinkedMember = computed(() => selectedMember.value?.is_linked === false)
 const canCreateSubmissionForSelectedMember = computed(() => {
   return Boolean(selectedMember.value) && selectedMember.value?.is_linked !== false && linkedMembers.value.length > 0
@@ -494,7 +540,7 @@ const selectedMonthlyPeriod = computed({
 })
 
 const createDialogBillingModeLabel = computed(() => {
-  return createDialogMember.value ? getBillingModeLabel(createDialogMember.value.billing_mode) : '尚未選擇'
+  return createDialogMember.value ? getPaymentMemberBillingLabel(createDialogMember.value) : '尚未選擇'
 })
 
 const createDialogPeriodHint = computed(() => {
@@ -507,7 +553,9 @@ const createDialogEstimateHelperText = computed(() => {
   }
 
   if (createDialogMember.value.billing_mode === 'monthly') {
-    return '校隊月繳會依校隊收費設定、請假天數與既有月費扣減自動帶入金額。'
+    return createDialogMember.value.role === '球員'
+      ? '社區固定月繳會依收費設定的固定金額與既有月費扣減自動帶入金額。'
+      : '校隊月繳會依校隊收費設定、請假天數與既有月費扣減自動帶入金額。'
   }
 
   return '球員季繳目前會先帶入該季度既有金額，若尚無資料可再手動調整。'
@@ -560,16 +608,29 @@ const createDialogMonthlyFormulaText = computed(() => {
 
   if (
     !estimate
-    || estimate.total_sessions == null
+    || estimate.deduction_amount == null
+  ) {
+    return ''
+  }
+
+  if (estimate.calculation_type === 'monthly_fixed') {
+    return `固定月繳 ${formatCurrency(estimate.fixed_monthly_fee || 0)}，扣減 ${formatCurrency(estimate.deduction_amount)}`
+  }
+
+  if (
+    estimate.total_sessions == null
     || estimate.leave_sessions == null
     || estimate.per_session_fee == null
-    || estimate.deduction_amount == null
   ) {
     return ''
   }
 
   return `單堂 ${formatCurrency(estimate.per_session_fee)}，扣減 ${formatCurrency(estimate.deduction_amount)}`
 })
+
+const createDialogPaymentBreakdownText = computed(() =>
+  buildPaymentBreakdownText(submissionForm.amount, submissionForm.balance_amount, formatCurrency)
+)
 
 const submissionsSectionTitle = computed(() => {
   return isViewingUnlinkedMember.value ? '球員付款回報' : '我的付款回報'
@@ -651,7 +712,46 @@ const submissionRules = {
       trigger: ['blur', 'change']
     }
   ],
-  payment_method: [{ required: true, message: '請選擇匯款方式', trigger: 'change' }],
+  balance_amount: [
+    {
+      validator: (_rule: unknown, value: number, callback: (error?: Error) => void) => {
+        const normalized = Number(value) || 0
+        if (normalized < 0) {
+          callback(new Error('餘額扣抵不能小於 0'))
+          return
+        }
+        if (normalized > Number(submissionForm.amount || 0)) {
+          callback(new Error('餘額扣抵不能超過本次金額'))
+          return
+        }
+        if (normalized > createDialogAvailableBalance.value) {
+          callback(new Error('餘額不足'))
+          return
+        }
+
+        callback()
+      },
+      trigger: ['blur', 'change']
+    }
+  ],
+  payment_method: [
+    {
+      validator: (_rule: unknown, value: string, callback: (error?: Error) => void) => {
+        if (!isExternalPaymentRequired.value) {
+          callback()
+          return
+        }
+
+        if (!value) {
+          callback(new Error('請選擇匯款方式'))
+          return
+        }
+
+        callback()
+      },
+      trigger: 'change'
+    }
+  ],
   account_last_5: [
     {
       validator: (_rule: unknown, value: string, callback: (error?: Error) => void) => {
@@ -670,7 +770,19 @@ const submissionRules = {
       trigger: ['blur', 'change']
     }
   ],
-  remittance_date: [{ required: true, message: '請選擇匯款日期', trigger: 'change' }]
+  remittance_date: [
+    {
+      validator: (_rule: unknown, value: string, callback: (error?: Error) => void) => {
+        if (!isExternalPaymentRequired.value || value) {
+          callback()
+          return
+        }
+
+        callback(new Error('請選擇匯款日期'))
+      },
+      trigger: 'change'
+    }
+  ]
 }
 
 const getCurrentQuarterKey = (date = dayjs()) => {
@@ -682,12 +794,16 @@ const getDefaultMonthlyPeriodKey = () => dayjs().subtract(1, 'month').format('YY
 
 const buildMemberOptionLabel = (member: MyPaymentMember) => {
   const scopeLabel = member.is_linked === false ? '管理員檢視' : '我的關聯'
-  return `${member.name}｜${member.role}｜${getBillingModeLabel(member.billing_mode)}｜${scopeLabel}`
+  return `${member.name}｜${member.role}｜${getPaymentMemberBillingLabel(member)}｜${scopeLabel}`
 }
 
-const getBillingModeLabel = (billingMode: 'monthly' | 'quarterly') => {
-  return billingMode === 'quarterly' ? '球員季繳' : '校隊月繳'
-}
+const getPaymentMemberBillingLabel = (member: MyPaymentMember) =>
+  getMemberBillingLabel({
+    role: member.role,
+    fee_billing_mode: member.role === '球員' && member.billing_mode === 'monthly'
+      ? 'monthly_fixed'
+      : 'role_default'
+  })
 
 const getStatusLabel = (status?: string | null) => {
   if (status === 'paid' || status === 'approved') return '已確認'
@@ -755,6 +871,14 @@ const resolveQuarterlyAmount = (periodKey: string) => {
   return 0
 }
 
+const syncBalanceDeductionLimit = () => {
+  submissionForm.balance_amount = clampBalanceDeduction(
+    submissionForm.balance_amount,
+    submissionForm.amount,
+    createDialogAvailableBalance.value
+  )
+}
+
 const refreshSubmissionEstimate = async () => {
   const targetMember = createDialogMember.value
   const normalizedPeriodKey = submissionForm.period_key?.trim().toUpperCase() || ''
@@ -767,6 +891,7 @@ const refreshSubmissionEstimate = async () => {
   if (targetMember.billing_mode === 'quarterly') {
     currentSubmissionEstimate.value = null
     submissionForm.amount = resolveQuarterlyAmount(normalizedPeriodKey)
+    syncBalanceDeductionLimit()
     return
   }
 
@@ -778,14 +903,16 @@ const refreshSubmissionEstimate = async () => {
     if (!estimate) {
       currentSubmissionEstimate.value = null
       submissionForm.amount = 0
+      syncBalanceDeductionLimit()
       return
     }
 
     currentSubmissionEstimate.value = estimate
     submissionForm.amount = Math.max(0, Number(estimate.amount) || 0)
+    syncBalanceDeductionLimit()
   } catch (error: any) {
     currentSubmissionEstimate.value = null
-    ElMessage.error(error?.message || '自動計算校隊繳費金額失敗')
+    ElMessage.error(error?.message || '自動計算月繳金額失敗')
   } finally {
     isEstimatingAmount.value = false
   }
@@ -805,6 +932,7 @@ const hydrateSubmissionDefaults = () => {
   submissionForm.amount = targetMember?.billing_mode === 'quarterly'
     ? resolveQuarterlyAmount(submissionForm.period_key)
     : 0
+  submissionForm.balance_amount = 0
   currentSubmissionEstimate.value = null
   submissionForm.payment_method = authStore.profile?.preferred_payment_method || paymentMethodOptions[0]
   submissionForm.account_last_5 = authStore.profile?.preferred_account_last_5 || ''
@@ -876,9 +1004,10 @@ const submitPaymentSubmission = async () => {
       member_id: submissionForm.member_id,
       period_key: submissionForm.period_key.trim().toUpperCase(),
       amount: Number(submissionForm.amount) || 0,
-      payment_method: submissionForm.payment_method,
+      balance_amount: Number(submissionForm.balance_amount) || 0,
+      payment_method: isExternalPaymentRequired.value ? submissionForm.payment_method : BALANCE_PAYMENT_METHOD,
       account_last_5: submissionRequiresAccountLast5.value ? normalizeAccountLast5(submissionForm.account_last_5) : null,
-      remittance_date: submissionForm.remittance_date,
+      remittance_date: isExternalPaymentRequired.value ? submissionForm.remittance_date : dayjs().format('YYYY-MM-DD'),
       note: submissionForm.note?.trim() || null
     })
 
@@ -939,6 +1068,13 @@ watch(
     }
 
     await refreshSubmissionEstimate()
+  }
+)
+
+watch(
+  () => submissionForm.amount,
+  () => {
+    syncBalanceDeductionLimit()
   }
 )
 

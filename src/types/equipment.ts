@@ -303,6 +303,8 @@ export type EquipmentPaymentSubmission = {
   member_id: string
   member_name: string
   amount: number
+  balance_amount: number
+  external_amount: number
   payment_method: string
   account_last_5: string | null
   remittance_date: string
@@ -321,4 +323,5 @@ export type CreateEquipmentPaymentSubmissionPayload = {
   account_last_5?: string | null
   remittance_date: string
   note?: string | null
+  balance_amount?: number
 }

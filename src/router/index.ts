@@ -94,6 +94,11 @@ const router = createRouter({
           component: () => import('../views/MyPaymentsView.vue')
         },
         {
+          path: 'my-records',
+          name: 'MyPlayerRecords',
+          component: () => import('../views/MyPlayerRecordsView.vue')
+        },
+        {
           path: 'equipment-addons',
           name: 'EquipmentAddons',
           component: () => import('../views/EquipmentAddonsView.vue')

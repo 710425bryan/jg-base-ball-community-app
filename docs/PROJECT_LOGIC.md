@@ -44,6 +44,7 @@ UI 約定：
 - `/dashboard`
 - `/calendar`
 - `/profile`
+- `/my-records`
 - `/my-payments`
 - `/equipment-addons`
 - `/my-leave-requests`
@@ -120,6 +121,8 @@ UI 約定：
 - `src/services/myHome.ts`
 - `src/views/MyLeaveRequestsView.vue`
 - `src/services/myLeaveRequests.ts`
+- `src/views/MyPlayerRecordsView.vue`
+- `src/services/myPlayerRecords.ts`
 - `src/views/MyPaymentsView.vue`
 - `src/services/myPayments.ts`
 
@@ -137,11 +140,17 @@ UI 約定：
   - `list_my_payment_submissions(p_member_id)`
   - `create_my_payment_submission(...)`
   - `get_my_payment_submission_estimate(...)`
+- 我的成績：
+  - `list_my_player_record_members()`
+  - `get_my_player_match_records(p_member_id)`
+  - 一般使用者只看 `profiles.linked_team_member_ids` 綁定球員；具 `players:VIEW` 者可切換全隊球員，但進頁預設仍選關聯球員。
+  - 打擊 / 投球彙總沿用 `src/utils/matchRecordStats.ts`，以姓名 exact match 為主，打投成績可用背號 fallback。
 
 重要規則：
 
 - 個人功能依 `profiles.linked_team_member_ids` 與 DB RPC 控制可見資料。
 - 不要在前端自行推導可讀取的其他家庭或球員資料。
+- `/my-records` 的比賽詳情使用 readonly dialog；個人頁不得露出編輯 / 刪除比賽入口。
 
 ## 7. 球員、使用者與角色權限
 
@@ -175,8 +184,8 @@ UI 約定：
 同步規則：
 
 - Google Form / Sheet 同步使用 `src/utils/playerSync.ts`。
-- 既有球員同步不得覆蓋 `is_primary_payer` 與 `is_half_price`。
-- 新增球員時上述兩欄預設為 `false`。
+- 既有球員同步不得覆蓋 `is_primary_payer`、`is_half_price` 與 `fee_billing_mode`。
+- 新增球員時主要繳費人 / 半價預設為 `false`，收費模式預設 `role_default`。
 - dedupe key 空白時不可把多筆資料合併成同一人。
 
 ## 8. 請假與點名
@@ -288,9 +297,13 @@ UI 約定：
 - `src/components/fees/SchoolTeamFees.vue`
 - `src/components/fees/QuarterlyFees.vue`
 - `src/components/fees/ProfilePaymentSubmissionInbox.vue`
+- `src/components/fees/PlayerBalanceManager.vue`
 - `src/services/myPayments.ts`
+- `src/services/playerBalances.ts`
+- `src/utils/memberBilling.ts`
 - `src/utils/monthlyFeeSettlement.ts`
 - `src/utils/quarterlyFeeFamilies.ts`
+- `src/utils/playerBalance.ts`
 - `src/utils/siblingGroups.ts`
 
 主要資料：
@@ -299,16 +312,21 @@ UI 約定：
 - `monthly_fees`
 - `quarterly_fees`
 - `profile_payment_submissions`
+- `player_balance_transactions`
 
 資料流：
 
 - 後台費用頁管理月費、季費與付款回報審核。
-- 個人付款回報由 `myPayments` RPC 建立。
+- `team_members.fee_billing_mode = 'monthly_fixed'` 代表社區球員固定月繳：角色仍為 `球員`，但有效繳費模式為月繳；月費表採固定金額減手動扣減，季費表與家庭季費分組排除該球員。
+- 固定月繳預設金額存在 `fee_settings.monthly_fixed_fee`，正式月費紀錄會在 `monthly_fees.calculation_type` / `monthly_fees.fixed_monthly_fee` 保留當月計算方式與金額快照。
+- 個人付款回報由 `myPayments` RPC 建立，可選用球員餘額；一般繳費與裝備付款都在管理端確認時才正式扣餘額。
+- 球員餘額以 `player_balance_transactions` 流水帳計算，管理員可手動調整，付款審核時可把溢繳轉入餘額。
 - sibling / family grouping 與季費家庭金額計算在 utils。
 
 重要規則：
 
-- 修改付款或費用要檢查 sibling、primary payer、half price 相關規則。
+- 餘額屬於 `team_members`，不可扣成負數；家長只能看與使用自己綁定球員的餘額。
+- 修改付款或費用要檢查 sibling、primary payer、half price 與固定月繳排除規則。
 - 裝備付款回報在 `/my-payments` 與 `/fees?tab=equipment` 整合，但不要混入一般月費資料模型。
 
 ## 12. 裝備管理與加購

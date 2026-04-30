@@ -56,6 +56,8 @@ export interface TournamentPitchingRow {
 
 export interface TournamentBattingGameRow extends TournamentBattingRow {
   matchId: string
+  match_name?: string
+  tournament_name?: string | null
   match_date: string
   opponent: string
   result: string
@@ -63,9 +65,17 @@ export interface TournamentBattingGameRow extends TournamentBattingRow {
 
 export interface TournamentPitchingGameRow extends TournamentPitchingRow {
   matchId: string
+  match_name?: string
+  tournament_name?: string | null
   match_date: string
   opponent: string
   result: string
+}
+
+export interface PlayerMatchIdentity {
+  name: string
+  jersey_number?: string | number | null
+  number?: string | number | null
 }
 
 export interface MatchAttendanceRow {
@@ -88,6 +98,8 @@ const toNumber = (value: unknown) => {
 }
 
 const normalizeName = (value: unknown) => String(value || '').trim()
+
+const normalizeNumber = (value: unknown) => String(value ?? '').trim().replace(/^#/, '')
 
 const normalizeArrayField = <T>(value: T[] | string | null | undefined): T[] => {
   if (Array.isArray(value)) return value
@@ -126,6 +138,26 @@ const getStatsArray = <T>(value: T[] | string | null | undefined) => normalizeAr
 
 const getMatchStatGroupName = (match: MatchRecord) =>
   normalizeName(match.tournament_name) || normalizeName(match.match_name)
+
+const getPlayerNumber = (player: PlayerMatchIdentity) =>
+  normalizeNumber(player.jersey_number || player.number)
+
+const isPlayerName = (value: unknown, playerName: string) =>
+  Boolean(playerName) && normalizeName(value) === playerName
+
+const isPlayerStat = (
+  stat: BattingStat | PitchingStat,
+  playerName: string,
+  playerNumber: string
+) => (
+  isPlayerName(stat.name, playerName) ||
+  (Boolean(playerNumber) && normalizeNumber(stat.number) === playerNumber)
+)
+
+const getLineupEntries = (match: MatchRecord) => [
+  ...normalizeArrayField(match.lineup),
+  ...normalizeArrayField(match.current_lineup)
+]
 
 const getMatchResultLabel = (match: MatchRecord) => {
   if (match.home_score > match.opponent_score) return `勝 ${match.home_score}-${match.opponent_score}`
@@ -267,6 +299,69 @@ export const getTournamentNames = (matches: MatchRecord[]) =>
 export const filterMatchesByTournament = (matches: MatchRecord[], tournamentName: string) =>
   matches.filter((match) => getMatchStatGroupName(match) === tournamentName)
 
+export const doesMatchIncludePlayer = (match: MatchRecord, player: PlayerMatchIdentity) => {
+  const playerName = normalizeName(player.name)
+  if (!playerName) return false
+
+  const playerNumber = getPlayerNumber(player)
+
+  return (
+    parsePlayerNames(match.players).some((name) => isPlayerName(name, playerName)) ||
+    getLineupEntries(match).some((entry) => isPlayerName((entry as any)?.name, playerName)) ||
+    normalizeAbsentPlayers(match.absent_players).some((entry) => isPlayerName(entry.name, playerName)) ||
+    getStatsArray<BattingStat>(match.batting_stats).some((stat) => isPlayerStat(stat, playerName, playerNumber)) ||
+    getStatsArray<PitchingStat>(match.pitching_stats).some((stat) => isPlayerStat(stat, playerName, playerNumber))
+  )
+}
+
+export const filterMatchesForPlayer = (matches: MatchRecord[], player: PlayerMatchIdentity) =>
+  matches.filter((match) => doesMatchIncludePlayer(match, player))
+
+export const filterPlayerStatMatches = (matches: MatchRecord[]) =>
+  matches.filter((match) => match.match_level !== '特訓課')
+
+export const summarizePlayerBattingStats = (
+  matches: MatchRecord[],
+  player: PlayerMatchIdentity
+) => {
+  const playerName = normalizeName(player.name)
+  const playerNumber = getPlayerNumber(player)
+  const row = createEmptyBattingRow(playerName)
+
+  if (!playerName) {
+    return finalizeBattingRow(row)
+  }
+
+  filterPlayerStatMatches(matches).forEach((match) => {
+    getStatsArray<BattingStat>(match.batting_stats)
+      .filter((stat) => isPlayerStat(stat, playerName, playerNumber))
+      .forEach((stat) => addBattingStat(row, stat))
+  })
+
+  return finalizeBattingRow(row)
+}
+
+export const summarizePlayerPitchingStats = (
+  matches: MatchRecord[],
+  player: PlayerMatchIdentity
+) => {
+  const playerName = normalizeName(player.name)
+  const playerNumber = getPlayerNumber(player)
+  const row = createEmptyPitchingRow(playerName)
+
+  if (!playerName) {
+    return finalizePitchingRow(row)
+  }
+
+  filterPlayerStatMatches(matches).forEach((match) => {
+    getStatsArray<PitchingStat>(match.pitching_stats)
+      .filter((stat) => isPlayerStat(stat, playerName, playerNumber))
+      .forEach((stat) => addPitchingStat(row, stat))
+  })
+
+  return finalizePitchingRow(row)
+}
+
 export const aggregateTournamentBattingStats = (matches: MatchRecord[]): TournamentBattingRow[] => {
   const rows = new Map<string, TournamentBattingRow>()
 
@@ -338,6 +433,38 @@ export const getTournamentPlayerBattingGameRows = (
     .sort((left, right) => left.match_date.localeCompare(right.match_date) || left.opponent.localeCompare(right.opponent, 'zh-Hant'))
 }
 
+export const getPlayerBattingGameRows = (
+  matches: MatchRecord[],
+  player: PlayerMatchIdentity
+): TournamentBattingGameRow[] => {
+  const targetName = normalizeName(player.name)
+  const targetNumber = getPlayerNumber(player)
+  if (!targetName) return []
+
+  return filterPlayerStatMatches(matches)
+    .map((match) => {
+      const row: TournamentBattingGameRow = {
+        ...createEmptyBattingRow(targetName),
+        matchId: match.id,
+        match_name: match.match_name || '',
+        tournament_name: match.tournament_name || null,
+        match_date: match.match_date || '',
+        opponent: match.opponent || '',
+        result: getMatchResultLabel(match)
+      }
+
+      getStatsArray<BattingStat>(match.batting_stats)
+        .filter((stat) => isPlayerStat(stat, targetName, targetNumber))
+        .forEach((stat) => addBattingStat(row, stat))
+
+      return row.pa > 0 || row.ab > 0
+        ? finalizeBattingRow(row)
+        : null
+    })
+    .filter((row): row is TournamentBattingGameRow => Boolean(row))
+    .sort((left, right) => right.match_date.localeCompare(left.match_date) || left.opponent.localeCompare(right.opponent, 'zh-Hant'))
+}
+
 export const getTournamentPlayerPitchingGameRows = (
   matches: MatchRecord[],
   playerName: string
@@ -365,6 +492,38 @@ export const getTournamentPlayerPitchingGameRows = (
     })
     .filter((row): row is TournamentPitchingGameRow => Boolean(row))
     .sort((left, right) => left.match_date.localeCompare(right.match_date) || left.opponent.localeCompare(right.opponent, 'zh-Hant'))
+}
+
+export const getPlayerPitchingGameRows = (
+  matches: MatchRecord[],
+  player: PlayerMatchIdentity
+): TournamentPitchingGameRow[] => {
+  const targetName = normalizeName(player.name)
+  const targetNumber = getPlayerNumber(player)
+  if (!targetName) return []
+
+  return filterPlayerStatMatches(matches)
+    .map<TournamentPitchingGameRow | null>((match) => {
+      const row = {
+        ...createEmptyPitchingRow(targetName),
+        matchId: match.id,
+        match_name: match.match_name || '',
+        tournament_name: match.tournament_name || null,
+        match_date: match.match_date || '',
+        opponent: match.opponent || '',
+        result: getMatchResultLabel(match)
+      }
+
+      getStatsArray<PitchingStat>(match.pitching_stats)
+        .filter((stat) => isPlayerStat(stat, targetName, targetNumber))
+        .forEach((stat) => addPitchingStat(row, stat))
+
+      return row.ip_outs > 0 || row.np > 0 || row.ab > 0
+        ? finalizePitchingRow(row)
+        : null
+    })
+    .filter((row): row is TournamentPitchingGameRow => row !== null)
+    .sort((left, right) => right.match_date.localeCompare(left.match_date) || left.opponent.localeCompare(right.opponent, 'zh-Hant'))
 }
 
 export const calculateMatchAttendanceStats = (

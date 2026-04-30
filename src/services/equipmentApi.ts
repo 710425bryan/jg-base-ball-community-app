@@ -152,6 +152,8 @@ const normalizeInventoryAdjustment = (row: any): EquipmentInventoryAdjustment =>
 const normalizePaymentSubmission = (row: any): EquipmentPaymentSubmission => ({
   ...row,
   amount: normalizeNumber(row?.amount),
+  balance_amount: normalizeNumber(row?.balance_amount),
+  external_amount: normalizeNumber(row?.external_amount),
   items: Array.isArray(row?.items)
     ? row.items.map((item: any) => ({
       ...item,
@@ -511,6 +513,18 @@ export const deleteEquipment = async (equipmentId: string) => {
   if (error) throw error
 }
 
+const deleteEquipmentTransactions = async (transactionIds: string[]) => {
+  const ids = unique(transactionIds)
+  if (ids.length === 0) return 0
+
+  const { data, error } = await supabase.rpc('delete_equipment_transactions', {
+    p_transaction_ids: ids
+  })
+
+  if (error) throw error
+  return normalizeNumber(data)
+}
+
 export const createEquipmentTransaction = async (payload: EquipmentTransactionPayload) => {
   if (payload.transaction_type === 'purchase' && !payload.member_id) {
     throw new Error('請選擇付款歸屬成員')
@@ -558,8 +572,7 @@ export const createEquipmentTransaction = async (payload: EquipmentTransactionPa
 }
 
 export const deleteEquipmentTransaction = async (transactionId: string) => {
-  const { error } = await supabase.from('equipment_transactions').delete().eq('id', transactionId)
-  if (error) throw error
+  await deleteEquipmentTransactions([transactionId])
 }
 
 export const createEquipmentInventoryAdjustment = async (
@@ -975,29 +988,7 @@ export const deleteEquipmentPurchaseRequestWithRollback = async (requestId: stri
   const transactionIds = unique(request.items.map((item: EquipmentRequestItem) => item.equipment_transaction_id))
 
   if (transactionIds.length > 0) {
-    const { data: transactions, error: transactionFetchError } = await supabase
-      .from('equipment_transactions')
-      .select('id, payment_status, payment_submission_id')
-      .in('id', transactionIds)
-
-    if (transactionFetchError) throw transactionFetchError
-
-    const lockedTransaction = (transactions || []).find((transaction: any) =>
-      transaction.payment_submission_id
-      || transaction.payment_status === 'pending_review'
-      || transaction.payment_status === 'paid'
-    )
-
-    if (lockedTransaction) {
-      throw new Error('已有付款回報或已確認付款的裝備請購不可直接刪除，請先處理付款回報。')
-    }
-
-    const { error: transactionDeleteError } = await supabase
-      .from('equipment_transactions')
-      .delete()
-      .in('id', transactionIds)
-
-    if (transactionDeleteError) throw transactionDeleteError
+    await deleteEquipmentTransactions(transactionIds)
   }
 
   const { error } = await supabase
@@ -1039,7 +1030,8 @@ export const createEquipmentPaymentSubmission = async (
     p_payment_method: payload.payment_method,
     p_account_last_5: payload.account_last_5 || null,
     p_remittance_date: payload.remittance_date,
-    p_note: payload.note || null
+    p_note: payload.note || null,
+    p_balance_amount: payload.balance_amount || 0
   })
 
   if (error) throw error
@@ -1054,11 +1046,13 @@ export const listEquipmentPaymentSubmissions = async () => {
 
 export const reviewEquipmentPaymentSubmission = async (
   submissionId: string,
-  status: 'approved' | 'rejected'
+  status: 'approved' | 'rejected',
+  overpaymentAmount = 0
 ) => {
   const { data, error } = await supabase.rpc('review_equipment_payment_submission', {
     p_submission_id: submissionId,
-    p_status: status
+    p_status: status,
+    p_overpayment_amount: overpaymentAmount
   })
 
   if (error) throw error

@@ -124,6 +124,9 @@
             <span class="font-black text-gray-800 text-lg">{{ r.member_names }}</span>
             <span class="text-blue-600 font-mono font-bold text-lg bg-blue-50 px-2 py-0.5 rounded">${{ r.amount }}</span>
           </div>
+          <div class="mb-2 text-xs font-bold text-emerald-600">
+            {{ buildPaymentBreakdownText(r.amount, r.balance_amount || 0, formatCurrency) }}
+          </div>
 
           <div class="text-sm text-gray-500 flex flex-wrap items-center justify-between gap-y-1 mb-2">
             <span class="flex items-center gap-1.5 text-gray-600 font-bold"><el-icon><Calendar /></el-icon> {{ r.remittance_date || '-' }}</span>
@@ -160,6 +163,10 @@
          <div class="flex flex-col gap-1.5">
           <label class="text-sm font-bold text-gray-700">匯款金額</label>
           <el-input-number v-model="editForm.amount" class="!w-full" :min="0" :step="100" size="large" />
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-bold text-gray-700">餘額扣抵</label>
+          <el-input-number v-model="editForm.balance_amount" class="!w-full" :min="0" :max="editForm.amount" :step="100" size="large" />
         </div>
         <div class="flex flex-col gap-1.5">
           <label class="text-sm font-bold text-gray-700">匯款日期</label>
@@ -249,6 +256,9 @@
                   class="!w-28 font-mono font-bold"
                   @change="handleAmountChange(fee)"
                 />
+                <div class="mt-1 text-[11px] font-bold text-gray-400">
+                  {{ getQuarterlyPaymentBreakdownText(fee) }}
+                </div>
               </td>
               <td class="py-3 px-4 text-center">
                 <span class="text-sm font-mono text-gray-500">{{ fee.remittance_date || '-' }}</span>
@@ -295,12 +305,16 @@ import {
 } from '@/utils/siblingGroups'
 import {
   buildQuarterlyFamilyKey,
+  filterQuarterlyPricingMembers,
   FULL_QUARTERLY_FEE_AMOUNT,
+  getQuarterlyFeeExternalAmount,
   getExpectedQuarterlyAmount,
   groupQuarterlyFeeRecordsByPayment,
   selectLatestQuarterlyRecord,
+  sumQuarterlyFeeGroupBalanceAmount,
   sumQuarterlyFeeGroupAmount
 } from '@/utils/quarterlyFeeFamilies'
+import { buildPaymentBreakdownText } from '@/utils/playerBalance'
 
 const emit = defineEmits<{
   (e: 'summary-change', payload: {
@@ -377,6 +391,7 @@ const editDialogVisible = ref(false)
 const editForm = ref({
   member_id: '',
   amount: 0,
+  balance_amount: 0,
   remittance_date: '',
   account_last_5: '',
   payment_method: '',
@@ -420,6 +435,7 @@ const applyUpdatesToFamilyRows = (
 }
 
 const handleAmountChange = (fee: any) => {
+  fee.balance_amount = Math.min(Number(fee.balance_amount || 0), Number(fee.amount) || 0)
   markChanged(fee)
 }
 
@@ -442,6 +458,13 @@ const formatCurrency = (amount: number) => {
 const getQuarterlyFeeAmount = (fee: any) => {
   return Number(fee.amount) || 0
 }
+
+const getQuarterlyPaymentBreakdownText = (fee: any) =>
+  buildPaymentBreakdownText(
+    fee.amount,
+    Math.max(0, Number(fee.amount || 0) - getQuarterlyFeeExternalAmount(fee)),
+    formatCurrency
+  )
 
 const quarterlyFeeSummary = computed(() => {
   return feesList.value.reduce((summary, fee) => {
@@ -575,6 +598,7 @@ const buildQuarterlyPayload = (fee: any, now: string) => ({
   member_ids: [...fee.linked_member_ids],
   year_quarter: selectedPeriodLabel.value,
   amount: Number(fee.amount) || 0,
+  balance_amount: Math.min(Number(fee.balance_amount || 0), Number(fee.amount) || 0),
   payment_items: Array.isArray(fee.payment_items) ? [...fee.payment_items] : [],
   other_item_note: fee.payment_items.includes('加購其他項目:') ? fee.other_item_note : null,
   payment_method: fee.payment_method,
@@ -602,26 +626,26 @@ const fetchData = async () => {
   try {
     const { data: membersData, error: mErr } = await supabase
       .from('team_members')
-      .select('id, name, status, sibling_ids, is_primary_payer, is_half_price, role')
+      .select('id, name, status, sibling_ids, is_primary_payer, is_half_price, role, fee_billing_mode')
       .in('role', ['球員'])
       
     if (mErr) throw mErr
     
-    const members = normalizeSiblingIds(
-      (membersData?.filter(m => m.status !== '退隊') || []).map((member) => ({
+    const quarterlyMemberCandidates = (membersData?.filter(m => m.status !== '退隊') || []).map((member) => ({
         ...member,
         sibling_ids: Array.isArray(member.sibling_ids) ? [...member.sibling_ids] : []
       }))
-    )
+    const members = normalizeSiblingIds(filterQuarterlyPricingMembers(quarterlyMemberCandidates))
 
     const siblingGroupMap = buildSiblingGroupMap(members)
+    const quarterlyMemberIdSet = new Set(members.map((member) => member.id))
 
     currentPlayers.value = members
     await fetchRemittances(members, siblingGroupMap)
 
     const { data: existingFees, error: fErr } = await supabase
       .from('quarterly_fees')
-      .select('id, member_id, member_ids, year_quarter, payment_method, amount, created_at, updated_at, status, remittance_date, account_last_5, payment_items, other_item_note')
+      .select('id, member_id, member_ids, year_quarter, payment_method, amount, balance_amount, created_at, updated_at, status, remittance_date, account_last_5, payment_items, other_item_note')
       .eq('year_quarter', selectedPeriodLabel.value)
       
     if (fErr) throw fErr
@@ -636,6 +660,9 @@ const fetchData = async () => {
 
     sortedExistingFees.forEach((record) => {
       const linkedMemberIds = resolveLinkedMemberIds(record, siblingGroupMap)
+        .filter((id) => quarterlyMemberIdSet.has(id))
+      if (linkedMemberIds.length === 0) return
+
       const familyKey = buildQuarterlyFamilyKey(linkedMemberIds)
       const familyRecords = familyRecordMap.get(familyKey) || []
 
@@ -645,7 +672,7 @@ const fetchData = async () => {
       })
       familyRecordMap.set(familyKey, familyRecords)
 
-      if (record.member_id && !exactRecordMap.has(record.member_id)) {
+      if (record.member_id && quarterlyMemberIdSet.has(record.member_id) && !exactRecordMap.has(record.member_id)) {
         exactRecordMap.set(record.member_id, {
           record,
           linkedMemberIds
@@ -688,6 +715,7 @@ const fetchData = async () => {
         record_member_ids: Array.isArray(baseRecord?.member_ids) ? [...baseRecord.member_ids] : [...linkedMemberIds],
         linked_member_ids: [...linkedMemberIds],
         amount: rowAmount,
+        balance_amount: Number(baseRecord?.balance_amount || 0),
         payment_items: Array.isArray(baseRecord?.payment_items) && baseRecord.payment_items.length > 0
           ? [...baseRecord.payment_items]
           : [DEFAULT_QUARTERLY_PAYMENT_ITEM],
@@ -722,7 +750,7 @@ const fetchRemittances = async (
 
     const { data, error } = await supabase
       .from('quarterly_fees')
-      .select('id, member_id, member_ids, year_quarter, payment_method, amount, created_at, updated_at, status, remittance_date, account_last_5, payment_items, other_item_note')
+      .select('id, member_id, member_ids, year_quarter, payment_method, amount, balance_amount, created_at, updated_at, status, remittance_date, account_last_5, payment_items, other_item_note')
       .eq('year_quarter', selectedPeriodLabel.value)
       .or('status.is.null,status.neq.paid')
       .order('created_at', { ascending: false })
@@ -730,12 +758,16 @@ const fetchRemittances = async (
       
     if (error) throw error
     
-    const relevantRecords = (data || []).filter((fee) => {
+    const relevantRecords = (data || []).map((fee) => {
       const extractedIds = resolveLinkedMemberIds(fee, siblingGroupMap)
-      const isPlayer = extractedIds.some((id) => playerIds.has(id))
+        .filter((id) => playerIds.has(id))
 
-      return isPlayer
-    })
+      return {
+        ...fee,
+        member_id: fee.member_id && playerIds.has(fee.member_id) ? fee.member_id : extractedIds[0] || fee.member_id,
+        member_ids: extractedIds
+      }
+    }).filter((fee) => fee.member_ids.length > 0)
 
     playerRemittances.value = groupQuarterlyFeeRecordsByPayment(relevantRecords, siblingGroupMap)
       .map((group) => {
@@ -753,6 +785,8 @@ const fetchRemittances = async (
           member_names: memberNames || '未知球員',
           extracted_member_ids: [...group.linkedMemberIds],
           amount: sumQuarterlyFeeGroupAmount(group.records),
+          balance_amount: sumQuarterlyFeeGroupBalanceAmount(group.records),
+          external_amount: Math.max(0, sumQuarterlyFeeGroupAmount(group.records) - sumQuarterlyFeeGroupBalanceAmount(group.records)),
           payment_items: Array.isArray(latestRecord?.payment_items) ? [...latestRecord.payment_items] : [],
           created_at: latestRecord?.created_at || null,
           updated_at: latestRecord?.updated_at || latestRecord?.created_at || null
@@ -817,6 +851,7 @@ const saveAll = async () => {
       fee.linked_member_ids = [...payload.member_ids]
       fee.family_key = buildQuarterlyFamilyKey(payload.member_ids)
       fee.amount = payload.amount
+      fee.balance_amount = payload.balance_amount
     }
 
     await refreshRemittances()
@@ -888,6 +923,7 @@ const openEditDialog = (fee: any) => {
   editForm.value = {
     member_id: fee.member_id,
     amount: fee.amount,
+    balance_amount: Number(fee.balance_amount || 0),
     remittance_date: fee.remittance_date || dayjs().format('YYYY-MM-DD'),
     account_last_5: fee.account_last_5 || '',
     payment_method: fee.payment_method || '銀行轉帳',
@@ -901,6 +937,7 @@ const saveRemittanceEdit = () => {
   const feeItem = feesList.value.find(f => f.member_id === editForm.value.member_id)
   if (feeItem) {
     feeItem.amount = editForm.value.amount
+    feeItem.balance_amount = Math.min(Number(editForm.value.balance_amount || 0), Number(editForm.value.amount || 0))
     feeItem.remittance_date = editForm.value.remittance_date
     feeItem.account_last_5 = editForm.value.account_last_5
     feeItem.payment_method = editForm.value.payment_method

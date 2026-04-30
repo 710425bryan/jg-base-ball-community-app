@@ -12,6 +12,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 const props = defineProps<{
   modelValue: boolean
   matchId: string | null
+  matchRecord?: MatchRecord | null
   readonly?: boolean
 }>()
 
@@ -29,6 +30,7 @@ const matchesStore = useMatchesStore()
 const loading = computed(() => matchesStore.loading)
 
 const matchData = computed(() => {
+  if (props.matchRecord && props.matchRecord.id === props.matchId) return props.matchRecord
   if (!props.matchId) return null
   return matchesStore.matches.find(m => m.id === props.matchId) || null
 })
@@ -37,6 +39,7 @@ watch(
   () => [visible.value, props.matchId] as const,
   ([isVisible, matchId]) => {
     if (!isVisible || !matchId) return
+    if (props.matchRecord?.id === matchId) return
     void matchesStore.fetchMatch(matchId).catch((error) => {
       console.error('Unable to load match detail:', error)
       ElMessage.error('載入比賽詳情失敗，請稍後再試')

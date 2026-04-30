@@ -69,8 +69,12 @@ export const useEquipmentPaymentsStore = defineStore('equipmentPayments', () => 
     }
   }
 
-  const reviewSubmission = async (submissionId: string, status: 'approved' | 'rejected') => {
-    const updated = await reviewEquipmentPaymentSubmission(submissionId, status)
+  const reviewSubmission = async (
+    submissionId: string,
+    status: 'approved' | 'rejected',
+    overpaymentAmount = 0
+  ) => {
+    const updated = await reviewEquipmentPaymentSubmission(submissionId, status, overpaymentAmount)
     reviewSubmissions.value = reviewSubmissions.value.map((submission) =>
       submission.id === updated.id ? updated : submission
     )

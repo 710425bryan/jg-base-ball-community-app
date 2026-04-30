@@ -77,7 +77,7 @@
       <div class="flex flex-col gap-1 mb-4">
         <p class="text-xs font-bold uppercase tracking-[0.24em] text-primary/70">{{ selectedMonth }} 月費總結</p>
         <div class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-          <h3 class="text-lg font-black text-gray-800">校隊月費摘要</h3>
+          <h3 class="text-lg font-black text-gray-800">月費摘要</h3>
           <p class="text-xs text-gray-400">摘要依目前選定月份全部球員即時統計</p>
         </div>
       </div>
@@ -104,7 +104,7 @@
       <div class="flex items-center gap-3 w-full sm:w-auto">
         <el-icon class="text-blue-500 text-3xl shrink-0"><BellFilled /></el-icon>
         <div>
-          <h3 class="text-blue-800 font-bold text-base">近期收到 {{ schoolTeamRemittances.length }} 筆校隊匯款回報</h3>
+          <h3 class="text-blue-800 font-bold text-base">近期收到 {{ schoolTeamRemittances.length }} 筆月繳匯款回報</h3>
           <p class="text-blue-600/80 text-[10px] sm:text-xs mt-0.5">點擊查看詳情，並在下方列表將其切換為「已繳」</p>
         </div>
       </div>
@@ -121,7 +121,7 @@
     </div>
 
     <!-- 匯款回報處理抽屜 -->
-    <el-drawer v-model="drawerVisible" title="校隊最新匯款回報" :size="drawerSize" class="!rounded-l-2xl">
+    <el-drawer v-model="drawerVisible" title="月繳最新匯款回報" :size="drawerSize" class="!rounded-l-2xl">
       <div class="flex flex-col gap-4">
         <div :id="`fee-card-${r.id}`" v-for="r in schoolTeamRemittances" :key="r.id" class="bg-gray-50 border border-gray-100 rounded-xl p-4 relative group overflow-hidden shadow-sm transition-colors duration-1000">
           <div class="absolute top-0 right-0 h-full w-1.5 bg-gradient-to-b from-blue-300 to-blue-500"></div>
@@ -129,6 +129,9 @@
           <div class="flex justify-between items-center pr-2 mb-2">
             <span class="font-black text-gray-800 text-lg">{{ r.member_names }}</span>
             <span class="text-blue-600 font-mono font-bold text-lg bg-blue-50 px-2 py-0.5 rounded">${{ r.amount }}</span>
+          </div>
+          <div class="mb-2 text-xs font-bold text-emerald-600">
+            {{ buildPaymentBreakdownText(r.amount, r.balance_amount || 0, formatCurrency) }}
           </div>
 
           <div class="text-sm text-gray-500 flex flex-wrap items-center justify-between gap-y-1 mb-2">
@@ -185,6 +188,10 @@
           </div>
         </div>
         <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-bold text-gray-700">餘額扣抵</label>
+          <el-input-number v-model="editForm.balance_amount" class="!w-full" :min="0" :max="editForm.amount" :step="100" size="large" />
+        </div>
+        <div class="flex flex-col gap-1.5">
           <label class="text-sm font-bold text-gray-700">繳費項目 (用逗號分隔)</label>
           <el-input v-model="editForm.payment_items_raw" placeholder="例如: 月費, 加購練習衣" size="large" />
         </div>
@@ -200,10 +207,10 @@
     <!-- Data Table -->
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden" v-loading="isLoading">
       <div class="px-4 py-3 text-xs text-gray-400 border-b border-gray-100 bg-gray-50/60">
-        請假天數會依照所選月份統計全部請假日期；本月堂數是月份共用值，預設 4 堂，調整後會同步整張表。
+        請假天數會依照所選月份統計全部請假日期；本月堂數是計次月費共用值。社區月繳列不參與堂數、請假或單堂費率計算。
       </div>
       <div class="overflow-x-auto">
-        <table class="w-full min-w-[800px]">
+        <table class="w-full min-w-[900px]">
           <thead>
             <tr class="bg-gray-50/80 border-b border-gray-100">
               <th class="py-3 px-4 text-left font-bold text-gray-500 text-sm whitespace-nowrap">球員姓名</th>
@@ -212,6 +219,7 @@
               <th class="py-3 px-4 text-center font-bold text-gray-500 text-sm whitespace-nowrap">應收 (扣除請假)</th>
               <th class="py-3 px-4 text-center font-bold text-gray-500 text-sm whitespace-nowrap">手動應扣/減免</th>
               <th class="py-3 px-4 text-center font-bold text-gray-800 text-sm whitespace-nowrap">總結應繳</th>
+              <th class="py-3 px-4 text-left font-bold text-gray-500 text-sm whitespace-nowrap">扣款方式</th>
               <th class="py-3 px-4 text-center font-bold text-gray-500 text-sm whitespace-nowrap">繳費狀態</th>
             </tr>
           </thead>
@@ -231,10 +239,14 @@
                   <el-tooltip v-if="fee.is_discounted" content="符合手足同行半價優惠" placement="top">
                     <span class="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded leading-none shrink-0 border border-primary/20">半價優惠</span>
                   </el-tooltip>
+                  <span v-if="isFixedMonthlyFee(fee)" class="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded leading-none shrink-0 border border-amber-200">社區月繳</span>
                 </div>
               </td>
               <td class="py-3 px-4">
-                <div class="text-center font-bold text-gray-600 flex items-center justify-center">
+                <div v-if="isFixedMonthlyFee(fee)" class="text-center text-xs font-bold text-gray-400">
+                  不參與計算
+                </div>
+                <div v-else class="text-center font-bold text-gray-600 flex items-center justify-center">
                   <span class="inline-flex min-w-[3.5rem] justify-center rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 font-mono font-bold text-gray-800 mr-2">
                     {{ monthlyTotalSessions }}
                   </span>
@@ -266,6 +278,12 @@
               <td class="py-3 px-4 text-center font-mono font-black text-lg tracking-wider" :class="getPayableClass(fee)">
                 {{ formatCurrency(getFeePayableAmount(fee)) }}
               </td>
+              <td class="py-3 px-4 text-sm">
+                <div class="font-bold text-slate-700">{{ getFeePaymentBreakdownText(fee) }}</div>
+                <div v-if="fee.payment_method" class="mt-1 text-xs text-gray-400">
+                  {{ fee.payment_method }} <span v-if="fee.account_last_5">#{{ fee.account_last_5 }}</span>
+                </div>
+              </td>
               <td class="py-3 px-4">
                 <div class="flex justify-center">
                   <el-switch
@@ -296,6 +314,15 @@ import dayjs from 'dayjs'
 import { useWindowSize } from '@vueuse/core'
 import { useRoute } from 'vue-router'
 import { getDefaultMonthlyFeeSettlementMonth } from '@/utils/monthlyFeeSettlement'
+import { buildPaymentBreakdownText } from '@/utils/playerBalance'
+import {
+  calculateFixedMonthlyPayableAmount,
+  calculatePerSessionMonthlyPayableAmount,
+  DEFAULT_FIXED_MONTHLY_FEE,
+  getMonthlyFeeCalculationType,
+  isFixedMonthlyBillingMember,
+  normalizeFixedMonthlyFee
+} from '@/utils/memberBilling'
 
 const emit = defineEmits<{
   (e: 'summary-change', payload: {
@@ -330,6 +357,7 @@ const editForm = ref({
   remittance_date: '',
   account_last_5: '',
   payment_method: '',
+  balance_amount: 0,
   payment_items_raw: ''
 })
 
@@ -402,12 +430,16 @@ const onMonthChange = () => {
 
 const syncMonthlyTotalToFees = () => {
   feesList.value.forEach((fee) => {
-    fee.total_sessions = monthlyTotalSessions.value
+    if (!isFixedMonthlyFee(fee)) {
+      fee.total_sessions = monthlyTotalSessions.value
+    }
   })
 }
 
 const markAllFeesChanged = () => {
   feesList.value.forEach((fee) => {
+    if (isFixedMonthlyFee(fee)) return
+
     if (!pendingChanges.value.includes(fee.member_id)) {
       pendingChanges.value.push(fee.member_id)
     }
@@ -432,13 +464,31 @@ const formatCurrency = (amount: number) => {
   }).format(normalizedAmount)
 }
 
+const isFixedMonthlyFee = (fee: any) => fee.calculation_type === 'monthly_fixed'
+
 const getFeeReceivableAmount = (fee: any) => {
-  return (monthlyTotalSessions.value - fee.leave_sessions) * fee.per_session_fee
+  if (isFixedMonthlyFee(fee)) {
+    return normalizeFixedMonthlyFee(fee.fixed_monthly_fee)
+  }
+
+  return Math.max(0, monthlyTotalSessions.value - fee.leave_sessions) * fee.per_session_fee
 }
 
 const getFeePayableAmount = (fee: any) => {
-  return getFeeReceivableAmount(fee) - fee.deduction_amount
+  if (isFixedMonthlyFee(fee)) {
+    return calculateFixedMonthlyPayableAmount(fee.fixed_monthly_fee, fee.deduction_amount)
+  }
+
+  return calculatePerSessionMonthlyPayableAmount(
+    monthlyTotalSessions.value,
+    fee.leave_sessions,
+    fee.per_session_fee,
+    fee.deduction_amount
+  )
 }
+
+const getFeePaymentBreakdownText = (fee: any) =>
+  buildPaymentBreakdownText(getFeePayableAmount(fee), fee.balance_amount || 0, formatCurrency)
 
 const schoolTeamFeeSummary = computed(() => {
   return feesList.value.reduce((summary, fee) => {
@@ -537,14 +587,20 @@ const calculateFees = async () => {
   try {
     const { startOfMonth, endOfMonth } = getMonthBounds(selectedMonth.value)
 
-    // 1. 撈取校隊名單
+    // 1. 撈取校隊與固定月繳球員名單
     const { data: membersData, error: membersErr } = await supabase
       .from('team_members')
-      .select('id, name, status, sibling_ids, is_primary_payer, is_half_price')
-      .eq('role', '校隊')
+      .select('id, name, role, status, sibling_ids, is_primary_payer, is_half_price, fee_billing_mode')
+      .in('role', ['校隊', '球員'])
     if (membersErr) throw membersErr
 
-    const members = membersData?.filter(m => m.status !== '退隊') || []
+    const members = membersData?.filter(m =>
+      m.status !== '退隊' &&
+      (
+        m.role === '校隊' ||
+        isFixedMonthlyBillingMember(m)
+      )
+    ) || []
     
     // 預處理：確保手足連結是對稱的（防呆：萬一只單向填寫，另一方忘記填寫）
     members.forEach(m => {
@@ -567,14 +623,20 @@ const calculateFees = async () => {
     // 平行取得最新的校隊匯款回報
     fetchRemittances(members)
 
-    // 2. 撈取本月所有人費率設定 (如果沒有則預設 500)
+    if (memberIds.length === 0) {
+      feesList.value = []
+      return
+    }
+
+    // 2. 撈取本月所有人費率設定 (校隊預設 500；固定月繳預設 2000)
     const { data: feeSettings, error: fsErr } = await supabase
       .from('fee_settings')
-      .select('member_id, per_session_fee')
+      .select('member_id, per_session_fee, monthly_fixed_fee')
       .in('member_id', memberIds)
     if (fsErr) throw fsErr
 
     const feeSettingMap = new Map(feeSettings?.map(f => [f.member_id, f.per_session_fee]))
+    const fixedMonthlyFeeMap = new Map(feeSettings?.map(f => [f.member_id, f.monthly_fixed_fee]))
 
     // 共用堂數預設為 4；若已有一致的舊資料則沿用舊值
 
@@ -617,14 +679,16 @@ const calculateFees = async () => {
     // 撈取資料庫中已寫入的 monthly_fees 紀錄
     const { data: existingFees, error: existingErr } = await supabase
       .from('monthly_fees')
-      .select('id, member_id, year_month, total_sessions, leave_sessions, per_session_fee, payable_amount, deduction_amount, status, created_at, updated_at')
+      .select('id, member_id, year_month, total_sessions, leave_sessions, per_session_fee, payable_amount, deduction_amount, calculation_type, fixed_monthly_fee, status, payment_method, account_last_5, remittance_date, balance_amount, created_at, updated_at')
       .eq('year_month', selectedMonth.value)
+      .in('member_id', memberIds)
     if (existingErr) throw existingErr
 
     const existingFeeRows = existingFees || []
     const existingFeeMap = new Map(existingFeeRows.map(f => [f.member_id, f]))
     const storedMonthlyTotals = Array.from(new Set(
       existingFeeRows
+        .filter((fee: any) => fee.calculation_type !== 'monthly_fixed')
         .map((fee: any) => fee.total_sessions)
         .filter((value: any): value is number => typeof value === 'number' && !Number.isNaN(value))
     ))
@@ -636,13 +700,19 @@ const calculateFees = async () => {
 
     // 組裝
     feesList.value = members.map(m => {
-      let per_session_fee = feeSettingMap.get(m.id) || 500
+      const calculationType = getMonthlyFeeCalculationType(m)
+      const isFixedMonthly = calculationType === 'monthly_fixed'
+      let per_session_fee = isFixedMonthly ? 0 : (feeSettingMap.get(m.id) || 500)
+      const existing = existingFeeMap.get(m.id)
+      const fixedMonthlyFee = isFixedMonthly
+        ? normalizeFixedMonthlyFee(existing?.fixed_monthly_fee ?? fixedMonthlyFeeMap.get(m.id) ?? DEFAULT_FIXED_MONTHLY_FEE)
+        : null
       
       // 手足半價優惠處理 (直接折半單次費率)
       let isDiscounted = false
-      if (m.is_half_price) {
+      if (!isFixedMonthly && m.is_half_price) {
         isDiscounted = true
-      } else if (m.sibling_ids && m.sibling_ids.length > 0) {
+      } else if (!isFixedMonthly && m.sibling_ids && m.sibling_ids.length > 0) {
         if (!m.is_primary_payer) {
           const siblings = m.sibling_ids.map((sId: string) => members.find(x => x.id === sId)).filter(Boolean)
           const hasPrimarySibling = siblings.some((s: any) => s.is_primary_payer)
@@ -666,19 +736,24 @@ const calculateFees = async () => {
         }
       }
       
-      const leave_sessions = leaveMap.get(m.id) || 0
+      const leave_sessions = isFixedMonthly ? 0 : (leaveMap.get(m.id) || 0)
       const has_leave_overlap = leave_sessions > 0
-      
-      const existing = existingFeeMap.get(m.id)
 
       return {
         member_id: m.id,
         member_name: m.name,
+        role: m.role,
         month: selectedMonth.value,
-        total_sessions: monthlyTotalSessions.value,
+        total_sessions: isFixedMonthly ? 0 : monthlyTotalSessions.value,
         leave_sessions: leave_sessions,
         per_session_fee: per_session_fee,
+        calculation_type: calculationType,
+        fixed_monthly_fee: fixedMonthlyFee,
         deduction_amount: existing ? existing.deduction_amount : 0,
+        payment_method: existing?.payment_method || '',
+        account_last_5: existing?.account_last_5 || '',
+        remittance_date: existing?.remittance_date || null,
+        balance_amount: Number(existing?.balance_amount || 0),
         is_paid: existing ? existing.status === 'paid' : false,
         has_leave_overlap,
         is_discounted: isDiscounted,
@@ -712,11 +787,17 @@ const saveAll = async () => {
       .map(f => ({
         member_id: f.member_id,
         year_month: f.month,
-        total_sessions: monthlyTotalSessions.value,
-        leave_sessions: f.leave_sessions,
-        per_session_fee: f.per_session_fee,
+        total_sessions: isFixedMonthlyFee(f) ? 0 : monthlyTotalSessions.value,
+        leave_sessions: isFixedMonthlyFee(f) ? 0 : f.leave_sessions,
+        per_session_fee: isFixedMonthlyFee(f) ? 0 : f.per_session_fee,
+        calculation_type: f.calculation_type,
+        fixed_monthly_fee: isFixedMonthlyFee(f) ? normalizeFixedMonthlyFee(f.fixed_monthly_fee) : null,
         payable_amount: getFeePayableAmount(f),
         deduction_amount: f.deduction_amount,
+        payment_method: f.payment_method || null,
+        account_last_5: f.account_last_5 || null,
+        remittance_date: f.remittance_date || null,
+        balance_amount: Math.min(Number(f.balance_amount || 0), Math.max(getFeePayableAmount(f), 0)),
         status: f.is_paid ? 'paid' : 'unpaid',
         updated_at: new Date().toISOString()
       }))
@@ -745,7 +826,7 @@ const exportCSV = () => {
     return;
   }
 
-  const headers = ['姓名', '月份', '總堂數', '請假天數', '請假日期', '單堂費用', '應扣', '應收', '應繳'];
+  const headers = ['姓名', '月份', '收費模式', '總堂數', '請假天數', '請假日期', '單堂費用', '固定月繳', '應扣', '應收', '應繳'];
   const rows = [headers];
 
   feesList.value.forEach(fee => {
@@ -757,10 +838,12 @@ const exportCSV = () => {
     rows.push([
       fee.member_name,
       fee.month,
-      monthlyTotalSessions.value.toString(),
+      isFixedMonthlyFee(fee) ? '社區月繳' : '計次月費',
+      isFixedMonthlyFee(fee) ? '-' : monthlyTotalSessions.value.toString(),
       fee.leave_sessions.toString(),
       leaveDates,
-      fee.per_session_fee.toString(),
+      isFixedMonthlyFee(fee) ? '-' : fee.per_session_fee.toString(),
+      isFixedMonthlyFee(fee) ? String(fee.fixed_monthly_fee || 0) : '-',
       fee.deduction_amount.toString(),
       amountToReceive.toString(),
       payable.toString()
@@ -801,7 +884,7 @@ const fetchRemittances = async (schoolTeamMembers: any[]) => {
 
     const { data, error } = await supabase
       .from('quarterly_fees')
-      .select('id, member_id, member_ids, year_quarter, payment_method, amount, created_at, updated_at, status, remittance_date, account_last_5, payment_items, other_item_note')
+      .select('id, member_id, member_ids, year_quarter, payment_method, amount, balance_amount, created_at, updated_at, status, remittance_date, account_last_5, payment_items, other_item_note')
       .or(`and(remittance_date.gte.${nextMonthStart},remittance_date.lt.${nextMonthEnd}),and(remittance_date.is.null,created_at.gte.${nextMonthStart},created_at.lt.${nextMonthEnd})`)
       .order('created_at', { ascending: false })
       .limit(30)
@@ -831,6 +914,7 @@ const fetchRemittances = async (schoolTeamMembers: any[]) => {
         const names = extractedIds.map(id => schoolTeamMembers.find(m => m.id === id)?.name).filter(Boolean).join(', ')
         return {
           ...fee,
+          balance_amount: Number(fee.balance_amount || 0),
           member_names: names || '未知球員'
         }
       })
@@ -847,6 +931,7 @@ const openEditDialog = (r: any) => {
     remittance_date: r.remittance_date || '',
     account_last_5: r.account_last_5 || '',
     payment_method: r.payment_method || '',
+    balance_amount: Number(r.balance_amount || 0),
     payment_items_raw: Array.isArray(r.payment_items) ? r.payment_items.join(', ') : ''
   }
   editDialogVisible.value = true
@@ -868,6 +953,7 @@ const saveRemittanceEdit = async () => {
         remittance_date: editForm.value.remittance_date,
         account_last_5: editForm.value.account_last_5,
         payment_method: editForm.value.payment_method,
+        balance_amount: Math.min(Number(editForm.value.balance_amount || 0), Number(editForm.value.amount || 0)),
         payment_items: items
       })
       .eq('id', editForm.value.id)
@@ -907,6 +993,10 @@ const markAsPaid = async (remittance: any) => {
         const feeItem = feesList.value.find(f => f.member_id === id)
         if (feeItem && !feeItem.is_paid) {
           feeItem.is_paid = true
+          feeItem.payment_method = remittance.payment_method || feeItem.payment_method || ''
+          feeItem.account_last_5 = remittance.account_last_5 || feeItem.account_last_5 || ''
+          feeItem.remittance_date = remittance.remittance_date || feeItem.remittance_date || null
+          feeItem.balance_amount = Math.min(Number(remittance.balance_amount || 0), Math.max(getFeePayableAmount(feeItem), 0))
           markChanged(feeItem)
           syncedMonthly = true
         }

@@ -70,6 +70,8 @@
 | `src/services/myHome.ts` | 個人化首頁摘要 | `get_my_home_snapshot()` |
 | `src/services/myLeaveRequests.ts` | 我的假單 RPC | `list_my_leave_members()` 等 |
 | `src/services/myPayments.ts` | 我的繳費 RPC | `profile_payment_submissions` 相關 RPC |
+| `src/services/playerBalances.ts` | 球員餘額 RPC | `player_balance_transactions`、餘額查詢 / 調整 |
+| `src/services/myPlayerRecords.ts` | 我的成績 RPC | `list_my_player_record_members()`、`get_my_player_match_records()` |
 | `src/services/playerRosterApi.ts` | 球員名單查詢與 cache meta RPC | `team_members` / `team_members_safe` / `get_team_members_cache_meta()` |
 | `src/services/matchesApi.ts` | 賽事 CRUD | `matches` |
 | `src/services/trainingApi.ts` | 特訓報名、點數、特訓點名 RPC | `training_*` / `player_point_transactions` / `attendance_events.training_session_id` |
@@ -98,8 +100,10 @@
 | `src/utils/equipmentInventory.ts` | 裝備庫存計算 |
 | `src/utils/equipmentPricing.ts` | 裝備價格計算 |
 | `src/utils/equipmentRequestStatus.ts` | 裝備申請狀態規則 |
+| `src/utils/memberBilling.ts` | 球員有效繳費模式、固定月繳與月費計算 helper |
 | `src/utils/monthlyFeeSettlement.ts` | 月費結算 |
 | `src/utils/quarterlyFeeFamilies.ts` | 季費家庭分組與金額 |
+| `src/utils/playerBalance.ts` | 球員餘額扣抵金額與顯示文字 |
 | `src/utils/siblingGroups.ts` | 手足 / 家庭分組 |
 | `src/utils/performanceConfig.ts` | 能力 / 體測欄位與圖表設定 |
 | `src/utils/holidayMotionLayout.ts` | 節日動畫版位 |
@@ -120,6 +124,7 @@
 | `/dashboard` | `src/views/HomeView.vue` | 登入即可 |
 | `/calendar` | `src/views/CalendarView.vue` | 登入即可 |
 | `/profile` | `src/views/ProfileSettingsView.vue` | 個人設定 |
+| `/my-records` | `src/views/MyPlayerRecordsView.vue` | 個人成績，登入 + linked member / `players:VIEW` RPC |
 | `/my-payments` | `src/views/MyPaymentsView.vue` | 個人繳費與裝備付款 |
 | `/equipment-addons` | `src/views/EquipmentAddonsView.vue` | 登入 + linked member / RLS |
 | `/my-leave-requests` | `src/views/MyLeaveRequestsView.vue` | 個人假單 |
@@ -160,10 +165,11 @@
 
 | 檔案 | 用途 |
 | --- | --- |
-| `src/components/fees/FeeSettings.vue` | 收費設定 |
-| `src/components/fees/SchoolTeamFees.vue` | 校隊月費 / 費用管理 |
-| `src/components/fees/QuarterlyFees.vue` | 季費管理 |
+| `src/components/fees/FeeSettings.vue` | 校隊計次費率與社區球員固定月繳金額設定 |
+| `src/components/fees/SchoolTeamFees.vue` | 月費管理，包含校隊計次與社區球員固定月繳 |
+| `src/components/fees/QuarterlyFees.vue` | 季費管理，排除固定月繳球員 |
 | `src/components/fees/ProfilePaymentSubmissionInbox.vue` | 個人付款回報審核 |
+| `src/components/fees/PlayerBalanceManager.vue` | 球員餘額管理與流水帳 |
 
 ### Match Records
 
@@ -209,6 +215,7 @@
 | `src/types/match.ts` | 賽事型別 |
 | `src/types/myHome.ts` | 個人首頁 snapshot 型別 |
 | `src/types/payments.ts` | 個人付款型別 |
+| `src/types/playerBalances.ts` | 球員餘額型別 |
 | `src/types/performance.ts` | 能力 / 體測型別 |
 | `src/types/publicLanding.ts` | 公開首頁 snapshot 型別 |
 | `src/types/training.ts` | 特訓報名、點數、管理審核型別 |
@@ -221,7 +228,8 @@
 | Profile access | `supabase_profile_access_control_migration.sql`、`supabase_profiles_personal_settings_migration.sql` |
 | 公開首頁 / Dashboard | `supabase_dashboard_snapshot_migration.sql`、`supabase_my_home_snapshot_migration.sql` |
 | 假單 | `supabase_my_leave_requests_migration.sql` |
-| 收費 / 付款 | `supabase_fees_migration.sql`、`supabase_quarterly_fees_migration.sql`、`supabase_profile_payment_submissions_migration.sql` |
+| 個人成績 | `supabase_my_player_records_migration.sql` |
+| 收費 / 付款 | `supabase_fees_migration.sql`、`supabase_quarterly_fees_migration.sql`、`supabase_profile_payment_submissions_migration.sql`、`supabase_player_balance_transactions_migration.sql`、`supabase_fixed_monthly_billing_migration.sql` |
 | 裝備 | `supabase_equipment_management_migration.sql`、`supabase_equipment_inventory_adjustments_migration.sql`、`supabase_equipment_manual_purchase_records_migration.sql`、`supabase_equipment_multiple_photos_migration.sql` |
 | 能力 / 體測 | `supabase_performance_data_migration.sql`、`supabase_performance_view_scope_migration.sql` |
 | 特訓 / 點數 | `supabase_training_points_migration.sql`、`supabase_zz_training_registration_notifications_migration.sql` |
