@@ -1,4 +1,8 @@
 const PUSH_NOTIFICATION_CLICK_MESSAGE = 'PUSH_NOTIFICATION_CLICK';
+const PUSH_DEEP_LINK_DB_NAME = 'jg-baseball-push-deeplink';
+const PUSH_DEEP_LINK_DB_VERSION = 1;
+const PUSH_DEEP_LINK_STORE = 'pendingTargets';
+const PUSH_DEEP_LINK_LATEST_KEY = 'latest';
 
 const normalizeTargetPath = (rawTarget) => {
   let nextTarget = typeof rawTarget === 'string' ? rawTarget.trim() : '';
@@ -67,6 +71,47 @@ const postPushClickMessage = (client, targetPath) => {
   }
 };
 
+const openPushDeepLinkDb = () => {
+  if (!self.indexedDB) {
+    return Promise.reject(new Error('IndexedDB is unavailable'));
+  }
+
+  return new Promise((resolve, reject) => {
+    const request = self.indexedDB.open(PUSH_DEEP_LINK_DB_NAME, PUSH_DEEP_LINK_DB_VERSION);
+
+    request.onupgradeneeded = () => {
+      const db = request.result;
+
+      if (!db.objectStoreNames.contains(PUSH_DEEP_LINK_STORE)) {
+        db.createObjectStore(PUSH_DEEP_LINK_STORE, { keyPath: 'id' });
+      }
+    };
+
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error('Failed to open push deep link DB'));
+  });
+};
+
+const transactionDone = (transaction) =>
+  new Promise((resolve, reject) => {
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error || new Error('IndexedDB transaction failed'));
+    transaction.onabort = () => reject(transaction.error || new Error('IndexedDB transaction aborted'));
+  });
+
+const savePendingPushTarget = async (targetPath) => {
+  const db = await openPushDeepLinkDb();
+  const transaction = db.transaction(PUSH_DEEP_LINK_STORE, 'readwrite');
+
+  transaction.objectStore(PUSH_DEEP_LINK_STORE).put({
+    id: PUSH_DEEP_LINK_LATEST_KEY,
+    targetPath,
+    createdAt: Date.now()
+  });
+
+  await transactionDone(transaction);
+};
+
 const focusAndNotifyClient = (client, targetPath) => {
   if (!client) return undefined;
 
@@ -115,32 +160,37 @@ self.addEventListener('notificationclick', function(event) {
   const urlToOpen = buildPushEntryUrl(targetPath);
 
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
-      for (let i = 0; i < windowClients.length; i++) {
-        const client = windowClients[i];
-        if (!client.url.startsWith(self.location.origin)) {
-          continue;
-        }
+    savePendingPushTarget(targetPath)
+      .catch(error => {
+        console.warn('Failed to save pending push notification target:', error);
+      })
+      .then(() => clients.matchAll({ type: 'window', includeUncontrolled: true }))
+      .then(windowClients => {
+        for (let i = 0; i < windowClients.length; i++) {
+          const client = windowClients[i];
+          if (!client.url.startsWith(self.location.origin)) {
+            continue;
+          }
 
-        if (client.url === urlToOpen && 'focus' in client) {
+          if (client.url === urlToOpen && 'focus' in client) {
+            return focusAndNotifyClient(client, targetPath);
+          }
+
+          if (typeof client.navigate === 'function') {
+            return client.navigate(urlToOpen)
+              .catch(() => client)
+              .then(navigatedClient => {
+                return focusAndNotifyClient(navigatedClient || client, targetPath);
+              });
+          }
+
           return focusAndNotifyClient(client, targetPath);
         }
 
-        if (typeof client.navigate === 'function') {
-          return client.navigate(urlToOpen)
-            .catch(() => client)
-            .then(navigatedClient => {
-              return focusAndNotifyClient(navigatedClient || client, targetPath);
-            });
+        if (clients.openWindow) {
+          return clients.openWindow(urlToOpen)
+            .then(client => focusAndNotifyClient(client, targetPath));
         }
-
-        return focusAndNotifyClient(client, targetPath);
-      }
-
-      if (clients.openWindow) {
-        return clients.openWindow(urlToOpen)
-          .then(client => focusAndNotifyClient(client, targetPath));
-      }
-    })
+      })
   );
 });

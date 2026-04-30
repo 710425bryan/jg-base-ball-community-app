@@ -24,7 +24,7 @@ description: "Push notification workflow for jg-base-ball-community-app. Use whe
 - 同一事件若可能從表單、Realtime、重試或多個入口觸發，必須提供穩定 `eventKey`。
 - 讓 `send-push-notification` 與 `push_dispatch_events` 負責 dedupe，不要在各入口各做一套。
 - 排程型通知可用專屬 Edge Function，但仍必須寫入 `push_dispatch_events`，並確認 `get_notification_feed()` 可顯示對應 source。
-- 通知 click deep link 不可只靠單一 hash 或 search。`public/push-sw.js` 必須同時帶 `?push_target=...` 與 `#/push-entry?target=...`，並用 service worker `postMessage` 通知已開啟的 client；前端統一透過 `src/utils/pushDeepLink.ts` 正規化 target。
+- 通知 click deep link 不可只靠單一 hash、search 或 `postMessage`。`public/push-sw.js` 必須先寫 IndexedDB `jg-baseball-push-deeplink/pendingTargets/latest`，再同時帶 `?push_target=...` 與 `#/push-entry?target=...`，並用 service worker `postMessage` 通知已開啟的 client；前端統一透過 `src/utils/pushDeepLink.ts` 正規化與 consume target。
 - 賽事提醒或舊 `/match-records?match_id=...` 連結都要導到 `/calendar?match_id=...`，讓「賽程與行事曆」負責開啟比賽詳情 dialog。
 
 ## 工作流程
@@ -40,7 +40,7 @@ description: "Push notification workflow for jg-base-ball-community-app. Use whe
 - 讓 Edge Function 清理 404/410 的過期 subscription。
 - 保留 provider 統計與 summary 回傳格式，方便後續追蹤。
 - 改到通知規則時，一併檢查有沒有可能出現重複推播或漏發情境。
-- 改到 click target 時，同步檢查 `public/push-sw.js`、`src/main.ts`、`src/views/PushEntryView.vue`、`src/composables/useNotificationFeed.ts` 與 `src/utils/pushDeepLink.ts`。
+- 改到 click target 時，同步檢查 `public/push-sw.js`、`src/main.ts`、`src/views/PushEntryView.vue`、`src/composables/useNotificationFeed.ts`、`src/utils/pushDeepLink.ts` 與 `vite.config.ts` 的 `workbox.importScripts` 版本參數。
 
 ## 驗證
 

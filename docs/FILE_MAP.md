@@ -18,7 +18,7 @@
 | `src/router/index.ts` | 路由、登入 guard、feature guard | 保留 `createWebHashHistory()` 與 chunk reload fallback |
 | `src/services/supabase.ts` | Supabase client | 保留手機休眠 token refresh 保護 |
 | `vite.config.ts` | Vite / PWA / version plugin | 一般功能開發不改 version 行為 |
-| `public/push-sw.js` | Web Push service worker click / payload handler | click target 必須保留 iOS PWA deep link fallback |
+| `public/push-sw.js` | Web Push service worker click / payload handler | click target 必須先寫 IndexedDB pending target，保留 iOS PWA deep link fallback |
 | `src/style.css` | 全域 CSS 與共用 UI class | `AppPageHeader`、page title、dialog 手機滿版規則在這裡 |
 
 ## 2. AI 與文件
@@ -92,7 +92,7 @@
 | `src/utils/appUpdate.ts` | app shell refresh 與目前路徑處理 |
 | `src/utils/playerSync.ts` | Google Form / Sheet 球員同步、dedupe、保護欄位 |
 | `src/utils/pushNotifications.ts` | 前端推播派送、event key helper |
-| `src/utils/pushDeepLink.ts` | Web Push 點擊 target 正規化、iOS PWA deep link fallback |
+| `src/utils/pushDeepLink.ts` | Web Push 點擊 target 正規化、IndexedDB pending target、iOS PWA deep link fallback |
 | `src/utils/trainingRegistrationNotification.ts` | 特訓報名開始通知文案、URL、event key |
 | `src/utils/googleCalendarParser.ts` | Google Calendar / iCal parser 與同步規劃 |
 | `src/utils/equipmentInventory.ts` | 裝備庫存計算 |

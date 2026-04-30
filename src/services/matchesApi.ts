@@ -2,6 +2,7 @@ import { supabase } from './supabase'
 import type { MatchRecord, MatchRecordInput } from '../types/match'
 
 let supportsGoogleCalendarEventIdColumn: boolean | null = null
+let supportsVideoUrlColumn: boolean | null = null
 
 const MATCH_RECORD_SELECT = `
   id,
@@ -21,6 +22,7 @@ const MATCH_RECORD_SELECT = `
   absent_players,
   note,
   photo_url,
+  video_url,
   lineup,
   current_lineup,
   inning_logs,
@@ -62,22 +64,25 @@ const MATCH_SUMMARY_SELECT = `
   coaches,
   players,
   photo_url,
+  video_url,
   created_at,
   updated_at
 `
 
-const MATCH_RECORD_SELECT_WITHOUT_SYNC_COLUMN = MATCH_RECORD_SELECT.replace('  google_calendar_event_id,\n', '')
-const MATCH_SUMMARY_SELECT_WITHOUT_SYNC_COLUMN = MATCH_SUMMARY_SELECT.replace('  google_calendar_event_id,\n', '')
+const applyOptionalColumnFallbacks = (select: string) => {
+  let normalizedSelect = select
+  if (supportsGoogleCalendarEventIdColumn === false) {
+    normalizedSelect = normalizedSelect.replace('  google_calendar_event_id,\n', '')
+  }
+  if (supportsVideoUrlColumn === false) {
+    normalizedSelect = normalizedSelect.replace('  video_url,\n', '')
+  }
+  return normalizedSelect
+}
 
-const getMatchRecordSelect = () =>
-  supportsGoogleCalendarEventIdColumn === false
-    ? MATCH_RECORD_SELECT_WITHOUT_SYNC_COLUMN
-    : MATCH_RECORD_SELECT
+const getMatchRecordSelect = () => applyOptionalColumnFallbacks(MATCH_RECORD_SELECT)
 
-const getMatchSummarySelect = () =>
-  supportsGoogleCalendarEventIdColumn === false
-    ? MATCH_SUMMARY_SELECT_WITHOUT_SYNC_COLUMN
-    : MATCH_SUMMARY_SELECT
+const getMatchSummarySelect = () => applyOptionalColumnFallbacks(MATCH_SUMMARY_SELECT)
 
 const normalizeMatchRecord = (row: any): MatchRecord => ({
   ...row,
@@ -89,52 +94,84 @@ const normalizeMatchRecord = (row: any): MatchRecord => ({
   pitching_stats: Array.isArray(row?.pitching_stats) ? row.pitching_stats : []
 })
 
-const isMissingGoogleCalendarEventIdError = (error: any) => {
+const isMissingColumnError = (error: any, column: string) => {
   const message = String(error?.message || '')
-  return message.includes('google_calendar_event_id') && (
+  return message.includes(column) && (
     message.includes('schema cache') ||
     message.includes('does not exist')
   )
 }
 
-const stripGoogleCalendarEventId = <T extends Partial<MatchRecordInput>>(payload: T): Omit<T, 'google_calendar_event_id'> => {
-  const { google_calendar_event_id: _ignored, ...rest } = payload
-  return rest
+const markMissingOptionalColumns = (error: any) => {
+  let hasMissingColumn = false
+
+  if (isMissingColumnError(error, 'google_calendar_event_id')) {
+    supportsGoogleCalendarEventIdColumn = false
+    hasMissingColumn = true
+  }
+
+  if (isMissingColumnError(error, 'video_url')) {
+    supportsVideoUrlColumn = false
+    hasMissingColumn = true
+  }
+
+  return hasMissingColumn
 }
 
-const withGoogleCalendarColumnFallback = async <T>(
+const stripUnsupportedColumns = <T extends Partial<MatchRecordInput>>(payload: T): Partial<MatchRecordInput> => {
+  const normalizedPayload: Partial<MatchRecordInput> = { ...payload }
+  if (supportsGoogleCalendarEventIdColumn === false) {
+    delete normalizedPayload.google_calendar_event_id
+  }
+  if (supportsVideoUrlColumn === false) {
+    delete normalizedPayload.video_url
+  }
+  return normalizedPayload
+}
+
+const markSupportedColumnsFromPayload = (payload: Partial<MatchRecordInput>) => {
+  if ('google_calendar_event_id' in payload) {
+    supportsGoogleCalendarEventIdColumn = true
+  }
+  if ('video_url' in payload) {
+    supportsVideoUrlColumn = true
+  }
+}
+
+const withOptionalColumnFallback = async <T>(
   payload: Partial<MatchRecordInput>,
   run: (normalizedPayload: Partial<MatchRecordInput>) => Promise<{ data: T | null; error: any }>
 ) => {
-  const initialPayload = supportsGoogleCalendarEventIdColumn === false
-    ? stripGoogleCalendarEventId(payload)
-    : payload
+  const initialPayload = stripUnsupportedColumns(payload)
 
   let { data, error } = await run(initialPayload)
 
-  if (error && isMissingGoogleCalendarEventIdError(error)) {
-    supportsGoogleCalendarEventIdColumn = false
-    console.warn('matches.google_calendar_event_id is unavailable; retrying without the sync column.')
-    ;({ data, error } = await run(stripGoogleCalendarEventId(payload)))
-  } else if (!error && 'google_calendar_event_id' in payload) {
-    supportsGoogleCalendarEventIdColumn = true
+  if (error && markMissingOptionalColumns(error)) {
+    console.warn('One or more optional matches columns are unavailable; retrying without them.')
+    ;({ data, error } = await run(stripUnsupportedColumns(payload)))
+  } else if (!error) {
+    markSupportedColumnsFromPayload(payload)
   }
 
   if (error) throw error
   return data as T
 }
 
-const withGoogleCalendarSelectFallback = async <T>(
+const withOptionalSelectFallback = async <T>(
   run: () => Promise<{ data: T | null; error: any }>
 ) => {
   let { data, error } = await run()
 
-  if (error && isMissingGoogleCalendarEventIdError(error)) {
-    supportsGoogleCalendarEventIdColumn = false
-    console.warn('matches.google_calendar_event_id is unavailable; retrying select without the sync column.')
+  if (error && markMissingOptionalColumns(error)) {
+    console.warn('One or more optional matches columns are unavailable; retrying select without them.')
     ;({ data, error } = await run())
   } else if (!error) {
-    supportsGoogleCalendarEventIdColumn = true
+    if (supportsGoogleCalendarEventIdColumn !== false) {
+      supportsGoogleCalendarEventIdColumn = true
+    }
+    if (supportsVideoUrlColumn !== false) {
+      supportsVideoUrlColumn = true
+    }
   }
 
   if (error) throw error
@@ -147,7 +184,7 @@ export const matchesApi = {
   },
 
   async listMatchesForAdmin() {
-    const data = await withGoogleCalendarSelectFallback<any[]>(async () =>
+    const data = await withOptionalSelectFallback<any[]>(async () =>
       await supabase
         .from('matches')
         .select(getMatchRecordSelect())
@@ -159,7 +196,7 @@ export const matchesApi = {
   },
 
   async listUpcomingMatches(limit = 8, fromDate?: string | null) {
-    const data = await withGoogleCalendarSelectFallback<any[]>(async () =>
+    const data = await withOptionalSelectFallback<any[]>(async () =>
       await supabase
         .from('matches')
         .select(getMatchSummarySelect())
@@ -173,7 +210,7 @@ export const matchesApi = {
   },
 
   async listRecentMatches(limit = 4, beforeDate?: string | null) {
-    const data = await withGoogleCalendarSelectFallback<any[]>(async () =>
+    const data = await withOptionalSelectFallback<any[]>(async () =>
       await supabase
         .from('matches')
         .select(getMatchSummarySelect())
@@ -187,7 +224,7 @@ export const matchesApi = {
   },
 
   async getMatch(id: string) {
-    const data = await withGoogleCalendarSelectFallback<any>(async () =>
+    const data = await withOptionalSelectFallback<any>(async () =>
       await supabase
         .from('matches')
         .select(getMatchRecordSelect())
@@ -199,7 +236,7 @@ export const matchesApi = {
   },
 
   async createMatch(match: MatchRecordInput) {
-    return withGoogleCalendarColumnFallback(match, async (normalizedMatch) => {
+    return withOptionalColumnFallback(match, async (normalizedMatch) => {
       const { data, error } = await supabase
         .from('matches')
         .insert([normalizedMatch])
@@ -214,7 +251,7 @@ export const matchesApi = {
   },
 
   async updateMatch(id: string, updates: Partial<MatchRecordInput>) {
-    return withGoogleCalendarColumnFallback(updates, async (normalizedUpdates) => {
+    return withOptionalColumnFallback(updates, async (normalizedUpdates) => {
       const { data, error } = await supabase
         .from('matches')
         .update(normalizedUpdates)

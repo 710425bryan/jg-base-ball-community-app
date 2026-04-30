@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
-import { Trophy, Location, Calendar, Position, Avatar, WarnTriangleFilled, ArrowLeft, ArrowRight, Delete, Edit, Document, Timer, DataAnalysis } from '@element-plus/icons-vue'
+import { Trophy, Location, Calendar, Position, Avatar, WarnTriangleFilled, ArrowLeft, ArrowRight, Delete, Edit, Document, Timer, DataAnalysis, VideoCamera } from '@element-plus/icons-vue'
 import { useMatchesStore } from '@/stores/matches'
 import type { MatchRecord } from '@/types/match'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import VisualField from '@/components/match-records/VisualField.vue'
+import { normalizeExternalUrl } from '@/utils/externalUrl'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -61,6 +62,8 @@ const matchDateLabel = computed(() => {
   if (!matchData.value?.match_date) return '未設定日期'
   return dayjs(matchData.value.match_date).format('YYYY年M月D日')
 })
+
+const videoUrl = computed(() => normalizeExternalUrl(matchData.value?.video_url))
 
 const handleDelete = async () => {
   if (!matchData.value) return
@@ -247,6 +250,18 @@ const pitchingTeamStats = computed(() => {
                    <div v-if="matchData.players" class="flex flex-col">
                      <span class="text-gray-500 font-bold text-xs mb-1">出賽名單</span>
                      <span class="text-gray-800 font-medium leading-relaxed">{{ matchData.players }}</span>
+                   </div>
+                   <div v-if="videoUrl" class="flex flex-col">
+                     <span class="text-gray-500 font-bold text-xs mb-1">比賽影片</span>
+                     <a
+                       :href="videoUrl"
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       class="inline-flex w-fit items-center gap-1.5 rounded-lg border border-sky-100 bg-sky-50 px-3 py-2 text-xs font-black text-sky-700 transition-colors hover:border-sky-200 hover:bg-sky-100"
+                     >
+                       <el-icon class="text-sm"><VideoCamera /></el-icon>
+                       <span>觀看影片</span>
+                     </a>
                    </div>
                    <div v-if="matchData.absent_players?.length" class="flex flex-col">
                      <span class="text-gray-500 font-bold text-xs mb-1">請假球員</span>

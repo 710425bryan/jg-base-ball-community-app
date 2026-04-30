@@ -15,6 +15,8 @@ const getPackageVersion = () => {
   }
 }
 
+const appVersion = getPackageVersion()
+
 const versionUpdatePlugin = () => {
   return {
     name: 'version-update-plugin',
@@ -44,7 +46,7 @@ const versionUpdatePlugin = () => {
 // https://vitejs.dev/config/
 export default defineConfig({
   define: {
-    __APP_VERSION__: JSON.stringify(getPackageVersion())
+    __APP_VERSION__: JSON.stringify(appVersion)
   },
   plugins: [
     vue(),
@@ -59,7 +61,7 @@ export default defineConfig({
         enabled: true
       },
       workbox: {
-        importScripts: ['/push-sw.js'],
+        importScripts: [`/push-sw.js?v=${appVersion}`],
         navigateFallbackDenylist: [/^\/version\.json/]
       },
       manifest: {

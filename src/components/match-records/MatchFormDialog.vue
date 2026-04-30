@@ -91,6 +91,7 @@ const formData = ref<MatchRecordInput>({
   players: '',
   note: '',
   photo_url: '',
+  video_url: '',
   absent_players: [],
   lineup: [],
   current_lineup: [],
@@ -179,6 +180,7 @@ const initForm = async () => {
         inning_logs: cloneInningLogs(data.inning_logs),
         batting_stats: cloneBattingStats(data.batting_stats),
         pitching_stats: clonePitchingStats(data.pitching_stats),
+        video_url: data.video_url || '',
         current_batter_name: data.current_batter_name || '',
         current_inning: data.current_inning || '一上',
         current_b: normalizeNumber(data.current_b),
@@ -213,6 +215,7 @@ const initForm = async () => {
       players: '',
       note: '',
       photo_url: '',
+      video_url: '',
       absent_players: [],
       lineup,
       current_lineup: cloneLineup(lineup),
@@ -998,6 +1001,7 @@ const handleSave = async () => {
     }
     formData.value.line_score_data = cloneLineScoreData(formData.value.line_score_data)
     formData.value.tournament_name = formData.value.tournament_name?.trim() || null
+    formData.value.video_url = formData.value.video_url?.trim() || ''
     sortInningLogs()
 
     if (props.mode === 'add') {
@@ -1170,6 +1174,12 @@ const handlePhotoUpload = async (event: Event) => {
                <div>
                  <label class="text-xs font-bold text-gray-500 mb-1 block">地點</label>
                  <el-input v-model="formData.location" placeholder="例如: 櫻花棒球場" class="!w-full" size="large" />
+               </div>
+               <div>
+                 <label class="text-xs font-bold text-gray-500 mb-1 block">影片連結</label>
+                 <el-input v-model="formData.video_url" type="url" placeholder="例如: https://www.youtube.com/watch?v=..." class="!w-full" size="large" clearable>
+                   <template #prepend>URL</template>
+                 </el-input>
                </div>
             </div>
 

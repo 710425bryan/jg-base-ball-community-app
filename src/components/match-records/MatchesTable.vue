@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { MatchRecord } from '@/types/match'
-import { Delete, Operation, DocumentCopy, Bell } from '@element-plus/icons-vue'
+import { Delete, Operation, DocumentCopy, Bell, VideoCamera } from '@element-plus/icons-vue'
+import { normalizeExternalUrl } from '@/utils/externalUrl'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 
@@ -27,12 +28,14 @@ const getResultTag = (m: MatchRecord) => {
 }
 
 const copyMatchInfo = (m: MatchRecord) => {
+  const videoUrl = normalizeExternalUrl(m.video_url)
   const text = `
 🏆 賽事：${m.match_name}
 📅 日期：${m.match_date} ${m.match_time}
 📍 地點：${m.location || '未定'}
 🆚 對戰：中港熊戰 vs ${m.opponent}
 📋 組別：${m.category_group || '-'} / ${m.match_level || '-'}
+${videoUrl ? `🎥 影片：${videoUrl}` : ''}
   `.trim()
   
   navigator.clipboard.writeText(text).then(() => {
@@ -45,6 +48,12 @@ const copyMatchInfo = (m: MatchRecord) => {
 const handleNotifyLine = (m: MatchRecord) => {
   // Mock notify
   ElMessage.success(`已發送推播通知：${m.match_name}`)
+}
+
+const openVideo = (url?: string | null) => {
+  const videoUrl = normalizeExternalUrl(url)
+  if (!videoUrl) return
+  window.open(videoUrl, '_blank', 'noopener,noreferrer')
 }
 </script>
 
@@ -118,6 +127,11 @@ const handleNotifyLine = (m: MatchRecord) => {
              <el-tooltip content="複製賽程" placement="top">
                <el-button @click.stop="copyMatchInfo(row)" circle size="small" class="!border-none hover:!bg-green-50 hover:!text-green-600 text-gray-400">
                  <el-icon><DocumentCopy /></el-icon>
+               </el-button>
+             </el-tooltip>
+             <el-tooltip v-if="normalizeExternalUrl(row.video_url)" content="觀看影片" placement="top">
+               <el-button @click.stop="openVideo(row.video_url)" circle size="small" class="!border-none hover:!bg-sky-50 hover:!text-sky-600 text-gray-400">
+                 <el-icon><VideoCamera /></el-icon>
                </el-button>
              </el-tooltip>
              <el-tooltip v-if="props.canEdit !== false" content="編輯" placement="top">

@@ -45,7 +45,7 @@ vi.mock('./supabase', () => ({
   }
 }))
 
-describe('matchesApi google calendar column fallback', () => {
+describe('matchesApi optional column fallback', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
@@ -169,5 +169,93 @@ describe('matchesApi google calendar column fallback', () => {
     expect(updateMock).toHaveBeenCalledWith({
       match_name: '春季聯賽更新'
     })
+  })
+
+  it('retries upcoming match selects without video_url when the column is unavailable', async () => {
+    listLimitMock
+      .mockResolvedValueOnce({
+        data: null,
+        error: {
+          message: 'column matches.video_url does not exist'
+        }
+      })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            id: 'match-1',
+            match_name: '春季聯賽',
+            opponent: '華興小學',
+            match_date: '2026-04-30',
+            match_time: '08:00 - 09:30',
+            home_score: 0,
+            opponent_score: 0
+          }
+        ],
+        error: null
+      })
+
+    const { matchesApi } = await import('./matchesApi')
+    await matchesApi.listUpcomingMatches(8, '2026-04-30')
+
+    expect(listSelectMock).toHaveBeenNthCalledWith(1, expect.stringContaining('video_url'))
+    expect(listSelectMock).toHaveBeenNthCalledWith(2, expect.not.stringContaining('video_url'))
+  })
+
+  it('retries create without video_url when the column is unavailable', async () => {
+    createSingleMock
+      .mockResolvedValueOnce({
+        data: null,
+        error: {
+          message: "Could not find the 'video_url' column of 'matches' in the schema cache"
+        }
+      })
+      .mockResolvedValueOnce({
+        data: {
+          id: 'match-1',
+          match_name: '春季聯賽',
+          opponent: '華興小學',
+          match_date: '2026-03-28',
+          match_time: '08:00 - 09:30',
+          home_score: 0,
+          opponent_score: 0,
+          absent_players: [],
+          lineup: [],
+          inning_logs: [],
+          batting_stats: []
+        },
+        error: null
+      })
+
+    const { matchesApi } = await import('./matchesApi')
+
+    await matchesApi.createMatch({
+      match_name: '春季聯賽',
+      opponent: '華興小學',
+      match_date: '2026-03-28',
+      match_time: '08:00 - 09:30',
+      location: '迪化壘球場',
+      category_group: 'U12',
+      match_level: '一級',
+      home_score: 0,
+      opponent_score: 0,
+      coaches: '',
+      players: '',
+      note: '',
+      photo_url: '',
+      video_url: 'youtube.com/watch?v=match-1',
+      absent_players: [],
+      lineup: [],
+      inning_logs: [],
+      batting_stats: []
+    })
+
+    expect(createInsertMock).toHaveBeenNthCalledWith(
+      1,
+      [expect.objectContaining({ video_url: 'youtube.com/watch?v=match-1' })]
+    )
+    expect(createInsertMock).toHaveBeenNthCalledWith(
+      2,
+      [expect.not.objectContaining({ video_url: expect.anything() })]
+    )
   })
 })

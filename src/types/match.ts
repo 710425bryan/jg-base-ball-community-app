@@ -94,6 +94,7 @@ export interface MatchRecord {
   absent_players: AbsentPlayer[];
   note?: string;
   photo_url?: string;
+  video_url?: string | null;
   lineup: LineupEntry[];
   current_lineup?: LineupEntry[];
   inning_logs: InningLog[];

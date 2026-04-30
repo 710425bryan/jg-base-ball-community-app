@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { MatchRecord } from '@/types/match'
-import { Calendar, Delete, Location, Operation, Trophy } from '@element-plus/icons-vue'
+import { Calendar, Delete, Location, Operation, Trophy, VideoCamera } from '@element-plus/icons-vue'
+import { normalizeExternalUrl } from '@/utils/externalUrl'
 import dayjs from 'dayjs'
 
 const UNKNOWN_MONTH_KEY = '__unknown__'
@@ -170,6 +171,18 @@ const formatMatchDate = (date?: string) => {
             <div class="flex flex-wrap gap-1.5">
               <span v-if="match.category_group" class="rounded-md border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-[10px] font-black text-indigo-700">{{ match.category_group }}</span>
               <span v-if="match.match_level" class="rounded-md border border-orange-200 bg-orange-100/80 px-2 py-0.5 text-[10px] font-black text-orange-800">{{ match.match_level }}</span>
+              <a
+                v-if="normalizeExternalUrl(match.video_url)"
+                :href="normalizeExternalUrl(match.video_url)"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center gap-1 rounded-md border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-black text-sky-700 transition-colors hover:bg-sky-100"
+                title="觀看比賽影片"
+                @click.stop
+              >
+                <el-icon class="text-xs"><VideoCamera /></el-icon>
+                <span>影片</span>
+              </a>
             </div>
 
             <a
