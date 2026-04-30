@@ -938,7 +938,7 @@ onMounted(() => {
                       <div class="flex items-start justify-between gap-2">
                         <div class="min-w-0">
                           <h4 class="truncate font-black text-slate-800">{{ equipment.name }}</h4>
-                          <p class="mt-1 line-clamp-1 text-xs text-gray-400">{{ equipment.specs || equipment.notes || '無額外規格說明' }}</p>
+                          <p class="mt-1 whitespace-pre-line break-words text-xs leading-relaxed text-gray-400">{{ equipment.specs || equipment.notes || '無額外規格說明' }}</p>
                         </div>
                         <span
                           class="shrink-0 rounded-full px-2 py-1 text-[11px] font-black"
