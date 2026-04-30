@@ -14,6 +14,7 @@ const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") || "";
 const OPENAI_TRANSCRIBE_MODEL = Deno.env.get("OPENAI_TRANSCRIBE_MODEL") || "gpt-4o-transcribe";
 const OPENAI_MATCH_AUDIO_LOG_MODEL = Deno.env.get("OPENAI_MATCH_AUDIO_LOG_MODEL") || "gpt-5.4-mini";
 const MAX_TRANSCRIPTION_FILE_BYTES = 24 * 1024 * 1024;
+const NO_SPEECH_TRANSCRIPT = "[[NO_SPEECH]]";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -114,26 +115,37 @@ const sanitizeRoster = (value: unknown): MatchAudioRosterPlayer[] => {
     .slice(0, 60);
 };
 
-const buildTranscriptionPrompt = () => {
+const buildTranscriptionPrompt = (metadata: any, roster: MatchAudioRosterPlayer[]) => {
+  const rosterText = roster.map((player) => `${player.name}${player.number ? ` #${player.number}` : ""}`).join("、");
+
   return [
-    "請只轉錄音訊中實際、清楚聽到的人聲。",
-    "如果沒有清楚人聲、只有環境音、空白、摩擦聲或不確定內容，請回傳空字串。",
-    "不要補字、不要猜測、不要自行加入棒球術語、不要加入球員姓名。",
-    "請使用繁體中文。",
+    "請逐字轉錄這段錄音中的清楚人聲，使用繁體中文。",
+    `如果沒有清楚可辨識的人聲，或只有環境聲、風聲、音樂、球場噪音、空白，請只輸出 ${NO_SPEECH_TRANSCRIPT}。`,
+    "只轉錄實際聽到的內容；不要根據棒球比賽情境自行補出好壞球數、出局數、比分、安打、保送或球員動作。",
+    "以下只是協助辨識的棒球口令詞庫，不代表錄音一定有這些內容；只有實際清楚聽到才可以輸出：投出好球、投出壞球、界外球、揮空三振、保送、被安打、滾地出局、飛球出局、一好球、兩好一壞、兩好兩壞。",
+    "不要因為下方提供了半局與名單，就猜測任何逐局文字。",
+    `目前半局：${normalizeText(metadata?.inning) || "未知"}`,
+    `本場球員名單：${rosterText || "未提供"}`,
+    "只有在確實聽到球員姓名時，才可依本場球員名單修正同音或近似字。",
   ].join("\n");
 };
 
 const normalizeTranscriptForEmptyCheck = (value: string) =>
   normalizeText(value)
     .replace(/[，,。.!！?？、\s]/g, "")
+    .replace(/[\[\]_]/g, "")
     .replace(/[０-９]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 0xfee0))
     .replace(/一/g, "1")
 
 const isLikelyEmptyTranscription = (transcript: string) => {
+  if (normalizeText(transcript) === NO_SPEECH_TRANSCRIPT) return true
+
   const normalized = normalizeTranscriptForEmptyCheck(transcript)
   if (!normalized) return true
+  if (normalized === normalizeTranscriptForEmptyCheck(NO_SPEECH_TRANSCRIPT)) return true
 
   const knownSilenceHallucinations = new Set([
+    "NOSPEECH",
     "第1球",
     "1球",
     "第1局",
@@ -176,8 +188,8 @@ const transcribeBlob = async (file: Blob, filename: string, prompt: string) => {
   return normalizeText(data?.text);
 };
 
-const transcribeFiles = async (files: File[], metadata: any) => {
-  const prompt = buildTranscriptionPrompt();
+const transcribeFiles = async (files: File[], metadata: any, roster: MatchAudioRosterPlayer[]) => {
+  const prompt = buildTranscriptionPrompt(metadata, roster);
   const totalSize = files.reduce((sum, file) => sum + file.size, 0);
 
   if (files.length > 1 && totalSize <= MAX_TRANSCRIPTION_FILE_BYTES) {
@@ -348,7 +360,7 @@ serve(async (req) => {
     }
 
     const roster = sanitizeRoster(metadata?.roster);
-    const transcript = await transcribeFiles(files, metadata);
+    const transcript = await transcribeFiles(files, metadata, roster);
     const structuredResult = transcript
       ? await structureTranscript(transcript, metadata, roster)
       : { summary: "", warnings: ["音訊沒有轉出可用文字"], events: [] };
