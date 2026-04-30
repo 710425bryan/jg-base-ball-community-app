@@ -19,6 +19,18 @@ const normalizeTargetPath = (rawTarget) => {
     return '/dashboard';
   }
 
+  try {
+    const targetUrl = new URL(nextTarget, self.location.origin);
+    if (targetUrl.origin === self.location.origin && targetUrl.pathname === '/match-records') {
+      const matchId = targetUrl.searchParams.get('match_id');
+      if (matchId) {
+        return '/calendar?match_id=' + encodeURIComponent(matchId);
+      }
+    }
+  } catch (e) {
+    // Fall through and let the app handle the original target.
+  }
+
   return nextTarget;
 };
 

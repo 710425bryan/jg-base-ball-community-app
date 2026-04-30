@@ -391,22 +391,19 @@ const handleTogglePush = async (val: boolean | string | number) => {
       settingsForm.platform_label = platformLabel
 
       const { data, error } = await supabase
-        .from('web_push_subscriptions')
-        .upsert({
-          user_id: userId,
-          endpoint,
-          subscription: subJSON,
-          platform: platformLabel,
-          user_agent: navigator.userAgent,
-          enabled: true
-        }, {
-          onConflict: 'endpoint'
+        .rpc('upsert_my_web_push_subscription', {
+          p_endpoint: endpoint,
+          p_subscription: subJSON,
+          p_platform: platformLabel,
+          p_user_agent: navigator.userAgent,
+          p_enabled: true
         })
-        .select('id')
         .single()
 
       if (error) throw error
-      settingsForm.subscription_id = data.id
+
+      const savedSubscription = data as { id?: string } | null
+      settingsForm.subscription_id = savedSubscription?.id || ''
 
       ElMessage.success(`此裝置推播綁定成功${providerLabel ? `：${providerLabel}` : '！'}`)
     } catch (e: any) {

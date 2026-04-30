@@ -27,6 +27,18 @@ const normalizeTargetPath = (rawTarget: unknown) => {
     return '/dashboard'
   }
 
+  try {
+    const targetUrl = new URL(trimmedTarget, window.location.origin)
+    if (targetUrl.origin === window.location.origin && targetUrl.pathname === '/match-records') {
+      const matchId = targetUrl.searchParams.get('match_id')?.trim()
+      if (matchId) {
+        return `/calendar?match_id=${encodeURIComponent(matchId)}`
+      }
+    }
+  } catch {
+    // Keep the original target if it is not parseable as a URL.
+  }
+
   return trimmedTarget
 }
 
