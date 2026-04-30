@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { Calendar, InfoFilled, Location, Refresh } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
 import MatchDetailDialog from '@/components/match-records/MatchDetailDialog.vue'
 import { useMatchesStore } from '@/stores/matches'
@@ -12,6 +14,8 @@ import {
 } from '@/utils/dashboardHome'
 
 const matchesStore = useMatchesStore()
+const route = useRoute()
+const router = useRouter()
 const showParserInfo = ref(false)
 const selectedMatchId = ref<string | null>(null)
 const detailVisible = ref(false)
@@ -46,6 +50,41 @@ const openMatchDetail = (matchId: string) => {
   detailVisible.value = true
 }
 
+const getRouteMatchId = () => {
+  const rawMatchId = route.query.match_id
+  return typeof rawMatchId === 'string' ? rawMatchId.trim() : ''
+}
+
+const clearRouteMatchId = () => {
+  if (!route.query.match_id) return
+
+  const nextQuery = { ...route.query }
+  delete nextQuery.match_id
+  void router.replace({ query: nextQuery })
+}
+
+const openMatchFromRoute = async () => {
+  const routeMatchId = getRouteMatchId()
+  if (!routeMatchId) return
+
+  activeScheduleTab.value = 'upcoming'
+
+  try {
+    if (!matchesStore.matches.some((match) => match.id === routeMatchId)) {
+      await matchesStore.fetchMatch(routeMatchId)
+    }
+
+    selectedMatchId.value = routeMatchId
+    detailVisible.value = true
+  } catch (error) {
+    console.warn('Failed to open match from calendar route:', error)
+    selectedMatchId.value = null
+    detailVisible.value = false
+    ElMessage.warning('找不到這筆比賽資料')
+    clearRouteMatchId()
+  }
+}
+
 const formatMatchDate = (match: MatchRecord) => {
   const start = getDashboardMatchStart(match)
   if (!start) return match.match_date
@@ -70,8 +109,29 @@ const getMapsHref = (location?: string | null) => {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(normalized)}`
 }
 
+const initializeCalendar = async () => {
+  try {
+    await fetchMatches()
+  } finally {
+    await openMatchFromRoute()
+  }
+}
+
 onMounted(() => {
-  void fetchMatches()
+  void initializeCalendar()
+})
+
+watch(
+  () => route.query.match_id,
+  () => {
+    void openMatchFromRoute()
+  }
+)
+
+watch(detailVisible, (visible) => {
+  if (!visible) {
+    clearRouteMatchId()
+  }
 })
 </script>
 

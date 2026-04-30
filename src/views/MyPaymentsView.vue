@@ -85,6 +85,8 @@
             </p>
           </section>
 
+          <PaymentAccountInfoCard />
+
           <div v-if="selectedMember" class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <section class="bg-white rounded-3xl border border-gray-100 shadow-sm p-5">
               <div class="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">當前成員</div>
@@ -106,7 +108,7 @@
             </section>
 
             <section class="bg-white rounded-3xl border border-gray-100 shadow-sm p-5">
-              <div class="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">常用匯款資訊</div>
+              <div class="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">我的常用回報資訊</div>
               <div class="mt-3 text-xl font-black text-slate-800">
                 {{ authStore.profile?.preferred_payment_method || '尚未設定' }}
               </div>
@@ -324,6 +326,8 @@
           </el-form-item>
         </div>
 
+        <PaymentAccountInfoCard compact class="mb-4" />
+
         <div class="grid gap-4 sm:grid-cols-2">
           <el-form-item label="匯款方式" prop="payment_method" class="font-bold">
             <el-select
@@ -414,6 +418,7 @@ import { Wallet } from '@element-plus/icons-vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
 import MyEquipmentPaymentsPanel from '@/components/equipment/MyEquipmentPaymentsPanel.vue'
+import PaymentAccountInfoCard from '@/components/payments/PaymentAccountInfoCard.vue'
 import {
   createMyPaymentSubmission,
   getMyPaymentRecords,

@@ -4,6 +4,7 @@ import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 import { useRoute } from 'vue-router'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
+import PaymentAccountInfoCard from '@/components/payments/PaymentAccountInfoCard.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useEquipmentPaymentsStore } from '@/stores/equipmentPayments'
 import {
@@ -392,6 +393,8 @@ watch(() => route.query.highlight_transaction_id, () => {
         <div class="text-xs font-bold uppercase tracking-[0.16em] text-primary/70">回報金額</div>
         <div class="mt-2 text-2xl font-black text-primary">{{ formatCurrency(selectedTotal) }}</div>
       </div>
+
+      <PaymentAccountInfoCard compact class="mb-4" />
 
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top" class="space-y-4">
         <div class="grid gap-4 sm:grid-cols-2">

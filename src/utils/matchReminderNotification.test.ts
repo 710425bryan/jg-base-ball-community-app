@@ -62,6 +62,6 @@ describe('matchReminderNotification', () => {
     const match = buildMatch()
 
     expect(buildMatchReminderEventKey(match)).toBe('match_reminder:match-1:2026-05-02')
-    expect(buildMatchReminderUrl(match)).toBe('/match-records?match_id=match-1')
+    expect(buildMatchReminderUrl(match)).toBe('/calendar?match_id=match-1')
   })
 })

@@ -42,7 +42,7 @@ export const buildMatchReminderEventKey = (match: Pick<MatchRecord, 'id' | 'matc
   `match_reminder:${match.id}:${match.match_date}`
 
 export const buildMatchReminderUrl = (match: Pick<MatchRecord, 'id'>) =>
-  `/match-records?match_id=${encodeURIComponent(match.id)}`
+  `/calendar?match_id=${encodeURIComponent(match.id)}`
 
 export const buildMatchReminderTitle = (match: Pick<MatchRecord, 'match_name'>) =>
   `明日賽事提醒：${normalizeDisplayValue(match.match_name)}`

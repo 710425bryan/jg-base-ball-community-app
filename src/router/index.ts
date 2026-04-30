@@ -236,6 +236,13 @@ router.beforeEach(async (to, from, next) => {
         next()
       }
     } else if (!permissionsStore.can(feature, 'VIEW')) {
+      const routeMatchId = typeof to.query.match_id === 'string' ? to.query.match_id.trim() : ''
+
+      if (feature === 'matches' && routeMatchId) {
+        next({ path: '/calendar', query: { match_id: routeMatchId } })
+        return
+      }
+
       const alternateFeatures = Array.isArray(to.meta.alternateFeatures)
         ? to.meta.alternateFeatures
         : []
