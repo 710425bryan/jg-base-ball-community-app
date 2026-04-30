@@ -40,6 +40,7 @@
 | 球員名單、Google Form / Sheet 同步 | `jg-baseball-player-sync` | `src/utils/playerSync.ts`、`src/utils/playerSync.test.ts`、`PlayersView.vue` |
 | 推播、通知中心、eventKey、subscription | `jg-baseball-push-notifications` | `src/utils/pushNotifications.ts`、`supabase/functions/send-push-notification/*` |
 | Google Calendar / iCal 賽事同步 | `jg-baseball-match-calendar-sync` | `src/utils/googleCalendarParser.ts`、`src/services/matchesApi.ts`、`SyncCalendarDialog.vue` |
+| 特訓報名、球員點數、特訓點名 | `jg-baseball-training` | `src/views/TrainingView.vue`、`src/services/trainingApi.ts`、`src/utils/training.ts`、`supabase_training_points_migration.sql` |
 | 裝備管理、加購、庫存、裝備付款 | `jg-baseball-equipment-management` | `src/types/equipment.ts`、`src/services/equipmentApi.ts`、`src/stores/equipment*.ts`、`src/components/equipment/*` |
 | 棒球能力 / 體能測驗數據 | `jg-baseball-performance-data` | `src/services/performanceApi.ts`、`src/stores/performance.ts`、`src/components/performance/*` |
 | 節日主題、全站動畫、節日推播 | `jg-baseball-holiday-theme` | `src/composables/useHolidayTheme.ts`、`HolidayThemeSettingsView.vue`、`notify-holiday-theme/*` |
@@ -85,6 +86,7 @@
 - UI 文案以繁體中文為主，語氣貼近現有系統。
 - 頁面專屬邏輯留在 `views`；可重用 UI 放 `components`；可測試邏輯放 `utils` / `composables`；外部資料存取放 `services`。
 - 新增或調整型別時同步更新 `src/types/*` 與實際資料 normalize 流程。
+- 新增 route-level 頁面時，同步建立或更新該頁面的流程規則：至少更新 `AGENT.md`、`docs/PROJECT_LOGIC.md`、`docs/FILE_MAP.md`，若是新功能域或資料流複雜，還要新增 / 更新 `.codex/skills/<feature>/SKILL.md` 與 `AI_SKILLS.md`。
 - 修改前確認是否有使用者尚未提交的變更；不得 revert unrelated changes。
 - 不編輯 `dist/`、`dev-dist/`、`public/version.json`，除非任務就是建置輸出或 PWA 版本問題。
 
@@ -107,7 +109,7 @@
 登入後頁面掛在 `MainLayout`，父層 `meta.requiresAuth = true`。
 
 - 不需額外 feature 的登入頁：`/dashboard`、`/calendar`、`/profile`、`/my-payments`、`/equipment-addons`、`/my-leave-requests`。
-- 需要 `meta.feature` 的後台頁：`leave_requests`、`players`、`users`、`join_inquiries`、`announcements`、`holiday_theme_settings`、`attendance`、`matches`、`fees`、`baseball_ability`、`physical_tests`、`equipment`。
+- 需要 `meta.feature` 的後台頁：`leave_requests`、`players`、`users`、`join_inquiries`、`announcements`、`holiday_theme_settings`、`attendance`、`training`、`matches`、`fees`、`baseball_ability`、`physical_tests`、`equipment`。
 - `baseball_ability` 與 `physical_tests` 有 `allowLinkedMemberView` 例外：有綁定球員者可唯讀自己的資料；管理權限者可看全隊。
 - 無權限時導回 `/dashboard`。
 
@@ -164,6 +166,16 @@
 - `matchesApi` 保留 `google_calendar_event_id` 欄位缺失 / schema cache 尚未更新時的 fallback。
 - Google Calendar / iCal parsing 與同步規劃在 `src/utils/googleCalendarParser.ts`，UI 在 `SyncCalendarDialog.vue`。
 - 比賽紀錄相關元件在 `src/components/match-records/*`，照片使用 `matches-photos` bucket。
+
+### 特訓報名與球員點數
+
+- 特訓沿用 `matches.match_level = '特訓課'`，報名與點數資料集中在 `training_session_settings`、`training_registrations`、`player_point_transactions`、`training_no_show_blocks`。
+- 前端頁面為 `/training`，分為個人報名、教練管理、點數管理；資料存取皆走 `src/services/trainingApi.ts` 封裝的 security definer RPC。
+- `training` feature/actions：`VIEW / CREATE / EDIT / DELETE`；linked member 可進入 `/training` 看自己的點數與報名。教練管理與點數管理只給 `CREATE / EDIT / DELETE` 其中一種管理權限者，單純 `VIEW` 不顯示管理工具。
+- 報名開關由 DB 端檢查手動狀態與時間窗；個人端不可直接寫 raw table。
+- 教練可在沒有資料時建立特訓課與報名設定；新增特訓課預設上課時間 `09:00 - 11:00`、地點 `中港國小`，上課時間使用 Element Plus 時間範圍元件。
+- 點數管理支援大量發放：可依全隊、角色、組別快速選取，並套用常用點數 / 原因 preset；送出仍只呼叫 `grant_player_points(uuid[], integer, text)`，不可直接寫 `player_point_transactions`。
+- 特訓點名透過 `attendance_events.training_session_id` 串接；`缺席` 會建立下一場禁報，出席 / 請假會解除該次禁報。
 
 ### 收費與付款
 
@@ -274,5 +286,5 @@
 
 - 這份文件是專案現況規則，不是抽象模板。
 - 當路由、權限、資料流、migration、Edge Function、PWA 或重要 UI 規則改變時，要同步更新本檔、`docs/PROJECT_LOGIC.md`、`docs/FILE_MAP.md` 與對應 skill。
-- 新增功能域時，補上：路由、feature/action、主要檔案、資料表/RPC、RLS 邊界、驗證方式。
+- 新增 route-level 頁面或功能域時，補上：路由、feature/action、主要檔案、資料表/RPC、RLS 邊界、資料流、UI 入口、驗證方式，並建立或更新對應 skill；沒有對應 skill 時要新增一份，或在回報中說明為何併入既有 skill。
 - 若本檔變得過長，仍保留啟動流程、任務分類、安全邊界與功能地圖在本檔；細節可拆到 skill，但入口不能失去導航能力。

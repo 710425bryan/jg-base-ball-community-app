@@ -57,6 +57,7 @@ UI 約定：
 - `/announcements`：`announcements`
 - `/holiday-theme-settings`：`holiday_theme_settings`
 - `/attendance`、`/attendance/:id`：`attendance`
+- `/training`：`training`，linked member 可看個人報名與點數，管理工具需 `CREATE / EDIT / DELETE`
 - `/match-records`：`matches`
 - `/fees`：`fees`
 - `/equipment`：`equipment`
@@ -237,7 +238,43 @@ UI 約定：
 - 保留 `google_calendar_event_id` 欄位缺失時的 fallback。
 - 同步比對先用 `google_calendar_event_id`，再用日期 + 時間 + 標題 fallback。
 
-## 10. 收費與付款
+## 10. 特訓報名與球員點數
+
+主要檔案：
+
+- `src/views/TrainingView.vue`
+- `src/services/trainingApi.ts`
+- `src/types/training.ts`
+- `src/utils/training.ts`
+- `src/views/RollCallView.vue`
+
+主要資料：
+
+- `matches`：`match_level = '特訓課'` 作為特訓活動主體
+- `training_session_settings`
+- `training_registrations`
+- `player_point_transactions`
+- `training_no_show_blocks`
+- `attendance_events.training_session_id`
+
+資料流：
+
+- 家長 / 球員透過 `/training` 依 linked member 查看點數、可報名特訓與自己的報名狀態。
+- 教練在 `/training` 設定特訓報名時間窗、手動開關、名額與扣點數，並審核錄取 / 候補 / 未錄取；教練管理與點數管理只給 `training:CREATE / EDIT / DELETE` 任一管理權限者。
+- 沒有特訓資料時，教練可在報名設定內新增特訓課與 settings；新增特訓課預設上課時間 `09:00 - 11:00`、地點 `中港國小`，上課時間使用 Element Plus 時間範圍元件，送出仍存成 `matches.match_time` 字串。
+- 報名 RPC 會在 DB 端檢查 linked member、點數、禁報狀態、手動狀態與報名時間窗。
+- 錄取時保留點數；`process_training_session_automation()` 在上課當天對已錄取名單扣點，並用 idempotency key 避免重複扣。
+- 點數管理支援快速發放：可一鍵選全隊、角色、組別，套用常用點數 / 原因 preset；真正寫入仍統一呼叫 `grant_player_points(uuid[], integer, text)`，以交易紀錄追加方式建立流水帳。
+- 特訓點名單由 `create_training_attendance_event()` 建立，只列錄取球員；`缺席` 會建立下一場特訓禁報，改成出席 / 請假會解除該次禁報。
+
+重要規則：
+
+- 個人端不直接寫入 training raw table，新增 / 取消報名走 security definer RPC。
+- 一般成員或家長即使有 `training:VIEW`，也只看到個人報名 / 點數檢視，不可看到教練管理或點數發放工具。
+- 錄取名單公布後，登入使用者只能看到非敏感名單欄位。
+- 點數流水帳不可任意更新；加點、扣點、調整都新增 `player_point_transactions`。
+
+## 11. 收費與付款
 
 主要檔案：
 
@@ -269,7 +306,7 @@ UI 約定：
 - 修改付款或費用要檢查 sibling、primary payer、half price 相關規則。
 - 裝備付款回報在 `/my-payments` 與 `/fees?tab=equipment` 整合，但不要混入一般月費資料模型。
 
-## 11. 裝備管理與加購
+## 12. 裝備管理與加購
 
 主要檔案：
 
@@ -314,7 +351,7 @@ UI 約定：
 - 裝備圖片與處理照片可多張上傳，使用 `equipments` bucket，前端顯示需支援左右滑動。
 - 不要把來源專案的 `fee_records` 或月結模型搬進本專案。
 
-## 12. 棒球能力與體能測驗
+## 13. 棒球能力與體能測驗
 
 主要檔案：
 
@@ -348,7 +385,7 @@ UI 約定：
 - RPC 不得回傳敏感欄位。
 - 新增欄位需同步 table、RPC return shape、types、表單、列表、詳情頁與圖表設定。
 
-## 13. 節日主題
+## 14. 節日主題
 
 主要檔案：
 
@@ -376,7 +413,7 @@ UI 約定：
 - 手動補送 event key：`holiday_theme:manual:<activityId>:<requestKey>`。
 - 節日通知 feature/action：`holiday_theme:VIEW`。
 
-## 14. 推播與通知中心
+## 15. 推播與通知中心
 
 主要檔案：
 
@@ -406,7 +443,7 @@ UI 約定：
 - 不要把所有通知硬綁 `leave_requests`。
 - 多入口可能重複觸發的事件一定要有穩定 `eventKey`。
 
-## 15. PWA、版本與更新
+## 16. PWA、版本與更新
 
 主要檔案：
 
@@ -429,7 +466,7 @@ UI 約定：
 - 一般功能開發不手動改 `public/version.json`。
 - 修改 router / PWA / build 時要確認更新列與 chunk error recovery。
 
-## 16. 維護本文件
+## 17. 維護本文件
 
 下列情況需要同步更新本檔：
 

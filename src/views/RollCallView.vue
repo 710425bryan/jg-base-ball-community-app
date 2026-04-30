@@ -62,8 +62,8 @@
         <!-- Filter Tabs -->
         <div class="overflow-x-auto custom-scrollbar pb-1">
           <div class="flex gap-2">
-            <button 
-              v-for="filter in ['全部', '泰迪熊(小組)', '黑熊(中組)', '灰熊(大組)', '校隊']" 
+            <button
+              v-for="filter in rollCallFilters"
               :key="filter"
               @click="activeFilter = filter"
               class="px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-all border"
@@ -157,6 +157,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '@/services/supabase'
+import { trainingApi } from '@/services/trainingApi'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -168,8 +169,6 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const permissionsStore = usePermissionsStore()
-const hasAccess = computed(() => permissionsStore.can('attendance', 'EDIT'))
-const canDelete = computed(() => permissionsStore.can('attendance', 'EDIT'))
 
 const eventId = route.params.id as string
 const isLoading = ref(true)
@@ -179,6 +178,17 @@ const eventData = ref<any>(null)
 const playersList = ref<any[]>([])
 const searchQuery = ref('')
 const activeFilter = ref('全部') // 新增過濾器
+const rollCallFilters = ['全部', '拉拉熊(小組)', '暴力熊(大組)', '成灰熊(中組)', '校隊']
+const legacyTeamGroupRenames: Record<string, string> = {
+  '泰迪熊(小組)': '拉拉熊(小組)',
+  '灰熊(大組)': '暴力熊(大組)',
+  '黑熊(中組)': '成灰熊(中組)'
+}
+
+const normalizeTeamGroup = (teamGroup: unknown) => {
+  const group = typeof teamGroup === 'string' ? teamGroup.trim() : ''
+  return group ? legacyTeamGroupRenames[group] || group : group
+}
 
 const filteredPlayers = computed(() => {
   let result = playersList.value
@@ -202,10 +212,24 @@ const filteredPlayers = computed(() => {
   return result
 })
 
-const statusOptions = [
+const isTrainingEvent = computed(() => Boolean(eventData.value?.training_session_id))
+const hasAccess = computed(() =>
+  permissionsStore.can('attendance', 'EDIT') ||
+  (isTrainingEvent.value && permissionsStore.can('training', 'EDIT'))
+)
+const canDelete = computed(() =>
+  permissionsStore.can('attendance', 'DELETE') ||
+  (isTrainingEvent.value && permissionsStore.can('training', 'DELETE'))
+)
+
+const statusOptions = computed(() => [
+  ...(isTrainingEvent.value
+    ? [{ label: '待點', value: '待點名', bgClass: 'bg-gray-50', textClass: 'text-gray-500', icon: '⏳' }]
+    : []),
   { label: '出席', value: '出席', bgClass: 'bg-green-50', textClass: 'text-green-600', icon: '✅' },
-  { label: '請假', value: '請假', bgClass: 'bg-blue-50', textClass: 'text-blue-500', icon: '🏖️' }
-]
+  { label: '請假', value: '請假', bgClass: 'bg-blue-50', textClass: 'text-blue-500', icon: '🏖️' },
+  { label: '缺席', value: '缺席', bgClass: 'bg-red-50', textClass: 'text-red-500', icon: '❌' }
+])
 
 // 計算出席率
 const attendanceRate = computed(() => {
@@ -240,6 +264,12 @@ const flushChanges = async () => {
       .upsert(payloads, { onConflict: 'event_id,member_id' })
       
     if (error) throw error
+
+    if (isTrainingEvent.value) {
+      await Promise.all(entriesToSync.map(([memberId, status]) =>
+        trainingApi.applyAttendanceResult(eventId, memberId, status)
+      ))
+    }
   } catch (err: any) {
     console.error('Auto-sync failed', err)
     ElMessage.error('自動存檔失敗，請確認網路連線')
@@ -277,14 +307,38 @@ const fetchData = async () => {
     if (evError) throw evError
     eventData.value = evData
 
-    // 2. 取得所有球員 (從 team_members 去撈)
-    const { data: membersData, error: memberError } = await supabase
-      .from('team_members')
-      .select('id, name, avatar_url, role, jersey_number, status, team_group')
-      .in('role', ['球員', '校隊'])
-      .order('name')
-      
-    if (memberError) throw memberError
+    // 2. 取得球員。特訓點名只列錄取名單，一般點名列所有現役球員/校隊。
+    let membersData: any[] = []
+    if (evData.training_session_id) {
+      const { data: registrations, error: registrationError } = await supabase
+        .from('training_registrations')
+        .select('member_id')
+        .eq('session_id', evData.training_session_id)
+        .eq('status', 'selected')
+
+      if (registrationError) throw registrationError
+
+      const memberIds = (registrations || []).map((registration: any) => registration.member_id).filter(Boolean)
+      if (memberIds.length > 0) {
+        const { data: selectedMembers, error: selectedMemberError } = await supabase
+          .from('team_members_safe')
+          .select('id, name, avatar_url, role, jersey_number, status, team_group')
+          .in('id', memberIds)
+          .order('name')
+
+        if (selectedMemberError) throw selectedMemberError
+        membersData = selectedMembers || []
+      }
+    } else {
+      const { data: allMembers, error: memberError } = await supabase
+        .from('team_members')
+        .select('id, name, avatar_url, role, jersey_number, status, team_group')
+        .in('role', ['球員', '校隊'])
+        .order('name')
+
+      if (memberError) throw memberError
+      membersData = allMembers || []
+    }
 
     // 3. 取得當天的請假名單
     const { data: leavesData, error: leaveError } = await supabase
@@ -325,12 +379,13 @@ const fetchData = async () => {
       
       if (!status) {
         // 沒有點名紀錄時，判斷是否請假預設
-        status = '請假' // 預設請假
+        status = evData.training_session_id ? '待點名' : '請假'
         unrecordedMembers.push({ member_id: m.id, status })
       }
       
       return {
         ...m,
+        team_group: normalizeTeamGroup(m.team_group),
         status,
         hasOverlapLeave
       }

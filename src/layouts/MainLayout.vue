@@ -136,6 +136,7 @@
                   <el-dropdown-item @click="router.push('/profile')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">個人設定</el-dropdown-item>
                   <el-dropdown-item @click="router.push('/my-payments')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">繳費資訊</el-dropdown-item>
                   <el-dropdown-item v-if="canOpenEquipmentAddons" @click="router.push('/equipment-addons')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">裝備加購</el-dropdown-item>
+                  <el-dropdown-item v-if="canOpenTraining" @click="router.push('/training')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">特訓報名</el-dropdown-item>
                   <el-dropdown-item @click="router.push('/my-leave-requests')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">我的假單</el-dropdown-item>
                   <el-dropdown-item @click="openPushSettingsFromMenu" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">通知設定</el-dropdown-item>
                   <el-dropdown-item @click="handleSignOut" class="!rounded-lg !font-bold !text-red-500 hover:!text-red-600 !py-2.5" divided>登出</el-dropdown-item>
@@ -160,8 +161,8 @@
          role="button"
          :aria-disabled="isApplyingUpdate"
          @click="!isApplyingUpdate && refreshApp()"
-         class="flex-none h-11 overflow-hidden bg-[#D88F22] text-white text-xs sm:text-sm font-bold px-3 text-center flex items-center justify-center gap-2 transition-colors shadow-sm animate-fade-in-down relative z-[45]"
-         :class="isApplyingUpdate ? 'cursor-wait' : 'cursor-pointer hover:bg-[#b87a1d]'"
+         class="flex-none h-11 overflow-hidden bg-sky-600 text-white text-xs sm:text-sm font-bold px-3 text-center flex items-center justify-center gap-2 transition-colors shadow-[0_4px_16px_rgba(2,132,199,0.35)] animate-fade-in-down relative z-[45]"
+         :class="isApplyingUpdate ? 'cursor-wait' : 'cursor-pointer hover:bg-sky-700'"
          :title="isApplyingUpdate ? '正在套用最新版本' : '點擊以重新載入系統獲取最新功能'">
       <svg xmlns="http://www.w3.org/2000/svg" :class="['h-4 w-4 sm:h-5 sm:w-5', isApplyingUpdate ? 'animate-spin' : 'animate-bounce']" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -386,6 +387,11 @@ const hasLinkedTeamMembers = computed(() => {
   return Array.isArray(linkedIds) && linkedIds.length > 0
 });
 const canOpenEquipmentAddons = computed(() => permissionsStore.currentRole === 'ADMIN' || hasLinkedTeamMembers.value);
+const trainingManageActions = ['VIEW', 'CREATE', 'EDIT', 'DELETE'] as const;
+const canManageTraining = computed(() =>
+  trainingManageActions.some((action) => permissionsStore.can('training', action))
+);
+const canOpenTraining = computed(() => canManageTraining.value || hasLinkedTeamMembers.value);
 const isBasicMember = computed(() => authStore.profile?.role === 'MEMBER');
 const performanceManageActions = ['CREATE', 'EDIT', 'DELETE'] as const;
 const canManagePerformanceFeature = (feature: string) =>
@@ -628,6 +634,7 @@ const mobileMenuGroups = computed<MobileMenuGroup[]>(() => [
       { label: '個人設定', to: '/profile' },
       { label: '繳費資訊', to: '/my-payments' },
       { label: '裝備加購', to: '/equipment-addons', visible: canOpenEquipmentAddons.value },
+      { label: '特訓報名', to: '/training', visible: canOpenTraining.value },
       { label: '我的假單', to: '/my-leave-requests' },
       { label: '通知設定', action: openPushSettingsFromMenu }
     ].filter(isVisibleMobileMenuItem)

@@ -83,7 +83,7 @@
       type="button"
       :disabled="isApplyingUpdate"
       @click="refreshApp"
-      class="sticky top-20 z-40 flex h-11 w-full items-center justify-center gap-2 overflow-hidden bg-[#D88F22] px-3 text-center text-xs font-bold text-white shadow-sm transition-colors touch-manipulation animate-fade-in-down hover:bg-[#b87a1d] disabled:cursor-wait disabled:hover:bg-[#D88F22] sm:text-sm"
+      class="sticky top-20 z-40 flex h-11 w-full items-center justify-center gap-2 overflow-hidden bg-sky-600 px-3 text-center text-xs font-bold text-white shadow-[0_4px_16px_rgba(2,132,199,0.35)] transition-colors touch-manipulation animate-fade-in-down hover:bg-sky-700 disabled:cursor-wait disabled:hover:bg-sky-600 sm:text-sm"
       :title="isApplyingUpdate ? '正在套用最新版本' : '點擊以重新載入系統獲取最新功能'"
     >
       <svg xmlns="http://www.w3.org/2000/svg" :class="['h-4 w-4 shrink-0 sm:h-5 sm:w-5', isApplyingUpdate ? 'animate-spin' : 'animate-bounce']" fill="none" viewBox="0 0 24 24" stroke="currentColor">

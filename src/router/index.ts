@@ -7,7 +7,7 @@ import { usePermissionsStore } from '../stores/permissions'
 import { getCurrentRouteFullPathFromLocation, refreshAppShell } from '../utils/appUpdate'
 
 const CHUNK_RELOAD_SESSION_KEY = 'router:chunk-reload-target'
-const LINKED_MEMBER_VIEW_FEATURES = new Set(['baseball_ability', 'physical_tests'])
+const LINKED_MEMBER_VIEW_FEATURES = new Set(['baseball_ability', 'physical_tests', 'training'])
 const PERFORMANCE_MANAGE_ACTIONS = ['CREATE', 'EDIT', 'DELETE'] as const
 
 const isDynamicImportError = (error: unknown) => {
@@ -39,6 +39,14 @@ const canManagePerformanceFeature = (
   permissionsStore: ReturnType<typeof usePermissionsStore>,
   feature: string
 ) => PERFORMANCE_MANAGE_ACTIONS.some((action) => permissionsStore.can(feature, action))
+
+const hasFeatureAccess = (
+  permissionsStore: ReturnType<typeof usePermissionsStore>,
+  feature: string
+) => (
+  permissionsStore.can(feature, 'VIEW') ||
+  canManagePerformanceFeature(permissionsStore, feature)
+)
 
 const router = createRouter({
   history: createWebHashHistory(), // 必須符合舊版WebView設定
@@ -95,6 +103,12 @@ const router = createRouter({
           component: () => import('../views/MyLeaveRequestsView.vue')
         },
         {
+          path: 'training',
+          name: 'Training',
+          component: () => import('../views/TrainingView.vue'),
+          meta: { feature: 'training', allowLinkedMemberView: true }
+        },
+        {
           path: 'leave-requests',
           name: 'LeaveRequests',
           component: () => import('../views/LeaveRequestsView.vue'),
@@ -140,7 +154,7 @@ const router = createRouter({
           path: 'attendance/:id',
           name: 'RollCall',
           component: () => import('../views/RollCallView.vue'),
-          meta: { feature: 'attendance' }
+          meta: { feature: 'attendance', alternateFeatures: ['training'] }
         },
         {
           path: 'match-records',
@@ -212,6 +226,7 @@ router.beforeEach(async (to, from, next) => {
 
     if (isLinkedMemberViewFeature) {
       const canAccessPerformanceData =
+        permissionsStore.can(feature, 'VIEW') ||
         canManagePerformanceFeature(permissionsStore, feature) ||
         hasLinkedTeamMembers(authStore.profile)
 
@@ -221,7 +236,18 @@ router.beforeEach(async (to, from, next) => {
         next()
       }
     } else if (!permissionsStore.can(feature, 'VIEW')) {
-      next('/dashboard')
+      const alternateFeatures = Array.isArray(to.meta.alternateFeatures)
+        ? to.meta.alternateFeatures
+        : []
+      const canAccessViaAlternateFeature = alternateFeatures.some((alternateFeature) =>
+        typeof alternateFeature === 'string' && hasFeatureAccess(permissionsStore, alternateFeature)
+      )
+
+      if (canAccessViaAlternateFeature) {
+        next()
+      } else {
+        next('/dashboard')
+      }
     } else {
       next()
     }

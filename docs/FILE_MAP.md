@@ -31,6 +31,8 @@
 | `docs/PROJECT_LOGIC.md` | 功能邏輯與資料流 |
 | `docs/FILE_MAP.md` | 重要檔案地圖 |
 
+規則：新增 route-level 頁面時，要同步更新本檔 Views、Services / Types / Utils 對照、`docs/PROJECT_LOGIC.md` 功能邏輯，以及對應 `.codex/skills/<feature>/SKILL.md`；若沒有對應 skill，需建立或說明併入既有 skill 的理由。
+
 ## 3. Layout 與共用元件
 
 | 檔案 | 用途 |
@@ -69,6 +71,7 @@
 | `src/services/myPayments.ts` | 我的繳費 RPC | `profile_payment_submissions` 相關 RPC |
 | `src/services/playerRosterApi.ts` | 球員名單查詢與 cache meta RPC | `team_members` / `team_members_safe` / `get_team_members_cache_meta()` |
 | `src/services/matchesApi.ts` | 賽事 CRUD | `matches` |
+| `src/services/trainingApi.ts` | 特訓報名、點數、特訓點名 RPC | `training_*` / `player_point_transactions` / `attendance_events.training_session_id` |
 | `src/services/equipmentApi.ts` | 裝備、加購、付款、庫存 API | 裝備 tables / RPC / `equipments` bucket |
 | `src/services/performanceApi.ts` | 棒球能力 / 體測 API | performance tables / RPC |
 | `src/services/supabase.ts` | Supabase client | env vars |
@@ -102,6 +105,7 @@
 | `src/utils/csvExport.ts` | CSV 匯出 |
 | `src/utils/imageCompressor.ts` | 圖片壓縮 |
 | `src/utils/leaveRequests.ts` | 假單工具邏輯 |
+| `src/utils/training.ts` | 特訓狀態 label、報名可送出 / 禁用原因、錄取名單 normalize |
 | `src/utils/dashboardHome.ts` | 後台首頁摘要與 hero match 邏輯 |
 
 ## 8. Views
@@ -124,6 +128,7 @@
 | `/holiday-theme-settings` | `src/views/HolidayThemeSettingsView.vue` | `holiday_theme_settings:VIEW` |
 | `/attendance` | `src/views/AttendanceListView.vue` | `attendance:VIEW` |
 | `/attendance/:id` | `src/views/RollCallView.vue` | `attendance:VIEW` |
+| `/training` | `src/views/TrainingView.vue` | `training` + linked member exception |
 | `/match-records` | `src/views/MatchRecordsView.vue` | `matches:VIEW` |
 | `/fees` | `src/views/FeesView.vue` | `fees:VIEW` |
 | `/equipment` | `src/views/EquipmentView.vue` | `equipment:VIEW` |
@@ -203,6 +208,7 @@
 | `src/types/payments.ts` | 個人付款型別 |
 | `src/types/performance.ts` | 能力 / 體測型別 |
 | `src/types/publicLanding.ts` | 公開首頁 snapshot 型別 |
+| `src/types/training.ts` | 特訓報名、點數、管理審核型別 |
 
 ## 11. Supabase Migrations
 
@@ -215,6 +221,7 @@
 | 收費 / 付款 | `supabase_fees_migration.sql`、`supabase_quarterly_fees_migration.sql`、`supabase_profile_payment_submissions_migration.sql` |
 | 裝備 | `supabase_equipment_management_migration.sql`、`supabase_equipment_inventory_adjustments_migration.sql`、`supabase_equipment_manual_purchase_records_migration.sql`、`supabase_equipment_multiple_photos_migration.sql` |
 | 能力 / 體測 | `supabase_performance_data_migration.sql`、`supabase_performance_view_scope_migration.sql` |
+| 特訓 / 點數 | `supabase_training_points_migration.sql` |
 | 賽事同步 | `supabase_matches_google_calendar_sync_migration.sql`、`supabase_match_calendar_daily_sync_schedule.sql` |
 | 推播 | `supabase_web_push_subscriptions_migration.sql`、`supabase_push_dispatch_events_migration.sql`、`supabase_match_reminder_notifications_migration.sql` |
 | 節日主題 | `supabase_holiday_theme_migration.sql` |

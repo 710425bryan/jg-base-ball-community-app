@@ -13,6 +13,7 @@
 - 若使用其他 AI 工具，這些 skill 不一定會自動觸發，但仍可把 `SKILL.md` 當成專案工作規範與提示模板。
 - skill 內容屬於專案知識的一部分，應跟程式碼一起版本化維護。
 - 若功能流程、資料流或安全規則變更，請同步更新對應 skill。
+- 新增 route-level 頁面或新功能域時，必須建立或更新對應 skill；若決定併入既有 skill，要在相關文件或回報中說明原因。
 
 ## Skills
 
@@ -46,6 +47,12 @@
 - 用途：Google Calendar / iCal 賽事同步與 parser 規則。
 - 典型情境：調整 `google_calendar_event_id` fallback、修改比賽匯入、更新 sync UI。
 
+### `jg-baseball-training`
+
+- 路徑：`.codex/skills/jg-baseball-training/SKILL.md`
+- 用途：特訓報名、球員點數、教練錄取、特訓點名與禁報流程。
+- 典型情境：修改 `/training`、`training_session_settings`、`training_registrations`、`player_point_transactions`、`training_no_show_blocks`、特訓快速發放點數、或 `attendance_events.training_session_id` 串接。
+
 ### `jg-baseball-equipment-management`
 
 - 路徑：`.codex/skills/jg-baseball-equipment-management/SKILL.md`
@@ -68,7 +75,7 @@
 
 - 新增 skill 前，先確認能否併入既有 skill，避免過度切碎。
 - skill 名稱保持穩定，避免頻繁 rename 造成引用混亂。
-- 若只是一兩次性任務，不一定要建新 skill。
+- 若只是一次性小調整，不一定要建新 skill；但新增 route-level 頁面、新 feature key、或新的資料/RPC 流程時，預設要有對應 skill 或明確併入既有 skill。
 ## Security Boundary Update
 
 - 前端 `permissionsStore.can()` 與路由守衛不能取代 DB 權限；skill 若牽涉敏感資料，必須檢查 RLS / RPC 是否同步到位。

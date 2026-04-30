@@ -244,7 +244,7 @@ onMounted(() => {
             size="large"
             clearable
             class="lg:max-w-xl"
-            placeholder="搜尋球員姓名、背號、組別或測驗日期"
+            placeholder="搜尋球員姓名、背號、所屬群組或測驗日期"
           />
           <ViewModeSwitch v-model="viewMode" grid-label="卡片" table-label="表格" class="shrink-0" />
         </div>

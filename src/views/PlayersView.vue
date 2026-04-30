@@ -12,7 +12,7 @@
       </div>
       
       <div class="players-toolbar bg-white/90 border border-slate-200 rounded-lg shadow-sm p-2 flex flex-wrap items-center gap-2 xl:justify-end w-full xl:w-auto">
-        <!-- 狀態、年齡與組別過濾 -->
+        <!-- 狀態、年齡與所屬群組過濾 -->
         <div class="players-toolbar-filters w-full sm:w-auto flex flex-wrap items-center gap-2 shrink-0">
           <el-select v-model="filterStatus" class="w-24" size="default" placeholder="狀態">
             <el-option label="全狀態" value="全部" />
@@ -27,12 +27,10 @@
             <el-option label="U9" value="U9" />
             <el-option label="U8" value="U8" />
           </el-select>
-          <el-select v-model="filterMemberGroup" class="w-36" size="default" placeholder="組別">
-            <el-option label="全組別" value="全部" />
+          <el-select v-model="filterMemberGroup" class="w-40" size="default" placeholder="所屬群組">
+            <el-option label="全部群組" value="全部" />
             <el-option label="教練" value="教練" />
-            <el-option label="灰熊(大組)" value="灰熊(大組)" />
-            <el-option label="黑熊(中組)" value="黑熊(中組)" />
-            <el-option label="泰迪熊(小組)" value="泰迪熊(小組)" />
+            <el-option v-for="option in TEAM_GROUP_OPTIONS" :key="option.value" :label="option.label" :value="option.value" />
           </el-select>
         </div>
 
@@ -134,7 +132,7 @@
               <span class="players-role-badge font-bold px-2 py-0.5 rounded border uppercase tracking-wider" :class="getRoleClass(row.role)">{{ row.role }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="team_group" label="所屬群組" min-width="115">
+          <el-table-column prop="team_group" label="所屬群組 (熊隊)" min-width="135">
             <template #default="{ row }">
               <span v-if="row.team_group" class="text-[10px] md:text-xs font-bold px-2 py-0.5 rounded border tracking-wider" :class="getTeamGroupClass(row.team_group)">
                 {{ row.team_group }}
@@ -344,9 +342,7 @@
             </el-form-item>
             <el-form-item label="所屬群組 (熊隊)" prop="team_group" class="font-bold mb-0" v-if="form.role === '球員' || form.role === '校隊'">
               <el-select v-model="form.team_group" class="w-full">
-                <el-option label="泰迪熊(小組)" value="泰迪熊(小組)" />
-                <el-option label="黑熊(中組)" value="黑熊(中組)" />
-                <el-option label="灰熊(大組)" value="灰熊(大組)" />
+                <el-option v-for="option in TEAM_GROUP_OPTIONS" :key="option.value" :label="option.label" :value="option.value" />
               </el-select>
             </el-form-item>
             <el-form-item label="在隊狀態" prop="status" class="font-bold mb-0">
@@ -644,6 +640,37 @@ const PLAYER_SYNC_CSV_URL = `https://docs.google.com/spreadsheets/d/${PLAYER_SYN
 const DEFAULT_SYNC_USER_PASSWORD = '123456'
 const GENERAL_MEMBER_ROLE_FALLBACK = 'MEMBER'
 const GENERAL_MEMBER_ROLE_CANDIDATE_KEYS = ['MEMBER', 'PARENT', 'GENERAL_MEMBER']
+const TEAM_GROUP_OPTIONS = [
+  {
+    label: '拉拉熊(小組)',
+    value: '拉拉熊(小組)',
+    accentClass: 'bg-orange-400',
+    badgeClass: 'bg-orange-50 text-orange-600 border-orange-200'
+  },
+  {
+    label: '暴力熊(大組)',
+    value: '暴力熊(大組)',
+    accentClass: 'bg-red-600',
+    badgeClass: 'bg-red-50 text-red-700 border-red-200'
+  },
+  {
+    label: '成灰熊(中組)',
+    value: '成灰熊(中組)',
+    accentClass: 'bg-zinc-500',
+    badgeClass: 'bg-zinc-100 text-zinc-700 border-zinc-300'
+  }
+] as const
+const LEGACY_TEAM_GROUP_RENAMES: Record<string, string> = {
+  '泰迪熊(小組)': '拉拉熊(小組)',
+  '灰熊(大組)': '暴力熊(大組)',
+  '黑熊(中組)': '成灰熊(中組)'
+}
+const TEAM_GROUP_ORDER = TEAM_GROUP_OPTIONS.map((option) => option.value)
+
+const normalizeTeamGroup = (teamGroup: unknown) => {
+  const group = typeof teamGroup === 'string' ? teamGroup.trim() : ''
+  return group ? LEGACY_TEAM_GROUP_RENAMES[group] || group : group
+}
 
 const isLoading = computed(() => playerRosterStore.loading)
 const lastRosterWarning = ref('')
@@ -651,6 +678,7 @@ const isSubmitting = ref(false)
 const members = computed(() =>
   buildMembersWithNormalizedSiblings(playerRosterStore.members).map(m => ({
     ...m,
+    team_group: normalizeTeamGroup(m.team_group),
     is_inactive_or_graduated: !!m.is_inactive_or_graduated,
     is_primary_payer: !!m.is_primary_payer,
     is_half_price: !!m.is_half_price
@@ -664,7 +692,6 @@ const filterULevel = ref('全部')
 const filterMemberGroup = ref('全部')
 
 const isSiblingEligibleRole = (role: string | null | undefined) => role === '球員' || role === '校隊'
-const TEAM_GROUP_ORDER = ['灰熊(大組)', '黑熊(中組)', '泰迪熊(小組)']
 
 type MemberGroup = {
   key: string
@@ -675,12 +702,7 @@ type MemberGroup = {
 }
 
 const getTeamGroupAccentClass = (group: string) => {
-  switch (group) {
-    case '泰迪熊(小組)': return 'bg-orange-400'
-    case '黑熊(中組)': return 'bg-neutral-800'
-    case '灰熊(大組)': return 'bg-zinc-400'
-    default: return 'bg-slate-300'
-  }
+  return TEAM_GROUP_OPTIONS.find((option) => option.value === group)?.accentClass || 'bg-slate-300'
 }
 
 const getMemberGroupMeta = (member: any) => {
@@ -866,7 +888,7 @@ const playerExportColumns = computed<PlayerExportColumn[]>(() => [
   { key: 'role', label: '稱謂/身分', basic: true, sourceKeys: ['role'], getValue: (member) => member.role },
   { key: 'status', label: '在隊狀態', basic: true, sourceKeys: ['status'], getValue: (member) => member.status || '在隊' },
   { key: 'is_inactive_or_graduated', label: '關閉球員/畢業', basic: true, sourceKeys: ['is_inactive_or_graduated'], getValue: (member) => formatBoolean(member.is_inactive_or_graduated) },
-  { key: 'team_group', label: '比賽組別', basic: true, sourceKeys: ['team_group'], getValue: (member) => member.team_group },
+  { key: 'team_group', label: '所屬群組 (熊隊)', basic: true, sourceKeys: ['team_group'], getValue: (member) => member.team_group },
   { key: 'u_level', label: '年級類別', basic: true, getValue: (member) => getULevel(member) },
   { key: 'jersey_number', label: '背號', basic: true, sourceKeys: ['jersey_number'], getValue: (member) => member.jersey_number },
   { key: 'jersey_name', label: '球衣名字', sourceKeys: ['jersey_name'], getValue: (member) => member.jersey_name },
@@ -1096,7 +1118,7 @@ const initialForm = {
   id: '',
   name: '',
   role: '球員',
-  team_group: '泰迪熊(小組)',
+  team_group: TEAM_GROUP_OPTIONS[0].value,
   status: '在隊',
   jersey_number: '',
   jersey_name: '',
@@ -1824,12 +1846,7 @@ const getRoleClass = (role: string) => {
 }
 
 const getTeamGroupClass = (group: string) => {
-  switch (group) {
-    case '泰迪熊(小組)': return 'bg-orange-50 text-orange-600 border-orange-200'
-    case '黑熊(中組)': return 'bg-neutral-800 text-neutral-100 border-neutral-700'
-    case '灰熊(大組)': return 'bg-zinc-100 text-zinc-600 border-zinc-300'
-    default: return 'bg-gray-50 text-gray-500 border-gray-200'
-  }
+  return TEAM_GROUP_OPTIONS.find((option) => option.value === group)?.badgeClass || 'bg-gray-50 text-gray-500 border-gray-200'
 }
 
 onMounted(() => {

@@ -24,6 +24,7 @@ description: "Project-specific workflow for jg-base-ball-community-app. Use when
 - 把外部資料存取與 Supabase 溝通集中在 `src/services/`。
 - 把資料庫變更做成新的 `supabase_*_migration.sql`，不要直接覆寫既有 migration。
 - 把 `public/version.json`、`dev-dist/`、`dist/` 視為產物，除非任務明確是建置或 PWA 輸出。
+- 新增 route-level 頁面或新功能域時，同步建立 / 更新流程規則：`AGENT.md`、`docs/PROJECT_LOGIC.md`、`docs/FILE_MAP.md`、`AI_SKILLS.md`，以及對應 `.codex/skills/<feature>/SKILL.md`。若併入既有 skill，要在回報中說明。
 
 ## 固定守則
 
@@ -32,7 +33,8 @@ description: "Project-specific workflow for jg-base-ball-community-app. Use when
 - 不要擴散 `national_id`、`guardian_phone`、`contact_line_id` 等敏感欄位。
 - 顯示球員資料時，先確認是否該走 `team_members_safe` 等安全讀取路徑。
 - 延續現有繁體中文文案與命名，不要因個人偏好大改風格。
-- 改到球員、請假、收費、賽事等核心流程時，順手檢查是否影響同步、通知、彙總或關聯資料。
+- 改到球員、請假、特訓報名 / 點數、收費、賽事等核心流程時，順手檢查是否影響同步、通知、彙總或關聯資料。
+- 改 `/training`、特訓報名、點數管理、特訓點名或禁報流程時，先讀 `jg-baseball-training` skill。
 
 ## UI 標題規則
 

@@ -351,6 +351,12 @@ const systemFeatures = [
     actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
   },
   {
+    key: 'training',
+    name: '特訓報名',
+    desc: '管理球員點數、特訓報名與錄取名單',
+    actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
+  },
+  {
     key: 'matches',
     name: '比賽紀錄',
     desc: '新增編輯賽事成績、先發名單',

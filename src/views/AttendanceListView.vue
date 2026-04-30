@@ -91,6 +91,7 @@
         <el-form-item label="活動類型" prop="event_type" class="font-bold">
           <el-select v-model="form.event_type" class="w-full" size="large">
             <el-option label="練習" value="練習" />
+            <el-option label="特訓課" value="特訓課" />
             <el-option label="比賽" value="比賽" />
             <el-option label="活動" value="活動" />
             <el-option label="會議" value="會議" />
@@ -279,6 +280,7 @@ const goToRollCall = (id: string) => {
 const getTypeClass = (type: string) => {
   switch (type) {
     case '比賽': return 'bg-red-100 text-red-600 border border-red-200'
+    case '特訓課': return 'bg-amber-100 text-amber-700 border border-amber-200'
     case '練習': return 'bg-primary/10 text-primary border border-primary/20'
     case '活動': return 'bg-purple-100 text-purple-600 border border-purple-200'
     default: return 'bg-gray-100 text-gray-600 border border-gray-200'
