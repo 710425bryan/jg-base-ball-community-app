@@ -10,6 +10,7 @@ import {
   EQUIPMENT_REQUEST_STATUS,
   getEquipmentRequestStatusLabel
 } from '@/utils/equipmentRequestStatus'
+import { formatEquipmentVariantLabel } from '@/utils/equipmentPricing'
 import {
   normalizeAccountLast5,
   PAYMENT_METHOD_OPTIONS,
@@ -109,6 +110,9 @@ const getPaymentStatusClass = (status?: string | null) => {
   if (status === 'cancelled') return 'bg-gray-100 border-gray-200 text-gray-500'
   return 'bg-red-50 border-red-100 text-red-600'
 }
+
+const getVariantLabel = (item: { size?: string | null; jersey_number?: number | string | null }) =>
+  formatEquipmentVariantLabel(item)
 
 const getRequestStatusClass = (status?: string | null) => {
   if (status === EQUIPMENT_REQUEST_STATUS.PENDING) {
@@ -275,7 +279,7 @@ watch(() => route.query.highlight_transaction_id, () => {
               <div class="min-w-0">
                 <div class="font-black text-slate-800">{{ item.equipment_name }}</div>
                 <p class="mt-1 text-xs text-gray-400">
-                  {{ item.member_name }}｜{{ item.size || '無尺寸' }}｜{{ formatDate(item.ready_at || item.approved_at || item.requested_at) }}
+                  {{ item.member_name }}｜{{ getVariantLabel(item) }}｜{{ formatDate(item.ready_at || item.approved_at || item.requested_at) }}
                 </p>
               </div>
               <span :class="getRequestStatusClass(item.request_status)" class="shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold">
@@ -322,7 +326,7 @@ watch(() => route.query.highlight_transaction_id, () => {
                   </span>
                 </div>
               </div>
-              <p class="mt-1 text-xs text-gray-400">{{ item.member_name }}｜{{ item.size || '無尺寸' }}｜{{ formatDate(item.transaction_date) }}</p>
+              <p class="mt-1 text-xs text-gray-400">{{ item.member_name }}｜{{ getVariantLabel(item) }}｜{{ formatDate(item.transaction_date) }}</p>
               <div class="mt-3 flex items-center justify-between gap-3 text-sm">
                 <span class="text-gray-500">{{ item.quantity }} 件 x {{ formatCurrency(item.unit_price) }}</span>
                 <span class="font-black text-primary">{{ formatCurrency(item.total_amount) }}</span>
@@ -343,7 +347,7 @@ watch(() => route.query.highlight_transaction_id, () => {
             class="rounded-2xl border border-white bg-white/90 p-4 shadow-sm"
           >
             <div class="font-black text-slate-800">{{ item.equipment_name }}</div>
-            <p class="mt-1 text-xs text-gray-400">{{ item.member_name }}｜{{ item.size || '無尺寸' }}｜{{ item.quantity }} 件</p>
+            <p class="mt-1 text-xs text-gray-400">{{ item.member_name }}｜{{ getVariantLabel(item) }}｜{{ item.quantity }} 件</p>
             <div v-if="item.request_status" class="mt-3">
               <span :class="getRequestStatusClass(item.request_status)" class="rounded-full border px-2.5 py-1 text-xs font-bold">
                 {{ getEquipmentRequestStatusLabel(item.request_status) }}
@@ -365,7 +369,7 @@ watch(() => route.query.highlight_transaction_id, () => {
             class="rounded-2xl border border-white bg-white/90 p-4 shadow-sm"
           >
             <div class="font-black text-slate-800">{{ item.equipment_name }}</div>
-            <p class="mt-1 text-xs text-gray-400">{{ item.member_name }}｜{{ item.size || '無尺寸' }}｜{{ item.quantity }} 件</p>
+            <p class="mt-1 text-xs text-gray-400">{{ item.member_name }}｜{{ getVariantLabel(item) }}｜{{ item.quantity }} 件</p>
             <div v-if="item.request_status" class="mt-3">
               <span :class="getRequestStatusClass(item.request_status)" class="rounded-full border px-2.5 py-1 text-xs font-bold">
                 {{ getEquipmentRequestStatusLabel(item.request_status) }}

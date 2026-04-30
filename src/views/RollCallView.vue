@@ -178,11 +178,10 @@ const eventData = ref<any>(null)
 const playersList = ref<any[]>([])
 const searchQuery = ref('')
 const activeFilter = ref('全部') // 新增過濾器
-const rollCallFilters = ['全部', '拉拉熊(小組)', '暴力熊(大組)', '成灰熊(中組)', '校隊']
+const rollCallFilters = ['全部', '拉拉熊(小組)', '泰迪熊(小組)', '黑熊(中組)', '北極熊(中組)', '暴力熊(大組)', '校隊']
 const legacyTeamGroupRenames: Record<string, string> = {
-  '泰迪熊(小組)': '拉拉熊(小組)',
   '灰熊(大組)': '暴力熊(大組)',
-  '黑熊(中組)': '成灰熊(中組)'
+  '成灰熊(中組)': '黑熊(中組)'
 }
 
 const normalizeTeamGroup = (teamGroup: unknown) => {

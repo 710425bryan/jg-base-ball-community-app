@@ -137,7 +137,7 @@ describe('matchRecordStats', () => {
         absent_players: [{ name: '李小華', type: '病假' }]
       })
     ], [
-      { name: '王小明', jersey_number: '10', team_group: '成灰熊(中組)' },
+      { name: '王小明', jersey_number: '10', team_group: '黑熊(中組)' },
       { name: '李小華', jersey_number: '12', team_group: '校隊' }
     ])
 
@@ -145,7 +145,7 @@ describe('matchRecordStats', () => {
     const bob = rows.find((row) => row.name === '李小華')
     const missingRoster = rows.find((row) => row.name === '陳新生')
 
-    expect(amy).toMatchObject({ number: '10', category: '成灰熊(中組)', calledUp: 2, attended: 2, absentTotal: 0, attendanceRate: 100 })
+    expect(amy).toMatchObject({ number: '10', category: '黑熊(中組)', calledUp: 2, attended: 2, absentTotal: 0, attendanceRate: 100 })
     expect(bob).toMatchObject({ number: '12', category: '校隊', calledUp: 2, attended: 1, absentTotal: 1, absentLevel2: 1, attendanceRate: 50 })
     expect(missingRoster).toMatchObject({ number: '', category: '', calledUp: 1, attended: 0, absentTotal: 1, absentLevel1: 1, attendanceRate: 0 })
   })

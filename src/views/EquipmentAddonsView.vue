@@ -7,6 +7,7 @@ import { Goods, Refresh, ShoppingCart } from '@element-plus/icons-vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import EquipmentPhotoCarousel from '@/components/equipment/EquipmentPhotoCarousel.vue'
+import { fetchEquipmentJerseyNumberAvailability } from '@/services/equipmentApi'
 import { listMyPaymentMembers } from '@/services/myPayments'
 import { useAuthStore } from '@/stores/auth'
 import { useEquipmentStore } from '@/stores/equipment'
@@ -14,6 +15,7 @@ import { useEquipmentRequestsStore } from '@/stores/equipmentRequests'
 import { usePermissionsStore } from '@/stores/permissions'
 import type {
   Equipment,
+  EquipmentJerseyNumberAvailability,
   EquipmentManualPurchaseRecord,
   EquipmentPurchaseRequest,
   EquipmentRequestItem
@@ -31,12 +33,13 @@ import {
   getEquipmentRequestStatusLabel,
   getEquipmentRequestStatusTagType
 } from '@/utils/equipmentRequestStatus'
-import { getEquipmentRequestItemTotalPrice } from '@/utils/equipmentPricing'
+import { formatEquipmentVariantLabel, getEquipmentRequestItemTotalPrice } from '@/utils/equipmentPricing'
 import { buildPushEventKey, dispatchPushNotification } from '@/utils/pushNotifications'
 
 type CartItem = {
   equipment_id: string
   size: string | null
+  jersey_number: number | null
   quantity: number
 }
 
@@ -69,6 +72,8 @@ const isBootstrapping = ref(true)
 const isSubmitting = ref(false)
 const cart = ref<CartItem[]>([])
 const selectedSizeByEquipmentId = ref<Record<string, string>>({})
+const selectedJerseyNumberByEquipmentId = ref<Record<string, number | null>>({})
+const jerseyNumberAvailabilityByEquipmentId = ref<Record<string, EquipmentJerseyNumberAvailability[]>>({})
 const quantityByEquipmentId = ref<Record<string, number>>({})
 const requestNote = ref('')
 
@@ -166,6 +171,26 @@ const hasInvalidCartQuantity = computed(() =>
   cart.value.some((item) => !isValidQuantity(item.quantity))
 )
 
+const getCartJerseyNumberFailure = () => {
+  for (const item of cart.value) {
+    const equipment = equipmentStore.equipmentById.get(item.equipment_id)
+    if (!requiresJerseyNumber(equipment)) continue
+
+    const jerseyNumber = item.jersey_number
+    const option = equipment
+      ? getEquipmentJerseyNumberOptions(equipment).find((entry) =>
+        Number(entry.jersey_number) === Number(jerseyNumber)
+      )
+      : null
+
+    if (jerseyNumber === null || !option?.is_available) {
+      return `${equipment?.name || '球衣'} #${jerseyNumber ?? ''} 已被選走，請移除後重新選號`
+    }
+  }
+
+  return null
+}
+
 const cartTotal = computed(() =>
   cartItemsWithEquipment.value.reduce((total, item) => (
     total + Number(item.equipment?.purchase_price || 0) * (isValidQuantity(item.quantity) ? item.quantity : 0)
@@ -193,6 +218,28 @@ const getEquipmentSizeOptions = (equipment: Equipment) =>
 
 const hasEquipmentSizeOptions = (equipment: Equipment) =>
   getEquipmentSizeOptions(equipment).length > 0
+
+const requiresJerseyNumber = (equipment?: Equipment | null) =>
+  Boolean(equipment?.requires_jersey_number)
+
+const getEquipmentJerseyNumberOptions = (equipment: Equipment) =>
+  jerseyNumberAvailabilityByEquipmentId.value[equipment.id] || []
+
+const getSelectedJerseyNumber = (equipment: Equipment) =>
+  selectedJerseyNumberByEquipmentId.value[equipment.id] ?? null
+
+const isJerseyNumberInCart = (equipmentId: string, jerseyNumber: number | null) =>
+  jerseyNumber !== null
+  && cart.value.some((item) =>
+    item.equipment_id === equipmentId
+    && Number(item.jersey_number) === Number(jerseyNumber)
+  )
+
+const isJerseyNumberOptionDisabled = (equipment: Equipment, option: EquipmentJerseyNumberAvailability) =>
+  !option.is_available || isJerseyNumberInCart(equipment.id, option.jersey_number)
+
+const getVariantLabel = (item: { size?: string | null; jersey_number?: number | string | null }) =>
+  formatEquipmentVariantLabel(item)
 
 const getPurchasableSizeCount = (equipment: Equipment) =>
   getEquipmentSizeOptions(equipment).filter((item) => item.remaining > 0).length
@@ -237,23 +284,29 @@ const getEquipmentAddAvailability = (equipment: Equipment) => {
 
   return getEquipmentPurchaseAvailability(equipment, {
     size: selectedSize,
-    quantity: quantityByEquipmentId.value[equipment.id],
+    quantity: requiresJerseyNumber(equipment) ? 1 : quantityByEquipmentId.value[equipment.id],
     existingQuantity: getCartQuantity(equipment.id, selectedSize)
   })
 }
 
 const isAddToCartDisabled = (equipment: Equipment) =>
   !getEquipmentAddAvailability(equipment).isPurchasable
+  || (requiresJerseyNumber(equipment) && getSelectedJerseyNumber(equipment) === null)
 
 const getAddToCartButtonLabel = (equipment: Equipment) => {
   if (!isEquipmentAvailableForPurchase(equipment)) return '已售完'
   if (hasEquipmentSizeOptions(equipment) && !selectedSizeByEquipmentId.value[equipment.id]) return '選擇尺寸'
+  if (requiresJerseyNumber(equipment) && getSelectedJerseyNumber(equipment) === null) return '選擇號碼'
   return '加入請購單'
 }
 
 const getEquipmentAddHelperText = (equipment: Equipment) => {
   if (!isEquipmentAvailableForPurchase(equipment)) {
     return hasEquipmentSizeOptions(equipment) ? '此商品所有尺寸已售完' : '此商品已售完'
+  }
+
+  if (requiresJerseyNumber(equipment) && getSelectedJerseyNumber(equipment) === null) {
+    return '請選擇球衣號碼'
   }
 
   const availability = getEquipmentAddAvailability(equipment)
@@ -370,6 +423,34 @@ const canGoToEquipmentPayment = (request: EquipmentPurchaseRequest) => (
 const getManualPurchaseNote = (record: EquipmentManualPurchaseRecord) =>
   ['管理員新增', record.notes?.trim()].filter(Boolean).join('｜')
 
+const loadJerseyNumberAvailability = async (equipments = availableEquipments.value) => {
+  const jerseyEquipments = equipments.filter(requiresJerseyNumber)
+  if (jerseyEquipments.length === 0) {
+    jerseyNumberAvailabilityByEquipmentId.value = {}
+    return
+  }
+
+  const entries = await Promise.all(jerseyEquipments.map(async (equipment) => [
+    equipment.id,
+    await fetchEquipmentJerseyNumberAvailability(equipment.id)
+  ] as const))
+
+  jerseyNumberAvailabilityByEquipmentId.value = Object.fromEntries(entries)
+
+  for (const equipment of jerseyEquipments) {
+    const selected = getSelectedJerseyNumber(equipment)
+    if (
+      selected !== null
+      && !getEquipmentJerseyNumberOptions(equipment).some((option) =>
+        Number(option.jersey_number) === Number(selected)
+        && !isJerseyNumberOptionDisabled(equipment, option)
+      )
+    ) {
+      selectedJerseyNumberByEquipmentId.value[equipment.id] = null
+    }
+  }
+}
+
 const ensureSelectedMember = () => {
   if (purchaseMemberOptions.value.length === 0) {
     selectedMemberId.value = ''
@@ -400,6 +481,25 @@ const addToCart = (equipment: Equipment) => {
     ? selectedSizeByEquipmentId.value[equipment.id]
     : ''
   const size = selectedSize || null
+  const jerseyNumber = requiresJerseyNumber(equipment)
+    ? getSelectedJerseyNumber(equipment)
+    : null
+
+  if (requiresJerseyNumber(equipment)) {
+    if (jerseyNumber === null) {
+      ElMessage.warning('請先選擇球衣號碼')
+      return
+    }
+
+    const selectedOption = getEquipmentJerseyNumberOptions(equipment)
+      .find((option) => Number(option.jersey_number) === Number(jerseyNumber))
+
+    if (!selectedOption || isJerseyNumberOptionDisabled(equipment, selectedOption)) {
+      ElMessage.warning(`球衣號碼 #${jerseyNumber} 已被選走，請改選其他號碼`)
+      return
+    }
+  }
+
   const availability = getEquipmentAddAvailability(equipment)
 
   if (!availability.isPurchasable) {
@@ -407,22 +507,19 @@ const addToCart = (equipment: Equipment) => {
     return
   }
 
-  const quantity = availability.requestedQuantity
-  const exists = cart.value.find((item) => item.equipment_id === equipment.id && (item.size || null) === size)
+  const quantity = requiresJerseyNumber(equipment) ? 1 : availability.requestedQuantity
+  const exists = requiresJerseyNumber(equipment)
+    ? null
+    : cart.value.find((item) => item.equipment_id === equipment.id && (item.size || null) === size)
+  const nextItem = {
+    equipment_id: equipment.id,
+    size,
+    jersey_number: jerseyNumber,
+    quantity
+  }
   const candidateCart = exists
-    ? cart.value.map((item) => (
-      item === exists
-        ? { ...item, quantity: item.quantity + quantity }
-        : item
-    ))
-    : [
-      ...cart.value,
-      {
-        equipment_id: equipment.id,
-        size,
-        quantity
-      }
-    ]
+    ? cart.value.map((item) => (item === exists ? { ...item, quantity: item.quantity + quantity } : item))
+    : [...cart.value, nextItem]
   const validation = validateEquipmentPurchaseItemsAvailability(candidateCart, equipmentStore.equipmentById)
 
   if (!validation.isValid) {
@@ -433,17 +530,23 @@ const addToCart = (equipment: Equipment) => {
   if (exists) {
     exists.quantity += quantity
   } else {
-    cart.value.push({
-      equipment_id: equipment.id,
-      size,
-      quantity
-    })
+    cart.value.push(nextItem)
+  }
+
+  if (requiresJerseyNumber(equipment)) {
+    selectedJerseyNumberByEquipmentId.value[equipment.id] = null
   }
 
   ElMessage.success('已加入加購清單')
 }
 
 const updateCartItemQuantity = (index: number, quantity: number | undefined) => {
+  const equipment = equipmentStore.equipmentById.get(cart.value[index]?.equipment_id)
+  if (requiresJerseyNumber(equipment)) {
+    cart.value[index].quantity = 1
+    return
+  }
+
   if (!isValidQuantity(quantity)) {
     cart.value[index].quantity = 0
     return
@@ -479,6 +582,13 @@ const submitRequest = async () => {
   isSubmitting.value = true
   try {
     await equipmentStore.loadEquipments()
+    await loadJerseyNumberAvailability()
+    const jerseyFailure = getCartJerseyNumberFailure()
+    if (jerseyFailure) {
+      ElMessage.warning(jerseyFailure)
+      return
+    }
+
     const validation = getCartAvailabilityValidation()
     if (!validation.isValid) {
       ElMessage.warning(validation.failures[0]?.reason || '部分裝備庫存不足，請調整請購數量')
@@ -491,6 +601,7 @@ const submitRequest = async () => {
       items: cart.value.map((item) => ({
         equipment_id: item.equipment_id,
         size: item.size,
+        jersey_number: item.jersey_number,
         quantity: item.quantity
       }))
     })
@@ -514,6 +625,7 @@ const submitRequest = async () => {
       equipmentStore.loadEquipments(),
       loadAddonRecords()
     ])
+    await loadJerseyNumberAvailability()
   } catch (error: any) {
     ElMessage.error(error?.message || '送出加購申請失敗')
   } finally {
@@ -529,6 +641,10 @@ const cancelRequest = async (requestId: string) => {
       type: 'warning'
     })
     await requestStore.cancelRequest(requestId, '使用者取消')
+    await Promise.all([
+      loadAddonRecords(),
+      loadJerseyNumberAvailability()
+    ])
     ElMessage.success('已取消申請')
   } catch (error: any) {
     if (error !== 'cancel') {
@@ -585,6 +701,7 @@ const bootstrap = async () => {
       equipmentStore.loadEquipments()
     ])
     members.value = paymentMembers
+    await loadJerseyNumberAvailability()
     ensureSelectedMember()
     await loadAddonRecords(getLinkedMemberIds(paymentMembers))
     if (route.query.tab === 'requests') activeTab.value = 'requests'
@@ -697,7 +814,7 @@ onMounted(() => {
               <div v-else class="mt-5 space-y-3">
                 <article
                   v-for="(item, index) in cartItemsWithEquipment"
-                  :key="`${item.equipment_id}-${item.size || 'none'}`"
+                  :key="`${item.equipment_id}-${item.size || 'none'}-${item.jersey_number ?? 'no-number'}`"
                   class="rounded-2xl border p-4"
                   :class="getCartItemAvailabilityFailure(item) ? 'border-red-100 bg-red-50/70' : 'border-gray-100 bg-gray-50/70'"
                 >
@@ -705,12 +822,19 @@ onMounted(() => {
                     <div class="min-w-0 flex-1">
                       <div class="text-xs font-black text-gray-400">品項 {{ index + 1 }}</div>
                       <div class="mt-1 font-black text-slate-800">{{ item.equipment?.name || '未知裝備' }}</div>
-                      <p class="mt-1 text-xs text-gray-400">{{ item.size || '無尺寸' }}</p>
+                      <p class="mt-1 text-xs text-gray-400">{{ getVariantLabel(item) }}</p>
                     </div>
 
                     <div class="md:w-40">
                       <div class="mb-1 text-xs font-bold text-gray-400">數量</div>
+                      <div
+                        v-if="requiresJerseyNumber(item.equipment)"
+                        class="rounded-xl border border-gray-100 bg-white px-3 py-3 text-sm font-black text-gray-600"
+                      >
+                        1 件
+                      </div>
                       <el-input-number
+                        v-else
                         :model-value="item.quantity"
                         :min="1"
                         :precision="0"
@@ -836,7 +960,7 @@ onMounted(() => {
                         </span>
                       </div>
 
-                      <div class="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_112px]">
+                      <div class="mt-3 grid gap-2" :class="requiresJerseyNumber(equipment) ? 'sm:grid-cols-[minmax(0,1fr)_132px]' : 'sm:grid-cols-[minmax(0,1fr)_112px]'">
                         <el-select
                           v-if="getEquipmentSizeOptions(equipment).length > 0"
                           v-model="selectedSizeByEquipmentId[equipment.id]"
@@ -857,7 +981,25 @@ onMounted(() => {
                           無尺寸
                         </div>
 
+                        <el-select
+                          v-if="requiresJerseyNumber(equipment)"
+                          v-model="selectedJerseyNumberByEquipmentId[equipment.id]"
+                          size="large"
+                          class="w-full"
+                          placeholder="選號碼"
+                          filterable
+                        >
+                          <el-option
+                            v-for="option in getEquipmentJerseyNumberOptions(equipment)"
+                            :key="option.jersey_number"
+                            :label="`#${option.jersey_number}${option.is_available && !isJerseyNumberInCart(equipment.id, option.jersey_number) ? '' : '｜已選'}`"
+                            :value="option.jersey_number"
+                            :disabled="isJerseyNumberOptionDisabled(equipment, option)"
+                          />
+                        </el-select>
+
                         <el-input-number
+                          v-else
                           v-model="quantityByEquipmentId[equipment.id]"
                           :min="1"
                           :max="getEquipmentQuantityMax(equipment)"
@@ -867,6 +1009,9 @@ onMounted(() => {
                           :disabled="!isEquipmentAvailableForPurchase(equipment) || (hasEquipmentSizeOptions(equipment) && !selectedSizeByEquipmentId[equipment.id])"
                         />
                       </div>
+                      <p v-if="requiresJerseyNumber(equipment)" class="mt-2 text-xs font-bold text-gray-400">
+                        球衣每件固定 1 件，送出請購後會保留該號碼。
+                      </p>
                       <p v-if="getEquipmentAddHelperText(equipment)" class="mt-2 text-xs font-bold text-red-500">
                         {{ getEquipmentAddHelperText(equipment) }}
                       </p>
@@ -934,7 +1079,10 @@ onMounted(() => {
                       :key="item.id"
                       class="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 text-sm"
                     >
-                      <span class="font-bold text-gray-700">{{ item.equipment_name_snapshot }} <span class="text-gray-400">{{ item.size || '' }}</span></span>
+                      <span class="font-bold text-gray-700">
+                        {{ item.equipment_name_snapshot }}
+                        <span class="text-gray-400">{{ getVariantLabel(item) }}</span>
+                      </span>
                       <span class="font-black text-primary">{{ item.quantity }} 件 / {{ formatCurrency(getEquipmentRequestItemTotalPrice(item)) }}</span>
                     </div>
                   </div>
@@ -999,7 +1147,7 @@ onMounted(() => {
                     <div class="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 text-sm">
                       <span class="font-bold text-gray-700">
                         {{ historyItem.manualPurchase.equipment_name }}
-                        <span class="text-gray-400">{{ historyItem.manualPurchase.size || '' }}</span>
+                        <span class="text-gray-400">{{ getVariantLabel(historyItem.manualPurchase) }}</span>
                       </span>
                       <span class="font-black text-primary">
                         {{ historyItem.manualPurchase.quantity }} 件 / {{ formatCurrency(historyItem.manualPurchase.total_amount) }}

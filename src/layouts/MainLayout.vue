@@ -378,7 +378,8 @@ const notificationSourceLabels: Record<NotificationSource, string> = {
   fee: '繳費提醒',
   match: '賽事提醒',
   announcement: '公告',
-  equipment: '裝備通知'
+  equipment: '裝備通知',
+  training: '特訓通知'
 };
 let autoPushPromptTimer: number | null = null;
 const currentUserDisplayName = computed(() => authStore.profile?.nickname || authStore.profile?.name || '使用者');

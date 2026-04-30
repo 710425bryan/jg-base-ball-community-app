@@ -23,6 +23,7 @@ description: "Push notification workflow for jg-base-ball-community-app. Use whe
 - `targetRoles` 只能用來縮小原本符合權限的對象，不要拿它取代權限查詢。
 - 同一事件若可能從表單、Realtime、重試或多個入口觸發，必須提供穩定 `eventKey`。
 - 讓 `send-push-notification` 與 `push_dispatch_events` 負責 dedupe，不要在各入口各做一套。
+- 排程型通知可用專屬 Edge Function，但仍必須寫入 `push_dispatch_events`，並確認 `get_notification_feed()` 可顯示對應 source。
 
 ## 工作流程
 

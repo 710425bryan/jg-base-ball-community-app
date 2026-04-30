@@ -24,8 +24,15 @@ export type EquipmentReservedRequestItem = {
   request_id: string
   equipment_id: string
   size: string | null
+  jersey_number: number | null
   quantity: number
   unit_price_snapshot: number | null
+}
+
+export type EquipmentJerseyNumberAvailability = {
+  jersey_number: number
+  is_available: boolean
+  claim_status: 'reserved' | 'purchased' | string | null
 }
 
 export type EquipmentMemberSummary = {
@@ -43,6 +50,7 @@ export type EquipmentTransaction = {
   member_id: string | null
   handled_by: string | null
   size: string | null
+  jersey_number: number | null
   quantity: number
   notes: string | null
   unit_price: number | null
@@ -91,6 +99,10 @@ export type Equipment = {
   image_urls: string[]
   purchase_price: number
   quick_purchase_enabled: boolean
+  requires_jersey_number: boolean
+  jersey_number_min: number
+  jersey_number_max: number
+  jersey_number_options: number[]
   total_quantity: number
   purchased_by: string | null
   sizes_stock: EquipmentSizeStock[]
@@ -110,6 +122,10 @@ export type EquipmentFormPayload = {
   image_urls?: string[]
   purchase_price: number
   quick_purchase_enabled: boolean
+  requires_jersey_number: boolean
+  jersey_number_min: number
+  jersey_number_max: number
+  jersey_number_options: number[]
   total_quantity: number
   purchased_by?: string | null
   sizes_stock: EquipmentSizeStock[]
@@ -122,6 +138,7 @@ export type EquipmentTransactionPayload = {
   member_id?: string | null
   handled_by?: string | null
   size?: string | null
+  jersey_number?: number | null
   quantity: number
   notes?: string | null
   unit_price?: number | null
@@ -142,6 +159,7 @@ export type EquipmentRequestItem = {
   request_id: string
   equipment_id: string
   size: string | null
+  jersey_number: number | null
   quantity: number
   equipment_name_snapshot: string
   unit_price_snapshot: number
@@ -196,6 +214,7 @@ export type CreateEquipmentPurchaseRequestPayload = {
   items: Array<{
     equipment_id: string
     size?: string | null
+    jersey_number?: number | null
     quantity: number
   }>
 }
@@ -208,6 +227,7 @@ export type EquipmentPaymentItem = {
   equipment_id: string
   equipment_name: string
   size: string | null
+  jersey_number: number | null
   quantity: number
   unit_price: number
   total_amount: number
@@ -225,6 +245,7 @@ export type EquipmentManualPurchaseRecord = {
   equipment_id: string
   equipment_name: string
   size: string | null
+  jersey_number: number | null
   quantity: number
   unit_price: number
   total_amount: number
@@ -245,6 +266,7 @@ export type EquipmentPendingRequestPaymentItem = {
   equipment_id: string
   equipment_name: string
   size: string | null
+  jersey_number: number | null
   quantity: number
   unit_price: number
   total_amount: number
@@ -261,6 +283,7 @@ export type EquipmentRequestHistoryItem = {
   member_id: string
   member_name: string
   size: string | null
+  jersey_number: number | null
   quantity: number
   unit_price: number
   total_amount: number

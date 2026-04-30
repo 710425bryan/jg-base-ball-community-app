@@ -18,3 +18,17 @@ export const getEquipmentTransactionTotalPrice = (
 export const getEquipmentRequestItemTotalPrice = (
   item: { unit_price_snapshot?: number | null; quantity?: number | null }
 ) => toEquipmentPriceNumber(item.unit_price_snapshot) * Math.max(Number(item.quantity || 0), 0)
+
+export const formatEquipmentVariantLabel = (
+  item: { size?: string | null; jersey_number?: number | string | null },
+  emptyLabel = '無尺寸'
+) => {
+  const values = [
+    item.size ? String(item.size).trim() : '',
+    item.jersey_number !== null && item.jersey_number !== undefined && String(item.jersey_number).trim()
+      ? `#${String(item.jersey_number).trim()}`
+      : ''
+  ].filter(Boolean)
+
+  return values.length > 0 ? values.join('｜') : emptyLabel
+}

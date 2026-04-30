@@ -91,6 +91,7 @@
 | `src/utils/appUpdate.ts` | app shell refresh 與目前路徑處理 |
 | `src/utils/playerSync.ts` | Google Form / Sheet 球員同步、dedupe、保護欄位 |
 | `src/utils/pushNotifications.ts` | 前端推播派送、event key helper |
+| `src/utils/trainingRegistrationNotification.ts` | 特訓報名開始通知文案、URL、event key |
 | `src/utils/googleCalendarParser.ts` | Google Calendar / iCal parser 與同步規劃 |
 | `src/utils/equipmentInventory.ts` | 裝備庫存計算 |
 | `src/utils/equipmentPricing.ts` | 裝備價格計算 |
@@ -221,7 +222,7 @@
 | 收費 / 付款 | `supabase_fees_migration.sql`、`supabase_quarterly_fees_migration.sql`、`supabase_profile_payment_submissions_migration.sql` |
 | 裝備 | `supabase_equipment_management_migration.sql`、`supabase_equipment_inventory_adjustments_migration.sql`、`supabase_equipment_manual_purchase_records_migration.sql`、`supabase_equipment_multiple_photos_migration.sql` |
 | 能力 / 體測 | `supabase_performance_data_migration.sql`、`supabase_performance_view_scope_migration.sql` |
-| 特訓 / 點數 | `supabase_training_points_migration.sql` |
+| 特訓 / 點數 | `supabase_training_points_migration.sql`、`supabase_zz_training_registration_notifications_migration.sql` |
 | 賽事同步 | `supabase_matches_google_calendar_sync_migration.sql`、`supabase_match_calendar_daily_sync_schedule.sql` |
 | 推播 | `supabase_web_push_subscriptions_migration.sql`、`supabase_push_dispatch_events_migration.sql`、`supabase_match_reminder_notifications_migration.sql` |
 | 節日主題 | `supabase_holiday_theme_migration.sql` |
@@ -237,6 +238,7 @@
 | `supabase/functions/notify-holiday-theme/index.ts` | 節日主題通知 |
 | `supabase/functions/notify-holiday-theme/logic.ts` | 節日通知邏輯 |
 | `supabase/functions/send-match-reminders/index.ts` | 賽事提醒 |
+| `supabase/functions/send-training-registration-notifications/index.ts` | 特訓報名開始通知 |
 | `supabase/functions/sync-match-calendar/index.ts` | 賽事日曆同步 |
 | `supabase/functions/leave-webhook/index.ts` | 請假 webhook |
 | `supabase/functions/record-fee-remittance/index.ts` | 繳費匯款紀錄 |
@@ -281,4 +283,5 @@
 - 改權限：看 `src/router/index.ts`、`src/stores/permissions.ts`、`RolePermissionsManager.vue`、migration。
 - 改 DB 安全：先 `rg` function / policy 名稱，確認後續 migration 沒有覆寫。
 - 改推播：看 `src/utils/pushNotifications.ts`、`send-push-notification`、`_shared/push.ts`。
+- 改排程通知：看對應 Edge Function、`push_dispatch_events` event key、`get_notification_feed()` 是否同步顯示。
 - 改公開頁資料：優先找 public RPC，不要直接查 raw table。

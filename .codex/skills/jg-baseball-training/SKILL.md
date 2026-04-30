@@ -18,8 +18,10 @@ description: "Training registration and player points workflow for jg-base-ball-
 5. `src/services/trainingApi.ts`
 6. `src/types/training.ts`
 7. `src/utils/training.ts`
-8. `supabase_training_points_migration.sql`
-9. 若改到點名或缺席禁報，再讀 `src/views/RollCallView.vue`、`src/views/AttendanceListView.vue`
+8. `src/utils/trainingRegistrationNotification.ts`
+9. `supabase_training_points_migration.sql`
+10. 若改到報名開始通知，再讀 `supabase/functions/send-training-registration-notifications/index.ts`、`src/composables/useNotificationFeed.ts`
+11. 若改到點名或缺席禁報，再讀 `src/views/RollCallView.vue`、`src/views/AttendanceListView.vue`
 
 ## 功能邊界
 
@@ -29,6 +31,7 @@ description: "Training registration and player points workflow for jg-base-ball-
 - 點數流水帳存在 `player_point_transactions`，不可直接更新餘額欄位。
 - 禁報紀錄存在 `training_no_show_blocks`。
 - 特訓點名透過 `attendance_events.training_session_id` 串接。
+- 報名開始通知以 `push_dispatch_events` 去重，通知中心 source 為 `training`。
 
 ## 權限規則
 
@@ -44,6 +47,8 @@ description: "Training registration and player points workflow for jg-base-ball-
 - DB 端必須檢查 linked member、報名時間窗、手動狀態、點數與禁報狀態。
 - 已取消、未錄取、已扣點等狀態不得顯示不合適的取消操作。
 - 錄取名單公布前，一般使用者不可看到名單；公布後只能看到非敏感欄位。
+- 報名開始時間到達且狀態為 `open` 時，排程 Edge Function 送出特訓課通知；通知必須同時進通知中心與 Web Push。
+- 特訓通知 event key 使用 `training_registration_open:<session_id>:<registration_start_at>`，避免排程每 5 分鐘重複派送。
 
 ## 教練管理流程
 

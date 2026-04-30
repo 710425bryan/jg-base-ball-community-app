@@ -9,6 +9,7 @@ import type {
   EquipmentFormPayload,
   EquipmentInventoryAdjustment,
   EquipmentInventoryAdjustmentPayload,
+  EquipmentJerseyNumberAvailability,
   EquipmentManualPurchaseRecord,
   EquipmentMemberSummary,
   EquipmentPendingRequestPaymentItem,
@@ -57,6 +58,15 @@ const normalizeUrlList = (value: unknown, fallback: Array<string | null | undefi
   ])
 }
 
+const normalizeNumberList = (value: unknown) => {
+  const rawValues = Array.isArray(value) ? value : []
+  const numbers = rawValues
+    .map((item) => Number(item))
+    .filter((item) => Number.isInteger(item) && item >= 0 && item <= 999)
+
+  return [...new Set(numbers)].sort((a, b) => a - b)
+}
+
 const EQUIPMENT_SELECT = `
   id,
   name,
@@ -67,6 +77,10 @@ const EQUIPMENT_SELECT = `
   image_urls,
   purchase_price,
   quick_purchase_enabled,
+  requires_jersey_number,
+  jersey_number_min,
+  jersey_number_max,
+  jersey_number_options,
   total_quantity,
   purchased_by,
   sizes_stock,
@@ -80,6 +94,7 @@ const EQUIPMENT_INVENTORY_TRANSACTION_SELECT = `
   transaction_type,
   member_id,
   size,
+  jersey_number,
   quantity
 `
 
@@ -89,6 +104,10 @@ const normalizeEquipment = (row: any): Equipment => ({
   purchase_price: normalizeNumber(row?.purchase_price),
   total_quantity: normalizeNumber(row?.total_quantity),
   quick_purchase_enabled: Boolean(row?.quick_purchase_enabled),
+  requires_jersey_number: Boolean(row?.requires_jersey_number),
+  jersey_number_min: normalizeNumber(row?.jersey_number_min, 0),
+  jersey_number_max: normalizeNumber(row?.jersey_number_max, 99),
+  jersey_number_options: normalizeNumberList(row?.jersey_number_options),
   sizes_stock: Array.isArray(row?.sizes_stock)
     ? row.sizes_stock.map((item: any) => ({
       size: String(item?.size || '').trim(),
@@ -104,6 +123,7 @@ const normalizeEquipment = (row: any): Equipment => ({
   reserved_request_items: Array.isArray(row?.reserved_request_items)
     ? row.reserved_request_items.map((item: any) => ({
       ...item,
+      jersey_number: item?.jersey_number == null ? null : normalizeNumber(item.jersey_number),
       quantity: normalizeNumber(item?.quantity),
       unit_price_snapshot: item?.unit_price_snapshot == null ? null : normalizeNumber(item.unit_price_snapshot)
     }))
@@ -112,6 +132,7 @@ const normalizeEquipment = (row: any): Equipment => ({
 
 const normalizeTransaction = (row: any): EquipmentTransaction => ({
   ...row,
+  jersey_number: row?.jersey_number == null ? null : normalizeNumber(row.jersey_number),
   quantity: normalizeNumber(row?.quantity, 1),
   unit_price: row?.unit_price == null ? null : normalizeNumber(row.unit_price)
 })
@@ -219,7 +240,7 @@ const fetchReservedRequestItems = async (equipmentIds: string[] = []) => {
 
   let query = supabase
     .from('equipment_purchase_request_items')
-    .select('id, request_id, equipment_id, size, quantity, unit_price_snapshot')
+    .select('id, request_id, equipment_id, size, jersey_number, quantity, unit_price_snapshot')
     .in('request_id', requestIds)
     .is('equipment_transaction_id', null)
 
@@ -289,6 +310,19 @@ export const fetchEquipments = async () => {
   }))
 }
 
+export const fetchEquipmentJerseyNumberAvailability = async (equipmentId: string) => {
+  const { data, error } = await supabase.rpc('list_equipment_jersey_number_availability', {
+    p_equipment_id: equipmentId
+  })
+
+  if (error) throw error
+  return unwrapRows<any>(data).map((row) => ({
+    jersey_number: normalizeNumber(row?.jersey_number),
+    is_available: Boolean(row?.is_available),
+    claim_status: row?.claim_status || null
+  })) as EquipmentJerseyNumberAvailability[]
+}
+
 export const fetchEquipmentTransactions = async (equipmentId: string) => {
   const { data, error } = await supabase
     .from('equipment_transactions')
@@ -300,6 +334,7 @@ export const fetchEquipmentTransactions = async (equipmentId: string) => {
       member_id,
       handled_by,
       size,
+      jersey_number,
       quantity,
       notes,
       unit_price,
@@ -359,6 +394,7 @@ export const fetchEquipmentRequestHistoryItems = async (equipmentId: string) => 
       request_id,
       equipment_id,
       size,
+      jersey_number,
       quantity,
       unit_price_snapshot,
       equipment_transaction_id
@@ -413,6 +449,7 @@ export const fetchEquipmentRequestHistoryItems = async (equipmentId: string) => 
         member_id: request.member_id,
         member_name: member?.name || '未知成員',
         size: item.size || null,
+        jersey_number: item.jersey_number == null ? null : normalizeNumber(item.jersey_number),
         quantity,
         unit_price: unitPrice,
         total_amount: unitPrice * quantity,
@@ -488,6 +525,7 @@ export const createEquipmentTransaction = async (payload: EquipmentTransactionPa
       member_id: payload.member_id || null,
       handled_by: payload.handled_by || null,
       size: payload.size || null,
+      jersey_number: payload.jersey_number ?? null,
       quantity: payload.quantity,
       notes: payload.notes || null,
       unit_price: payload.unit_price ?? null
@@ -500,6 +538,7 @@ export const createEquipmentTransaction = async (payload: EquipmentTransactionPa
       member_id,
       handled_by,
       size,
+      jersey_number,
       quantity,
       notes,
       unit_price,
@@ -575,6 +614,7 @@ const REQUEST_ITEM_SELECT = `
   request_id,
   equipment_id,
   size,
+  jersey_number,
   quantity,
   equipment_name_snapshot,
   unit_price_snapshot,
@@ -668,6 +708,7 @@ const fetchRequestTransactionsMap = async (transactionIds: string[]) => {
       member_id,
       handled_by,
       size,
+      jersey_number,
       quantity,
       notes,
       unit_price,
@@ -699,6 +740,7 @@ const fetchRequestItems = async (requestIds: string[]) => {
   if (error) throw error
   return (data || []).map((item: any) => ({
     ...item,
+    jersey_number: item?.jersey_number == null ? null : normalizeNumber(item.jersey_number),
     quantity: normalizeNumber(item.quantity, 1),
     unit_price_snapshot: normalizeNumber(item.unit_price_snapshot)
   }))
@@ -797,6 +839,7 @@ export const createEquipmentPurchaseRequest = async (
   payload: CreateEquipmentPurchaseRequestPayload,
   requesterUserId: string
 ) => {
+  if (!requesterUserId) throw new Error('尚未登入')
   if (!Array.isArray(payload.items) || payload.items.length === 0) {
     throw new Error('請先加入至少一項裝備')
   }
@@ -809,38 +852,28 @@ export const createEquipmentPurchaseRequest = async (
     throw new Error(availability.failures[0]?.reason || '部分裝備庫存不足，請調整請購數量')
   }
 
-  const { data: request, error: requestError } = await supabase
-    .from('equipment_purchase_requests')
-    .insert({
-      member_id: payload.member_id,
-      requester_user_id: requesterUserId,
-      requested_by: requesterUserId,
-      notes: payload.notes || null,
-      status: 'pending'
-    })
-    .select(REQUEST_SELECT)
-    .single()
-
-  if (requestError) throw requestError
-
-  const itemRows = payload.items.map((item) => {
+  const rpcItems = payload.items.map((item) => {
     const equipment = equipmentMap.get(String(item.equipment_id))
     return {
-      request_id: request.id,
       equipment_id: item.equipment_id,
       size: item.size || null,
+      jersey_number: item.jersey_number ?? null,
       quantity: Math.max(Math.floor(Number(item.quantity || 0)), 1),
       equipment_name_snapshot: equipment?.name || '未知裝備',
       unit_price_snapshot: Number(equipment?.purchase_price || 0)
     }
   })
 
-  const { error: itemError } = await supabase
-    .from('equipment_purchase_request_items')
-    .insert(itemRows)
+  const { data, error } = await supabase.rpc('create_equipment_purchase_request', {
+    p_member_id: payload.member_id,
+    p_notes: payload.notes || null,
+    p_items: rpcItems
+  })
 
-  if (itemError) throw itemError
+  if (error) throw error
 
+  const request = Array.isArray(data) ? data[0] : data
+  if (!request?.id) throw new Error('建立裝備加購申請失敗')
   return fetchEquipmentRequestById(request.id)
 }
 
@@ -887,61 +920,17 @@ export const markEquipmentRequestPickedUp = async (
   note?: string | null,
   imageFiles: File[] = []
 ) => {
-  const request = await fetchEquipmentRequestById(requestId)
-  if (!request) throw new Error('找不到加購申請')
-
-  const now = new Date().toISOString()
   const imageUrls = await uploadEquipmentImages(
     imageFiles,
     'equipment_request_actions/pickup'
   )
 
-  for (const item of request.items) {
-    if (item.equipment_transaction_id) continue
-
-    const { data: transaction, error: transactionError } = await supabase
-      .from('equipment_transactions')
-      .insert({
-        equipment_id: item.equipment_id,
-        transaction_type: 'purchase',
-        transaction_date: now.slice(0, 10),
-        member_id: request.member_id,
-        handled_by: request.member?.name || null,
-        size: item.size || null,
-        quantity: item.quantity,
-        notes: `加購申請 ${request.id}`,
-        unit_price: item.unit_price_snapshot,
-        request_item_id: item.id,
-        payment_status: 'unpaid'
-      })
-      .select('id')
-      .single()
-
-    if (transactionError) throw transactionError
-
-    const { error: itemError } = await supabase
-      .from('equipment_purchase_request_items')
-      .update({
-        equipment_transaction_id: transaction.id,
-        updated_at: now
-      })
-      .eq('id', item.id)
-
-    if (itemError) throw itemError
-  }
-
-  const { error } = await supabase
-    .from('equipment_purchase_requests')
-    .update({
-      status: 'picked_up',
-      picked_up_at: now,
-      picked_up_by: userId,
-      pickup_note: note || null,
-      pickup_image_url: imageUrls[0] || null,
-      pickup_image_urls: imageUrls,
-      updated_at: now
-    })
-    .eq('id', requestId)
+  const { error } = await supabase.rpc('mark_equipment_request_picked_up', {
+    p_request_id: requestId,
+    p_user_id: userId,
+    p_note: note || null,
+    p_image_urls: imageUrls
+  })
 
   if (error) throw error
   return fetchEquipmentRequestById(requestId)

@@ -22,6 +22,7 @@ const uploadRef = ref()
 const imageFiles = ref<File[]>([])
 const imagePreviews = ref<string[]>([])
 const existingImageUrls = ref<string[]>([])
+const jerseyNumberOptionsText = ref('')
 
 const categories: EquipmentCategory[] = ['服飾類', '球具類', '消耗品', '其他']
 
@@ -34,6 +35,10 @@ const form = reactive<EquipmentFormPayload>({
   image_urls: [],
   purchase_price: 0,
   quick_purchase_enabled: false,
+  requires_jersey_number: false,
+  jersey_number_min: 0,
+  jersey_number_max: 99,
+  jersey_number_options: [],
   total_quantity: 0,
   purchased_by: '',
   sizes_stock: []
@@ -49,6 +54,28 @@ const displayedImageUrls = computed(() => [
   ...existingImageUrls.value,
   ...imagePreviews.value
 ])
+
+const parseJerseyNumberOptions = (value: string) => {
+  const tokens = String(value || '')
+    .split(/[\s,，、]+/)
+    .map((token) => token.trim())
+    .filter(Boolean)
+  const invalidToken = tokens.find((token) => {
+    const parsed = Number(token)
+    return !/^\d+$/.test(token) || !Number.isInteger(parsed) || parsed < 0 || parsed > 999
+  })
+
+  if (invalidToken) {
+    throw new Error(`可選號碼白名單包含無效號碼：${invalidToken}`)
+  }
+
+  return [...new Set(tokens.map((token) => Number(token)))].sort((a, b) => a - b)
+}
+
+const formatJerseyNumberOptions = (values: number[] = []) =>
+  [...new Set(values.map((value) => Number(value)).filter((value) => Number.isInteger(value) && value >= 0 && value <= 999))]
+    .sort((a, b) => a - b)
+    .join('、')
 
 const rules = {
   name: [{ required: true, message: '請輸入裝備名稱', trigger: 'blur' }],
@@ -95,6 +122,13 @@ const resetForm = () => {
   form.image_urls = [...existingImageUrls.value]
   form.purchase_price = Number(props.equipment?.purchase_price || 0)
   form.quick_purchase_enabled = Boolean(props.equipment?.quick_purchase_enabled)
+  form.requires_jersey_number = Boolean(props.equipment?.requires_jersey_number)
+  form.jersey_number_min = Number(props.equipment?.jersey_number_min ?? 0)
+  form.jersey_number_max = Number(props.equipment?.jersey_number_max ?? 99)
+  form.jersey_number_options = Array.isArray(props.equipment?.jersey_number_options)
+    ? [...props.equipment.jersey_number_options]
+    : []
+  jerseyNumberOptionsText.value = formatJerseyNumberOptions(form.jersey_number_options)
   form.total_quantity = Number(props.equipment?.total_quantity || 0)
   form.purchased_by = props.equipment?.purchased_by || ''
   form.sizes_stock = Array.isArray(props.equipment?.sizes_stock)
@@ -140,6 +174,9 @@ const submit = async () => {
     if (!valid) return
 
     try {
+      const jerseyNumberOptions = form.requires_jersey_number
+        ? parseJerseyNumberOptions(jerseyNumberOptionsText.value)
+        : []
       const payload: EquipmentFormPayload = {
         ...form,
         name: form.name.trim(),
@@ -149,6 +186,10 @@ const submit = async () => {
         image_url: existingImageUrls.value[0] || null,
         image_urls: [...existingImageUrls.value],
         purchase_price: Math.max(Number(form.purchase_price || 0), 0),
+        requires_jersey_number: Boolean(form.requires_jersey_number),
+        jersey_number_min: Math.max(Number(form.jersey_number_min ?? 0), 0),
+        jersey_number_max: Math.max(Number(form.jersey_number_max ?? 99), Math.max(Number(form.jersey_number_min ?? 0), 0)),
+        jersey_number_options: jerseyNumberOptions,
         total_quantity: Math.max(Number(form.total_quantity || 0), 0),
         sizes_stock: normalizeSizesStock()
       }
@@ -250,6 +291,37 @@ onBeforeUnmount(() => {
               <el-icon><Delete /></el-icon>
             </button>
           </div>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-gray-100 bg-gray-50/80 p-4">
+        <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div>
+            <div class="font-black text-slate-800">球衣號碼</div>
+            <p class="mt-1 text-xs text-gray-400">開啟後，加購時每件球衣都必須選擇一個不重複的號碼。</p>
+          </div>
+          <el-switch
+            v-model="form.requires_jersey_number"
+            active-text="需要選號"
+            inactive-text="一般裝備"
+          />
+        </div>
+
+        <div v-if="form.requires_jersey_number" class="mt-4 grid gap-4 md:grid-cols-2">
+          <el-form-item label="最小號碼" prop="jersey_number_min" class="font-bold mb-0">
+            <el-input-number v-model="form.jersey_number_min" class="!w-full" :min="0" :max="999" size="large" />
+          </el-form-item>
+          <el-form-item label="最大號碼" prop="jersey_number_max" class="font-bold mb-0">
+            <el-input-number v-model="form.jersey_number_max" class="!w-full" :min="form.jersey_number_min" :max="999" size="large" />
+          </el-form-item>
+          <el-form-item label="可選號碼白名單" class="font-bold mb-0 md:col-span-2">
+            <el-input
+              v-model="jerseyNumberOptionsText"
+              type="textarea"
+              :rows="3"
+              placeholder="例如：9、13、16、19。留空時使用上方號碼範圍。"
+            />
+          </el-form-item>
         </div>
       </div>
 

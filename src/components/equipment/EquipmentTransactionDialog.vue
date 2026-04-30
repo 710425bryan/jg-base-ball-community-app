@@ -28,6 +28,7 @@ const form = reactive<EquipmentTransactionPayload>({
   member_id: null,
   handled_by: '',
   size: null,
+  jersey_number: null,
   quantity: 1,
   notes: '',
   unit_price: null
@@ -47,8 +48,18 @@ const typeOptions: Array<{ value: EquipmentTransactionType; label: string; helpe
 
 const currentType = computed(() => typeOptions.find((option) => option.value === form.transaction_type))
 const sizeOptions = computed(() => props.equipment?.sizes_stock?.filter((item) => item.size) || [])
+const jerseyNumberOptions = computed(() =>
+  Array.isArray(props.equipment?.jersey_number_options)
+    ? props.equipment.jersey_number_options
+      .map((option) => Number(option))
+      .filter((option) => Number.isInteger(option) && option >= 0 && option <= 999)
+    : []
+)
 const requiresSize = computed(() => sizeOptions.value.length > 0)
 const requiresMember = computed(() => form.transaction_type === 'purchase')
+const requiresJerseyNumber = computed(() =>
+  Boolean(props.equipment?.requires_jersey_number) && form.transaction_type === 'purchase'
+)
 const normalizeSize = (value?: string | null) => String(value || '').trim()
 
 const rules = {
@@ -89,6 +100,35 @@ const rules = {
       },
       trigger: ['blur', 'change']
     }
+  ],
+  jersey_number: [
+    {
+      validator: (_rule: unknown, value: number | null, callback: (error?: Error) => void) => {
+        if (!requiresJerseyNumber.value) {
+          callback()
+          return
+        }
+
+        if (value === null || value === undefined || String(value).trim() === '') {
+          callback(new Error('請選擇球衣號碼'))
+          return
+        }
+
+        const parsed = Number(value)
+        const min = Number(props.equipment?.jersey_number_min ?? 0)
+        const max = Number(props.equipment?.jersey_number_max ?? 99)
+        if (jerseyNumberOptions.value.length > 0 && !jerseyNumberOptions.value.includes(parsed)) {
+          callback(new Error('請選擇目前開放的球衣號碼'))
+          return
+        }
+        if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
+          callback(new Error(`請輸入 ${min} - ${max} 的球衣號碼`))
+          return
+        }
+        callback()
+      },
+      trigger: ['blur', 'change']
+    }
   ]
 }
 
@@ -100,6 +140,7 @@ const resetForm = async () => {
   form.member_id = null
   form.handled_by = ''
   form.size = sizeOptions.value.length === 1 ? sizeOptions.value[0].size : null
+  form.jersey_number = null
   form.quantity = 1
   form.notes = ''
   form.unit_price = nextType === 'purchase' ? Number(props.equipment?.purchase_price || 0) : null
@@ -124,6 +165,7 @@ const submit = async () => {
         equipment_id: equipment.id,
         handled_by: form.handled_by?.trim() || null,
         size: normalizeSize(form.size) || null,
+        jersey_number: requiresJerseyNumber.value ? Number(form.jersey_number) : null,
         notes: form.notes?.trim() || null,
         unit_price: form.transaction_type === 'purchase'
           ? Number(form.unit_price ?? equipment.purchase_price ?? 0)
@@ -150,7 +192,7 @@ watch(() => form.transaction_type, (type) => {
   } else {
     form.unit_price = null
   }
-  formRef.value?.clearValidate?.(['member_id'])
+  formRef.value?.clearValidate?.(['member_id', 'jersey_number'])
 })
 </script>
 
@@ -232,6 +274,33 @@ watch(() => form.transaction_type, (type) => {
             />
           </el-select>
           <el-input v-else v-model="form.size" size="large" placeholder="可留空" />
+        </el-form-item>
+
+        <el-form-item v-if="requiresJerseyNumber" label="球衣號碼" prop="jersey_number" class="font-bold">
+          <el-select
+            v-if="jerseyNumberOptions.length > 0"
+            v-model="form.jersey_number"
+            class="w-full"
+            size="large"
+            filterable
+            placeholder="請選擇"
+          >
+            <el-option
+              v-for="number in jerseyNumberOptions"
+              :key="number"
+              :label="`#${number}`"
+              :value="number"
+            />
+          </el-select>
+          <el-input-number
+            v-else
+            v-model="form.jersey_number"
+            class="!w-full"
+            :min="equipment?.jersey_number_min ?? 0"
+            :max="equipment?.jersey_number_max ?? 99"
+            :precision="0"
+            size="large"
+          />
         </el-form-item>
 
         <el-form-item label="數量" prop="quantity" class="font-bold">

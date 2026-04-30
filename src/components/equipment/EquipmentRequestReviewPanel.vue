@@ -17,7 +17,7 @@ import {
   getEquipmentRequestStatusLabel,
   getEquipmentRequestStatusTagType
 } from '@/utils/equipmentRequestStatus'
-import { getEquipmentRequestItemTotalPrice } from '@/utils/equipmentPricing'
+import { formatEquipmentVariantLabel, getEquipmentRequestItemTotalPrice } from '@/utils/equipmentPricing'
 import { buildPushEventKey, dispatchPushNotification } from '@/utils/pushNotifications'
 import EquipmentRequestActionDialog from './EquipmentRequestActionDialog.vue'
 
@@ -78,6 +78,9 @@ const formatDateTime = (value?: string | null) => {
 
 const getRequestTotal = (request: EquipmentPurchaseRequest) =>
   request.items.reduce((total, item) => total + getEquipmentRequestItemTotalPrice(item), 0)
+
+const getVariantLabel = (item: { size?: string | null; jersey_number?: number | string | null }) =>
+  formatEquipmentVariantLabel(item)
 
 const setProcessing = (id: string, value: boolean) => {
   const next = new Set(processingIds.value)
@@ -325,7 +328,7 @@ watch(() => route.query.highlight_id, () => {
 
               <div class="mt-3 space-y-2">
                 <div v-for="item in request.items" :key="item.id" class="flex items-center justify-between gap-3 text-sm">
-                  <span class="font-bold text-gray-700">{{ item.equipment_name_snapshot }} <span class="text-gray-400">{{ item.size || '' }}</span></span>
+                  <span class="font-bold text-gray-700">{{ item.equipment_name_snapshot }} <span class="text-gray-400">{{ getVariantLabel(item) }}</span></span>
                   <span class="font-black text-primary">{{ item.quantity }} 件 / {{ formatCurrency(getEquipmentRequestItemTotalPrice(item)) }}</span>
                 </div>
               </div>
@@ -390,7 +393,7 @@ watch(() => route.query.highlight_id, () => {
 
               <div class="mt-3 space-y-2">
                 <div v-for="item in request.items" :key="item.id" class="flex items-center justify-between gap-3 text-sm">
-                  <span class="font-bold text-gray-700">{{ item.equipment_name_snapshot }} <span class="text-gray-400">{{ item.size || '' }}</span></span>
+                  <span class="font-bold text-gray-700">{{ item.equipment_name_snapshot }} <span class="text-gray-400">{{ getVariantLabel(item) }}</span></span>
                   <span class="font-black text-primary">{{ item.quantity }} 件</span>
                 </div>
               </div>

@@ -23,6 +23,10 @@ const createEquipment = (overrides: Partial<Equipment> = {}): Equipment => ({
   image_urls: [],
   purchase_price: 500,
   quick_purchase_enabled: true,
+  requires_jersey_number: false,
+  jersey_number_min: 0,
+  jersey_number_max: 99,
+  jersey_number_options: [],
   total_quantity: 10,
   purchased_by: null,
   sizes_stock: [
@@ -44,6 +48,7 @@ const createTransaction = (overrides: Partial<EquipmentTransaction>): EquipmentT
   member_id: 'm1',
   handled_by: null,
   size: null,
+  jersey_number: null,
   quantity: 1,
   notes: null,
   unit_price: null,
@@ -62,8 +67,8 @@ describe('equipmentInventory', () => {
   it('deducts outgoing transactions and replenishes returns', () => {
     const equipment = createEquipment({
       equipment_transactions: [
-        { id: 't1', equipment_id: 'equipment-1', transaction_type: 'borrow', transaction_date: '2026-04-01', member_id: 'm1', handled_by: null, size: 'M', quantity: 2, notes: null, unit_price: null, request_item_id: null, carryover_month: null, payment_status: 'unpaid', payment_submission_id: null, paid_at: null, paid_by: null, created_at: '', updated_at: '' },
-        { id: 't2', equipment_id: 'equipment-1', transaction_type: 'return', transaction_date: '2026-04-02', member_id: 'm1', handled_by: null, size: 'M', quantity: 1, notes: null, unit_price: null, request_item_id: null, carryover_month: null, payment_status: 'unpaid', payment_submission_id: null, paid_at: null, paid_by: null, created_at: '', updated_at: '' }
+        { id: 't1', equipment_id: 'equipment-1', transaction_type: 'borrow', transaction_date: '2026-04-01', member_id: 'm1', handled_by: null, size: 'M', jersey_number: null, quantity: 2, notes: null, unit_price: null, request_item_id: null, carryover_month: null, payment_status: 'unpaid', payment_submission_id: null, paid_at: null, paid_by: null, created_at: '', updated_at: '' },
+        { id: 't2', equipment_id: 'equipment-1', transaction_type: 'return', transaction_date: '2026-04-02', member_id: 'm1', handled_by: null, size: 'M', jersey_number: null, quantity: 1, notes: null, unit_price: null, request_item_id: null, carryover_month: null, payment_status: 'unpaid', payment_submission_id: null, paid_at: null, paid_by: null, created_at: '', updated_at: '' }
       ]
     })
 
@@ -104,9 +109,9 @@ describe('equipmentInventory', () => {
         { size: '22-26CM', quantity: 8 }
       ],
       reserved_request_items: [
-        { id: 'r1', request_id: 'request-1', equipment_id: 'equipment-1', size: '15-17CM', quantity: 17, unit_price_snapshot: 150 },
-        { id: 'r2', request_id: 'request-1', equipment_id: 'equipment-1', size: '17-20CM', quantity: 23, unit_price_snapshot: 150 },
-        { id: 'r3', request_id: 'request-1', equipment_id: 'equipment-1', size: '22-26CM', quantity: 11, unit_price_snapshot: 150 }
+        { id: 'r1', request_id: 'request-1', equipment_id: 'equipment-1', size: '15-17CM', jersey_number: null, quantity: 17, unit_price_snapshot: 150 },
+        { id: 'r2', request_id: 'request-1', equipment_id: 'equipment-1', size: '17-20CM', jersey_number: null, quantity: 23, unit_price_snapshot: 150 },
+        { id: 'r3', request_id: 'request-1', equipment_id: 'equipment-1', size: '22-26CM', jersey_number: null, quantity: 11, unit_price_snapshot: 150 }
       ]
     })
 
@@ -122,7 +127,7 @@ describe('equipmentInventory', () => {
   it('counts reserved request items before pickup', () => {
     const equipment = createEquipment({
       reserved_request_items: [
-        { id: 'r1', request_id: 'request-1', equipment_id: 'equipment-1', size: 'L', quantity: 3, unit_price_snapshot: 500 }
+        { id: 'r1', request_id: 'request-1', equipment_id: 'equipment-1', size: 'L', jersey_number: null, quantity: 3, unit_price_snapshot: 500 }
       ]
     })
 
@@ -205,6 +210,82 @@ describe('equipmentInventory', () => {
     expect(validation.failures[0]?.reason).toContain('商品可用庫存不足')
   })
 
+  it('requires a jersey number for jersey-numbered equipment', () => {
+    const equipment = createEquipment({
+      name: '社區球衣',
+      requires_jersey_number: true
+    })
+
+    const validation = validateEquipmentPurchaseItemsAvailability([
+      { equipment_id: equipment.id, size: 'M', quantity: 1 }
+    ], new Map([[equipment.id, equipment]]))
+
+    expect(validation.isValid).toBe(false)
+    expect(validation.failures[0]?.reason).toContain('請選擇球衣號碼')
+  })
+
+  it('requires one cart item per jersey number', () => {
+    const equipment = createEquipment({
+      name: '社區球衣',
+      requires_jersey_number: true
+    })
+
+    const validation = validateEquipmentPurchaseItemsAvailability([
+      { equipment_id: equipment.id, size: 'M', jersey_number: 7, quantity: 2 }
+    ], new Map([[equipment.id, equipment]]))
+
+    expect(validation.isValid).toBe(false)
+    expect(validation.failures[0]?.reason).toContain('每件球衣需分別選擇一個號碼')
+  })
+
+  it('blocks duplicate jersey numbers within the same cart', () => {
+    const equipment = createEquipment({
+      name: '社區球衣',
+      requires_jersey_number: true
+    })
+
+    const validation = validateEquipmentPurchaseItemsAvailability([
+      { equipment_id: equipment.id, size: 'M', jersey_number: 7, quantity: 1 },
+      { equipment_id: equipment.id, size: 'L', jersey_number: 7, quantity: 1 }
+    ], new Map([[equipment.id, equipment]]))
+
+    expect(validation.isValid).toBe(false)
+    expect(validation.failures[0]?.reason).toContain('#7 已在請購單中')
+  })
+
+  it('allows jersey numbers from a configured options list', () => {
+    const equipment = createEquipment({
+      name: '社區球衣',
+      requires_jersey_number: true,
+      jersey_number_min: 0,
+      jersey_number_max: 99,
+      jersey_number_options: [9, 13, 16]
+    })
+
+    const validation = validateEquipmentPurchaseItemsAvailability([
+      { equipment_id: equipment.id, size: 'M', jersey_number: 13, quantity: 1 }
+    ], new Map([[equipment.id, equipment]]))
+
+    expect(validation.isValid).toBe(true)
+  })
+
+  it('blocks jersey numbers outside a configured options list', () => {
+    const equipment = createEquipment({
+      name: '社區球衣',
+      requires_jersey_number: true,
+      jersey_number_min: 0,
+      jersey_number_max: 99,
+      jersey_number_options: [9, 13, 16]
+    })
+
+    const validation = validateEquipmentPurchaseItemsAvailability([
+      { equipment_id: equipment.id, size: 'M', jersey_number: 7, quantity: 1 }
+    ], new Map([[equipment.id, equipment]]))
+
+    expect(validation.isValid).toBe(false)
+    expect(validation.failures[0]?.reason).toContain('不在可選號碼清單')
+  })
+
   it('does not deduct pending request items from the purchase availability snapshot', () => {
     const equipment = createEquipment({
       total_quantity: 2,
@@ -217,9 +298,9 @@ describe('equipmentInventory', () => {
 
   it('returns per-member active allocation balances', () => {
     const balances = getEquipmentMemberAllocationBalances([
-      { id: 't1', equipment_id: 'equipment-1', transaction_type: 'borrow', transaction_date: '2026-04-01', member_id: 'm1', handled_by: null, size: null, quantity: 2, notes: null, unit_price: null, request_item_id: null, carryover_month: null, payment_status: 'unpaid', payment_submission_id: null, paid_at: null, paid_by: null, created_at: '', updated_at: '' },
-      { id: 't2', equipment_id: 'equipment-1', transaction_type: 'receive', transaction_date: '2026-04-01', member_id: 'm2', handled_by: null, size: null, quantity: 1, notes: null, unit_price: null, request_item_id: null, carryover_month: null, payment_status: 'unpaid', payment_submission_id: null, paid_at: null, paid_by: null, created_at: '', updated_at: '' },
-      { id: 't3', equipment_id: 'equipment-1', transaction_type: 'return', transaction_date: '2026-04-02', member_id: 'm1', handled_by: null, size: null, quantity: 1, notes: null, unit_price: null, request_item_id: null, carryover_month: null, payment_status: 'unpaid', payment_submission_id: null, paid_at: null, paid_by: null, created_at: '', updated_at: '' }
+      { id: 't1', equipment_id: 'equipment-1', transaction_type: 'borrow', transaction_date: '2026-04-01', member_id: 'm1', handled_by: null, size: null, jersey_number: null, quantity: 2, notes: null, unit_price: null, request_item_id: null, carryover_month: null, payment_status: 'unpaid', payment_submission_id: null, paid_at: null, paid_by: null, created_at: '', updated_at: '' },
+      { id: 't2', equipment_id: 'equipment-1', transaction_type: 'receive', transaction_date: '2026-04-01', member_id: 'm2', handled_by: null, size: null, jersey_number: null, quantity: 1, notes: null, unit_price: null, request_item_id: null, carryover_month: null, payment_status: 'unpaid', payment_submission_id: null, paid_at: null, paid_by: null, created_at: '', updated_at: '' },
+      { id: 't3', equipment_id: 'equipment-1', transaction_type: 'return', transaction_date: '2026-04-02', member_id: 'm1', handled_by: null, size: null, jersey_number: null, quantity: 1, notes: null, unit_price: null, request_item_id: null, carryover_month: null, payment_status: 'unpaid', payment_submission_id: null, paid_at: null, paid_by: null, created_at: '', updated_at: '' }
     ])
 
     expect(balances).toEqual({ m1: 1, m2: 1 })

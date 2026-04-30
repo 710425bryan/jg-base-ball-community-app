@@ -150,6 +150,29 @@ describe('notification feed controller', () => {
     })
   })
 
+  it('maps training registration notifications', async () => {
+    const fetcher = vi.fn().mockResolvedValue([
+      {
+        id: 'training_registration_open:session-1:2026-04-30T01:00:00.000Z',
+        source: 'training',
+        title: '特訓課開放報名：五月特訓課',
+        body: '課程：五月特訓課',
+        created_at: '2026-04-30T01:00:00.000Z',
+        link: '/training?session_id=session-1',
+        highlight_member_id: null
+      }
+    ])
+
+    const controller = createNotificationFeedController(fetcher)
+    await controller.loadNotificationFeed(10)
+
+    expect(controller.notifications.value[0]).toMatchObject({
+      id: 'training:training_registration_open:session-1:2026-04-30T01:00:00.000Z',
+      source: 'training',
+      link: '/training?session_id=session-1'
+    })
+  })
+
   it('maps fee management reminder notifications and keeps current todo ids stable', async () => {
     const fetcher = vi.fn()
       .mockResolvedValueOnce([

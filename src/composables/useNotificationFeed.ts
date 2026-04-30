@@ -95,6 +95,12 @@ export const createNotificationFeedController = (
     const now = Date.now()
     const staleMs = Math.max(0, loadOptions.staleMs ?? 60_000)
 
+    if (loadOptions.force) {
+      generation += 1
+      inFlight = null
+      isLoaded.value = false
+    }
+
     if (
       isLoaded.value &&
       !inFlight &&
@@ -102,12 +108,6 @@ export const createNotificationFeedController = (
       now - lastLoadedAt < staleMs
     ) {
       return notifications.value
-    }
-
-    if (loadOptions.force) {
-      generation += 1
-      inFlight = null
-      isLoaded.value = false
     }
 
     if (inFlight) {

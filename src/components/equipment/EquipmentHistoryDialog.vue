@@ -12,7 +12,11 @@ import type {
   EquipmentRequestHistoryItem,
   EquipmentTransaction
 } from '@/types/equipment'
-import { getEquipmentRequestItemTotalPrice, getEquipmentTransactionTotalPrice } from '@/utils/equipmentPricing'
+import {
+  formatEquipmentVariantLabel,
+  getEquipmentRequestItemTotalPrice,
+  getEquipmentTransactionTotalPrice
+} from '@/utils/equipmentPricing'
 import {
   EQUIPMENT_REQUEST_RESERVED_STATUSES,
   getEquipmentRequestStatusLabel
@@ -78,7 +82,7 @@ type HistoryItem = {
   person: string | null
   source: string
   sourceDetail: string | null
-  size: string | null
+  variantLabel: string
   quantityLabel: string
   quantityTone: 'positive' | 'negative' | 'neutral'
   amount: number | null
@@ -151,7 +155,7 @@ const mapTransactionHistoryItem = (transaction: EquipmentTransaction): HistoryIt
   person: transaction.team_members?.name || transaction.handled_by || null,
   source: getTransactionSource(transaction),
   sourceDetail: getTransactionSourceDetail(transaction),
-  size: transaction.size || null,
+  variantLabel: formatEquipmentVariantLabel(transaction),
   quantityLabel: getTransactionQuantityLabel(transaction),
   quantityTone: transaction.transaction_type === 'return' ? 'positive' : 'negative',
   amount: transaction.transaction_type === 'purchase'
@@ -169,7 +173,7 @@ const mapAdjustmentHistoryItem = (adjustment: EquipmentInventoryAdjustment): His
   person: adjustment.team_members?.name || adjustment.handled_by || null,
   source: '庫存調整',
   sourceDetail: '新增庫存',
-  size: adjustment.size || null,
+  variantLabel: formatEquipmentVariantLabel(adjustment),
   quantityLabel: `+${Math.max(Number(adjustment.quantity_delta || 0), 0)}`,
   quantityTone: 'positive',
   amount: null,
@@ -184,7 +188,7 @@ const mapRequestHistoryItem = (item: EquipmentRequestHistoryItem): HistoryItem =
   person: item.member_name || null,
   source: '裝備加購',
   sourceDetail: getEquipmentRequestStatusLabel(item.request_status),
-  size: item.size || null,
+  variantLabel: formatEquipmentVariantLabel(item),
   quantityLabel: getRequestQuantityLabel(item),
   quantityTone: isRequestItemReserved(item) ? 'negative' : 'neutral',
   amount: getEquipmentRequestItemTotalPrice({
@@ -272,7 +276,7 @@ watch(() => props.modelValue, (value) => {
             <th class="px-4 py-3 font-bold">紀錄</th>
             <th class="px-4 py-3 font-bold">來源</th>
             <th class="px-4 py-3 font-bold">人員</th>
-            <th class="px-4 py-3 font-bold">尺寸規格</th>
+            <th class="px-4 py-3 font-bold">規格 / 號碼</th>
             <th class="px-4 py-3 font-bold">庫存異動</th>
             <th class="px-4 py-3 font-bold">金額</th>
             <th class="px-4 py-3 font-bold">備註</th>
@@ -292,7 +296,7 @@ watch(() => props.modelValue, (value) => {
               <div v-if="item.sourceDetail" class="mt-0.5 text-xs font-bold text-gray-400">{{ item.sourceDetail }}</div>
             </td>
             <td class="px-4 py-3 text-sm text-gray-600">{{ item.person || '未指定' }}</td>
-            <td class="px-4 py-3 text-sm text-gray-600">{{ item.size || '-' }}</td>
+            <td class="px-4 py-3 text-sm text-gray-600">{{ item.variantLabel }}</td>
             <td class="px-4 py-3 font-black" :class="quantityClass(item)">{{ item.quantityLabel }}</td>
             <td class="px-4 py-3 font-black text-primary">
               {{ item.amount !== null ? formatCurrency(item.amount) : '-' }}

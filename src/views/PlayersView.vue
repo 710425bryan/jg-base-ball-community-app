@@ -19,13 +19,9 @@
             <el-option label="在隊" value="在隊" />
             <el-option label="退隊" value="退隊" />
           </el-select>
-          <el-select v-model="filterULevel" class="w-24" size="default" placeholder="年齡">
+          <el-select v-model="filterULevel" class="w-24" size="default" placeholder="年齡組">
             <el-option label="全年齡" value="全部" />
-            <el-option label="U12" value="U12" />
-            <el-option label="U11" value="U11" />
-            <el-option label="U10" value="U10" />
-            <el-option label="U9" value="U9" />
-            <el-option label="U8" value="U8" />
+            <el-option v-for="level in uLevelFilterOptions" :key="level" :label="level" :value="level" />
           </el-select>
           <el-select v-model="filterMemberGroup" class="w-40" size="default" placeholder="所屬群組">
             <el-option label="全部群組" value="全部" />
@@ -134,7 +130,7 @@
           </el-table-column>
           <el-table-column prop="team_group" label="所屬群組 (熊隊)" min-width="135">
             <template #default="{ row }">
-              <span v-if="row.team_group" class="text-[10px] md:text-xs font-bold px-2 py-0.5 rounded border tracking-wider" :class="getTeamGroupClass(row.team_group)">
+              <span v-if="isTeamGroupEligibleRole(row.role) && row.team_group" class="text-[10px] md:text-xs font-bold px-2 py-0.5 rounded border tracking-wider" :class="getTeamGroupClass(row.team_group)">
                 {{ row.team_group }}
               </span>
               <span v-else class="text-gray-300">-</span>
@@ -236,7 +232,7 @@
 
               <div class="relative px-1 pt-3">
                 <div class="flex flex-wrap items-center gap-1.5 min-h-6">
-                  <span v-if="member.team_group" class="inline-flex max-w-full text-[10px] md:text-xs font-bold px-2 py-0.5 rounded-md border truncate" :class="getTeamGroupClass(member.team_group)">
+                  <span v-if="isTeamGroupEligibleRole(member.role) && member.team_group" class="inline-flex max-w-full text-[10px] md:text-xs font-bold px-2 py-0.5 rounded-md border truncate" :class="getTeamGroupClass(member.team_group)">
                     {{ member.team_group }}
                   </span>
                   <span v-if="getULevel(member)" class="text-[10px] md:text-xs font-black px-2 py-0.5 rounded-md uppercase bg-sky-50 text-sky-700 border border-sky-100">
@@ -640,6 +636,7 @@ const PLAYER_SYNC_CSV_URL = `https://docs.google.com/spreadsheets/d/${PLAYER_SYN
 const DEFAULT_SYNC_USER_PASSWORD = '123456'
 const GENERAL_MEMBER_ROLE_FALLBACK = 'MEMBER'
 const GENERAL_MEMBER_ROLE_CANDIDATE_KEYS = ['MEMBER', 'PARENT', 'GENERAL_MEMBER']
+const DEFAULT_U_LEVEL_OPTIONS = ['U12', 'U11', 'U10', 'U9', 'U8']
 const TEAM_GROUP_OPTIONS = [
   {
     label: '拉拉熊(小組)',
@@ -648,22 +645,33 @@ const TEAM_GROUP_OPTIONS = [
     badgeClass: 'bg-orange-50 text-orange-600 border-orange-200'
   },
   {
+    label: '泰迪熊(小組)',
+    value: '泰迪熊(小組)',
+    accentClass: 'bg-amber-500',
+    badgeClass: 'bg-amber-50 text-amber-700 border-amber-200'
+  },
+  {
+    label: '黑熊(中組)',
+    value: '黑熊(中組)',
+    accentClass: 'bg-neutral-800',
+    badgeClass: 'bg-neutral-800 text-neutral-100 border-neutral-700'
+  },
+  {
+    label: '北極熊(中組)',
+    value: '北極熊(中組)',
+    accentClass: 'bg-sky-400',
+    badgeClass: 'bg-sky-50 text-sky-700 border-sky-200'
+  },
+  {
     label: '暴力熊(大組)',
     value: '暴力熊(大組)',
     accentClass: 'bg-red-600',
     badgeClass: 'bg-red-50 text-red-700 border-red-200'
-  },
-  {
-    label: '成灰熊(中組)',
-    value: '成灰熊(中組)',
-    accentClass: 'bg-zinc-500',
-    badgeClass: 'bg-zinc-100 text-zinc-700 border-zinc-300'
   }
 ] as const
 const LEGACY_TEAM_GROUP_RENAMES: Record<string, string> = {
-  '泰迪熊(小組)': '拉拉熊(小組)',
   '灰熊(大組)': '暴力熊(大組)',
-  '黑熊(中組)': '成灰熊(中組)'
+  '成灰熊(中組)': '黑熊(中組)'
 }
 const TEAM_GROUP_ORDER = TEAM_GROUP_OPTIONS.map((option) => option.value)
 
@@ -671,6 +679,7 @@ const normalizeTeamGroup = (teamGroup: unknown) => {
   const group = typeof teamGroup === 'string' ? teamGroup.trim() : ''
   return group ? LEGACY_TEAM_GROUP_RENAMES[group] || group : group
 }
+const isTeamGroupEligibleRole = (role: string | null | undefined) => role === '球員' || role === '校隊'
 
 const isLoading = computed(() => playerRosterStore.loading)
 const lastRosterWarning = ref('')
@@ -678,7 +687,7 @@ const isSubmitting = ref(false)
 const members = computed(() =>
   buildMembersWithNormalizedSiblings(playerRosterStore.members).map(m => ({
     ...m,
-    team_group: normalizeTeamGroup(m.team_group),
+    team_group: isTeamGroupEligibleRole(m.role) ? normalizeTeamGroup(m.team_group) : null,
     is_inactive_or_graduated: !!m.is_inactive_or_graduated,
     is_primary_payer: !!m.is_primary_payer,
     is_half_price: !!m.is_half_price
@@ -691,7 +700,7 @@ const filterStatus = ref('在隊')
 const filterULevel = ref('全部')
 const filterMemberGroup = ref('全部')
 
-const isSiblingEligibleRole = (role: string | null | undefined) => role === '球員' || role === '校隊'
+const isSiblingEligibleRole = isTeamGroupEligibleRole
 
 type MemberGroup = {
   key: string
@@ -821,14 +830,24 @@ const getULevel = (member: any) => {
   // 基準年：少棒學年度如果在8月前，視為當年賽季；8月後視為次年賽季
   const baseYear = (now.getMonth() + 1) <= 8 ? now.getFullYear() : now.getFullYear() + 1;
   const u = baseYear - cohortYear;
-  
-  if (u >= 12) return 'U12';
-  if (u === 11) return 'U11';
-  if (u === 10) return 'U10';
-  if (u === 9) return 'U9';
+
+  if (!Number.isFinite(u)) return '';
   if (u <= 8) return 'U8';
-  return '';
+  return `U${u}`;
 }
+
+const getULevelNumber = (level: string) =>
+  parseInt(level.replace(/[^0-9]/g, ''), 10) || 0
+
+const sortULevelLabelsDesc = (a: string, b: string) =>
+  getULevelNumber(b) - getULevelNumber(a) || a.localeCompare(b, 'zh-TW')
+
+const uLevelFilterOptions = computed(() =>
+  Array.from(new Set([
+    ...DEFAULT_U_LEVEL_OPTIONS,
+    ...members.value.map((member) => getULevel(member)).filter(Boolean)
+  ])).sort(sortULevelLabelsDesc)
+)
 
 // 民國年轉換
 const getROCDate = (dateStr: string) => {
@@ -845,7 +864,7 @@ const getSiblingName = (ids: string[] | string) => {
   return idArray.map(id => members.value.find(m => m.id === id)?.name).filter(Boolean).join(', ');
 }
 
-type ExportQuickSelect = 'all' | 'coach' | 'U12' | 'U11' | 'U10' | 'U9' | 'U8'
+type ExportQuickSelect = 'all' | 'coach' | `U${number}`
 type ExportColumnPreset = 'all' | 'basic' | 'clear'
 type PlayerExportColumn = {
   key: string
@@ -857,7 +876,9 @@ type PlayerExportColumn = {
   getValue: (member: any) => unknown
 }
 
-const exportULevelOptions: ExportQuickSelect[] = ['U12', 'U11', 'U10', 'U9', 'U8']
+const exportULevelOptions = computed<`U${number}`[]>(() =>
+  uLevelFilterOptions.value.filter((level): level is `U${number}` => /^U\d+$/.test(level))
+)
 const isExportDialogOpen = ref(false)
 const selectedExportMemberIds = ref<string[]>([])
 const selectedExportColumnKeys = ref<string[]>([])
@@ -1032,9 +1053,9 @@ const exportPlayerMatchCsv = () => {
 const sortULevel = (a: any, b: any) => {
   const levelA = getULevel(a);
   const levelB = getULevel(b);
-  
-  const numA = levelA ? parseInt(levelA.replace(/[^0-9]/g, ''), 10) || 0 : -1;
-  const numB = levelB ? parseInt(levelB.replace(/[^0-9]/g, ''), 10) || 0 : -1;
+
+  const numA = levelA ? getULevelNumber(levelA) : -1;
+  const numB = levelB ? getULevelNumber(levelB) : -1;
   
   return numA - numB;
 }
@@ -1066,7 +1087,7 @@ const filteredMembers = computed(() => {
     result = result.filter(m => m.name && m.name.toLowerCase().includes(q))
   }
   
-  // 預設排序：將陣列由 U12 至 U8 (降冪) 排序
+  // 預設排序：將陣列由高 U-level 至低 U-level 排序
   result = [...result].sort((a, b) => {
     // 只有球員互相比較時才套用 U-level 排序
     if ((a.role === '球員' || a.role === '校隊') && (b.role === '球員' || b.role === '校隊')) {
@@ -1772,6 +1793,12 @@ const submitForm = async () => {
       if (payload[key] === '') {
         payload[key] = null
       }
+    }
+
+    if (isTeamGroupEligibleRole(payload.role)) {
+      payload.team_group = normalizeTeamGroup(payload.team_group) || null
+    } else {
+      payload.team_group = null
     }
     
     console.log("Submitting payload to team_members:", payload)

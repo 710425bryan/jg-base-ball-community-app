@@ -11,6 +11,7 @@ const RETURN_TRANSACTION_TYPE = 'return'
 export type EquipmentPurchaseValidationItem = {
   equipment_id: string
   size?: string | null
+  jersey_number?: number | string | null
   quantity?: number | null
 }
 
@@ -54,6 +55,12 @@ const normalizeRequestedQuantity = (quantity: unknown) => {
 const normalizeSize = (size?: string | null) => {
   const value = String(size || '').trim()
   return value || null
+}
+
+const normalizeJerseyNumber = (value?: number | string | null) => {
+  if (value === null || value === undefined || String(value).trim() === '') return null
+  const parsed = Number(value)
+  return Number.isInteger(parsed) ? parsed : null
 }
 
 const clamp = (value: number, min = 0, max = Number.POSITIVE_INFINITY) =>
@@ -415,6 +422,89 @@ export const validateEquipmentPurchaseItemsAvailability = (
         reason: `${equipmentName}${availability.size ? ` ${availability.size}` : ''}：${availability.reason || '庫存不足'}`
       })
     }
+  }
+
+  const seenJerseyNumbers = new Set<string>()
+  for (const item of items) {
+    const equipmentId = String(item?.equipment_id || '')
+    if (!equipmentId) continue
+
+    const equipment = equipmentById.get(equipmentId)
+    if (!equipment?.requires_jersey_number) continue
+
+    const equipmentName = String(equipment.name || '未知裝備')
+    const quantity = normalizeRequestedQuantity(item.quantity)
+    const jerseyNumber = normalizeJerseyNumber(item.jersey_number)
+    const minNumber = normalizeNumber(equipment.jersey_number_min, 0)
+    const maxNumber = normalizeNumber(equipment.jersey_number_max, 99)
+    const numberOptions = Array.isArray(equipment.jersey_number_options)
+      ? equipment.jersey_number_options
+        .map((option) => Number(option))
+        .filter((option) => Number.isInteger(option) && option >= 0 && option <= 999)
+      : []
+    const numberOptionSet = new Set(numberOptions)
+
+    if (jerseyNumber === null) {
+      failures.push({
+        equipmentId,
+        equipmentName,
+        size: normalizeSize(item.size),
+        requestedQuantity: quantity,
+        availableQuantity: 0,
+        reason: `${equipmentName} 請選擇球衣號碼`
+      })
+      continue
+    }
+
+    if (numberOptions.length > 0 && !numberOptionSet.has(jerseyNumber)) {
+      failures.push({
+        equipmentId,
+        equipmentName,
+        size: normalizeSize(item.size),
+        requestedQuantity: quantity,
+        availableQuantity: 0,
+        reason: `${equipmentName} #${jerseyNumber} 目前不在可選號碼清單`
+      })
+      continue
+    }
+
+    if (numberOptions.length === 0 && (jerseyNumber < minNumber || jerseyNumber > maxNumber)) {
+      failures.push({
+        equipmentId,
+        equipmentName,
+        size: normalizeSize(item.size),
+        requestedQuantity: quantity,
+        availableQuantity: 0,
+        reason: `${equipmentName} 球衣號碼需介於 ${minNumber} - ${maxNumber}`
+      })
+      continue
+    }
+
+    if (quantity !== 1) {
+      failures.push({
+        equipmentId,
+        equipmentName,
+        size: normalizeSize(item.size),
+        requestedQuantity: quantity,
+        availableQuantity: 1,
+        reason: `${equipmentName} 每件球衣需分別選擇一個號碼`
+      })
+      continue
+    }
+
+    const key = `${equipmentId}::${jerseyNumber}`
+    if (seenJerseyNumbers.has(key)) {
+      failures.push({
+        equipmentId,
+        equipmentName,
+        size: normalizeSize(item.size),
+        requestedQuantity: quantity,
+        availableQuantity: 0,
+        reason: `${equipmentName} #${jerseyNumber} 已在請購單中`
+      })
+      continue
+    }
+    seenJerseyNumbers.add(key)
   }
 
   for (const [equipmentId, requestedQuantity] of requestedByEquipmentId.entries()) {

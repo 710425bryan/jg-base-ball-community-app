@@ -102,6 +102,23 @@ const formatCurrency = (amount: number) => new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 0
 }).format(Number(amount) || 0)
 
+const getJerseyNumberOptions = (equipment: Equipment) =>
+  Array.isArray(equipment.jersey_number_options)
+    ? equipment.jersey_number_options
+      .map((option) => Number(option))
+      .filter((option) => Number.isInteger(option) && option >= 0 && option <= 999)
+    : []
+
+const getJerseyNumberSummary = (equipment: Equipment) => {
+  const options = getJerseyNumberOptions(equipment)
+  if (options.length === 0) {
+    return `號碼 ${equipment.jersey_number_min}-${equipment.jersey_number_max}`
+  }
+
+  const preview = options.slice(0, 8).map((option) => `#${option}`).join('、')
+  return `${preview}${options.length > 8 ? '…' : ''}（可選 ${options.length} 個）`
+}
+
 const openCreateDialog = () => {
   editingEquipment.value = null
   isFormDialogOpen.value = true
@@ -335,6 +352,12 @@ onMounted(() => {
 
               <div v-if="getEquipmentSizeInventoryList(equipment).length > 0" class="mt-4 flex flex-wrap gap-2">
                 <span
+                  v-if="equipment.requires_jersey_number"
+                  class="rounded-full border border-sky-100 bg-sky-50 px-3 py-1 text-xs font-bold text-sky-700"
+                >
+                  {{ getJerseyNumberSummary(equipment) }}
+                </span>
+                <span
                   v-for="size in getEquipmentSizeInventoryList(equipment).slice(0, 6)"
                   :key="size.size"
                   class="rounded-full border border-gray-100 bg-gray-50 px-3 py-1 text-xs font-bold text-gray-500"
@@ -455,7 +478,11 @@ onMounted(() => {
                   </td>
                   <td class="px-5 py-4 font-black text-primary">{{ formatCurrency(equipment.purchase_price) }}</td>
                   <td class="px-5 py-4 text-sm text-gray-500">
-                    <span v-if="getEquipmentSizeInventoryList(equipment).length === 0">-</span>
+                    <span v-if="equipment.requires_jersey_number" class="font-bold text-sky-700">
+                      {{ getJerseyNumberSummary(equipment) }}
+                    </span>
+                    <span v-if="equipment.requires_jersey_number && getEquipmentSizeInventoryList(equipment).length > 0">｜</span>
+                    <span v-if="getEquipmentSizeInventoryList(equipment).length === 0 && !equipment.requires_jersey_number">-</span>
                     <span v-else>
                       {{ getEquipmentSizeInventoryList(equipment).map((size) => `${size.size}:${size.remaining}`).join('、') }}
                       <span v-if="getEquipmentUnassignedAllocatedQuantity(equipment) > 0" class="font-bold text-amber-600">
