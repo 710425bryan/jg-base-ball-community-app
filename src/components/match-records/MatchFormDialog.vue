@@ -1595,20 +1595,20 @@ const handlePhotoUpload = async (event: Event) => {
                 <thead>
                   <tr class="bg-gray-100 text-gray-600 font-black">
                     <th class="p-2 border-b border-gray-200 text-left pl-3 sticky left-0 z-10 bg-gray-100">球員名稱</th>
-                    <th class="p-2 border-b border-gray-200" title="打擊率">AVG</th>
-                    <th class="p-2 border-b border-gray-200" title="安打">H</th>
-                    <th class="p-2 border-b border-gray-200" title="打席">PA</th>
-                    <th class="p-2 border-b border-gray-200" title="打數">AB</th>
-                    <th class="p-2 border-b border-gray-200" title="一壘安">1B</th>
-                    <th class="p-2 border-b border-gray-200" title="二壘安">2B</th>
-                    <th class="p-2 border-b border-gray-200" title="三壘安">3B</th>
-                    <th class="p-2 border-b border-gray-200 text-red-600" title="全壘打">HR</th>
-                    <th class="p-2 border-b border-gray-200 text-blue-600" title="打點">RBI</th>
-                    <th class="p-2 border-b border-gray-200 text-orange-600" title="得分">R</th>
-                    <th class="p-2 border-b border-gray-200" title="四死球">BB</th>
-                    <th class="p-2 border-b border-gray-200" title="觸身">HBP</th>
-                    <th class="p-2 border-b border-gray-200" title="三振">SO</th>
-                    <th class="p-2 border-b border-gray-200" title="盜壘">SB</th>
+                    <th class="p-2 border-b border-gray-200" title="打擊率">打擊率</th>
+                    <th class="p-2 border-b border-gray-200" title="安打">安打</th>
+                    <th class="p-2 border-b border-gray-200" title="打席">打席</th>
+                    <th class="p-2 border-b border-gray-200" title="打數">打數</th>
+                    <th class="p-2 border-b border-gray-200" title="一壘安">一安</th>
+                    <th class="p-2 border-b border-gray-200" title="二壘安">二安</th>
+                    <th class="p-2 border-b border-gray-200" title="三壘安">三安</th>
+                    <th class="p-2 border-b border-gray-200 text-red-600" title="全壘打">全壘</th>
+                    <th class="p-2 border-b border-gray-200 text-blue-600" title="打點">打點</th>
+                    <th class="p-2 border-b border-gray-200 text-orange-600" title="得分">得分</th>
+                    <th class="p-2 border-b border-gray-200" title="四壞球">四壞</th>
+                    <th class="p-2 border-b border-gray-200" title="觸身球">觸身</th>
+                    <th class="p-2 border-b border-gray-200" title="三振">三振</th>
+                    <th class="p-2 border-b border-gray-200" title="盜壘">盜壘</th>
                     <th class="p-2 border-b border-gray-200">操作</th>
                   </tr>
                 </thead>
@@ -1672,21 +1672,21 @@ const handlePhotoUpload = async (event: Event) => {
               <thead>
                 <tr class="bg-gray-100 text-gray-600 font-black">
                   <th class="p-2 border-b border-gray-200 text-left pl-3 sticky left-0 z-10 bg-gray-100">投手</th>
-                  <th class="p-2 border-b border-gray-200">IP</th>
+                  <th class="p-2 border-b border-gray-200">局數</th>
                   <th class="p-2 border-b border-gray-200">出局數</th>
-                  <th class="p-2 border-b border-gray-200">AB</th>
-                  <th class="p-2 border-b border-gray-200">H</th>
-                  <th class="p-2 border-b border-gray-200">2B</th>
-                  <th class="p-2 border-b border-gray-200">3B</th>
-                  <th class="p-2 border-b border-gray-200">HR</th>
-                  <th class="p-2 border-b border-gray-200">R</th>
-                  <th class="p-2 border-b border-gray-200">ER</th>
-                  <th class="p-2 border-b border-gray-200">BB</th>
-                  <th class="p-2 border-b border-gray-200">SO</th>
-                  <th class="p-2 border-b border-gray-200">NP</th>
-                  <th class="p-2 border-b border-gray-200">GO</th>
-                  <th class="p-2 border-b border-gray-200">AO</th>
-                  <th class="p-2 border-b border-gray-200">ERA</th>
+                  <th class="p-2 border-b border-gray-200">打數</th>
+                  <th class="p-2 border-b border-gray-200">被安</th>
+                  <th class="p-2 border-b border-gray-200">被二安</th>
+                  <th class="p-2 border-b border-gray-200">被三安</th>
+                  <th class="p-2 border-b border-gray-200">被全壘</th>
+                  <th class="p-2 border-b border-gray-200">失分</th>
+                  <th class="p-2 border-b border-gray-200">責失</th>
+                  <th class="p-2 border-b border-gray-200">四壞</th>
+                  <th class="p-2 border-b border-gray-200">三振</th>
+                  <th class="p-2 border-b border-gray-200">球數</th>
+                  <th class="p-2 border-b border-gray-200">滾出</th>
+                  <th class="p-2 border-b border-gray-200">飛出</th>
+                  <th class="p-2 border-b border-gray-200">防禦率</th>
                   <th class="p-2 border-b border-gray-200">操作</th>
                 </tr>
               </thead>

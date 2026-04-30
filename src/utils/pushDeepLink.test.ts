@@ -2,6 +2,30 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const origin = 'https://example.com'
 
+const getCacheKey = (request: RequestInfo | URL) => {
+  if (typeof request === 'string') return request
+  if (request instanceof URL) return request.href
+  return request.url
+}
+
+const createFakeCaches = () => {
+  const entries = new Map<string, string>()
+
+  return {
+    entries,
+    open: vi.fn(async () => ({
+      put: vi.fn(async (request: RequestInfo | URL, response: Response) => {
+        entries.set(getCacheKey(request), await response.clone().text())
+      }),
+      match: vi.fn(async (request: RequestInfo | URL) => {
+        const body = entries.get(getCacheKey(request))
+        return body ? new Response(body) : undefined
+      }),
+      delete: vi.fn(async (request: RequestInfo | URL) => entries.delete(getCacheKey(request)))
+    }))
+  }
+}
+
 const createFakeIndexedDb = () => {
   const records = new Map<string, any>()
   const objectStoreNames = new Set<string>()
@@ -135,7 +159,25 @@ describe('pushDeepLink', () => {
   })
 
   it('saves pending push targets and clears them after consuming', async () => {
+    const fakeCaches = createFakeCaches()
     vi.stubGlobal('indexedDB', createFakeIndexedDb())
+    vi.stubGlobal('caches', fakeCaches)
+    const {
+      consumePendingPushDeepLinkTarget,
+      savePendingPushDeepLinkTarget
+    } = await import('./pushDeepLink')
+
+    await savePendingPushDeepLinkTarget('/match-records?match_id=match-1', { createdAt: 1_000 })
+
+    await expect(consumePendingPushDeepLinkTarget({ now: 2_000 }))
+      .resolves.toBe('/calendar?match_id=match-1')
+    await expect(consumePendingPushDeepLinkTarget({ now: 2_000 }))
+      .resolves.toBeNull()
+    expect(fakeCaches.entries.size).toBe(0)
+  })
+
+  it('uses Cache Storage pending targets when IndexedDB is unavailable', async () => {
+    vi.stubGlobal('caches', createFakeCaches())
     const {
       consumePendingPushDeepLinkTarget,
       savePendingPushDeepLinkTarget
@@ -150,7 +192,9 @@ describe('pushDeepLink', () => {
   })
 
   it('falls back to the dashboard for stale pending targets', async () => {
+    const fakeCaches = createFakeCaches()
     vi.stubGlobal('indexedDB', createFakeIndexedDb())
+    vi.stubGlobal('caches', fakeCaches)
     const {
       DEFAULT_PUSH_DEEP_LINK_TARGET,
       consumePendingPushDeepLinkTarget,
@@ -161,6 +205,7 @@ describe('pushDeepLink', () => {
 
     await expect(consumePendingPushDeepLinkTarget({ maxAgeMs: 500, now: 2_000 }))
       .resolves.toBe(DEFAULT_PUSH_DEEP_LINK_TARGET)
+    expect(fakeCaches.entries.size).toBe(0)
   })
 
   it('falls back to the dashboard for invalid pending targets', async () => {
@@ -175,5 +220,33 @@ describe('pushDeepLink', () => {
 
     await expect(consumePendingPushDeepLinkTarget({ now: 2_000 }))
       .resolves.toBe(DEFAULT_PUSH_DEEP_LINK_TARGET)
+  })
+
+  it('reads the latest push click diagnostics from Cache Storage', async () => {
+    const fakeCaches = createFakeCaches()
+    vi.stubGlobal('caches', fakeCaches)
+    const {
+      PUSH_DEEP_LINK_CACHE_DIAGNOSTIC_PATH,
+      readPushDeepLinkDiagnostics
+    } = await import('./pushDeepLink')
+
+    const cache = await fakeCaches.open()
+    await cache.put(
+      new Request(new URL(PUSH_DEEP_LINK_CACHE_DIAGNOSTIC_PATH, 'https://jg-baseball.local').href),
+      new Response(JSON.stringify({
+        source: 'notificationclick',
+        targetPath: '/calendar?match_id=match-1',
+        createdAt: 1_000,
+        indexedDb: 'failed',
+        cache: 'saved'
+      }))
+    )
+
+    await expect(readPushDeepLinkDiagnostics()).resolves.toMatchObject({
+      source: 'notificationclick',
+      targetPath: '/calendar?match_id=match-1',
+      indexedDb: 'failed',
+      cache: 'saved'
+    })
   })
 })

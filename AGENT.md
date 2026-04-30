@@ -222,7 +222,7 @@
 - 訂閱資料表：`web_push_subscriptions`。
 - 同一事件可能由表單、Realtime、重試或多入口觸發時，必須提供穩定 `eventKey`，由 `send-push-notification` 搭配 `push_dispatch_events` 去重。
 - 收件對象以 `feature` + `action` 權限決定；`targetRoles` 只能縮小範圍，不可取代權限查詢。
-- 通知點擊導向必須同時考慮 iOS PWA 與已開啟 client：`public/push-sw.js` 在 `notificationclick` 一開始先把 target 寫入 IndexedDB `jg-baseball-push-deeplink/pendingTargets/latest`，再開啟 `?push_target=...` + `#/push-entry?target=...` 雙通道 URL，並透過 service worker `postMessage` 讓既有視窗直接路由；前端統一用 `src/utils/pushDeepLink.ts` 正規化與 consume pending target，避免只靠單一 hash、search 或 `postMessage` deep link。
+- 通知點擊導向必須同時考慮 iOS PWA 與已開啟 client：`public/push-sw.js` 在 `notificationclick` 需同步啟動 client 導向，並把 target 寫入 IndexedDB `jg-baseball-push-deeplink/pendingTargets/latest` 與 Cache Storage `jg-baseball-push-deeplink-cache`；前端用 `src/utils/pushDeepLink.ts` 正規化、短時間重試 consume pending target，並保留推播設定診斷，避免只靠單一 hash、search、IndexedDB 或 `postMessage` deep link。
 - 賽事提醒與舊 `/match-records?match_id=...` 通知點擊，必須正規化到 `/calendar?match_id=...`，讓「賽程與行事曆」開啟 `MatchDetailDialog`；新增比賽通知 URL 不要再直接指向 `/match-records`。
 
 ### PWA、版本與更新

@@ -5,12 +5,28 @@ export const PUSH_DEEP_LINK_DB_NAME = 'jg-baseball-push-deeplink'
 export const PUSH_DEEP_LINK_DB_VERSION = 1
 export const PUSH_DEEP_LINK_STORE = 'pendingTargets'
 export const PUSH_DEEP_LINK_LATEST_KEY = 'latest'
+export const PUSH_DEEP_LINK_DIAGNOSTIC_KEY = 'latestDiagnostic'
+export const PUSH_DEEP_LINK_CACHE_NAME = 'jg-baseball-push-deeplink-cache'
+export const PUSH_DEEP_LINK_CACHE_TARGET_PATH = '/__push-deeplink/latest.json'
+export const PUSH_DEEP_LINK_CACHE_DIAGNOSTIC_PATH = '/__push-deeplink/diagnostic.json'
 export const DEFAULT_PENDING_PUSH_DEEP_LINK_MAX_AGE_MS = 10 * 60 * 1000
 
 export type PendingPushDeepLinkTarget = {
   id: string
   targetPath: string
   createdAt: number
+}
+
+export type PushDeepLinkStorageStatus = 'saved' | 'failed' | 'unavailable' | 'unknown'
+
+export type PushDeepLinkDiagnostics = {
+  id?: string
+  source?: string
+  targetPath?: string
+  createdAt?: number | string
+  indexedDb?: PushDeepLinkStorageStatus
+  cache?: PushDeepLinkStorageStatus
+  userAgent?: string
 }
 
 export type ConsumePendingPushDeepLinkOptions = {
@@ -95,6 +111,64 @@ export const normalizePushDeepLinkTarget = (
 export const buildPushEntryHash = (targetPath: string) =>
   `#${PUSH_ENTRY_ROUTE}?target=${encodeURIComponent(targetPath)}`
 
+const getCacheStorage = () => {
+  if (typeof caches !== 'undefined') {
+    return caches
+  }
+
+  if (typeof window !== 'undefined' && typeof window.caches !== 'undefined') {
+    return window.caches
+  }
+
+  return null
+}
+
+const getCacheRequest = (path: string) => {
+  const origin = getDefaultOrigin()
+
+  return new Request(new URL(path, origin).href, {
+    cache: 'no-store',
+    credentials: 'same-origin'
+  })
+}
+
+const readCachedJson = async <T>(path: string) => {
+  const cacheStorage = getCacheStorage()
+  if (!cacheStorage) return null
+
+  const cache = await cacheStorage.open(PUSH_DEEP_LINK_CACHE_NAME)
+  const response = await cache.match(getCacheRequest(path))
+  if (!response) return null
+
+  return await response.json() as T
+}
+
+const writeCachedJson = async (path: string, value: unknown) => {
+  const cacheStorage = getCacheStorage()
+  if (!cacheStorage) {
+    throw new Error('此瀏覽器不支援 Cache Storage 推播導向暫存')
+  }
+
+  const cache = await cacheStorage.open(PUSH_DEEP_LINK_CACHE_NAME)
+  await cache.put(
+    getCacheRequest(path),
+    new Response(JSON.stringify(value), {
+      headers: {
+        'Cache-Control': 'no-store',
+        'Content-Type': 'application/json'
+      }
+    })
+  )
+}
+
+const deleteCachedJson = async (path: string) => {
+  const cacheStorage = getCacheStorage()
+  if (!cacheStorage) return false
+
+  const cache = await cacheStorage.open(PUSH_DEEP_LINK_CACHE_NAME)
+  return cache.delete(getCacheRequest(path))
+}
+
 const getIndexedDb = () => {
   if (typeof indexedDB !== 'undefined') {
     return indexedDB
@@ -161,42 +235,75 @@ const parseRecordCreatedAt = (createdAt: unknown) => {
   return null
 }
 
+const readIndexedDbRecord = async <T>(key: string) => {
+  const db = await openPushDeepLinkDb()
+  const transaction = db.transaction(PUSH_DEEP_LINK_STORE, 'readonly')
+  const record = await requestToPromise(transaction.objectStore(PUSH_DEEP_LINK_STORE).get(key)) as T | undefined
+
+  await transactionDone(transaction)
+
+  return record ?? null
+}
+
+const writeIndexedDbRecord = async (key: string, value: Record<string, unknown>) => {
+  const db = await openPushDeepLinkDb()
+  const transaction = db.transaction(PUSH_DEEP_LINK_STORE, 'readwrite')
+
+  transaction.objectStore(PUSH_DEEP_LINK_STORE).put({
+    ...value,
+    id: key
+  })
+  await transactionDone(transaction)
+}
+
+const deleteIndexedDbRecord = async (key: string) => {
+  const db = await openPushDeepLinkDb()
+  const transaction = db.transaction(PUSH_DEEP_LINK_STORE, 'readwrite')
+
+  transaction.objectStore(PUSH_DEEP_LINK_STORE).delete(key)
+  await transactionDone(transaction)
+}
+
 export const savePendingPushDeepLinkTarget = async (
   rawTarget: unknown,
   options: { createdAt?: number } = {}
 ) => {
   const targetPath = normalizePushDeepLinkTarget(rawTarget)
-  const db = await openPushDeepLinkDb()
-  const transaction = db.transaction(PUSH_DEEP_LINK_STORE, 'readwrite')
   const record: PendingPushDeepLinkTarget = {
     id: PUSH_DEEP_LINK_LATEST_KEY,
     targetPath,
     createdAt: options.createdAt ?? Date.now()
   }
 
-  transaction.objectStore(PUSH_DEEP_LINK_STORE).put(record)
-  await transactionDone(transaction)
+  await Promise.allSettled([
+    writeIndexedDbRecord(PUSH_DEEP_LINK_LATEST_KEY, record),
+    writeCachedJson(PUSH_DEEP_LINK_CACHE_TARGET_PATH, record)
+  ])
 
   return targetPath
+}
+
+export const clearPendingPushDeepLinkTarget = async () => {
+  await Promise.allSettled([
+    deleteIndexedDbRecord(PUSH_DEEP_LINK_LATEST_KEY),
+    deleteCachedJson(PUSH_DEEP_LINK_CACHE_TARGET_PATH)
+  ])
 }
 
 export const consumePendingPushDeepLinkTarget = async (
   options: ConsumePendingPushDeepLinkOptions = {}
 ) => {
-  const db = await openPushDeepLinkDb()
-  const transaction = db.transaction(PUSH_DEEP_LINK_STORE, 'readwrite')
-  const store = transaction.objectStore(PUSH_DEEP_LINK_STORE)
-  const record = await requestToPromise(store.get(PUSH_DEEP_LINK_LATEST_KEY)) as
-    | PendingPushDeepLinkTarget
-    | undefined
+  let record = await readIndexedDbRecord<PendingPushDeepLinkTarget>(PUSH_DEEP_LINK_LATEST_KEY)
+    .catch(() => null)
 
   if (!record) {
-    await transactionDone(transaction)
-    return null
+    record = await readCachedJson<PendingPushDeepLinkTarget>(PUSH_DEEP_LINK_CACHE_TARGET_PATH)
+      .catch(() => null)
   }
 
-  store.delete(PUSH_DEEP_LINK_LATEST_KEY)
-  await transactionDone(transaction)
+  await clearPendingPushDeepLinkTarget()
+
+  if (!record) return null
 
   const now = options.now ?? Date.now()
   const maxAgeMs = options.maxAgeMs ?? DEFAULT_PENDING_PUSH_DEEP_LINK_MAX_AGE_MS
@@ -207,4 +314,14 @@ export const consumePendingPushDeepLinkTarget = async (
   }
 
   return normalizePushDeepLinkTarget(record.targetPath)
+}
+
+export const readPushDeepLinkDiagnostics = async () => {
+  const indexedDbRecord = await readIndexedDbRecord<PushDeepLinkDiagnostics>(PUSH_DEEP_LINK_DIAGNOSTIC_KEY)
+    .catch(() => null)
+
+  if (indexedDbRecord) return indexedDbRecord
+
+  return readCachedJson<PushDeepLinkDiagnostics>(PUSH_DEEP_LINK_CACHE_DIAGNOSTIC_PATH)
+    .catch(() => null)
 }

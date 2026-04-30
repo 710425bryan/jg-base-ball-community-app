@@ -62,6 +62,34 @@
         <p class="leading-relaxed">{{ settingsForm.support_message }}</p>
       </div>
 
+      <section class="rounded-xl border border-gray-100 bg-white p-4 text-sm shadow-sm">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <p class="font-extrabold text-gray-800">iPhone 推播點擊診斷</p>
+            <p class="mt-1 text-xs font-medium text-gray-500">點通知後若沒有跳轉，可用這裡確認手機是否收到 deep link。</p>
+          </div>
+          <button
+            type="button"
+            class="shrink-0 rounded-lg border border-gray-200 px-3 py-2 text-xs font-black text-gray-500 transition-colors hover:bg-gray-50 disabled:opacity-60"
+            :disabled="isLoadingPushDiagnostics"
+            @click="refreshPushDiagnostics"
+          >
+            重新讀取
+          </button>
+        </div>
+
+        <dl class="mt-4 grid grid-cols-1 gap-2">
+          <div
+            v-for="row in pushDiagnosticRows"
+            :key="row.label"
+            class="flex items-start justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2"
+          >
+            <dt class="shrink-0 font-bold text-gray-500">{{ row.label }}</dt>
+            <dd class="break-all text-right font-semibold text-gray-700">{{ row.value }}</dd>
+          </div>
+        </dl>
+      </section>
+
       <div v-if="settingsForm.receive_notifications" class="space-y-3 animate-fade-in">
         <div class="bg-green-50 p-4 rounded-xl text-sm text-green-700 space-y-2 border border-green-100 flex items-center gap-2">
           <el-icon class="text-green-500 text-xl"><CircleCheckFilled /></el-icon>
@@ -83,7 +111,7 @@
           </p>
           <ul class="list-disc pl-5 space-y-1">
             <li>如果您更換手機或電腦，需要重新登入並在此開啟推播。</li>
-            <li><span class="font-bold text-primary">iOS / iPhone 用戶請注意：</span>由於 Apple 的限制，您必須先點擊分享圖示 ⍐ 並選擇「加入主畫面 (Add to Home Screen)」，然後從主畫面開啟這套系統，才能成功允許推播通知。</li>
+            <li><span class="font-bold text-primary">iOS / iPhone 用戶請注意：</span>請從主畫面上的獨立 App 圖示開啟系統。若打開後仍看到 Safari 或 Chrome 網址列，請刪掉主畫面圖示後重新加入；Safari 加入主畫面是最保守的測試方式。</li>
             <li>如果您不小心在瀏覽器封鎖了通知權限，請至網址列左側點擊鎖頭解開權限。</li>
           </ul>
         </div>
@@ -104,6 +132,11 @@ import { ElMessage } from 'element-plus'
 import { CircleCheckFilled, InfoFilled } from '@element-plus/icons-vue'
 import { supabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/auth'
+import {
+  readPushDeepLinkDiagnostics,
+  type PushDeepLinkDiagnostics,
+  type PushDeepLinkStorageStatus
+} from '@/utils/pushDeepLink'
 
 const props = defineProps<{
   modelValue: boolean
@@ -118,6 +151,7 @@ const authStore = useAuthStore()
 const VAPID_PUBLIC_KEY = 'BIrzQ2oSy_bdMkLjQMDZCnBMzpkFzNHYa1QlcFKNQ3OCjDsMLeKC-2WazmnkSFUK7nwSlM3n8XFahxUxNrLMCmg'
 
 const isFetchingSettings = ref(false)
+const isLoadingPushDiagnostics = ref(false)
 const guideMode = ref<'mobile' | 'desktop'>('mobile')
 
 const isOpen = computed({
@@ -127,7 +161,8 @@ const isOpen = computed({
 
 const guideSteps = {
   mobile: [
-    '請先用手機開啟系統並登入；iPhone 請從 Safari 分享選單加入主畫面後，再從主畫面開啟。',
+    '請先用手機開啟系統並登入；iPhone / iPad 請確認是從主畫面獨立 App 開啟，畫面上不應出現 Safari 或 Chrome 網址列。',
+    '若還沒加入主畫面，Safari 分享選單加入最穩定；Chrome 加入主畫面後只要是獨立 App 模式也可以使用。',
     '回到此視窗上方，打開「啟用此裝置推播」開關。',
     '手機跳出通知權限時，請選擇「允許」。若曾封鎖，需到瀏覽器或系統設定解除通知封鎖。',
     '看到「此裝置已成功綁定系統推播通知」後，這台手機就能收到明日賽事提醒與系統通知。'
@@ -152,6 +187,13 @@ const settingsForm = reactive({
   support_message: '',
   is_supported: true
 })
+
+type PushDiagnosticRow = {
+  label: string
+  value: string
+}
+
+const pushDiagnosticRows = ref<PushDiagnosticRow[]>([])
 
 type PushSupportState = {
   isSupported: boolean
@@ -203,7 +245,7 @@ const getPushSupportState = (): PushSupportState => {
   if (isIOS && !isStandalone) {
     return {
       isSupported: false,
-      supportMessage: 'iPhone 請先從 Safari 的分享選單選擇「加入主畫面」，並改從主畫面開啟系統後，再啟用推播通知。',
+      supportMessage: 'iPhone 請先加入主畫面，並確認從主畫面圖示開啟後沒有 Safari 或 Chrome 網址列；若仍有網址列，建議刪除圖示後用 Safari 分享選單重新加入主畫面。',
       isIOS,
       isStandalone
     }
@@ -249,6 +291,86 @@ const detectPushProvider = (endpoint?: string | null) => {
   if (endpoint.includes('fcm.googleapis.com')) return 'FCM Web Push'
   if (endpoint.includes('updates.push.services.mozilla.com')) return 'Mozilla Web Push'
   return 'Web Push'
+}
+
+const formatNotificationPermission = () => {
+  if (typeof Notification === 'undefined') return '不支援'
+  if (Notification.permission === 'granted') return '允許'
+  if (Notification.permission === 'denied') return '封鎖'
+  return '尚未決定'
+}
+
+const formatDiagnosticTime = (createdAt: PushDeepLinkDiagnostics['createdAt']) => {
+  const timestamp =
+    typeof createdAt === 'number'
+      ? createdAt
+      : typeof createdAt === 'string'
+        ? Date.parse(createdAt)
+        : NaN
+
+  if (Number.isNaN(timestamp)) return '尚無紀錄'
+
+  return new Intl.DateTimeFormat('zh-TW', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).format(new Date(timestamp))
+}
+
+const formatStorageStatus = (status?: PushDeepLinkStorageStatus) => {
+  if (status === 'saved') return '已寫入'
+  if (status === 'failed') return '失敗'
+  if (status === 'unavailable') return '不支援'
+  return '未知'
+}
+
+const getServiceWorkerDiagnostics = async () => {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
+    return {
+      controller: '不支援',
+      script: '不支援'
+    }
+  }
+
+  const controller = navigator.serviceWorker.controller
+  const registration = await navigator.serviceWorker.getRegistration().catch(() => null)
+  const activeWorker = registration?.active || registration?.waiting || registration?.installing || null
+
+  return {
+    controller: controller ? `已接管（${controller.state}）` : '尚未接管目前頁面',
+    script: activeWorker?.scriptURL || '尚未取得'
+  }
+}
+
+const refreshPushDiagnostics = async () => {
+  isLoadingPushDiagnostics.value = true
+
+  try {
+    const supportState = getPushSupportState()
+    const serviceWorkerState = await getServiceWorkerDiagnostics()
+    const lastClick = await readPushDeepLinkDiagnostics()
+
+    pushDiagnosticRows.value = [
+      { label: 'App 版本', value: __APP_VERSION__ },
+      { label: '獨立 App', value: supportState.isStandalone ? '是' : '否' },
+      { label: '通知權限', value: formatNotificationPermission() },
+      { label: 'SW 控制', value: serviceWorkerState.controller },
+      { label: 'SW Script', value: serviceWorkerState.script },
+      { label: '最後目標', value: lastClick?.targetPath || '尚無紀錄' },
+      { label: '最後時間', value: formatDiagnosticTime(lastClick?.createdAt) },
+      {
+        label: '儲存結果',
+        value: lastClick
+          ? `IndexedDB ${formatStorageStatus(lastClick.indexedDb)} / Cache ${formatStorageStatus(lastClick.cache)}`
+          : '尚無紀錄'
+      }
+    ]
+  } finally {
+    isLoadingPushDiagnostics.value = false
+  }
 }
 
 const resetPushSettingsState = (state = getPushSupportState()) => {
@@ -320,6 +442,9 @@ const loadSettings = async () => {
   } catch (error: any) {
     ElMessage.error('讀取設定失敗：' + error.message)
   } finally {
+    await refreshPushDiagnostics().catch((error) => {
+      console.warn('讀取推播診斷失敗：', error)
+    })
     isFetchingSettings.value = false
   }
 }

@@ -446,14 +446,14 @@ UI 約定：
 5. 過期 subscription 由 Edge Function 清理。
 6. 通知中心透過 `get_notification_feed()` 匯整顯示。
 7. 排程型通知如賽事提醒、特訓報名開始，使用專屬 Edge Function 建立 `push_dispatch_events` 並派送 Web Push。
-8. 使用者點擊 Web Push 時，`public/push-sw.js` 先寫入 IndexedDB `jg-baseball-push-deeplink/pendingTargets/latest`，再以 `?push_target=...`、`#/push-entry?target=...` 與 service worker `postMessage` 把 target 交回前端；前端用 `pushDeepLink.ts` 正規化並 consume pending target 後交給 router。
+8. 使用者點擊 Web Push 時，`public/push-sw.js` 同步啟動 client 導向，並把 target 寫入 IndexedDB `jg-baseball-push-deeplink/pendingTargets/latest` 與 Cache Storage `jg-baseball-push-deeplink-cache`；前端用 `pushDeepLink.ts` 正規化、短時間重試 consume pending target 後交給 router，推播設定可查看最後一次 click 診斷。
 
 重要規則：
 
 - 不要把所有通知硬綁 `leave_requests`。
 - 多入口可能重複觸發的事件一定要有穩定 `eventKey`。
 - 賽事提醒 URL 統一使用 `/calendar?match_id=<id>`；舊 `/match-records?match_id=<id>` 必須正規化到 `/calendar`，由 `CalendarView` 開啟 `MatchDetailDialog`。
-- 推播 click target 不可只靠 hash route、search param 或 `postMessage`，避免 iOS PWA 關閉啟動時只開 root 造成導向遺失。
+- 推播 click target 不可只靠 hash route、search param、IndexedDB 或 `postMessage`，避免 iOS PWA 關閉啟動時只開 root 或持久化延遲造成導向遺失。
 
 ## 16. PWA、版本與更新
 

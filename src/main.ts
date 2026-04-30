@@ -12,9 +12,12 @@ import {
   PUSH_ENTRY_ROUTE,
   PUSH_NOTIFICATION_CLICK_MESSAGE,
   buildPushEntryHash,
+  clearPendingPushDeepLinkTarget,
   consumePendingPushDeepLinkTarget,
   normalizePushDeepLinkTarget
 } from '@/utils/pushDeepLink'
+
+const PUSH_DEEP_LINK_CONSUME_RETRY_DELAYS_MS = [0, 250, 750, 1500, 3000]
 
 const applyInitialPushTarget = () => {
   if (typeof window === 'undefined') return null
@@ -79,6 +82,19 @@ const consumeAndRoutePendingPushTarget = async () => {
   }
 }
 
+const schedulePendingPushTargetConsume = () => {
+  if (typeof window === 'undefined') {
+    void consumeAndRoutePendingPushTarget()
+    return
+  }
+
+  PUSH_DEEP_LINK_CONSUME_RETRY_DELAYS_MS.forEach((delayMs) => {
+    window.setTimeout(() => {
+      void consumeAndRoutePendingPushTarget()
+    }, delayMs)
+  })
+}
+
 const registerPushNotificationClickBridge = () => {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return
 
@@ -86,10 +102,8 @@ const registerPushNotificationClickBridge = () => {
     const data = event.data as { type?: string; targetPath?: unknown; url?: unknown } | null
     if (!data || data.type !== PUSH_NOTIFICATION_CLICK_MESSAGE) return
 
-    void consumePendingPushDeepLinkTarget().catch((error) => {
-      console.warn('Unable to clear pending push notification target:', error)
-    })
     void routePushDeepLinkTarget(data.targetPath ?? data.url)
+    schedulePendingPushTargetConsume()
   })
 }
 
@@ -97,12 +111,12 @@ const registerPendingPushTargetConsumers = () => {
   if (typeof window === 'undefined' || typeof document === 'undefined') return
 
   window.addEventListener('pageshow', () => {
-    void consumeAndRoutePendingPushTarget()
+    schedulePendingPushTargetConsume()
   })
 
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
-      void consumeAndRoutePendingPushTarget()
+      schedulePendingPushTargetConsume()
     }
   })
 }
@@ -121,9 +135,11 @@ app.use(ElementPlus, {
 app.mount('#app')
 
 if (initialPushTarget) {
-  void consumePendingPushDeepLinkTarget().catch((error) => {
+  void routePushDeepLinkTarget(initialPushTarget)
+  void clearPendingPushDeepLinkTarget().catch((error) => {
     console.warn('Unable to clear pending push notification target:', error)
   })
+  schedulePendingPushTargetConsume()
 } else {
-  void consumeAndRoutePendingPushTarget()
+  schedulePendingPushTargetConsume()
 }

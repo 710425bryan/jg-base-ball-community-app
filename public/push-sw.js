@@ -3,6 +3,10 @@ const PUSH_DEEP_LINK_DB_NAME = 'jg-baseball-push-deeplink';
 const PUSH_DEEP_LINK_DB_VERSION = 1;
 const PUSH_DEEP_LINK_STORE = 'pendingTargets';
 const PUSH_DEEP_LINK_LATEST_KEY = 'latest';
+const PUSH_DEEP_LINK_DIAGNOSTIC_KEY = 'latestDiagnostic';
+const PUSH_DEEP_LINK_CACHE_NAME = 'jg-baseball-push-deeplink-cache';
+const PUSH_DEEP_LINK_CACHE_TARGET_PATH = '/__push-deeplink/latest.json';
+const PUSH_DEEP_LINK_CACHE_DIAGNOSTIC_PATH = '/__push-deeplink/diagnostic.json';
 
 const normalizeTargetPath = (rawTarget) => {
   let nextTarget = typeof rawTarget === 'string' ? rawTarget.trim() : '';
@@ -99,17 +103,71 @@ const transactionDone = (transaction) =>
     transaction.onabort = () => reject(transaction.error || new Error('IndexedDB transaction aborted'));
   });
 
-const savePendingPushTarget = async (targetPath) => {
+const writeIndexedDbRecord = async (key, record) => {
   const db = await openPushDeepLinkDb();
   const transaction = db.transaction(PUSH_DEEP_LINK_STORE, 'readwrite');
 
   transaction.objectStore(PUSH_DEEP_LINK_STORE).put({
-    id: PUSH_DEEP_LINK_LATEST_KEY,
-    targetPath,
-    createdAt: Date.now()
+    ...record,
+    id: key
   });
 
   await transactionDone(transaction);
+};
+
+const getCacheRequest = (path) =>
+  new Request(new URL(path, self.location.origin).href, {
+    cache: 'no-store',
+    credentials: 'same-origin'
+  });
+
+const writeCachedJson = async (path, value) => {
+  if (!self.caches) {
+    throw new Error('Cache Storage is unavailable');
+  }
+
+  const cache = await self.caches.open(PUSH_DEEP_LINK_CACHE_NAME);
+  await cache.put(
+    getCacheRequest(path),
+    new Response(JSON.stringify(value), {
+      headers: {
+        'Cache-Control': 'no-store',
+        'Content-Type': 'application/json'
+      }
+    })
+  );
+};
+
+const getStorageStatus = (result) => result.status === 'fulfilled' ? 'saved' : 'failed';
+
+const persistPushClickTarget = async (targetPath, createdAt) => {
+  const targetRecord = {
+    id: PUSH_DEEP_LINK_LATEST_KEY,
+    targetPath,
+    createdAt
+  };
+
+  const [indexedDbResult, cacheResult] = await Promise.allSettled([
+    writeIndexedDbRecord(PUSH_DEEP_LINK_LATEST_KEY, targetRecord),
+    writeCachedJson(PUSH_DEEP_LINK_CACHE_TARGET_PATH, targetRecord)
+  ]);
+
+  const diagnosticsRecord = {
+    id: PUSH_DEEP_LINK_DIAGNOSTIC_KEY,
+    source: 'notificationclick',
+    targetPath,
+    createdAt,
+    indexedDb: getStorageStatus(indexedDbResult),
+    cache: getStorageStatus(cacheResult),
+    userAgent: self.navigator && self.navigator.userAgent ? self.navigator.userAgent : ''
+  };
+
+  await Promise.allSettled([
+    writeIndexedDbRecord(PUSH_DEEP_LINK_DIAGNOSTIC_KEY, diagnosticsRecord),
+    writeCachedJson(PUSH_DEEP_LINK_CACHE_DIAGNOSTIC_PATH, diagnosticsRecord)
+  ]);
+
+  return diagnosticsRecord;
 };
 
 const focusAndNotifyClient = (client, targetPath) => {
@@ -158,39 +216,41 @@ self.addEventListener('notificationclick', function(event) {
 
   const targetPath = normalizeTargetPath(event.notification.data && event.notification.data.url);
   const urlToOpen = buildPushEntryUrl(targetPath);
+  const createdAt = Date.now();
 
-  event.waitUntil(
-    savePendingPushTarget(targetPath)
-      .catch(error => {
-        console.warn('Failed to save pending push notification target:', error);
-      })
-      .then(() => clients.matchAll({ type: 'window', includeUncontrolled: true }))
-      .then(windowClients => {
-        for (let i = 0; i < windowClients.length; i++) {
-          const client = windowClients[i];
-          if (!client.url.startsWith(self.location.origin)) {
-            continue;
-          }
+  const persistTarget = persistPushClickTarget(targetPath, createdAt)
+    .catch(error => {
+      console.warn('Failed to persist push notification target:', error);
+    });
 
-          if (client.url === urlToOpen && 'focus' in client) {
-            return focusAndNotifyClient(client, targetPath);
-          }
+  const routeClient = clients.matchAll({ type: 'window', includeUncontrolled: true })
+    .then(windowClients => {
+      for (let i = 0; i < windowClients.length; i++) {
+        const client = windowClients[i];
+        if (!client.url.startsWith(self.location.origin)) {
+          continue;
+        }
 
-          if (typeof client.navigate === 'function') {
-            return client.navigate(urlToOpen)
-              .catch(() => client)
-              .then(navigatedClient => {
-                return focusAndNotifyClient(navigatedClient || client, targetPath);
-              });
-          }
-
+        if (client.url === urlToOpen && 'focus' in client) {
           return focusAndNotifyClient(client, targetPath);
         }
 
-        if (clients.openWindow) {
-          return clients.openWindow(urlToOpen)
-            .then(client => focusAndNotifyClient(client, targetPath));
+        if (typeof client.navigate === 'function') {
+          return client.navigate(urlToOpen)
+            .catch(() => client)
+            .then(navigatedClient => {
+              return focusAndNotifyClient(navigatedClient || client, targetPath);
+            });
         }
-      })
-  );
+
+        return focusAndNotifyClient(client, targetPath);
+      }
+
+      if (clients.openWindow) {
+        return clients.openWindow(urlToOpen)
+          .then(client => focusAndNotifyClient(client, targetPath));
+      }
+    });
+
+  event.waitUntil(Promise.allSettled([persistTarget, routeClient]));
 });
