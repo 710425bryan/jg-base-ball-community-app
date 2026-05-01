@@ -397,7 +397,10 @@
       class="custom-dialog"
     >
       <div class="mb-4 text-gray-500 text-sm leading-relaxed">
-        歡迎對棒球有熱誠的孩子加入我們！請留下您的基本聯絡資訊，教練團會盡快與您聯繫並安排體驗。
+        歡迎對棒球有熱誠的孩子加入我們！請留下您的基本聯絡資訊，教練團會盡快與您聯繫並安排體驗。也可以直接加 LINE 預約：
+        <span class="font-black text-primary">cloud019</span>
+        或
+        <span class="font-black text-primary">yayu0215</span>。
       </div>
       <el-form :model="joinForm" :rules="joinRules" ref="joinFormRef" label-position="top">
         <el-form-item label="家長姓名" prop="parent_name" class="font-bold">
@@ -405,6 +408,9 @@
         </el-form-item>
         <el-form-item label="聯絡電話" prop="phone" class="font-bold">
           <el-input v-model="joinForm.phone" placeholder="09XX-XXX-XXX" />
+        </el-form-item>
+        <el-form-item label="Line ID" prop="line_id" class="font-bold">
+          <el-input v-model="joinForm.line_id" placeholder="可選填，方便教練用 LINE 聯絡" />
         </el-form-item>
         <el-form-item label="小孩年紀或年級" prop="child_age_or_grade" class="font-bold">
           <el-input v-model="joinForm.child_age_or_grade" placeholder="例如：二年級、8歲" />
@@ -620,6 +626,7 @@ const openUpcomingMatch = async (matchId: string) => {
 const joinForm = reactive({
   parent_name: '',
   phone: '',
+  line_id: '',
   child_age_or_grade: '',
   message: ''
 })
@@ -627,6 +634,17 @@ const joinForm = reactive({
 const joinRules = {
   parent_name: [{ required: true, message: '請填寫家長姓名', trigger: 'blur' }],
   phone: [{ required: true, message: '請填寫聯絡電話', trigger: 'blur' }]
+}
+
+const buildJoinContactSummary = () => {
+  const contacts = [`電話：${joinForm.phone}`]
+  const lineId = joinForm.line_id.trim()
+
+  if (lineId) {
+    contacts.push(`Line ID：${lineId}`)
+  }
+
+  return contacts.join('，')
 }
 
 const submitJoinForm = async () => {
@@ -647,6 +665,7 @@ const submitJoinForm = async () => {
       .insert({
         parent_name: joinForm.parent_name,
         phone: joinForm.phone,
+        line_id: joinForm.line_id.trim() || null,
         child_age_or_grade: joinForm.child_age_or_grade,
         message: joinForm.message
       })
@@ -657,7 +676,7 @@ const submitJoinForm = async () => {
 
     void dispatchPushNotification({
       title: `[入隊詢問] 收到 ${data.parent_name} 的聯絡表單`,
-      body: `電話：${joinForm.phone}，請到後台查看完整內容。`,
+      body: `${buildJoinContactSummary()}，請到後台查看完整內容。`,
       url: '/join-inquiries',
       feature: 'join_inquiries',
       action: 'VIEW',
@@ -671,6 +690,7 @@ const submitJoinForm = async () => {
     Object.assign(joinForm, {
       parent_name: '',
       phone: '',
+      line_id: '',
       child_age_or_grade: '',
       message: ''
     })

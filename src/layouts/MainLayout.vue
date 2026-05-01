@@ -890,6 +890,16 @@ const buildQuarterlyFeeNotificationBody = (fee: {
   amount: number
 }) => `季度: ${fee.year_quarter} | 方式: ${fee.payment_method} | 金額: $${fee.amount}`
 
+const buildJoinInquiryContactBody = (join: any) => {
+  const contacts = [`電話: ${join.phone || '-'}`]
+
+  if (join.line_id) {
+    contacts.push(`Line ID: ${join.line_id}`)
+  }
+
+  return `${contacts.join(' | ')}。請盡快與家長聯繫！`
+}
+
 const buildRealtimeQuarterlyFeeBufferKey = (record: any) => JSON.stringify({
   yearQuarter: record.year_quarter || '',
   memberIds: [...new Set((Array.isArray(record.member_ids) && record.member_ids.length > 0
@@ -946,7 +956,7 @@ const fetchNotificationFeedLegacy = async (
   if (permissionsStore.can('join_inquiries', 'VIEW')) {
     promises.push(
       supabase.from('join_inquiries')
-        .select('id, parent_name, phone, created_at')
+        .select('id, parent_name, phone, line_id, created_at')
         .order('created_at', { ascending: false })
         .limit(Math.max(limit, 5))
         .then((res) => {
@@ -1020,7 +1030,7 @@ const fetchNotificationFeedLegacy = async (
         id: String(join.id),
         source: 'join' as const,
         title: `[入隊詢問] 收到來自 ${join.parent_name} 的聯絡`,
-        body: `電話: ${join.phone}。請盡快與家長聯繫！`,
+        body: buildJoinInquiryContactBody(join),
         created_at: join.created_at,
         link: '/join-inquiries',
         highlight_member_id: null
@@ -1250,7 +1260,7 @@ const startListening = () => {
             id: buildNotificationFeedItemId('join', String(payload.new.id)),
             source: 'join',
             title: `[入隊詢問] 收到來自 ${payload.new.parent_name} 的聯絡`,
-            body: `電話: ${payload.new.phone}。請盡快與家長聯繫！`,
+            body: buildJoinInquiryContactBody(payload.new),
             createdAt: payload.new.created_at || new Date().toISOString(),
             link: '/join-inquiries',
             highlightMemberId: null

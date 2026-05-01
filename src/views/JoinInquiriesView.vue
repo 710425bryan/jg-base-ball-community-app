@@ -48,6 +48,11 @@
             <div class="text-primary font-bold tracking-wider">{{ scope.row.phone }}</div>
           </template>
         </el-table-column>
+        <el-table-column label="Line ID" min-width="130">
+          <template #default="scope">
+            <span class="font-bold text-emerald-600">{{ scope.row.line_id || '未填寫' }}</span>
+          </template>
+        </el-table-column>
         <el-table-column label="孩子年紀/年級" min-width="130">
           <template #default="scope">
             <span>{{ scope.row.child_age_or_grade || '未填寫' }}</span>
