@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowRight, Calendar, Cloudy, Goods, Lightning, Location, MoonNight, PartlyCloudy, Pouring, ShoppingCart, Sunny, VideoCameraFilled } from '@element-plus/icons-vue'
+import { ArrowDown, ArrowRight, Calendar, Cloudy, Goods, Lightning, Location, MoonNight, PartlyCloudy, Pouring, ShoppingCart, Sunny, Tickets, UserFilled, VideoCameraFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
@@ -9,6 +9,7 @@ import MyHomeTodayPanel from '@/components/home/MyHomeTodayPanel.vue'
 import MatchDetailDialog from '@/components/match-records/MatchDetailDialog.vue'
 import FeeManagementReminderPanel from '@/components/fees/FeeManagementReminderPanel.vue'
 import EquipmentPhotoCarousel from '@/components/equipment/EquipmentPhotoCarousel.vue'
+import { getDashboardTodayAttendanceStatus } from '@/services/dashboardAttendance'
 import { getMyHomeSnapshot } from '@/services/myHome'
 import { supabase } from '@/services/supabase'
 import { getMatchWeatherForecast, type WeatherSnapshot } from '@/services/weatherApi'
@@ -16,7 +17,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useEquipmentStore } from '@/stores/equipment'
 import { useMatchesStore } from '@/stores/matches'
 import { usePermissionsStore } from '@/stores/permissions'
-import { createEmptyDashboardStats, type DashboardAnnouncement } from '@/types/dashboard'
+import { createEmptyDashboardStats, type DashboardAnnouncement, type DashboardTodayAttendanceEvent } from '@/types/dashboard'
 import type { Equipment } from '@/types/equipment'
 import type { MatchRecord } from '@/types/match'
 import { createEmptyMyHomeSnapshot } from '@/types/myHome'
@@ -117,12 +118,18 @@ const myHomeSnapshot = ref(createEmptyMyHomeSnapshot())
 const selectedMyHomeMemberId = ref('')
 const isMyHomeLoading = ref(false)
 const myHomeError = ref('')
+const isTodayAttendanceOpen = ref(false)
+const isTodayAttendanceLoading = ref(false)
+const todayAttendanceEvent = ref<DashboardTodayAttendanceEvent | null>(null)
+const todayAttendanceLeaveNames = ref<string[]>([])
+const todayAttendanceLeaveCount = ref(0)
 
 let clockId: ReturnType<typeof setInterval> | null = null
 
 const canViewMatches = computed(() => permissionsStore.can('matches', 'VIEW'))
 const canViewAnnouncements = computed(() => permissionsStore.can('announcements', 'VIEW'))
 const canViewFees = computed(() => permissionsStore.can('fees', 'VIEW'))
+const canViewLeaveRequests = computed(() => permissionsStore.can('leave_requests', 'VIEW'))
 const isAdmin = computed(() => permissionsStore.currentRole === 'ADMIN')
 const hasLinkedTeamMembers = computed(() => {
   const linkedIds = authStore.profile?.linked_team_member_ids
@@ -243,6 +250,17 @@ const weatherIconStyle = computed<Record<string, string>>(() => {
   }
 })
 
+const todayAttendanceLeaveTotal = computed(() =>
+  todayAttendanceLeaveCount.value || todayAttendanceLeaveNames.value.length
+)
+const todayAttendanceDateLabel = computed(() => {
+  if (!todayAttendanceEvent.value?.date) return todayLabel.value
+  return dayjs(todayAttendanceEvent.value.date).format('YYYY/MM/DD')
+})
+const todayAttendanceEventSubtitle = computed(() => {
+  if (!todayAttendanceEvent.value) return '今天無訓練點名'
+  return `${todayAttendanceEvent.value.title}｜${todayAttendanceDateLabel.value}`
+})
 const heroMatch = computed(() => (canViewMatches.value ? pickDashboardHeroMatch(matchesStore.matches, now.value) : null))
 const isHeroMatchLive = computed(() => (heroMatch.value ? isDashboardMatchInProgress(heroMatch.value, now.value) : false))
 const upcomingMatches = computed(() => (canViewMatches.value ? getDashboardUpcomingMatches(matchesStore.matches, now.value, 4) : []))
@@ -306,6 +324,12 @@ const isActiveDashboardMember = (member: TeamMemberStatRow) =>
 
 const resetAdminStats = () => {
   Object.assign(stats, createEmptyDashboardStats())
+}
+
+const resetTodayAttendanceStatus = () => {
+  todayAttendanceEvent.value = null
+  todayAttendanceLeaveNames.value = []
+  todayAttendanceLeaveCount.value = 0
 }
 
 const getDashboardWeatherTarget = () => {
@@ -439,6 +463,27 @@ const fetchAdminStats = async () => {
   }
 }
 
+const fetchTodayAttendanceStatus = async () => {
+  if (!canViewLeaveRequests.value) {
+    resetTodayAttendanceStatus()
+    return
+  }
+
+  isTodayAttendanceLoading.value = true
+
+  try {
+    const status = await getDashboardTodayAttendanceStatus(now.value.format('YYYY-MM-DD'))
+    todayAttendanceEvent.value = status.todayEvent
+    todayAttendanceLeaveNames.value = status.todayLeaveNames
+    todayAttendanceLeaveCount.value = status.todayLeaveCount
+  } catch (error) {
+    console.error('Error fetching dashboard today attendance status:', error)
+    resetTodayAttendanceStatus()
+  } finally {
+    isTodayAttendanceLoading.value = false
+  }
+}
+
 const fetchAnnouncementsData = async () => {
   if (!canViewAnnouncements.value) {
     latestAnnouncements.value = []
@@ -544,6 +589,14 @@ const openEquipmentAddons = () => {
   router.push('/equipment-addons')
 }
 
+const openLeaveRequests = () => {
+  router.push('/leave-requests')
+}
+
+const toggleTodayAttendanceStatus = () => {
+  isTodayAttendanceOpen.value = !isTodayAttendanceOpen.value
+}
+
 onMounted(() => {
   clockId = setInterval(() => {
     now.value = dayjs()
@@ -554,6 +607,7 @@ onMounted(() => {
 
   void Promise.allSettled([
     Promise.allSettled([myHomePromise, matchesPromise]).then(() => fetchWeatherData()),
+    fetchTodayAttendanceStatus(),
     fetchAdminStats(),
     fetchAnnouncementsData(),
     fetchEquipmentAddonData()
@@ -913,6 +967,96 @@ onUnmounted(() => {
       :weather="myHomeWeatherCard"
       @refresh="fetchMyHomeSnapshotData"
     />
+
+    <section
+      v-if="canViewLeaveRequests"
+      data-test="today-attendance-status"
+      class="mx-auto mt-6 w-full max-w-7xl px-3 sm:px-4"
+    >
+      <div class="overflow-hidden rounded-[1.25rem] border border-blue-100 bg-white shadow-sm shadow-blue-100/50">
+        <button
+          type="button"
+          data-test="today-attendance-toggle"
+          class="flex min-h-20 w-full items-center justify-between gap-4 px-4 py-4 text-left transition-colors hover:bg-blue-50/60 sm:px-5"
+          :aria-expanded="isTodayAttendanceOpen"
+          aria-controls="dashboard-today-attendance-panel"
+          @click="toggleTodayAttendanceStatus"
+        >
+          <div class="flex min-w-0 items-start gap-3">
+            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
+              <el-icon class="text-xl"><Tickets /></el-icon>
+            </span>
+            <span class="min-w-0">
+              <span class="flex flex-wrap items-center gap-2">
+                <span class="text-base font-black text-blue-950 sm:text-lg">今日訓練點名狀態</span>
+                <span class="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-xs font-bold text-blue-700">請假系統可見</span>
+              </span>
+              <span class="mt-1 block truncate text-sm font-bold text-blue-900/75">
+                {{ todayAttendanceEventSubtitle }}
+              </span>
+            </span>
+          </div>
+
+          <span class="flex shrink-0 items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-xs font-black text-slate-600">
+            {{ isTodayAttendanceOpen ? '收合' : '展開' }}
+            <el-icon class="transition-transform" :class="{ 'rotate-180': isTodayAttendanceOpen }">
+              <ArrowDown />
+            </el-icon>
+          </span>
+        </button>
+
+        <div
+          v-show="isTodayAttendanceOpen"
+          id="dashboard-today-attendance-panel"
+          class="border-t border-blue-100 bg-blue-50/50 px-4 py-4 sm:px-5"
+        >
+          <div v-if="isTodayAttendanceLoading" class="rounded-xl border border-dashed border-blue-200 bg-white px-4 py-8 text-center text-sm font-bold text-blue-500">
+            讀取今日點名狀態中...
+          </div>
+
+          <div v-else-if="todayAttendanceEvent" class="grid gap-4 lg:grid-cols-[260px_minmax(0,1fr)_auto] lg:items-center">
+            <div class="rounded-xl bg-white px-4 py-4 shadow-sm ring-1 ring-blue-100">
+              <div class="text-xs font-black uppercase tracking-[0.18em] text-blue-500">今日請假</div>
+              <div data-test="today-attendance-leave-total" class="mt-2 flex items-end gap-2 text-4xl font-black leading-none text-blue-950">
+                {{ todayAttendanceLeaveTotal }}
+                <span class="pb-1 text-base font-bold text-slate-400">人</span>
+              </div>
+              <p class="mt-3 text-xs font-bold leading-5 text-slate-400">含請假系統與今日點名，名單以目前資料為準。</p>
+            </div>
+
+            <div class="min-w-0 rounded-xl bg-white px-4 py-4 shadow-sm ring-1 ring-blue-100">
+              <div class="mb-3 flex items-center gap-2 text-sm font-black text-slate-700">
+                <el-icon class="text-blue-500"><UserFilled /></el-icon>
+                請假名單
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <span
+                  v-for="(name, idx) in todayAttendanceLeaveNames"
+                  :key="`${name}-${idx}`"
+                  class="rounded-lg border border-gray-200 bg-slate-50 px-3 py-1.5 text-xs font-bold tracking-widest text-gray-700"
+                >
+                  {{ name }}
+                </span>
+                <span v-if="todayAttendanceLeaveNames.length === 0" class="text-sm font-bold text-emerald-700">目前無請假紀錄</span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              data-test="today-attendance-leave-link"
+              class="inline-flex min-h-11 items-center justify-center rounded-sm bg-blue-700 px-5 text-sm font-black text-white transition-colors hover:bg-blue-800"
+              @click="openLeaveRequests"
+            >
+              查看請假紀錄
+            </button>
+          </div>
+
+          <div v-else class="rounded-xl border border-dashed border-blue-200 bg-white px-4 py-8 text-center text-sm font-bold text-blue-500">
+            今天尚未建立訓練點名單。
+          </div>
+        </div>
+      </div>
+    </section>
 
     <section
       v-if="canViewFees"

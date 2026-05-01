@@ -8,6 +8,7 @@ import dayjs from 'dayjs'
 const pushMock = vi.fn()
 const fetchMock = vi.fn()
 const fetchEquipmentsMock = vi.fn()
+const rpcMock = vi.fn()
 
 const teamMembersInMock = vi.fn()
 const teamMembersSelectMock = vi.fn(() => ({
@@ -79,6 +80,7 @@ vi.mock('vue-router', async () => {
 vi.mock('@/services/supabase', () => ({
   supabase: {
     auth: {},
+    rpc: rpcMock,
     from: fromMock
   }
 }))
@@ -182,6 +184,17 @@ const sampleAttendanceEvents = [
   }
 ]
 
+const sampleTodayAttendanceStatus = {
+  todayEvent: {
+    id: 'attendance-1',
+    title: '週六訓練點名',
+    date: '2026-04-20',
+    eventType: '練習'
+  },
+  todayLeaveNames: ['小明', '小華'],
+  todayLeaveCount: 2
+}
+
 const sampleEquipments = [
   {
     id: 'equipment-1',
@@ -237,6 +250,7 @@ const mountHomeView = async ({
   matches = sampleMatches,
   announcements = sampleAnnouncements,
   attendanceEvents = sampleAttendanceEvents,
+  todayAttendanceStatus = sampleTodayAttendanceStatus,
   equipments = sampleEquipments
 } = {}) => {
   setActivePinia(createPinia())
@@ -292,6 +306,10 @@ const mountHomeView = async ({
   })
   announcementsLimitMock.mockResolvedValue({
     data: announcements,
+    error: null
+  })
+  rpcMock.mockResolvedValue({
+    data: todayAttendanceStatus,
     error: null
   })
   fetchEquipmentsMock.mockResolvedValue(equipments)
@@ -368,6 +386,40 @@ describe('HomeView dashboard redesign', () => {
     })
 
     expect(wrapper.find('[data-test="admin-stats"]').exists()).toBe(false)
+  })
+
+  it('shows the collapsible today attendance status for leave request viewers', async () => {
+    const { wrapper } = await mountHomeView({
+      role: 'MANAGER',
+      permissions: ['leave_requests']
+    })
+
+    const panel = wrapper.find('[data-test="today-attendance-status"]')
+    const toggle = wrapper.find('[data-test="today-attendance-toggle"]')
+
+    expect(panel.exists()).toBe(true)
+    expect(panel.text()).toContain('今日訓練點名狀態')
+    expect(panel.text()).toContain('週六訓練點名')
+    expect(wrapper.find('[data-test="today-attendance-leave-total"]').text()).toContain('2')
+    expect(panel.text()).toContain('小明')
+    expect(toggle.attributes('aria-expanded')).toBe('false')
+    expect(rpcMock).toHaveBeenCalledWith('get_dashboard_today_attendance_status', {
+      p_today: dayjs().format('YYYY-MM-DD')
+    })
+
+    await toggle.trigger('click')
+
+    expect(toggle.attributes('aria-expanded')).toBe('true')
+  })
+
+  it('hides the today attendance status and skips its RPC without leave request view permission', async () => {
+    const { wrapper } = await mountHomeView({
+      role: 'MANAGER',
+      permissions: ['matches', 'announcements']
+    })
+
+    expect(wrapper.find('[data-test="today-attendance-status"]').exists()).toBe(false)
+    expect(rpcMock).not.toHaveBeenCalled()
   })
 
   it('removes the old todo and live/standings blocks from the dashboard', async () => {

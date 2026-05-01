@@ -33,6 +33,19 @@ export interface DashboardEvent {
   createdAt: string
 }
 
+export interface DashboardTodayAttendanceEvent {
+  id: string
+  title: string
+  date: string
+  eventType: string | null
+}
+
+export interface DashboardTodayAttendanceStatus {
+  todayEvent: DashboardTodayAttendanceEvent | null
+  todayLeaveNames: string[]
+  todayLeaveCount: number
+}
+
 export interface DashboardSnapshot {
   stats: DashboardStats
   pendingCounts: DashboardPendingCounts
@@ -78,6 +91,12 @@ export const createEmptyDashboardPendingCounts = (): DashboardPendingCounts => (
   unpaidFees: 0,
   upcomingLeaves: 0,
   weeklyEvents: 0
+})
+
+export const createEmptyDashboardTodayAttendanceStatus = (): DashboardTodayAttendanceStatus => ({
+  todayEvent: null,
+  todayLeaveNames: [],
+  todayLeaveCount: 0
 })
 
 export const createEmptyDashboardSnapshot = (): DashboardSnapshot => ({

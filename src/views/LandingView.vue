@@ -1,49 +1,5 @@
 <template>
   <div class="flex-1 bg-white">
-    <section
-      id="today-attendance"
-      class="border-b border-blue-100 bg-blue-50/90 px-4 py-3 md:px-12 md:py-4"
-      v-loading="isLoadingAttendance"
-    >
-      <div class="mx-auto flex max-w-7xl flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div class="flex min-w-0 items-start gap-3">
-          <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" /></svg>
-          </div>
-          <div class="min-w-0">
-            <div class="flex flex-wrap items-center gap-2">
-              <h2 class="text-base font-black text-blue-950 md:text-lg">今日訓練點名狀態</h2>
-              <span class="rounded-full border border-blue-200 bg-white px-2.5 py-0.5 text-xs font-bold text-blue-700">最即時</span>
-            </div>
-            <p v-if="todayEvent" class="mt-1 truncate text-sm font-bold text-blue-900">
-              {{ todayEvent.title }}｜{{ todayEvent.date }}
-            </p>
-            <p v-else class="mt-1 text-sm font-bold text-blue-900/70">今天無訓練點名</p>
-          </div>
-        </div>
-
-        <div v-if="todayEvent" class="rounded-xl bg-white px-4 py-3 shadow-sm ring-1 ring-blue-100 md:min-w-[360px]">
-          <div class="flex items-center justify-between gap-3">
-            <div>
-              <div class="text-xs font-black tracking-[0.16em] text-blue-500">今日請假</div>
-              <div class="mt-1 text-2xl font-black text-blue-950">{{ todayLeaveNames.length }} 人</div>
-            </div>
-            <div class="text-right text-xs font-bold leading-5 text-slate-400">出席狀態以教練現場點名為準</div>
-          </div>
-          <div class="mt-3 flex flex-wrap gap-2">
-            <span
-              v-for="(name, idx) in todayLeaveNames"
-              :key="idx"
-              class="rounded-lg border border-gray-200 bg-slate-50 px-3 py-1.5 text-xs font-bold tracking-widest text-gray-700"
-            >
-              {{ maskName(name) }}
-            </span>
-            <span v-if="todayLeaveNames.length === 0" class="text-sm font-bold text-emerald-700">目前無請假紀錄</span>
-          </div>
-        </div>
-      </div>
-    </section>
-
     <!-- Hero Section -->
     <section class="relative flex min-h-[calc(100dvh-5rem)] w-full items-center overflow-hidden border-b-[12px] border-primary bg-slate-950 py-16 md:min-h-[720px] md:py-20">
       <div class="absolute inset-0 bg-[url('/hero-bg.jpg')] bg-cover bg-center bg-no-repeat opacity-40"></div>
@@ -490,7 +446,7 @@ import { supabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/auth'
 import { useMatchesStore } from '@/stores/matches'
 import { usePermissionsStore } from '@/stores/permissions'
-import type { PublicLandingAnnouncement, PublicLandingEvent, PublicLandingMatch } from '@/types/publicLanding'
+import type { PublicLandingAnnouncement, PublicLandingMatch } from '@/types/publicLanding'
 import { buildPushEventKey, dispatchPushNotification } from '@/utils/pushNotifications'
 
 const authStore = useAuthStore()
@@ -507,10 +463,7 @@ const latestAnnouncements = ref<PublicLandingAnnouncement[]>([])
 const isExperienceOpen = ref(false)
 const isFaqOpen = ref(false)
 
-const isLoadingAttendance = ref(true)
 const isLoadingUpcomingMatches = ref(true)
-const todayEvent = ref<PublicLandingEvent | null>(null)
-const todayLeaveNames = ref<string[]>([])
 const upcomingMatches = ref<PublicLandingMatch[]>([])
 
 const selectedUpcomingMatchId = ref<string | null>(null)
@@ -606,32 +559,18 @@ const openAnnouncement = (item: PublicLandingAnnouncement) => {
   isAnnouncementModalOpen.value = true
 }
 
-const maskName = (name: string) => {
-  if (name.includes('*')) return name
-  if (!name) return '未提供'
-  if (name.length <= 1) return name
-  if (name.length === 2) return `${name[0]}*`
-  return `${name[0]}${'*'.repeat(name.length - 2)}${name[name.length - 1]}`
-}
-
 const loadPublicLandingSnapshot = async () => {
-  isLoadingAttendance.value = true
   isLoadingUpcomingMatches.value = true
 
   try {
     const snapshot = await getPublicLandingSnapshot(dayjs().format('YYYY-MM-DD'))
-    todayEvent.value = snapshot.todayEvent
-    todayLeaveNames.value = snapshot.todayLeaveNames
     upcomingMatches.value = snapshot.upcomingMatches
     latestAnnouncements.value = snapshot.latestAnnouncements
   } catch (error) {
     console.error('Error fetching public landing snapshot:', error)
-    todayEvent.value = null
-    todayLeaveNames.value = []
     upcomingMatches.value = []
     latestAnnouncements.value = []
   } finally {
-    isLoadingAttendance.value = false
     isLoadingUpcomingMatches.value = false
   }
 }

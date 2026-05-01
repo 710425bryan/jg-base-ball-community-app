@@ -129,6 +129,7 @@ UI 約定：
 資料流：
 
 - 個人化首頁摘要走 `get_my_home_snapshot(p_today)`。
+- 後台大廳的「今日訓練點名狀態」走 `get_dashboard_today_attendance_status(p_today)`，只給具備 `leave_requests:VIEW` 的角色顯示。
 - 我的假單：
   - `list_my_leave_members()`
   - `list_my_leave_requests(p_member_id)`

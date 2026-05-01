@@ -67,6 +67,7 @@
 | 檔案 | 用途 | 後端依賴 |
 | --- | --- | --- |
 | `src/services/publicLanding.ts` | 公開首頁摘要 | `get_public_landing_snapshot()` |
+| `src/services/dashboardAttendance.ts` | 後台大廳今日訓練點名狀態 | `get_dashboard_today_attendance_status()` |
 | `src/services/myHome.ts` | 個人化首頁摘要 | `get_my_home_snapshot()` |
 | `src/services/myLeaveRequests.ts` | 我的假單 RPC | `list_my_leave_members()` 等 |
 | `src/services/myPayments.ts` | 我的繳費 RPC | `profile_payment_submissions` 相關 RPC |
