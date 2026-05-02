@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { createMatchRecordInput, parseICalText, parseMatchRecord, planCalendarSync } from './googleCalendarParser'
+import {
+  checkCalendarPlayersAgainstRoster,
+  createMatchRecordInput,
+  parseICalText,
+  parseMatchRecord,
+  planCalendarSync
+} from './googleCalendarParser'
 import type { MatchRecord } from '@/types/match'
 
 const buildExistingMatch = (id: string, payload: ReturnType<typeof createMatchRecordInput>): MatchRecord => ({
@@ -92,6 +98,70 @@ END:VCALENDAR`)
     ])
     expect(parsedMatches[1].matchName).toBe('第一屆熊戰邀請賽')
     expect(parsedMatches[1].opponent).toBe('')
+  })
+
+  it('parses compact versus titles with our team on either side', () => {
+    const compactHome = parseMatchRecord({
+      id: 'uid-compact-home@google.com',
+      summary: 'U10八德迷你棒球聯賽 中港熊戰vs小小馬',
+      description: '組別 / 類別：U10\n賽事等級：三級\n盃賽名稱：八德迷你棒球聯賽',
+      location: '',
+      startRaw: '20260502T034000Z',
+      endRaw: '20260502T043000Z'
+    })
+
+    const away = parseMatchRecord({
+      id: 'uid-away@google.com',
+      summary: 'U10 八德迷你棒球 飛龍夢無限 vs 中港熊戰',
+      description: '組別 / 類別：U10\n賽事等級：三級\n盃賽名稱：八德迷你棒球聯賽',
+      location: '',
+      startRaw: '20260502T004000Z',
+      endRaw: '20260502T013000Z'
+    })
+
+    const noVersus = parseMatchRecord({
+      id: 'uid-no-versus@google.com',
+      summary: 'U10 八德迷你棒球趣味聯賽 跑壘大賽',
+      description: '組別 / 類別：U10\n賽事等級：三級',
+      location: '',
+      startRaw: '20260501T020000Z',
+      endRaw: '20260501T023000Z'
+    })
+
+    expect(compactHome.opponent).toBe('小小馬')
+    expect(compactHome.tournamentName).toBe('八德迷你棒球聯賽')
+    expect(away.opponent).toBe('飛龍夢無限')
+    expect(noVersus.opponent).toBe('')
+    expect(noVersus.parseWarnings).toContain('未偵測到對戰格式，對手需確認')
+  })
+
+  it('conservatively checks calendar players against the active roster', () => {
+    const playerCheck = checkCalendarPlayersAgainstRoster(
+      [
+        { name: '蘆怖·嘎皂', number: '' },
+        { name: '未知名字', number: '7' },
+        { name: '李小華', number: '15' },
+        { name: '多重背號', number: '88' }
+      ],
+      [
+        { id: 'p1', name: '蘆怖嘎皂', jersey_number: '12', role: '球員', status: '在隊' },
+        { id: 'p2', name: '王小明', jersey_number: '7', role: '球員', status: '在隊' },
+        { id: 'p3', name: '李小華', jersey_number: '8', role: '球員', status: '在隊' },
+        { id: 'p4', name: '張衝突', jersey_number: '15', role: '校隊', status: '在隊' },
+        { id: 'p5', name: '背號一', jersey_number: '88', role: '球員', status: '在隊' },
+        { id: 'p6', name: '背號二', jersey_number: '88', role: '校隊', status: '在隊' }
+      ]
+    )
+
+    expect(playerCheck.total).toBe(4)
+    expect(playerCheck.matched).toBe(2)
+    expect(playerCheck.needsReview).toBe(2)
+    expect(playerCheck.items[0]).toMatchObject({ status: 'matched', name: '蘆怖嘎皂', number: '12' })
+    expect(playerCheck.items[1]).toMatchObject({ status: 'number_matched', name: '王小明', number: '7' })
+    expect(playerCheck.items[2].status).toBe('needs_review')
+    expect(playerCheck.items[2].message).toContain('背號與名單 #8 不一致')
+    expect(playerCheck.items[3].status).toBe('needs_review')
+    expect(playerCheck.items[3].message).toContain('背號 #88 命中多位隊員')
   })
 
   it('plans create update and skip actions while backfilling legacy google ids', () => {
@@ -295,6 +365,78 @@ END:VCALENDAR`)
     expect('lineup' in updateItem.payload).toBe(false)
     expect('inning_logs' in updateItem.payload).toBe(false)
     expect('batting_stats' in updateItem.payload).toBe(false)
+  })
+
+  it('shows schedule diffs for update items without touching participant fields', () => {
+    const parsed = parseMatchRecord({
+      id: 'uid-diff@google.com',
+      summary: 'U10八德迷你棒球聯賽 中港熊戰vs小小馬',
+      description: [
+        '組別 / 類別：U10',
+        '賽事等級：三級',
+        '盃賽名稱：八德迷你棒球聯賽',
+        '參賽球員：',
+        '1.張顥瀚'
+      ].join('\n'),
+      location: '大勇國小',
+      startRaw: '20260502T034000Z',
+      endRaw: '20260502T043000Z'
+    })
+
+    const existingMatch: MatchRecord = {
+      ...buildExistingMatch('existing-diff', createMatchRecordInput(parsed)),
+      opponent: '待確認',
+      match_time: '11:30 - 12:20',
+      players: '手動球員',
+      lineup: [{ order: 1, position: '投手', name: '手動球員', number: '9' }]
+    }
+
+    const syncPlan = planCalendarSync([existingMatch], [parsed], {
+      minimumMatchDate: '2026-01-01'
+    })
+
+    const updateItem = syncPlan[0]
+    if (updateItem.action !== 'update') {
+      throw new Error(`Expected update action, received ${updateItem.action}`)
+    }
+
+    expect(updateItem.scheduleDiffs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: 'opponent', before: '待確認', after: '小小馬' }),
+        expect.objectContaining({ field: 'match_time', before: '11:30 - 12:20', after: '11:40 - 12:30' })
+      ])
+    )
+    expect('players' in updateItem.payload).toBe(false)
+    expect('lineup' in updateItem.payload).toBe(false)
+  })
+
+  it('blocks updates that would overwrite a confirmed opponent with pending confirmation', () => {
+    const parsed = parseMatchRecord({
+      id: 'uid-no-opponent@google.com',
+      summary: '第一屆熊戰邀請賽',
+      description: '組別 / 類別：U10\n賽事等級：三級',
+      location: '大勇國小',
+      startRaw: '20260502T034000Z',
+      endRaw: '20260502T043000Z'
+    })
+
+    const existingMatch: MatchRecord = {
+      ...buildExistingMatch('existing-no-opponent', createMatchRecordInput(parsed)),
+      opponent: '小小馬'
+    }
+
+    const syncPlan = planCalendarSync([existingMatch], [parsed], {
+      minimumMatchDate: '2026-01-01'
+    })
+
+    expect(syncPlan).toHaveLength(1)
+    expect(syncPlan[0].isBlocked).toBe(true)
+    expect(syncPlan[0].validationIssues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ severity: 'blocking', message: expect.stringContaining('避免覆蓋既有對手') })
+      ])
+    )
+    expect('opponent' in syncPlan[0].payload).toBe(false)
   })
 
   it('ignores matches scheduled before the minimum sync date', () => {

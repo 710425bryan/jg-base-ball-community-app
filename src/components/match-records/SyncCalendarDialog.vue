@@ -3,7 +3,7 @@
     v-model="visible"
     title="Google 行事曆同步"
     width="95%"
-    class="max-w-3xl custom-dialog !rounded-2xl"
+    class="max-w-4xl custom-dialog !rounded-2xl"
     destroy-on-close
   >
     <div class="space-y-6">
@@ -30,7 +30,7 @@
         </div>
       </div>
 
-      <div v-if="hasFetched" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div v-if="hasFetched" class="grid grid-cols-1 sm:grid-cols-4 gap-3">
         <div class="bg-gray-50 border border-gray-200 rounded-xl p-4">
           <div class="text-xs font-bold text-gray-500 mb-1">解析到事件</div>
           <div class="text-2xl font-black text-gray-900">{{ syncItems.length }}</div>
@@ -43,13 +43,60 @@
           <div class="text-xs font-bold text-amber-600 mb-1">將更新</div>
           <div class="text-2xl font-black text-amber-700">{{ updateItems.length }}</div>
         </div>
+        <div class="bg-red-50 border border-red-100 rounded-xl p-4">
+          <div class="text-xs font-bold text-red-600 mb-1">需檢查</div>
+          <div class="text-2xl font-black text-red-700">{{ blockedItems.length }}</div>
+        </div>
       </div>
 
       <div
-        v-if="hasFetched && actionableItems.length === 0"
+        v-if="hasFetched && actionableItems.length === 0 && blockedItems.length === 0"
         class="text-center py-8 text-gray-500 font-bold border-2 border-dashed border-gray-200 rounded-xl bg-gray-50"
       >
         目前沒有可同步的新增或更新資料。
+      </div>
+
+      <div v-if="blockedItems.length > 0" class="border border-red-100 rounded-xl overflow-hidden">
+        <div class="bg-red-50 px-4 py-3 border-b border-red-100">
+          <h4 class="font-extrabold text-sm text-red-800">需要檢查的賽事 ({{ blockedItems.length }})</h4>
+        </div>
+
+        <div class="max-h-[280px] overflow-y-auto custom-scrollbar p-2 bg-red-50/30">
+          <div
+            v-for="item in blockedItems"
+            :key="`blocked-${item.parsedMatch.id}-${item.parsedMatch.matchTime}`"
+            class="bg-white border border-red-100 rounded-lg p-3 mb-2 shadow-sm"
+          >
+            <div class="flex flex-wrap gap-2 mb-2">
+              <span class="text-[10px] font-black tracking-widest bg-red-100 text-red-700 px-2 py-1 rounded-full">
+                CHECK
+              </span>
+              <span v-if="item.action !== 'create'" class="text-[10px] bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                {{ getExistingMatchLabel(item.existingMatchId) }}
+              </span>
+            </div>
+            <h5 class="font-bold text-gray-900 leading-tight">{{ getItemTitle(item) }}</h5>
+            <p class="text-sm text-gray-600 mt-1">對手：{{ getItemOpponent(item) }}</p>
+            <p class="text-xs text-gray-500 mt-1">
+              {{ getItemDate(item) }}<span v-if="getItemTime(item)"> ・ {{ getItemTime(item) }}</span>
+            </p>
+            <div class="mt-3 space-y-1">
+              <p
+                v-for="issue in item.validationIssues"
+                :key="issue.message"
+                class="text-xs font-bold"
+                :class="getIssueClass(issue.severity)"
+              >
+                {{ issue.message }}
+              </p>
+            </div>
+            <div v-if="item.scheduleDiffs.length" class="mt-3 rounded-lg bg-red-50/70 border border-red-100 p-2">
+              <div v-for="diff in item.scheduleDiffs" :key="`${diff.field}-${diff.after}`" class="text-xs text-red-800">
+                {{ diff.label }}：{{ diff.before }} → {{ diff.after }}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div v-if="createItems.length > 0" class="border border-green-100 rounded-xl overflow-hidden">
@@ -85,6 +132,26 @@
                   {{ item.payload.match_date }}<span v-if="item.payload.match_time"> ・ {{ item.payload.match_time }}</span>
                 </p>
                 <p v-if="item.payload.location" class="text-xs text-gray-500 mt-1">{{ item.payload.location }}</p>
+                <p class="text-xs text-gray-500 mt-2">參賽球員：{{ getPlayerCheckSummary(item) }}</p>
+                <div v-if="item.validationIssues.length" class="mt-2 space-y-1">
+                  <p
+                    v-for="issue in item.validationIssues"
+                    :key="issue.message"
+                    class="text-xs font-bold"
+                    :class="getIssueClass(issue.severity)"
+                  >
+                    {{ issue.message }}
+                  </p>
+                </div>
+                <div v-if="getReviewPlayers(item).length" class="mt-2 flex flex-wrap gap-1">
+                  <span
+                    v-for="player in getReviewPlayers(item)"
+                    :key="`${player.sourceName}-${player.sourceNumber}`"
+                    class="text-[11px] font-bold bg-red-50 text-red-700 border border-red-100 rounded px-2 py-0.5"
+                  >
+                    {{ player.sourceName }}{{ player.sourceNumber ? ` #${player.sourceNumber}` : '' }}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -127,6 +194,31 @@
                   {{ item.payload.match_date }}<span v-if="item.payload.match_time"> ・ {{ item.payload.match_time }}</span>
                 </p>
                 <p v-if="item.payload.location" class="text-xs text-gray-500 mt-1">{{ item.payload.location }}</p>
+                <div v-if="item.scheduleDiffs.length" class="mt-3 rounded-lg bg-amber-50/70 border border-amber-100 p-2">
+                  <div v-for="diff in item.scheduleDiffs" :key="`${diff.field}-${diff.after}`" class="text-xs text-amber-800">
+                    {{ diff.label }}：{{ diff.before }} → {{ diff.after }}
+                  </div>
+                </div>
+                <p class="text-xs text-gray-500 mt-2">參賽球員：{{ getPlayerCheckSummary(item) }}</p>
+                <div v-if="item.validationIssues.length" class="mt-2 space-y-1">
+                  <p
+                    v-for="issue in item.validationIssues"
+                    :key="issue.message"
+                    class="text-xs font-bold"
+                    :class="getIssueClass(issue.severity)"
+                  >
+                    {{ issue.message }}
+                  </p>
+                </div>
+                <div v-if="getReviewPlayers(item).length" class="mt-2 flex flex-wrap gap-1">
+                  <span
+                    v-for="player in getReviewPlayers(item)"
+                    :key="`${player.sourceName}-${player.sourceNumber}`"
+                    class="text-[11px] font-bold bg-red-50 text-red-700 border border-red-100 rounded px-2 py-0.5"
+                  >
+                    {{ player.sourceName }}{{ player.sourceNumber ? ` #${player.sourceNumber}` : '' }}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -157,8 +249,16 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { fetchAndParseICal, planCalendarSync, type CalendarSyncItem } from '@/utils/googleCalendarParser'
+import {
+  fetchAndParseICal,
+  planCalendarSync,
+  type CalendarSyncIssueSeverity,
+  type CalendarSyncItem,
+  type CalendarSyncPlayerCheckItem,
+  type CalendarSyncRosterMember
+} from '@/utils/googleCalendarParser'
 import { useMatchesStore } from '@/stores/matches'
+import { supabase } from '@/services/supabase'
 
 const props = defineProps<{ modelValue: boolean }>()
 const emit = defineEmits<{ (e: 'update:modelValue', value: boolean): void }>()
@@ -174,22 +274,60 @@ const isFetching = ref(false)
 const hasFetched = ref(false)
 const isSaving = ref(false)
 const syncItems = ref<CalendarSyncItem[]>([])
+const rosterMembers = ref<CalendarSyncRosterMember[]>([])
 
 const isCreateItem = (item: CalendarSyncItem): item is Extract<CalendarSyncItem, { action: 'create' }> =>
   item.action === 'create'
 const isUpdateItem = (item: CalendarSyncItem): item is Extract<CalendarSyncItem, { action: 'update' }> =>
   item.action === 'update'
 const isActionableItem = (item: CalendarSyncItem): item is Extract<CalendarSyncItem, { action: 'create' | 'update' }> =>
-  item.action !== 'skip'
+  item.action !== 'skip' && !item.isBlocked
 
 const actionableItems = computed(() => syncItems.value.filter(isActionableItem))
-const createItems = computed(() => syncItems.value.filter(isCreateItem))
-const updateItems = computed(() => syncItems.value.filter(isUpdateItem))
+const createItems = computed(() => syncItems.value.filter((item) => isCreateItem(item) && !item.isBlocked))
+const updateItems = computed(() => syncItems.value.filter((item) => isUpdateItem(item) && !item.isBlocked))
+const blockedItems = computed(() => syncItems.value.filter((item) => item.isBlocked))
+
+const getIssueClass = (severity: CalendarSyncIssueSeverity) =>
+  severity === 'blocking' ? 'text-red-700' : 'text-amber-700'
+
+const getReviewPlayers = (item: CalendarSyncItem): CalendarSyncPlayerCheckItem[] =>
+  item.playerCheck.items.filter((player) => player.status === 'needs_review').slice(0, 6)
+
+const getPlayerCheckSummary = (item: CalendarSyncItem) => {
+  const { total, matched, needsReview } = item.playerCheck
+  if (total === 0) return '未填'
+  const reviewText = needsReview > 0 ? `，待確認 ${needsReview} 位` : ''
+  return `共 ${total} 位，已比對 ${matched} 位${reviewText}`
+}
+
+const getItemTitle = (item: CalendarSyncItem) =>
+  item.payload.match_name || item.parsedMatch.matchName || item.parsedMatch.title || '未命名賽事'
+
+const getItemOpponent = (item: CalendarSyncItem) =>
+  item.payload.opponent || item.parsedMatch.opponent || '待確認'
+
+const getItemDate = (item: CalendarSyncItem) =>
+  item.payload.match_date || item.parsedMatch.date || '日期待確認'
+
+const getItemTime = (item: CalendarSyncItem) =>
+  item.payload.match_time || item.parsedMatch.matchTime || ''
 
 const ensureMatchesLoaded = async () => {
   if (matchesStore.matches.length === 0 && !matchesStore.loading) {
     await matchesStore.fetchMatches()
   }
+}
+
+const fetchRosterMembers = async () => {
+  const { data, error } = await supabase
+    .from('team_members_safe')
+    .select('id, name, role, status, jersey_number')
+    .in('role', ['球員', '校隊'])
+    .order('name', { ascending: true })
+
+  if (error) throw error
+  rosterMembers.value = data || []
 }
 
 const getExistingMatchLabel = (matchId: string | null) => {
@@ -210,17 +348,22 @@ const handleFetch = async () => {
   syncItems.value = []
 
   try {
-    await ensureMatchesLoaded()
+    await Promise.all([
+      ensureMatchesLoaded(),
+      fetchRosterMembers()
+    ])
     const parsedMatches = await fetchAndParseICal(calendarUrl.value)
-    syncItems.value = planCalendarSync(matchesStore.matches, parsedMatches)
+    syncItems.value = planCalendarSync(matchesStore.matches, parsedMatches, {
+      rosterMembers: rosterMembers.value
+    })
     hasFetched.value = true
 
     if (actionableItems.value.length === 0) {
-      ElMessage.info('目前沒有可同步的變更')
+      ElMessage.info(blockedItems.value.length > 0 ? '有賽事需要先檢查，尚無可直接寫入的變更' : '目前沒有可同步的變更')
       return
     }
 
-    ElMessage.success(`解析完成：新增 ${createItems.value.length} 筆，更新 ${updateItems.value.length} 筆`)
+    ElMessage.success(`解析完成：新增 ${createItems.value.length} 筆，更新 ${updateItems.value.length} 筆，需檢查 ${blockedItems.value.length} 筆`)
   } catch (error: any) {
     ElMessage.error(`解析失敗：${error.message}`)
   } finally {

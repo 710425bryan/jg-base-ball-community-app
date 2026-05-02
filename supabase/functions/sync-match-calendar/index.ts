@@ -4,6 +4,7 @@ import {
   parseICalText,
   planCalendarSync,
   type CalendarSyncItem,
+  type CalendarSyncRosterMember,
 } from "../../../src/utils/googleCalendarParser.ts";
 import type { MatchRecord, MatchRecordInput } from "../../../src/types/match.ts";
 
@@ -117,6 +118,17 @@ const fetchExistingMatches = async () => {
   return (data || []) as MatchRecord[];
 };
 
+const fetchRosterMembers = async () => {
+  const { data, error } = await supabase
+    .from("team_members_safe")
+    .select("id, name, role, status, jersey_number")
+    .in("role", ["球員", "校隊"])
+    .order("name", { ascending: true });
+
+  if (error) throw error;
+  return (data || []) as CalendarSyncRosterMember[];
+};
+
 const createMatch = async (payload: MatchRecordInput) =>
   withOptionalColumnFallback(payload, async (normalizedPayload) => {
     const { data, error } = await supabase
@@ -143,9 +155,10 @@ const updateMatch = async (id: string, payload: Partial<MatchRecordInput>) =>
 const isUniqueViolation = (error: any) => String(error?.code || "") === "23505";
 
 const countPlannedItems = (items: CalendarSyncItem[]) => ({
-  create: items.filter((item) => item.action === "create").length,
-  update: items.filter((item) => item.action === "update").length,
-  skip: items.filter((item) => item.action === "skip").length,
+  create: items.filter((item) => item.action === "create" && !item.isBlocked).length,
+  update: items.filter((item) => item.action === "update" && !item.isBlocked).length,
+  skip: items.filter((item) => item.action === "skip" && !item.isBlocked).length,
+  blocked: items.filter((item) => item.isBlocked).length,
 });
 
 const parsePayload = async (req: Request) => {
@@ -199,18 +212,22 @@ serve(async (req) => {
       : undefined;
     const dryRun = payload.dry_run === true;
 
-    const [calendarText, existingMatches] = await Promise.all([
+    const [calendarText, existingMatches, rosterMembers] = await Promise.all([
       fetchICalText(calendarUrl),
       fetchExistingMatches(),
+      fetchRosterMembers(),
     ]);
 
     const parsedMatches = parseICalText(calendarText);
     const syncItems = planCalendarSync(
       existingMatches,
       parsedMatches,
-      minimumMatchDate ? { minimumMatchDate } : {},
+      {
+        ...(minimumMatchDate ? { minimumMatchDate } : {}),
+        rosterMembers,
+      },
     );
-    const actionableItems = syncItems.filter((item) => item.action !== "skip");
+    const actionableItems = syncItems.filter((item) => item.action !== "skip" && !item.isBlocked);
     const planned = countPlannedItems(syncItems);
     let createdCount = 0;
     let updatedCount = 0;
@@ -251,6 +268,7 @@ serve(async (req) => {
       updated_count: updatedCount,
       duplicate_count: duplicateCount,
       skipped_count: planned.skip,
+      blocked_count: planned.blocked,
       optional_column_support: optionalColumnSupport,
     };
 

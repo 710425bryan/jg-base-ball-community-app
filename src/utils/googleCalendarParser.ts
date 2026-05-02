@@ -2,8 +2,8 @@ import type { MatchRecord, MatchRecordInput } from '@/types/match'
 
 const TAIPEI_TIME_ZONE = 'Asia/Taipei'
 const OUR_TEAM_ALIASES = ['中港', '中港熊戰', '中港國小']
-const TITLE_TEAM_KEYWORDS = ['錦標賽', '邀請賽', '友誼賽', '聯賽', '嘉年華', '就是棒', '春季', '秋季', '盃']
-const VS_SEPARATOR = /\s+(?:v\.?\s*s\.?)\s+/i
+const TITLE_TEAM_KEYWORDS = ['錦標賽', '邀請賽', '友誼賽', '聯賽', '嘉年華', '就是棒', '春季', '秋季', '棒球', '盃']
+const VS_SEPARATOR = /\s*(?:v\.?\s*s\.?)\s*/i
 
 interface ParsedICalEvent {
   id: string
@@ -29,6 +29,13 @@ interface ParsedDescription {
 interface SplitTitleSideResult {
   prefix: string
   team: string
+  isOurTeam: boolean
+}
+
+interface ParsedTitle {
+  tournamentName: string
+  opponent: string
+  warnings: string[]
 }
 
 export interface ParsedMatch {
@@ -49,11 +56,16 @@ export interface ParsedMatch {
   coaches: string[]
   players: Array<{ number: string; name: string }>
   absentPlayers: string[]
+  parseWarnings: string[]
   description: string
 }
 
 interface CalendarSyncItemBase {
   parsedMatch: ParsedMatch
+  scheduleDiffs: CalendarSyncScheduleDiff[]
+  playerCheck: CalendarSyncPlayerCheck
+  validationIssues: CalendarSyncIssue[]
+  isBlocked: boolean
 }
 
 export interface CalendarSyncCreateItem extends CalendarSyncItemBase {
@@ -78,6 +90,45 @@ export type CalendarSyncItem = CalendarSyncCreateItem | CalendarSyncUpdateItem |
 
 export interface CalendarSyncOptions {
   minimumMatchDate?: string
+  rosterMembers?: CalendarSyncRosterMember[]
+}
+
+export interface CalendarSyncRosterMember {
+  id?: string | null
+  name?: string | null
+  jersey_number?: string | number | null
+  role?: string | null
+  status?: string | null
+}
+
+export type CalendarSyncIssueSeverity = 'warning' | 'blocking'
+
+export interface CalendarSyncIssue {
+  severity: CalendarSyncIssueSeverity
+  message: string
+}
+
+export interface CalendarSyncPlayerCheckItem {
+  sourceName: string
+  sourceNumber: string
+  name: string
+  number: string
+  status: 'matched' | 'number_matched' | 'needs_review' | 'unchecked'
+  message: string
+}
+
+export interface CalendarSyncPlayerCheck {
+  total: number
+  matched: number
+  needsReview: number
+  items: CalendarSyncPlayerCheckItem[]
+}
+
+export interface CalendarSyncScheduleDiff {
+  field: keyof MatchRecordInput
+  label: string
+  before: string
+  after: string
 }
 
 const collapseWhitespace = (value: string) => value.replace(/\s+/g, ' ').trim()
@@ -86,9 +137,22 @@ const normalizeTitleKey = (value: string) => collapseWhitespace(value).toLowerCa
 
 const normalizeTeamName = (value: string) => collapseWhitespace(value).replace(/^[\-:：]+/, '').trim()
 
+const normalizeLooseNameKey = (value: unknown) =>
+  String(value ?? '')
+    .normalize('NFKC')
+    .replace(/[\s·‧・．.]/g, '')
+    .trim()
+    .toLowerCase()
+
+const normalizeRosterNumber = (value: unknown) => {
+  const normalized = String(value ?? '').normalize('NFKC').replace(/^#/, '').trim()
+  if (!normalized) return ''
+  return /^\d+$/.test(normalized) ? String(Number(normalized)) : normalized
+}
+
 const isOurTeamName = (value: string) => {
-  const normalized = normalizeTeamName(value)
-  return OUR_TEAM_ALIASES.some((alias) => normalized === alias)
+  const normalized = normalizeLooseNameKey(normalizeTeamName(value))
+  return OUR_TEAM_ALIASES.some((alias) => normalized === normalizeLooseNameKey(alias))
 }
 
 const splitTitleSide = (value: string): SplitTitleSideResult => {
@@ -106,14 +170,42 @@ const splitTitleSide = (value: string): SplitTitleSideResult => {
   }
 
   if (bestIndex === -1) {
-    return { prefix: '', team: normalized }
+    return { prefix: '', team: normalized, isOurTeam: isOurTeamName(normalized) }
   }
 
   const boundary = bestIndex + bestKeyword.length
   const prefix = normalized.slice(0, boundary).trim()
   const team = normalized.slice(boundary).trim()
 
-  return { prefix, team }
+  return { prefix, team, isOurTeam: isOurTeamName(team) }
+}
+
+const splitTitleSideWithTeamAlias = (value: string): SplitTitleSideResult => {
+  const side = splitTitleSide(value)
+  if (side.isOurTeam) return side
+
+  const normalized = collapseWhitespace(value)
+  const aliases = [...OUR_TEAM_ALIASES].sort((left, right) => right.length - left.length)
+
+  for (const alias of aliases) {
+    const index = normalized.lastIndexOf(alias)
+    if (index === -1) continue
+
+    const beforeAlias = normalized.slice(0, index).trim()
+    const afterAlias = normalized.slice(index + alias.length).trim()
+
+    if (afterAlias && !/^[\-:：,，、()（）\s]+$/.test(afterAlias)) {
+      continue
+    }
+
+    return {
+      prefix: side.prefix || beforeAlias,
+      team: alias,
+      isOurTeam: true
+    }
+  }
+
+  return side
 }
 
 const stripLeadingTitleMarkers = (value: string) => {
@@ -344,37 +436,47 @@ const parseDescription = (description: string): ParsedDescription => {
   }
 }
 
-const parseTitle = (title: string) => {
+const parseTitle = (title: string): ParsedTitle => {
   const parts = title.split(VS_SEPARATOR)
   if (parts.length < 2) {
     return {
       tournamentName: '',
-      opponent: ''
+      opponent: '',
+      warnings: ['未偵測到對戰格式，對手需確認']
     }
   }
 
-  const leftSide = splitTitleSide(parts[0])
-  const rightSide = splitTitleSide(parts.slice(1).join(' '))
+  const leftSide = splitTitleSideWithTeamAlias(parts[0])
+  const rightSide = splitTitleSideWithTeamAlias(parts.slice(1).join(' '))
 
   const leftTeam = normalizeTeamName(leftSide.team || parts[0])
   const rightTeam = normalizeTeamName(rightSide.team || parts.slice(1).join(' '))
-  const leftIsUs = isOurTeamName(leftTeam)
-  const rightIsUs = isOurTeamName(rightTeam)
+  const leftIsUs = leftSide.isOurTeam || isOurTeamName(leftTeam)
+  const rightIsUs = rightSide.isOurTeam || isOurTeamName(rightTeam)
 
   let tournamentName = leftSide.prefix || rightSide.prefix || ''
   let opponent = ''
+  const warnings: string[] = []
 
   if (leftIsUs && !rightIsUs) {
     opponent = rightTeam
   } else if (rightIsUs && !leftIsUs) {
     opponent = leftTeam
+  } else if (leftIsUs && rightIsUs) {
+    warnings.push('對戰雙方都像中港隊名，請確認對手')
   } else {
+    warnings.push('未在對戰標題中偵測到中港隊名，請確認對手')
     opponent = rightTeam && !isOurTeamName(rightTeam) ? rightTeam : ''
+  }
+
+  if (!opponent) {
+    warnings.push('未解析到對手，將以待確認顯示')
   }
 
   return {
     tournamentName: collapseWhitespace(tournamentName),
-    opponent: collapseWhitespace(opponent)
+    opponent: collapseWhitespace(opponent),
+    warnings: Array.from(new Set(warnings))
   }
 }
 
@@ -404,27 +506,183 @@ const buildPlayersSummary = (players: ParsedMatch['players']) => players.map((pl
 
 const getCalendarTournamentName = (match: ParsedMatch) => collapseWhitespace(match.tournamentName || '')
 
-export const createMatchRecordInput = (match: ParsedMatch): MatchRecordInput => ({
-  google_calendar_event_id: match.id || null,
-  match_name: match.matchName || match.title || '未命名賽事',
-  tournament_name: getCalendarTournamentName(match) || null,
-  opponent: match.opponent || '待確認',
-  match_date: match.date,
-  match_time: match.matchTime,
-  location: match.location,
-  category_group: match.category,
-  match_level: match.level,
-  home_score: 0,
-  opponent_score: 0,
-  coaches: match.coaches.join(','),
-  players: buildPlayersSummary(match.players),
-  note: buildCalendarNote(match),
-  photo_url: '',
-  absent_players: match.absentPlayers.map((name) => ({ name, type: '請假' })),
-  lineup: buildLineup(match.players),
-  inning_logs: [],
-  batting_stats: []
+const emptyPlayerCheck = (players: ParsedMatch['players'] = []): CalendarSyncPlayerCheck => ({
+  total: players.length,
+  matched: 0,
+  needsReview: 0,
+  items: players.map((player) => ({
+    sourceName: player.name,
+    sourceNumber: player.number || '',
+    name: player.name,
+    number: player.number || '',
+    status: 'unchecked',
+    message: ''
+  }))
 })
+
+const isSameRosterMember = (left: CalendarSyncRosterMember, right: CalendarSyncRosterMember) => {
+  if (left.id && right.id) return left.id === right.id
+  return normalizeLooseNameKey(left.name) === normalizeLooseNameKey(right.name)
+}
+
+export const checkCalendarPlayersAgainstRoster = (
+  players: ParsedMatch['players'] = [],
+  rosterMembers?: CalendarSyncRosterMember[]
+): CalendarSyncPlayerCheck => {
+  const activeRoster = (rosterMembers || [])
+    .filter((member) => {
+      const role = String(member.role || '').trim()
+      const status = String(member.status || '').trim()
+      return Boolean(member.name) &&
+        (!role || role === '球員' || role === '校隊') &&
+        (!status || status === '在隊')
+    })
+
+  if (!activeRoster.length) {
+    return emptyPlayerCheck(players)
+  }
+
+  const nameBuckets = new Map<string, CalendarSyncRosterMember[]>()
+  const numberBuckets = new Map<string, CalendarSyncRosterMember[]>()
+
+  activeRoster.forEach((member) => {
+    const nameKey = normalizeLooseNameKey(member.name)
+    if (nameKey) {
+      nameBuckets.set(nameKey, [...(nameBuckets.get(nameKey) || []), member])
+    }
+
+    const numberKey = normalizeRosterNumber(member.jersey_number)
+    if (numberKey) {
+      numberBuckets.set(numberKey, [...(numberBuckets.get(numberKey) || []), member])
+    }
+  })
+
+  const items = players.map<CalendarSyncPlayerCheckItem>((player) => {
+    const sourceName = collapseWhitespace(player.name || '')
+    const sourceNumber = normalizeRosterNumber(player.number)
+    const nameMatches = nameBuckets.get(normalizeLooseNameKey(sourceName)) || []
+    const numberMatches = sourceNumber ? numberBuckets.get(sourceNumber) || [] : []
+
+    if (nameMatches.length === 1) {
+      const matched = nameMatches[0]
+      const matchedNumber = normalizeRosterNumber(matched.jersey_number)
+      const numberPointsToDifferentMember = sourceNumber &&
+        numberMatches.length > 0 &&
+        !numberMatches.some((candidate) => isSameRosterMember(candidate, matched))
+      const numberDiffersFromRoster = sourceNumber && matchedNumber && sourceNumber !== matchedNumber
+
+      if (numberPointsToDifferentMember || numberDiffersFromRoster) {
+        return {
+          sourceName,
+          sourceNumber,
+          name: sourceName,
+          number: sourceNumber || player.number || '',
+          status: 'needs_review',
+          message: matchedNumber
+            ? `姓名命中「${matched.name}」，但背號與名單 #${matchedNumber} 不一致`
+            : `姓名命中「${matched.name}」，但背號 #${sourceNumber} 指向其他隊員`
+        }
+      }
+
+      return {
+        sourceName,
+        sourceNumber,
+        name: collapseWhitespace(String(matched.name || sourceName)),
+        number: matchedNumber || sourceNumber,
+        status: 'matched',
+        message: ''
+      }
+    }
+
+    if (nameMatches.length > 1) {
+      return {
+        sourceName,
+        sourceNumber,
+        name: sourceName,
+        number: sourceNumber,
+        status: 'needs_review',
+        message: `姓名「${sourceName}」命中多位隊員`
+      }
+    }
+
+    if (sourceNumber && numberMatches.length === 1) {
+      const matched = numberMatches[0]
+      return {
+        sourceName,
+        sourceNumber,
+        name: collapseWhitespace(String(matched.name || sourceName)),
+        number: normalizeRosterNumber(matched.jersey_number) || sourceNumber,
+        status: 'number_matched',
+        message: `以唯一背號 #${sourceNumber} 對應`
+      }
+    }
+
+    if (sourceNumber && numberMatches.length > 1) {
+      return {
+        sourceName,
+        sourceNumber,
+        name: sourceName,
+        number: sourceNumber,
+        status: 'needs_review',
+        message: `背號 #${sourceNumber} 命中多位隊員`
+      }
+    }
+
+    return {
+      sourceName,
+      sourceNumber,
+      name: sourceName,
+      number: sourceNumber,
+      status: 'needs_review',
+      message: `名單中找不到「${sourceName}」`
+    }
+  })
+
+  return {
+    total: items.length,
+    matched: items.filter((item) => item.status === 'matched' || item.status === 'number_matched').length,
+    needsReview: items.filter((item) => item.status === 'needs_review').length,
+    items
+  }
+}
+
+const getPayloadPlayers = (match: ParsedMatch, playerCheck: CalendarSyncPlayerCheck): ParsedMatch['players'] => {
+  if (!playerCheck.items.length) return match.players
+
+  return playerCheck.items.map((item) => ({
+    name: item.status === 'needs_review' ? item.sourceName : item.name,
+    number: item.status === 'needs_review' ? item.sourceNumber : item.number
+  }))
+}
+
+export const createMatchRecordInput = (
+  match: ParsedMatch,
+  options: { players?: ParsedMatch['players'] } = {}
+): MatchRecordInput => {
+  const players = options.players || match.players
+
+  return {
+    google_calendar_event_id: match.id || null,
+    match_name: match.matchName || match.title || '未命名賽事',
+    tournament_name: getCalendarTournamentName(match) || null,
+    opponent: match.opponent || '待確認',
+    match_date: match.date,
+    match_time: match.matchTime,
+    location: match.location,
+    category_group: match.category,
+    match_level: match.level,
+    home_score: 0,
+    opponent_score: 0,
+    coaches: match.coaches.join(','),
+    players: buildPlayersSummary(players),
+    note: buildCalendarNote(match),
+    photo_url: '',
+    absent_players: match.absentPlayers.map((name) => ({ name, type: '請假' })),
+    lineup: buildLineup(players),
+    inning_logs: [],
+    batting_stats: []
+  }
+}
 
 const createMatchScheduleUpdateInput = (match: ParsedMatch): Partial<MatchRecordInput> => {
   const payload: Partial<MatchRecordInput> = {
@@ -485,12 +743,92 @@ const normalizeSyncValue = (value: unknown) => {
   return typeof value === 'string' ? collapseWhitespace(value) : value
 }
 
+const formatSyncValue = (value: unknown) => {
+  const normalized = normalizeSyncValue(value)
+  return normalized === '' ? '空白' : String(normalized)
+}
+
+const scheduleFieldLabels: Partial<Record<keyof MatchRecordInput, string>> = {
+  google_calendar_event_id: 'Google UID',
+  match_name: '賽事名稱',
+  tournament_name: '盃賽',
+  opponent: '對手',
+  match_date: '日期',
+  match_time: '時間',
+  location: '地點',
+  category_group: '組別',
+  match_level: '賽事等級'
+}
+
 const isSyncPayloadEqual = (existing: MatchRecord, payload: Partial<MatchRecordInput>) =>
   syncUpdateFields.every((field) => {
     if (!(field in payload)) return true
 
     return normalizeSyncValue(existing[field]) === normalizeSyncValue(payload[field])
   })
+
+const buildScheduleDiffs = (
+  existing: MatchRecord | null,
+  payload: Partial<MatchRecordInput>
+): CalendarSyncScheduleDiff[] => {
+  if (!existing) return []
+
+  return syncUpdateFields
+    .filter((field) => field in payload)
+    .filter((field) => normalizeSyncValue(existing[field]) !== normalizeSyncValue(payload[field]))
+    .map((field) => ({
+      field,
+      label: scheduleFieldLabels[field] || String(field),
+      before: formatSyncValue(existing[field]),
+      after: formatSyncValue(payload[field])
+    }))
+}
+
+const isConfirmedOpponent = (value: unknown) => {
+  const normalized = collapseWhitespace(String(value || ''))
+  return Boolean(normalized && normalized !== '待確認')
+}
+
+const buildValidationIssues = (
+  parsedMatch: ParsedMatch,
+  playerCheck: CalendarSyncPlayerCheck,
+  existingMatch: MatchRecord | null,
+  payload: Partial<MatchRecordInput>
+): CalendarSyncIssue[] => {
+  const issues: CalendarSyncIssue[] = []
+
+  parsedMatch.parseWarnings.forEach((message) => {
+    issues.push({ severity: 'warning', message })
+  })
+
+  if (!parsedMatch.date) {
+    issues.push({ severity: 'blocking', message: '未解析到比賽日期，請先確認 Google 行事曆時間' })
+  }
+
+  if (!parsedMatch.matchTime) {
+    issues.push({ severity: 'warning', message: '未解析到完整比賽時間，請確認排程' })
+  }
+
+  if (playerCheck.needsReview > 0) {
+    issues.push({ severity: 'warning', message: `${playerCheck.needsReview} 位參賽球員需人工確認` })
+  }
+
+  if (
+    existingMatch &&
+    !parsedMatch.opponent &&
+    isConfirmedOpponent(existingMatch.opponent)
+  ) {
+    issues.push({
+      severity: 'blocking',
+      message: `Calendar 未解析到對手，避免覆蓋既有對手「${existingMatch.opponent}」`
+    })
+    delete payload.opponent
+  }
+
+  return Array.from(
+    new Map(issues.map((issue) => [`${issue.severity}:${issue.message}`, issue])).values()
+  )
+}
 
 const findFallbackExistingMatch = (existingMatches: MatchRecord[], parsedMatch: ParsedMatch) => {
   const parsedTitleCandidates = buildParsedTitleCandidates(parsedMatch)
@@ -516,7 +854,10 @@ export const planCalendarSync = (
   return parsedMatches
     .filter((parsedMatch) => parsedMatch.date >= minimumMatchDate)
     .map((parsedMatch) => {
-      const createPayload = createMatchRecordInput(parsedMatch)
+      const playerCheck = checkCalendarPlayersAgainstRoster(parsedMatch.players, options.rosterMembers)
+      const createPayload = createMatchRecordInput(parsedMatch, {
+        players: getPayloadPlayers(parsedMatch, playerCheck)
+      })
       const updatePayload = createMatchScheduleUpdateInput(parsedMatch)
 
       const matchedByUid =
@@ -525,22 +866,34 @@ export const planCalendarSync = (
           : null
 
       const existingMatch = matchedByUid || findFallbackExistingMatch(existingMatches, parsedMatch)
+      const validationIssues = buildValidationIssues(parsedMatch, playerCheck, existingMatch, updatePayload)
+      const isBlocked = validationIssues.some((issue) => issue.severity === 'blocking')
 
       if (!existingMatch) {
         return {
           action: 'create',
           existingMatchId: null,
           parsedMatch,
-          payload: createPayload
+          payload: createPayload,
+          scheduleDiffs: [],
+          playerCheck,
+          validationIssues,
+          isBlocked
         }
       }
+
+      const scheduleDiffs = buildScheduleDiffs(existingMatch, updatePayload)
 
       if (isSyncPayloadEqual(existingMatch, updatePayload)) {
         return {
           action: 'skip',
           existingMatchId: existingMatch.id,
           parsedMatch,
-          payload: updatePayload
+          payload: updatePayload,
+          scheduleDiffs,
+          playerCheck,
+          validationIssues,
+          isBlocked
         }
       }
 
@@ -548,7 +901,11 @@ export const planCalendarSync = (
         action: 'update',
         existingMatchId: existingMatch.id,
         parsedMatch,
-        payload: updatePayload
+        payload: updatePayload,
+        scheduleDiffs,
+        playerCheck,
+        validationIssues,
+        isBlocked
       }
     })
 }
@@ -583,6 +940,7 @@ export const parseMatchRecord = (event: ParsedICalEvent): ParsedMatch => {
     coaches: descriptionFields.coaches,
     players: descriptionFields.players,
     absentPlayers: descriptionFields.absentPlayers,
+    parseWarnings: titleFields.warnings,
     description
   }
 }

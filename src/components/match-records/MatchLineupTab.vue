@@ -62,7 +62,7 @@
         <div
           v-for="(player, idx) in lineup"
           :key="idx"
-          class="group relative rounded-lg border border-slate-200 bg-white p-3 pr-10 shadow-sm transition-all hover:border-primary sm:p-4 sm:pr-14"
+          class="group relative rounded-lg border border-slate-200 bg-white p-3 pr-9 shadow-sm transition-all hover:border-primary sm:p-4 sm:pr-12"
         >
           <div class="flex flex-col items-start gap-2 lg:flex-row lg:items-center lg:gap-3">
             <div class="flex w-full shrink-0 gap-2 lg:w-auto">
@@ -91,7 +91,6 @@
               <el-select
                 :model-value="player.name"
                 filterable
-                allow-create
                 clearable
                 placeholder="球員姓名"
                 class="min-w-0 flex-1 lg:min-w-[150px]"
@@ -122,9 +121,7 @@
             </div>
           </div>
 
-          <div class="absolute right-2 top-3 flex flex-col gap-1 sm:top-1/2 sm:-translate-y-1/2">
-            <el-button size="small" text :disabled="idx === 0" @click="$emit('movePlayer', idx, -1)">▲</el-button>
-            <el-button size="small" text :disabled="idx === lineup.length - 1" @click="$emit('movePlayer', idx, 1)">▼</el-button>
+          <div class="absolute right-2 top-3 sm:top-1/2 sm:-translate-y-1/2">
             <el-button
               type="danger"
               circle
@@ -189,7 +186,6 @@ defineEmits<{
   (event: 'scanExisting'): void
   (event: 'addPlayer'): void
   (event: 'removePlayer', index: number): void
-  (event: 'movePlayer', index: number, direction: -1 | 1): void
 }>()
 
 const isCollapsed = ref(props.defaultCollapsed)

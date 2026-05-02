@@ -31,24 +31,40 @@ describe('lineupPhotoParser', () => {
     expect(result.players).toBe('王小明,林大華,陳替補')
   })
 
-  it('dedupes roster candidates and fills jersey number from the richest source', () => {
+  it('builds roster candidates only from selected match players and fills jersey numbers from known sources', () => {
     const roster = buildRosterCandidates({
       selectedPlayers: ['王小明', '林大華'],
       playerOptions: [
         { name: '王小明', jersey_number: '10' },
         { name: '林大華', jersey_number: '' },
-        { name: '陳替補', jersey_number: '18' }
+        { name: '陳替補', jersey_number: '18' },
+        { name: '劉晨曦', jersey_number: '11' }
       ],
       lineups: [[
         { order: 1, position: '5', name: '林大華', number: '7' },
-        { order: 2, position: '6', name: '王小明', number: '' }
+        { order: 2, position: '6', name: '王小明', number: '' },
+        { order: 3, position: '7', name: '劉晨曦', number: '11' }
       ]]
     })
 
     expect(roster).toEqual([
       { name: '王小明', uniform_number: '10' },
-      { name: '林大華', uniform_number: '7' },
-      { name: '陳替補', uniform_number: '18' }
+      { name: '林大華', uniform_number: '7' }
     ])
+  })
+
+  it('returns an empty roster when no match players are selected', () => {
+    const roster = buildRosterCandidates({
+      selectedPlayers: [],
+      playerOptions: [
+        { name: '王小明', jersey_number: '10' },
+        { name: '劉晨曦', jersey_number: '11' }
+      ],
+      lineups: [[
+        { order: 1, position: '5', name: '王小明', number: '10' }
+      ]]
+    })
+
+    expect(roster).toEqual([])
   })
 })

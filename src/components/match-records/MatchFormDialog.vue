@@ -18,6 +18,7 @@ import MatchLiveController from './MatchLiveController.vue'
 import MatchLineupTab from './MatchLineupTab.vue'
 import MatchAudioRecorder from './MatchAudioRecorder.vue'
 import MatchFieldEditor from './MatchFieldEditor.vue'
+import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import { cloneLineScoreData, createDefaultLineScoreData, finalizeInningScore, getNextInning } from '@/utils/liveMatchScoreboard'
 import { buildMatchAudioRoster } from '@/utils/matchAudioTranscription'
 
@@ -34,7 +35,6 @@ const emit = defineEmits<{
 const matchesStore = useMatchesStore()
 const activeTab = ref('basic')
 const submitting = ref(false)
-const LINEUP_SCAN_SECRET = 'jg-baseball-secret-auth'
 
 interface TeamMemberOption {
   id: string
@@ -274,14 +274,6 @@ const addLineup = () => {
 const removeLineup = (index: number) => {
   formData.value.lineup.splice(index, 1)
 }
-const moveLineup = (index: number, dir: -1 | 1) => {
-  if (index + dir < 0 || index + dir >= formData.value.lineup.length) return
-  const temp = formData.value.lineup[index]
-  formData.value.lineup[index] = formData.value.lineup[index + dir]
-  formData.value.lineup[index + dir] = temp
-  // reorder
-  formData.value.lineup.forEach((l, i) => l.order = i + 1)
-}
 
 const handleLineupPlayerChange = (lineupEntry: LineupEntry, playerName: string) => {
   if (!playerName) return
@@ -294,13 +286,6 @@ const handleLineupPlayerChange = (lineupEntry: LineupEntry, playerName: string) 
 const availablePlayerNames = computed(() => {
   const names = new Set<string>()
   selectedPlayers.value.forEach((name) => names.add(name))
-  playerOptions.value.forEach((player) => names.add(player.name))
-  formData.value.lineup.forEach((player) => {
-    if (player.name) names.add(player.name)
-  })
-  formData.value.current_lineup?.forEach((player) => {
-    if (player.name) names.add(player.name)
-  })
   return Array.from(names).filter(Boolean).sort((a, b) => a.localeCompare(b, 'zh-Hant'))
 })
 
@@ -332,14 +317,6 @@ const getAvailableLineupPlayers = (currentIndex: number) => {
   const options = availableLineupPlayerOptions.value.filter((player) =>
     player.name === currentName || !usedNames.has(player.name)
   )
-
-  if (currentName && !options.some((player) => player.name === currentName)) {
-    options.unshift({
-      name: currentName,
-      number: formData.value.lineup[currentIndex]?.number || getPlayerNumberByName(currentName),
-      label: currentName
-    })
-  }
 
   return options
 }
@@ -438,16 +415,6 @@ const removeCurrentLineup = (index: number) => {
   currentLineupMode.value = 'manual'
 }
 
-const moveCurrentLineup = (index: number, dir: -1 | 1) => {
-  const lineup = formData.value.current_lineup
-  if (!lineup || index + dir < 0 || index + dir >= lineup.length) return
-  const temp = lineup[index]
-  lineup[index] = lineup[index + dir]
-  lineup[index + dir] = temp
-  lineup.forEach((player, idx) => player.order = idx + 1)
-  currentLineupMode.value = 'manual'
-}
-
 const handleCurrentLineupPlayerChange = (lineupEntry: LineupEntry, playerName: string) => {
   currentLineupMode.value = 'manual'
   handleLineupPlayerChange(lineupEntry, playerName)
@@ -543,22 +510,35 @@ const getLineupRosterCandidates = () =>
     lineups: [formData.value.lineup, formData.value.current_lineup]
   })
 
+const getFunctionErrorMessage = async (error: any) => {
+  const fallback = error?.message || '請稍後再試'
+  const context = error?.context
+  if (!context) return fallback
+
+  try {
+    const response = typeof context.clone === 'function' ? context.clone() : context
+    const payload = await response.json()
+    return payload?.error || payload?.message || fallback
+  } catch {
+    return fallback
+  }
+}
+
 const parseLineupImage = async (image: { dataUrl: string; mimeType: string }) => {
   const { data, error } = await supabase.functions.invoke<ParsedLineupResponse>('parse-lineup', {
     body: {
       image: image.dataUrl,
       mimeType: image.mimeType,
-      roster: getLineupRosterCandidates(),
-      secretAuth: LINEUP_SCAN_SECRET
+      roster: getLineupRosterCandidates()
     }
   })
 
-  if (error) throw error
+  if (error) throw new Error(await getFunctionErrorMessage(error))
   return data
 }
 
 const applyParsedLineup = (parsedResult: ParsedLineupResponse | null | undefined) => {
-  const { lineup, playerNames, players } = buildLineupRowsFromParsedResult(parsedResult)
+  const { lineup, playerNames } = buildLineupRowsFromParsedResult(parsedResult)
 
   if (!playerNames.length) {
     ElMessage.warning('照片中沒有解析到可對應的球員，請確認照片是否清楚。')
@@ -566,7 +546,6 @@ const applyParsedLineup = (parsedResult: ParsedLineupResponse | null | undefined
   }
 
   formData.value.lineup = lineup
-  formData.value.players = players
 
   if (currentLineupMode.value === 'synced') {
     formData.value.current_lineup = cloneLineup(lineup)
@@ -577,6 +556,11 @@ const applyParsedLineup = (parsedResult: ParsedLineupResponse | null | undefined
 
 const runLineupScan = async (loadImage: () => Promise<{ dataUrl: string; mimeType: string }>) => {
   if (isScanningLineup.value) return
+
+  if (!getLineupRosterCandidates().length) {
+    ElMessage.warning('請先選擇出賽全體球員後再解析照片。')
+    return
+  }
 
   const shouldContinue = await confirmLineupOverwriteIfNeeded()
   if (!shouldContinue) return
@@ -1344,28 +1328,26 @@ const handlePhotoUpload = async (event: Event) => {
                     <el-collapse-transition>
                       <div v-show="!currentLineupDetailsCollapsed" class="mt-4" data-testid="current-lineup-details-body">
                         <div class="overflow-x-auto custom-scrollbar pb-1">
-                          <div class="min-w-[640px] space-y-2">
-                            <div class="grid grid-cols-[48px_116px_minmax(170px,1fr)_72px_minmax(120px,1fr)_96px] gap-2 px-2 text-[11px] font-black text-slate-400">
+                          <div class="min-w-[600px] space-y-2">
+                            <div class="grid grid-cols-[48px_116px_minmax(170px,1fr)_72px_minmax(120px,1fr)_56px] gap-2 px-2 text-[11px] font-black text-slate-400">
                               <div class="text-center">棒次</div>
                               <div>守位</div>
                               <div>球員</div>
                               <div>背號</div>
                               <div>備註</div>
-                              <div class="text-center">排序</div>
+                              <div class="text-center">操作</div>
                             </div>
-                            <div v-for="(p, i) in formData.current_lineup" :key="`current-${i}`" class="grid grid-cols-[48px_116px_minmax(170px,1fr)_72px_minmax(120px,1fr)_96px] items-center gap-2 rounded-xl border border-slate-100 bg-white p-2">
+                            <div v-for="(p, i) in formData.current_lineup" :key="`current-${i}`" class="grid grid-cols-[48px_116px_minmax(170px,1fr)_72px_minmax(120px,1fr)_56px] items-center gap-2 rounded-xl border border-slate-100 bg-white p-2">
                               <div class="text-center text-sm font-black text-slate-400">{{ p.order }}</div>
                               <el-select v-model="p.position" size="small" class="w-full" @change="currentLineupMode = 'manual'">
                                 <el-option v-for="opt in posOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
                               </el-select>
-                              <el-select v-model="p.name" size="small" placeholder="球員姓名" filterable allow-create clearable class="w-full" @change="(val: string) => handleCurrentLineupPlayerChange(p, val)">
+                              <el-select v-model="p.name" size="small" placeholder="球員姓名" filterable clearable class="w-full" @change="(val: string) => handleCurrentLineupPlayerChange(p, val)">
                                 <el-option v-for="name in availablePlayerNames" :key="`current-name-${name}`" :label="name" :value="name" />
                               </el-select>
                               <el-input v-model="p.number" size="small" placeholder="#" @change="currentLineupMode = 'manual'" />
                               <el-input v-model="p.remark" size="small" placeholder="備註" @change="currentLineupMode = 'manual'" />
                               <div class="flex justify-center gap-1">
-                                <el-button size="small" text @click="moveCurrentLineup(i, -1)" :disabled="i === 0">▲</el-button>
-                                <el-button size="small" text @click="moveCurrentLineup(i, 1)" :disabled="i === (formData.current_lineup?.length || 0) - 1">▼</el-button>
                                 <el-button type="danger" size="small" circle plain @click="removeCurrentLineup(i)"><el-icon><Minus /></el-icon></el-button>
                               </div>
                             </div>
@@ -1449,7 +1431,11 @@ const handlePhotoUpload = async (event: Event) => {
         </div>
 
         <!-- === TAB 2: LINEUP === -->
-        <div v-show="activeTab === 'lineup'" class="space-y-4 animate-fade-in pr-2">
+        <div
+          v-show="activeTab === 'lineup'"
+          :aria-busy="isScanningLineup"
+          class="relative min-h-[260px] space-y-4 animate-fade-in pr-2"
+        >
           <input
             ref="lineupPhotoInput"
             type="file"
@@ -1470,8 +1456,14 @@ const handlePhotoUpload = async (event: Event) => {
             @trigger-scan="triggerLineupPhotoImport"
             @add-player="addLineup"
             @remove-player="removeLineup"
-            @move-player="moveLineup"
           />
+
+          <div
+            v-if="isScanningLineup"
+            class="absolute inset-0 z-20 flex items-start justify-center rounded-xl bg-slate-50/85 px-4 py-8 backdrop-blur-[1px]"
+          >
+            <AppLoadingState text="AI 正在解析賽事照片..." min-height="12rem" />
+          </div>
         </div>
 
         <!-- === TAB 3: INNING LOGS === -->

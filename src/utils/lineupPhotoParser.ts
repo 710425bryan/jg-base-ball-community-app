@@ -67,30 +67,29 @@ export const buildRosterCandidates = ({
   lineups?: Array<LineupEntry[] | undefined | null>
   limit?: number
 }) => {
+  const numberByName = new Map<string, string>()
   const candidates = new Map<string, RosterCandidate>()
 
-  const addCandidate = (nameValue: unknown, numberValue?: unknown) => {
+  const rememberNumber = (nameValue: unknown, numberValue?: unknown) => {
     const name = normalizeText(nameValue)
     if (!name) return
 
     const uniformNumber = normalizeText(numberValue)
-    const existing = candidates.get(name)
-    if (!existing) {
-      candidates.set(name, { name, uniform_number: uniformNumber })
-      return
-    }
-
-    if (!existing.uniform_number && uniformNumber) {
-      candidates.set(name, { name, uniform_number: uniformNumber })
+    if (uniformNumber && !numberByName.has(name)) {
+      numberByName.set(name, uniformNumber)
     }
   }
 
-  selectedPlayers.forEach((name) => addCandidate(name))
   playerOptions.forEach((player) => {
-    addCandidate(player.name, player.uniform_number ?? player.jersey_number ?? player.number)
+    rememberNumber(player.name, player.uniform_number ?? player.jersey_number ?? player.number)
   })
   lineups.forEach((lineup) => {
-    lineup?.forEach((player) => addCandidate(player.name, player.number))
+    lineup?.forEach((player) => rememberNumber(player.name, player.number))
+  })
+  selectedPlayers.forEach((nameValue) => {
+    const name = normalizeText(nameValue)
+    if (!name || candidates.has(name)) return
+    candidates.set(name, { name, uniform_number: numberByName.get(name) || '' })
   })
 
   return Array.from(candidates.values()).slice(0, limit)
@@ -165,9 +164,9 @@ export const buildLineupRowsFromParsedResult = (
 
 export const imageBlobToLineupDataUrl = (
   blob: Blob,
-  maxWidth = 1200,
-  maxHeight = 1600,
-  quality = 0.8
+  maxWidth = 1800,
+  maxHeight = 2400,
+  quality = 0.92
 ): Promise<LineupScanImage> => {
   return new Promise((resolve, reject) => {
     if (blob.type && !blob.type.startsWith('image/')) {
