@@ -160,6 +160,7 @@
 - 家長 / 球員自己的請假走 `myLeaveRequests` RPC。
 - 後台請假管理在 `LeaveRequestsView`，會讀 `team_members` 與 `leave_requests`，需受 `leave_requests` feature RLS 保護。
 - 點名列表與點名頁使用 `attendance_events`、`attendance_records`，並會參照 `team_members`、`leave_requests`。
+- `/attendance/:id` 點名 Detail（`RollCallView`）不可顯示或提供 `缺席` 操作；Detail UI 只保留 `出席`、`請假` 等允許操作，若需處理既有缺席資料或禁報流程，必須另設明確管理流程，不可直接把 `缺席` 按鈕放回 Detail。
 - 改到請假或點名時，要檢查通知中心、推播、今日缺席摘要與費用計算是否受影響。
 
 ### 賽事與 Google Calendar 同步
@@ -179,7 +180,7 @@
 - 教練可在沒有資料時建立特訓課與報名設定；新增特訓課預設上課時間 `09:00 - 11:00`、地點 `中港國小`，上課時間使用 Element Plus 時間範圍元件。
 - 報名開始時間到達且狀態為開放時，由 `send-training-registration-notifications` 排程檢查發送「特訓課開放報名」通知；事件寫入 `push_dispatch_events` 供通知中心顯示，同時發送 Web Push。
 - 點數管理支援大量發放：可依全隊、角色、組別快速選取，並套用常用點數 / 原因 preset；送出仍只呼叫 `grant_player_points(uuid[], integer, text)`，不可直接寫 `player_point_transactions`。
-- 特訓點名透過 `attendance_events.training_session_id` 串接；`缺席` 會建立下一場禁報，出席 / 請假會解除該次禁報。
+- 特訓點名透過 `attendance_events.training_session_id` 串接；後端缺席狀態會建立下一場禁報，出席 / 請假會解除該次禁報，但 `/attendance/:id` Detail UI 不顯示或提供 `缺席` 操作。
 
 ### 收費與付款
 

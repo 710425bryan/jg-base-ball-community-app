@@ -225,9 +225,9 @@ const statusOptions = computed(() => [
   ...(isTrainingEvent.value
     ? [{ label: '待點', value: '待點名', bgClass: 'bg-gray-50', textClass: 'text-gray-500', icon: '⏳' }]
     : []),
+  // Detail 頁不提供缺席操作；缺席 / 禁報需走明確管理流程。
   { label: '出席', value: '出席', bgClass: 'bg-green-50', textClass: 'text-green-600', icon: '✅' },
-  { label: '請假', value: '請假', bgClass: 'bg-blue-50', textClass: 'text-blue-500', icon: '🏖️' },
-  { label: '缺席', value: '缺席', bgClass: 'bg-red-50', textClass: 'text-red-500', icon: '❌' }
+  { label: '請假', value: '請假', bgClass: 'bg-blue-50', textClass: 'text-blue-500', icon: '🏖️' }
 ])
 
 // 計算出席率

@@ -71,7 +71,8 @@ description: "Training registration and player points workflow for jg-base-ball-
 
 - 特訓點名單由 `create_training_attendance_event(p_session_id)` 建立，只帶入已錄取球員。
 - 點名狀態套用到 `apply_training_attendance_result(p_event_id, p_member_id, p_status)`。
-- `缺席` 建立下一場特訓禁報；改為 `出席` 或 `請假` 時解除同一次 active block。
+- 後端缺席狀態會建立下一場特訓禁報；改為 `出席` 或 `請假` 時解除同一次 active block。
+- `/attendance/:id` 點名 Detail（`RollCallView`）不可顯示或提供 `缺席` 操作；若未來需要套用缺席 / 禁報，必須另設明確管理流程，不可直接把 `缺席` 按鈕放回 Detail。
 - 自動化 `process_training_session_automation(p_today)` 會正式扣點、釋放過期禁報、結案過去特訓。
 
 ## UI 規則

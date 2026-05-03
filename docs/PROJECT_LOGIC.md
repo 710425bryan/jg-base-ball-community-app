@@ -214,6 +214,7 @@ UI 約定：
 
 重要規則：
 
+- `/attendance/:id` 點名 Detail（`RollCallView`）不可顯示或提供 `缺席` 操作；Detail UI 只保留 `出席`、`請假` 等允許操作，既有缺席資料或禁報流程需另設明確管理流程。
 - 改請假或點名要檢查通知中心、推播、今日缺席、費用統計是否受影響。
 - 後台頁面顯示權限不能取代 DB policy。
 
@@ -279,7 +280,7 @@ UI 約定：
 - 報名 RPC 會在 DB 端檢查 linked member、點數、禁報狀態、手動狀態與報名時間窗。
 - 錄取時保留點數；`process_training_session_automation()` 在上課當天對已錄取名單扣點，並用 idempotency key 避免重複扣。
 - 點數管理支援快速發放：可一鍵選全隊、角色、組別，套用常用點數 / 原因 preset；真正寫入仍統一呼叫 `grant_player_points(uuid[], integer, text)`，以交易紀錄追加方式建立流水帳。
-- 特訓點名單由 `create_training_attendance_event()` 建立，只列錄取球員；`缺席` 會建立下一場特訓禁報，改成出席 / 請假會解除該次禁報。
+- 特訓點名單由 `create_training_attendance_event()` 建立，只列錄取球員；後端缺席狀態會建立下一場特訓禁報，改成出席 / 請假會解除該次禁報，但 `/attendance/:id` Detail UI 不顯示或提供 `缺席` 操作。
 
 重要規則：
 
