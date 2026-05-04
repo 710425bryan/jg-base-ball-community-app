@@ -323,6 +323,7 @@ watch(() => selectedMember.value?.id, () => {
   background: transparent;
   color: inherit;
   cursor: pointer;
+  -webkit-perspective: 980px;
   perspective: 980px;
   text-align: left;
 }
@@ -331,11 +332,14 @@ watch(() => selectedMember.value?.id, () => {
   position: relative;
   display: block;
   min-height: 13.75rem;
+  -webkit-transform-style: preserve-3d;
   transform-style: preserve-3d;
   transition: transform 720ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform;
 }
 
 .training-point-card.is-flipped .training-point-card__inner {
+  -webkit-transform: rotateY(180deg);
   transform: rotateY(180deg);
 }
 
@@ -348,13 +352,18 @@ watch(() => selectedMember.value?.id, () => {
   overflow: hidden;
   border: 1px solid rgba(234, 179, 8, 0.34);
   border-radius: 1.25rem;
+  -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
   box-shadow: 0 18px 32px rgba(15, 23, 42, 0.14);
+  -webkit-transform-style: preserve-3d;
+  transform-style: preserve-3d;
 }
 
 .training-point-card__face--front {
   justify-content: space-between;
   padding: 1rem 1.1rem;
+  -webkit-transform: rotateY(0deg) translateZ(0.1px);
+  transform: rotateY(0deg) translateZ(0.1px);
   background:
     radial-gradient(circle at 12% 18%, rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0) 22%),
     linear-gradient(135deg, #fff7d6 0%, #f59e0b 42%, #111827 100%);
@@ -364,10 +373,11 @@ watch(() => selectedMember.value?.id, () => {
   gap: 0.8rem;
   justify-content: space-between;
   padding: 1rem 1.1rem;
-  transform: rotateY(180deg);
+  -webkit-transform: rotateY(180deg) translateZ(0.1px);
+  transform: rotateY(180deg) translateZ(0.1px);
   background:
-    linear-gradient(135deg, rgba(15, 23, 42, 0.97), rgba(30, 41, 59, 0.92)),
-    radial-gradient(circle at 85% 18%, rgba(245, 158, 11, 0.42), transparent 28%);
+    radial-gradient(circle at 85% 18%, rgba(245, 158, 11, 0.42), transparent 28%),
+    linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
   color: white;
 }
 
