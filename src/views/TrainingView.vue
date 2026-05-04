@@ -571,7 +571,7 @@ watch(selectedAdminSessionId, (next, prev) => {
 </script>
 
 <template>
-  <div class="h-full flex flex-col animate-fade-in bg-background text-text overflow-hidden">
+  <div class="training-view-page h-full min-w-0 flex flex-col animate-fade-in bg-background text-text overflow-hidden">
     <div class="bg-white px-4 md:px-6 py-4 border-b border-gray-200 shadow-sm shrink-0">
       <div class="max-w-7xl mx-auto">
         <AppPageHeader
@@ -595,13 +595,13 @@ watch(selectedAdminSessionId, (next, prev) => {
       </div>
     </div>
 
-    <div class="flex-1 overflow-y-auto min-h-0 p-4 md:p-6 pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:pb-6 custom-scrollbar">
+    <div class="flex-1 overflow-y-auto min-h-0 p-3 sm:p-4 md:p-6 pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:pb-6 custom-scrollbar">
       <AppLoadingState v-if="isLoading" text="讀取特訓資料中..." min-height="50vh" />
 
-      <div v-else class="max-w-7xl mx-auto flex flex-col gap-5">
-        <section class="rounded-3xl border border-gray-100 bg-white p-4 md:p-5 shadow-sm">
+      <div v-else class="max-w-7xl mx-auto flex w-full min-w-0 flex-col gap-5">
+        <section class="min-w-0 overflow-hidden rounded-3xl border border-gray-100 bg-white p-4 md:p-5 shadow-sm">
           <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div class="w-full lg:max-w-md">
+            <div class="w-full min-w-0 lg:max-w-md">
               <label class="text-xs font-bold uppercase tracking-[0.18em] text-gray-400">報名成員</label>
               <el-select
                 v-model="selectedMemberId"
@@ -619,39 +619,39 @@ watch(selectedAdminSessionId, (next, prev) => {
               </el-select>
             </div>
 
-            <div class="grid grid-cols-3 gap-2 text-center sm:min-w-[420px]">
-              <div class="rounded-2xl border border-primary/15 bg-primary/5 px-3 py-3">
-                <div class="text-xs font-bold text-primary">可用點數</div>
-                <div class="mt-1 text-2xl font-black text-slate-900">{{ selectedMember?.available_points ?? 0 }}</div>
+            <div class="grid min-w-0 grid-cols-3 gap-2 text-center sm:min-w-[420px]">
+              <div class="min-w-0 rounded-2xl border border-primary/15 bg-primary/5 px-2 py-3 sm:px-3">
+                <div class="text-xs font-bold leading-tight text-primary">可用點數</div>
+                <div class="mt-1 text-xl font-black text-slate-900 sm:text-2xl">{{ selectedMember?.available_points ?? 0 }}</div>
               </div>
-              <div class="rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3">
-                <div class="text-xs font-bold text-gray-400">總點數</div>
-                <div class="mt-1 text-2xl font-black text-slate-800">{{ selectedMember?.point_balance ?? 0 }}</div>
+              <div class="min-w-0 rounded-2xl border border-gray-100 bg-gray-50 px-2 py-3 sm:px-3">
+                <div class="text-xs font-bold leading-tight text-gray-400">總點數</div>
+                <div class="mt-1 text-xl font-black text-slate-800 sm:text-2xl">{{ selectedMember?.point_balance ?? 0 }}</div>
               </div>
-              <div class="rounded-2xl border border-amber-100 bg-amber-50 px-3 py-3">
-                <div class="text-xs font-bold text-amber-700">已保留</div>
-                <div class="mt-1 text-2xl font-black text-amber-800">{{ selectedMember?.reserved_points ?? 0 }}</div>
+              <div class="min-w-0 rounded-2xl border border-amber-100 bg-amber-50 px-2 py-3 sm:px-3">
+                <div class="text-xs font-bold leading-tight text-amber-700">已保留</div>
+                <div class="mt-1 text-xl font-black text-amber-800 sm:text-2xl">{{ selectedMember?.reserved_points ?? 0 }}</div>
               </div>
             </div>
           </div>
         </section>
 
-        <el-tabs v-model="activeTab" class="training-tabs">
+        <el-tabs v-model="activeTab" class="training-tabs w-full min-w-0">
           <el-tab-pane label="我要報名" name="register">
             <div v-if="members.length === 0" class="rounded-3xl border border-gray-100 bg-white p-8 text-center shadow-sm">
               <div class="text-lg font-black text-slate-800">目前沒有可報名的關聯成員</div>
               <p class="mt-2 text-sm text-gray-500">請先請管理員在使用者名單完成成員綁定。</p>
             </div>
 
-            <div v-else class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
-              <section class="grid gap-4">
+            <div v-else class="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+              <section class="grid min-w-0 gap-4">
                 <article
                   v-for="session in upcomingSessions"
                   :key="session.match_id"
-                  class="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm"
+                  class="min-w-0 overflow-hidden rounded-3xl border border-gray-100 bg-white p-4 shadow-sm sm:p-5"
                 >
                   <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                    <div class="min-w-0">
+                    <div class="min-w-0 flex-1">
                       <div class="flex flex-wrap items-center gap-2">
                         <span class="inline-flex rounded-full border px-3 py-1 text-xs font-black" :class="getSessionStatusClass(session)">
                           {{ session.is_registration_open ? '可報名' : getTrainingManualStatusLabel(session.manual_status) }}
@@ -663,18 +663,18 @@ watch(selectedAdminSessionId, (next, prev) => {
                           名額 {{ session.selected_count }}/{{ session.capacity }}
                         </span>
                       </div>
-                      <h3 class="mt-3 text-xl font-black text-slate-900">{{ session.match_name }}</h3>
-                      <div class="mt-2 flex flex-wrap gap-3 text-sm font-bold text-gray-500">
-                        <span>{{ formatSessionDate(session) }} {{ session.match_time || '時間待確認' }}</span>
-                        <span v-if="session.location">{{ session.location }}</span>
-                        <span v-if="session.category_group">{{ session.category_group }}</span>
+                      <h3 class="mt-3 break-words text-xl font-black leading-snug text-slate-900">{{ session.match_name }}</h3>
+                      <div class="mt-2 flex min-w-0 flex-wrap gap-3 text-sm font-bold text-gray-500">
+                        <span class="min-w-0 break-words">{{ formatSessionDate(session) }} {{ session.match_time || '時間待確認' }}</span>
+                        <span v-if="session.location" class="min-w-0 break-words">{{ session.location }}</span>
+                        <span v-if="session.category_group" class="min-w-0 break-words">{{ session.category_group }}</span>
                       </div>
-                      <div class="mt-3 text-xs font-bold text-gray-400">
+                      <div class="mt-3 break-words text-xs font-bold leading-relaxed text-gray-400">
                         報名時間：{{ formatDateTime(session.registration_start_at) }} - {{ formatDateTime(session.registration_end_at) }}
                       </div>
                     </div>
 
-                    <div class="flex shrink-0 flex-col gap-2 md:min-w-[150px]">
+                    <div class="flex w-full shrink-0 flex-col gap-2 md:w-auto md:min-w-[150px]">
                       <el-tag
                         v-if="session.registration_status"
                         :type="getRegistrationStatusType(session.registration_status)"
@@ -686,7 +686,7 @@ watch(selectedAdminSessionId, (next, prev) => {
                       <button
                         v-if="canRegister(session)"
                         type="button"
-                        class="min-h-11 rounded-2xl bg-primary px-4 text-sm font-black text-white transition-colors hover:bg-primary-hover"
+                        class="min-h-11 w-full rounded-2xl bg-primary px-4 text-sm font-black text-white transition-colors hover:bg-primary-hover md:w-auto"
                         @click="submitRegistration(session)"
                       >
                         送出報名
@@ -694,7 +694,7 @@ watch(selectedAdminSessionId, (next, prev) => {
                       <button
                         v-else-if="canCancelTrainingRegistration(session)"
                         type="button"
-                        class="min-h-11 rounded-2xl border border-gray-200 px-4 text-sm font-black text-gray-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-500"
+                        class="min-h-11 w-full rounded-2xl border border-gray-200 px-4 text-sm font-black text-gray-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-500 md:w-auto"
                         @click="cancelRegistration(session)"
                       >
                         取消報名
@@ -711,7 +711,7 @@ watch(selectedAdminSessionId, (next, prev) => {
                       <span
                         v-for="member in session.selected_members"
                         :key="member.member_id"
-                        class="rounded-full bg-white px-3 py-1 text-xs font-black text-emerald-700 shadow-sm"
+                        class="max-w-full break-words rounded-full bg-white px-3 py-1 text-xs font-black text-emerald-700 shadow-sm"
                       >
                         {{ member.name }}{{ member.team_group ? `・${member.team_group}` : '' }}
                       </span>
@@ -724,7 +724,7 @@ watch(selectedAdminSessionId, (next, prev) => {
                 </div>
               </section>
 
-              <aside class="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm h-fit">
+              <aside class="min-w-0 rounded-3xl border border-gray-100 bg-white p-5 shadow-sm h-fit">
                 <div class="flex items-center gap-2 text-lg font-black text-slate-800">
                   <el-icon class="text-primary"><Tickets /></el-icon>
                   點數紀錄
@@ -736,7 +736,7 @@ watch(selectedAdminSessionId, (next, prev) => {
                     class="rounded-2xl border border-gray-100 bg-gray-50/70 px-4 py-3"
                   >
                     <div class="flex items-center justify-between gap-3">
-                      <span class="text-sm font-black text-slate-800">{{ tx.reason || '點數異動' }}</span>
+                      <span class="min-w-0 truncate text-sm font-black text-slate-800">{{ tx.reason || '點數異動' }}</span>
                       <span class="text-base font-black" :class="tx.delta > 0 ? 'text-emerald-600' : 'text-red-500'">
                         {{ tx.delta > 0 ? '+' : '' }}{{ tx.delta }}
                       </span>
@@ -750,8 +750,8 @@ watch(selectedAdminSessionId, (next, prev) => {
           </el-tab-pane>
 
           <el-tab-pane v-if="canManageTraining" label="教練管理" name="manage">
-            <div class="grid gap-4 xl:grid-cols-[380px_minmax(0,1fr)]">
-              <section class="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm h-fit">
+            <div class="grid min-w-0 gap-4 xl:grid-cols-[380px_minmax(0,1fr)]">
+              <section class="min-w-0 rounded-3xl border border-gray-100 bg-white p-5 shadow-sm h-fit">
                 <div class="flex items-center justify-between gap-3">
                   <div class="flex items-center gap-2 text-lg font-black text-slate-800">
                     <el-icon class="text-primary"><Setting /></el-icon>
@@ -829,7 +829,7 @@ watch(selectedAdminSessionId, (next, prev) => {
                         size="large"
                       />
                     </el-form-item>
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid gap-3 sm:grid-cols-2">
                       <el-form-item label="錄取名額" class="font-bold">
                         <el-input-number v-model="settingsForm.capacity" :min="1" :step="1" class="!w-full" controls-position="right" />
                       </el-form-item>
@@ -850,7 +850,7 @@ watch(selectedAdminSessionId, (next, prev) => {
                 </div>
               </section>
 
-              <section class="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
+              <section class="min-w-0 overflow-hidden rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
                 <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <div>
                     <h3 class="text-lg font-black text-slate-800">報名審核</h3>
@@ -876,53 +876,55 @@ watch(selectedAdminSessionId, (next, prev) => {
                   </div>
                 </div>
 
-                <el-table :data="adminRegistrations" class="mt-4" empty-text="尚無報名資料" stripe>
-                  <el-table-column prop="member_name" label="球員" min-width="130">
-                    <template #default="{ row }">
-                      <div class="font-black text-slate-800">{{ row.member_name }}</div>
-                      <div class="text-xs font-bold text-gray-400">{{ row.member_role || '-' }} {{ row.team_group || '' }}</div>
-                    </template>
-                  </el-table-column>
-                  <el-table-column label="點數" width="120" align="center">
-                    <template #default="{ row }">
-                      <div class="font-black text-slate-800">{{ row.available_points }}</div>
-                      <div class="text-xs font-bold text-gray-400">可用</div>
-                    </template>
-                  </el-table-column>
-                  <el-table-column label="狀態" width="150" align="center">
-                    <template #default="{ row }">
-                      <el-tag :type="getRegistrationStatusType(row.status)" effect="plain" class="!font-black">
-                        {{ getTrainingRegistrationStatusLabel(row.status) }}
-                      </el-tag>
-                      <div class="mt-1 text-[11px] font-bold text-gray-400">{{ getTrainingPointStatusLabel(row.point_status) }}</div>
-                    </template>
-                  </el-table-column>
-                  <el-table-column label="操作" min-width="220" align="right">
-                    <template #default="{ row }">
-                      <div class="flex flex-wrap justify-end gap-2">
-                        <el-button size="small" type="success" plain :loading="isReviewing" @click="reviewRegistration(row, 'selected')">
-                          <el-icon><Check /></el-icon>
-                          錄取
-                        </el-button>
-                        <el-button size="small" type="warning" plain :loading="isReviewing" @click="reviewRegistration(row, 'waitlisted')">
-                          <el-icon><Timer /></el-icon>
-                          候補
-                        </el-button>
-                        <el-button size="small" type="danger" plain :loading="isReviewing" @click="reviewRegistration(row, 'rejected')">
-                          <el-icon><Close /></el-icon>
-                          未錄取
-                        </el-button>
-                      </div>
-                    </template>
-                  </el-table-column>
-                </el-table>
+                <div class="training-table-scroll mt-4 min-w-0 overflow-x-auto custom-scrollbar">
+                  <el-table :data="adminRegistrations" class="training-table" empty-text="尚無報名資料" stripe>
+                    <el-table-column prop="member_name" label="球員" min-width="130">
+                      <template #default="{ row }">
+                        <div class="font-black text-slate-800">{{ row.member_name }}</div>
+                        <div class="text-xs font-bold text-gray-400">{{ row.member_role || '-' }} {{ row.team_group || '' }}</div>
+                      </template>
+                    </el-table-column>
+                    <el-table-column label="點數" width="120" align="center">
+                      <template #default="{ row }">
+                        <div class="font-black text-slate-800">{{ row.available_points }}</div>
+                        <div class="text-xs font-bold text-gray-400">可用</div>
+                      </template>
+                    </el-table-column>
+                    <el-table-column label="狀態" width="150" align="center">
+                      <template #default="{ row }">
+                        <el-tag :type="getRegistrationStatusType(row.status)" effect="plain" class="!font-black">
+                          {{ getTrainingRegistrationStatusLabel(row.status) }}
+                        </el-tag>
+                        <div class="mt-1 text-[11px] font-bold text-gray-400">{{ getTrainingPointStatusLabel(row.point_status) }}</div>
+                      </template>
+                    </el-table-column>
+                    <el-table-column label="操作" min-width="220" align="right">
+                      <template #default="{ row }">
+                        <div class="flex flex-wrap justify-end gap-2">
+                          <el-button size="small" type="success" plain :loading="isReviewing" @click="reviewRegistration(row, 'selected')">
+                            <el-icon><Check /></el-icon>
+                            錄取
+                          </el-button>
+                          <el-button size="small" type="warning" plain :loading="isReviewing" @click="reviewRegistration(row, 'waitlisted')">
+                            <el-icon><Timer /></el-icon>
+                            候補
+                          </el-button>
+                          <el-button size="small" type="danger" plain :loading="isReviewing" @click="reviewRegistration(row, 'rejected')">
+                            <el-icon><Close /></el-icon>
+                            未錄取
+                          </el-button>
+                        </div>
+                      </template>
+                    </el-table-column>
+                  </el-table>
+                </div>
               </section>
             </div>
           </el-tab-pane>
 
           <el-tab-pane v-if="canManagePoints" label="點數管理" name="points">
-            <div class="grid gap-4" :class="{ 'lg:grid-cols-[420px_minmax(0,1fr)]': canGrantPoints }">
-              <section v-if="canGrantPoints" class="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm h-fit">
+            <div class="grid min-w-0 gap-4" :class="{ 'lg:grid-cols-[420px_minmax(0,1fr)]': canGrantPoints }">
+              <section v-if="canGrantPoints" class="min-w-0 rounded-3xl border border-gray-100 bg-white p-5 shadow-sm h-fit">
                 <div class="flex items-center gap-2 text-lg font-black text-slate-800">
                   <el-icon class="text-primary"><Plus /></el-icon>
                   手動發放點數
@@ -1002,7 +1004,7 @@ watch(selectedAdminSessionId, (next, prev) => {
 
                   <div class="space-y-2">
                     <div class="text-sm font-black text-slate-700">快速點數</div>
-                    <div class="grid grid-cols-2 gap-2">
+                    <div class="grid gap-2 min-[360px]:grid-cols-2">
                       <button
                         v-for="preset in pointGrantPresets"
                         :key="preset.label"
@@ -1028,36 +1030,38 @@ watch(selectedAdminSessionId, (next, prev) => {
                 </div>
               </section>
 
-              <section class="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
+              <section class="min-w-0 overflow-hidden rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
                 <h3 class="text-lg font-black text-slate-800">點數流水帳</h3>
-                <el-table :data="managementPointTransactions" class="mt-4" empty-text="尚無點數紀錄" stripe>
-                  <el-table-column prop="member_name" label="球員" min-width="130" />
-                  <el-table-column label="異動" width="100" align="center">
-                    <template #default="{ row }">
-                      <span class="font-black" :class="row.delta > 0 ? 'text-emerald-600' : 'text-red-500'">
-                        {{ row.delta > 0 ? '+' : '' }}{{ row.delta }}
-                      </span>
-                    </template>
-                  </el-table-column>
-                  <el-table-column prop="reason" label="原因" min-width="180" show-overflow-tooltip />
-                  <el-table-column label="建立時間" width="170">
-                    <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
-                  </el-table-column>
-                  <el-table-column prop="created_by_name" label="操作人" width="120" />
-                  <el-table-column v-if="canDeletePoints" label="操作" width="88" align="center" fixed="right">
-                    <template #default="{ row }">
-                      <button
-                        type="button"
-                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-500 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-300"
-                        :disabled="deletingPointTransactionId === row.id || !canDeletePointTransaction(row)"
-                        :title="canDeletePointTransaction(row) ? '刪除' : '系統扣點不可刪除'"
-                        @click="deletePointTransaction(row)"
-                      >
-                        <el-icon><Delete /></el-icon>
-                      </button>
-                    </template>
-                  </el-table-column>
-                </el-table>
+                <div class="training-table-scroll mt-4 min-w-0 overflow-x-auto custom-scrollbar">
+                  <el-table :data="managementPointTransactions" class="training-table" empty-text="尚無點數紀錄" stripe>
+                    <el-table-column prop="member_name" label="球員" min-width="130" />
+                    <el-table-column label="異動" width="100" align="center">
+                      <template #default="{ row }">
+                        <span class="font-black" :class="row.delta > 0 ? 'text-emerald-600' : 'text-red-500'">
+                          {{ row.delta > 0 ? '+' : '' }}{{ row.delta }}
+                        </span>
+                      </template>
+                    </el-table-column>
+                    <el-table-column prop="reason" label="原因" min-width="180" show-overflow-tooltip />
+                    <el-table-column label="建立時間" width="170">
+                      <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
+                    </el-table-column>
+                    <el-table-column prop="created_by_name" label="操作人" width="120" />
+                    <el-table-column v-if="canDeletePoints" label="操作" width="88" align="center">
+                      <template #default="{ row }">
+                        <button
+                          type="button"
+                          class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-500 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-300"
+                          :disabled="deletingPointTransactionId === row.id || !canDeletePointTransaction(row)"
+                          :title="canDeletePointTransaction(row) ? '刪除' : '系統扣點不可刪除'"
+                          @click="deletePointTransaction(row)"
+                        >
+                          <el-icon><Delete /></el-icon>
+                        </button>
+                      </template>
+                    </el-table-column>
+                  </el-table>
+                </div>
               </section>
             </div>
           </el-tab-pane>
@@ -1145,7 +1149,7 @@ watch(selectedAdminSessionId, (next, prev) => {
           </el-form-item>
         </div>
 
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid gap-3 sm:grid-cols-2">
           <el-form-item label="錄取名額" class="font-bold">
             <el-input-number v-model="newSessionForm.capacity" :min="1" :step="1" class="!w-full" controls-position="right" />
           </el-form-item>
@@ -1156,9 +1160,9 @@ watch(selectedAdminSessionId, (next, prev) => {
       </el-form>
 
       <template #footer>
-        <div class="flex justify-end gap-2">
-          <el-button :disabled="isCreatingSession" @click="isCreateSessionDialogOpen = false">取消</el-button>
-          <el-button type="primary" :loading="isCreatingSession" @click="createSessionWithMatch">
+        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <el-button class="!m-0" :disabled="isCreatingSession" @click="isCreateSessionDialogOpen = false">取消</el-button>
+          <el-button class="!m-0" type="primary" :loading="isCreatingSession" @click="createSessionWithMatch">
             新增特訓課
           </el-button>
         </div>
@@ -1168,11 +1172,99 @@ watch(selectedAdminSessionId, (next, prev) => {
 </template>
 
 <style scoped>
+.training-view-page :deep(.el-select),
+.training-view-page :deep(.el-input),
+.training-view-page :deep(.el-input-number),
+.training-view-page :deep(.el-date-editor),
+.training-view-page :deep(.el-textarea) {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.training-view-page :deep(.el-select__wrapper),
+.training-view-page :deep(.el-input__wrapper),
+.training-view-page :deep(.el-textarea__inner) {
+  min-width: 0;
+}
+
+.training-view-page :deep(.el-select__selection),
+.training-view-page :deep(.el-select__selected-item) {
+  min-width: 0;
+}
+
+.training-view-page :deep(.el-date-editor.el-input),
+.training-view-page :deep(.el-date-editor.el-input__wrapper) {
+  width: 100% !important;
+}
+
+.training-tabs {
+  width: 100%;
+  min-width: 0;
+}
+
 .training-tabs :deep(.el-tabs__header) {
   margin-bottom: 16px;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.training-tabs :deep(.el-tabs__nav-wrap) {
+  max-width: 100%;
+}
+
+.training-tabs :deep(.el-tabs__nav-wrap::after) {
+  height: 1px;
+  background-color: #f3f4f6;
+}
+
+.training-tabs :deep(.el-tabs__nav-scroll) {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.training-tabs :deep(.el-tabs__nav-scroll::-webkit-scrollbar) {
+  display: none;
+}
+
+.training-tabs :deep(.el-tabs__nav) {
+  min-width: max-content;
 }
 
 .training-tabs :deep(.el-tabs__item) {
   font-weight: 900;
+  padding: 0 16px;
+}
+
+.training-tabs :deep(.el-tabs__content),
+.training-tabs :deep(.el-tab-pane) {
+  min-width: 0;
+}
+
+.training-table-scroll {
+  -webkit-overflow-scrolling: touch;
+}
+
+.training-table-scroll :deep(.training-table) {
+  min-width: 640px;
+  width: 100%;
+}
+
+@media (max-width: 639px) {
+  .training-tabs :deep(.el-tabs__item) {
+    height: 42px;
+    padding: 0 12px;
+    font-size: 0.95rem;
+  }
+
+  .training-table-scroll {
+    margin-right: -0.25rem;
+    margin-left: -0.25rem;
+    padding-bottom: 0.25rem;
+  }
+
+  .training-table-scroll :deep(.training-table) {
+    min-width: 620px;
+  }
 }
 </style>
