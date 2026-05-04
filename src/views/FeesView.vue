@@ -5,7 +5,7 @@
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <AppPageHeader
           title="收費管理系統"
-          subtitle="管理校隊月費、球員季費、裝備付款與收費設定"
+          subtitle="管理校隊月費、球員季費、比賽費用、裝備付款與收費設定"
           :icon="Money"
           as="h2"
         />
@@ -16,7 +16,7 @@
         class="overflow-hidden origin-top transform-gpu transition-all duration-300 ease-out"
         :class="isSummaryCollapsed ? 'max-h-0 opacity-0 -translate-y-2 pointer-events-none' : 'max-h-[22rem] md:max-h-[14rem] opacity-100 translate-y-0'"
       >
-        <div class="grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 pt-0.5 sm:pt-1">
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 pt-0.5 sm:pt-1">
           <div class="rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/10 via-amber-50 to-white px-3 py-3 sm:px-4 sm:py-4 shadow-sm">
             <p class="text-[10px] sm:text-xs font-bold uppercase tracking-[0.16em] sm:tracking-[0.24em] text-primary/70">校隊月費</p>
             <p class="mt-2 sm:mt-3 text-[clamp(1.25rem,6vw,1.7rem)] md:text-3xl leading-none font-black text-slate-900">{{ formatCurrency(monthlySummary.total) }}</p>
@@ -31,18 +31,25 @@
               期間：{{ quarterlySummary.periodLabel || '尚未載入' }}
             </p>
           </div>
-          <div class="col-span-2 lg:col-span-1 rounded-2xl border border-emerald-100 bg-emerald-50/80 px-3 py-3 sm:px-4 sm:py-4 shadow-sm">
+          <div class="rounded-2xl border border-amber-100 bg-amber-50/80 px-3 py-3 sm:px-4 sm:py-4 shadow-sm">
+            <p class="text-[10px] sm:text-xs font-bold uppercase tracking-[0.16em] sm:tracking-[0.24em] text-amber-700">比賽費用</p>
+            <p class="mt-2 sm:mt-3 text-[clamp(1.25rem,6vw,1.7rem)] md:text-3xl leading-none font-black text-amber-800">{{ formatCurrency(matchFeeSummary.total) }}</p>
+            <p class="mt-1.5 sm:mt-2 text-[10px] sm:text-xs text-amber-700/80 leading-tight">
+              期間：{{ matchFeeSummary.periodLabel || '尚未載入' }}
+            </p>
+          </div>
+          <div class="rounded-2xl border border-emerald-100 bg-emerald-50/80 px-3 py-3 sm:px-4 sm:py-4 shadow-sm">
             <p class="text-[10px] sm:text-xs font-bold uppercase tracking-[0.16em] sm:tracking-[0.24em] text-emerald-700">全部加總</p>
             <p class="mt-2 sm:mt-3 text-[clamp(1.45rem,6.2vw,1.95rem)] md:text-3xl leading-none font-black text-emerald-700">{{ formatCurrency(combinedFeeSummary.total) }}</p>
             <p class="mt-1.5 sm:mt-2 text-[10px] sm:text-xs text-emerald-700/80 leading-tight">
-              依校隊月費與球員季費目前各自選定期間加總
+              依月費、季費與比賽費用目前各自選定期間加總
             </p>
           </div>
         </div>
 
         <p class="mt-2 text-[10px] sm:text-[11px] text-gray-400 leading-tight sm:leading-relaxed">
           <span class="sm:hidden">手機版先提供兩邊目前期間的快速合計，方便先看總額再往下操作。</span>
-          <span class="hidden sm:inline">校隊月費與球員季費的繳費時間可以不同，所以上方會分開顯示各自期間金額，並另外提供目前兩邊選定期間的合計供你快速對帳。</span>
+          <span class="hidden sm:inline">校隊月費、球員季費與比賽費用的繳費時間可以不同，所以上方會分開顯示各自期間金額，並另外提供目前選定期間的合計供你快速對帳。</span>
         </p>
       </div>
 
@@ -100,12 +107,23 @@
         
         <!-- Tab Contents -->
         <template v-else>
-          <ProfilePaymentSubmissionInbox v-if="activeTab !== 'equipment'" class="mb-6" />
+          <ProfilePaymentSubmissionInbox v-if="activeTab === 'monthly' || activeTab === 'quarterly' || activeTab === 'balances' || activeTab === 'settings'" class="mb-6" />
+          <MatchPaymentSubmissionInbox
+            v-if="activeTab === 'match-fees'"
+            class="mb-6"
+            @reviewed="handleMatchPaymentReviewed"
+          />
           <div v-show="activeTab === 'monthly'">
             <SchoolTeamFees @summary-change="handleMonthlySummaryChange" />
           </div>
           <div v-show="activeTab === 'quarterly'">
             <QuarterlyFees @summary-change="handleQuarterlySummaryChange" />
+          </div>
+          <div v-show="activeTab === 'match-fees'">
+            <MatchFeeManagementPanel
+              ref="matchFeeManagementPanelRef"
+              @summary-change="handleMatchFeeSummaryChange"
+            />
           </div>
           <div v-show="activeTab === 'equipment'" class="space-y-6">
             <EquipmentPaymentSubmissionInbox />
@@ -135,6 +153,8 @@ import SchoolTeamFees from '@/components/fees/SchoolTeamFees.vue'
 import QuarterlyFees from '@/components/fees/QuarterlyFees.vue'
 import FeeSettings from '@/components/fees/FeeSettings.vue'
 import ProfilePaymentSubmissionInbox from '@/components/fees/ProfilePaymentSubmissionInbox.vue'
+import MatchFeeManagementPanel from '@/components/fees/MatchFeeManagementPanel.vue'
+import MatchPaymentSubmissionInbox from '@/components/fees/MatchPaymentSubmissionInbox.vue'
 import PlayerBalanceManager from '@/components/fees/PlayerBalanceManager.vue'
 import EquipmentRequestReviewPanel from '@/components/equipment/EquipmentRequestReviewPanel.vue'
 import EquipmentPaymentSubmissionInbox from '@/components/equipment/EquipmentPaymentSubmissionInbox.vue'
@@ -154,6 +174,7 @@ type FeeSummarySnapshot = {
 const tabs = [
   { id: 'monthly', name: '校隊月費結算' },
   { id: 'quarterly', name: '球員季費表單' },
+  { id: 'match-fees', name: '比賽費用' },
   { id: 'equipment', name: '裝備請購/付款' },
   { id: 'balances', name: '球員餘額' },
   { id: 'settings', name: '校隊收費設定' }
@@ -173,14 +194,18 @@ const createEmptySummary = (): FeeSummarySnapshot => ({
 
 const monthlySummary = ref<FeeSummarySnapshot>(createEmptySummary())
 const quarterlySummary = ref<FeeSummarySnapshot>(createEmptySummary())
+const matchFeeSummary = ref<FeeSummarySnapshot>(createEmptySummary())
+const matchFeeManagementPanelRef = ref<InstanceType<typeof MatchFeeManagementPanel> | null>(null)
 const SUMMARY_COLLAPSE_SCROLL_TOP = 32
 const SUMMARY_EXPAND_SCROLL_TOP = 8
 
 watch(() => route.query.tab, (newTab) => {
-  if (newTab === 'monthly' || newTab === 'quarterly' || newTab === 'equipment' || newTab === 'balances' || newTab === 'settings') {
+  if (newTab === 'monthly' || newTab === 'quarterly' || newTab === 'match-fees' || newTab === 'equipment' || newTab === 'balances' || newTab === 'settings') {
     activeTab.value = newTab as string
   } else if (route.query.highlight_submission_id && activeTab.value === 'equipment') {
     activeTab.value = 'monthly'
+  } else if (route.query.highlight_match_submission_id) {
+    activeTab.value = 'match-fees'
   }
 }, { immediate: true })
 
@@ -201,18 +226,27 @@ const handleQuarterlySummaryChange = (summary: FeeSummarySnapshot) => {
   quarterlySummary.value = summary
 }
 
+const handleMatchFeeSummaryChange = (summary: FeeSummarySnapshot) => {
+  matchFeeSummary.value = summary
+}
+
+const handleMatchPaymentReviewed = async () => {
+  await matchFeeManagementPanelRef.value?.refresh()
+}
+
 const combinedFeeSummary = computed(() => ({
-  total: monthlySummary.value.total + quarterlySummary.value.total,
-  paid: monthlySummary.value.paid + quarterlySummary.value.paid,
-  unpaid: monthlySummary.value.unpaid + quarterlySummary.value.unpaid,
-  isReady: monthlySummary.value.isReady || quarterlySummary.value.isReady
+  total: monthlySummary.value.total + quarterlySummary.value.total + matchFeeSummary.value.total,
+  paid: monthlySummary.value.paid + quarterlySummary.value.paid + matchFeeSummary.value.paid,
+  unpaid: monthlySummary.value.unpaid + quarterlySummary.value.unpaid + matchFeeSummary.value.unpaid,
+  isReady: monthlySummary.value.isReady || quarterlySummary.value.isReady || matchFeeSummary.value.isReady
 }))
 
 const collapsedSummaryPeriods = computed(() => {
   const monthLabel = monthlySummary.value.periodLabel || '尚未載入'
   const quarterLabel = quarterlySummary.value.periodLabel || '尚未載入'
+  const matchLabel = matchFeeSummary.value.periodLabel || '尚未載入'
 
-  return `月費 ${monthLabel}｜季費 ${quarterLabel}`
+  return `月費 ${monthLabel}｜季費 ${quarterLabel}｜比賽 ${matchLabel}`
 })
 
 const syncSummaryCollapseState = (nextScrollTop: number) => {

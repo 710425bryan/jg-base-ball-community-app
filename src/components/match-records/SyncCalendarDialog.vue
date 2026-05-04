@@ -80,6 +80,9 @@
             <p class="text-xs text-gray-500 mt-1">
               {{ getItemDate(item) }}<span v-if="getItemTime(item)"> ・ {{ getItemTime(item) }}</span>
             </p>
+            <p v-if="Number(item.payload.match_fee_amount || 0) > 0" class="text-xs font-black text-amber-700 mt-1">
+              比賽費用：{{ formatCurrency(item.payload.match_fee_amount || 0) }} / 人
+            </p>
             <div class="mt-3 space-y-1">
               <p
                 v-for="issue in item.validationIssues"
@@ -132,6 +135,9 @@
                   {{ item.payload.match_date }}<span v-if="item.payload.match_time"> ・ {{ item.payload.match_time }}</span>
                 </p>
                 <p v-if="item.payload.location" class="text-xs text-gray-500 mt-1">{{ item.payload.location }}</p>
+                <p v-if="Number(item.payload.match_fee_amount || 0) > 0" class="text-xs font-black text-amber-700 mt-1">
+                  比賽費用：{{ formatCurrency(item.payload.match_fee_amount || 0) }} / 人
+                </p>
                 <p class="text-xs text-gray-500 mt-2">參賽球員：{{ getPlayerCheckSummary(item) }}</p>
                 <div v-if="item.validationIssues.length" class="mt-2 space-y-1">
                   <p
@@ -194,6 +200,9 @@
                   {{ item.payload.match_date }}<span v-if="item.payload.match_time"> ・ {{ item.payload.match_time }}</span>
                 </p>
                 <p v-if="item.payload.location" class="text-xs text-gray-500 mt-1">{{ item.payload.location }}</p>
+                <p v-if="Number(item.payload.match_fee_amount || 0) > 0" class="text-xs font-black text-amber-700 mt-1">
+                  比賽費用：{{ formatCurrency(item.payload.match_fee_amount || 0) }} / 人
+                </p>
                 <div v-if="item.scheduleDiffs.length" class="mt-3 rounded-lg bg-amber-50/70 border border-amber-100 p-2">
                   <div v-for="diff in item.scheduleDiffs" :key="`${diff.field}-${diff.after}`" class="text-xs text-amber-800">
                     {{ diff.label }}：{{ diff.before }} → {{ diff.after }}
@@ -312,6 +321,12 @@ const getItemDate = (item: CalendarSyncItem) =>
 
 const getItemTime = (item: CalendarSyncItem) =>
   item.payload.match_time || item.parsedMatch.matchTime || ''
+
+const formatCurrency = (amount: number) => new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 0
+}).format(Number(amount) || 0)
 
 const ensureMatchesLoaded = async () => {
   if (matchesStore.matches.length === 0 && !matchesStore.loading) {

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
-import { Trophy, Location, Calendar, Position, Avatar, WarnTriangleFilled, ArrowLeft, ArrowRight, Delete, Edit, Document, Timer, DataAnalysis, VideoCamera } from '@element-plus/icons-vue'
+import { Trophy, Location, Calendar, Position, Avatar, WarnTriangleFilled, ArrowLeft, ArrowRight, Delete, Edit, Document, Timer, DataAnalysis, VideoCamera, Money } from '@element-plus/icons-vue'
 import { useMatchesStore } from '@/stores/matches'
 import type { MatchRecord } from '@/types/match'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
@@ -67,6 +67,12 @@ const matchDateLabel = computed(() => {
 })
 
 const videoUrl = computed(() => normalizeExternalUrl(matchData.value?.video_url))
+
+const formatCurrency = (amount: number) => new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 0
+}).format(Number(amount) || 0)
 
 const handleDelete = async () => {
   if (!matchData.value) return
@@ -253,6 +259,13 @@ const pitchingTeamStats = computed(() => {
                    <div v-if="matchData.players" class="flex flex-col">
                      <span class="text-gray-500 font-bold text-xs mb-1">出賽名單</span>
                      <span class="text-gray-800 font-medium leading-relaxed">{{ matchData.players }}</span>
+                   </div>
+                   <div v-if="Number(matchData.match_fee_amount || 0) > 0" class="flex flex-col">
+                     <span class="text-gray-500 font-bold text-xs mb-1">比賽費用</span>
+                     <span class="inline-flex w-fit items-center gap-1.5 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs font-black text-amber-700">
+                       <el-icon><Money /></el-icon>
+                       每位 {{ formatCurrency(matchData.match_fee_amount || 0) }}
+                     </span>
                    </div>
                    <div v-if="videoUrl" class="flex flex-col">
                      <span class="text-gray-500 font-bold text-xs mb-1">比賽影片</span>

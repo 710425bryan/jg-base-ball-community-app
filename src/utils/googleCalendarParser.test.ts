@@ -66,6 +66,90 @@ describe('googleCalendarParser', () => {
     expect(createMatchRecordInput(parsed).tournament_name).toBe('就是棒春季聯賽')
   })
 
+  it('parses dynamic match fee amounts from calendar descriptions', () => {
+    const parsed = parseMatchRecord({
+      id: 'uid-fee@google.com',
+      summary: 'U8 友誼賽 中港熊戰 vs 中港內戰',
+      description: [
+        '組別 / 類別：U8賽事',
+        '賽事等級：三級',
+        '集合時間：14:00',
+        '盃賽名稱：中港內戰',
+        '帶隊教練：',
+        '吳教練、莊教練',
+        '參賽球員：',
+        '1.簡亦秀',
+        '2.簡翌軒',
+        '3.陳柏叡',
+        '比賽費用: 250'
+      ].join('\n'),
+      location: '中港球場',
+      startRaw: '20260502T060000Z',
+      endRaw: '20260502T073000Z'
+    })
+
+    expect(parsed.matchFeeAmount).toBe(250)
+    expect(parsed.players.map((player) => player.name)).toEqual(['簡亦秀', '簡翌軒', '陳柏叡'])
+    expect(createMatchRecordInput(parsed).match_fee_amount).toBe(250)
+  })
+
+  it('does not treat match fee labels as players and supports amount on the next line', () => {
+    const parsedWithNextLineAmount = parseMatchRecord({
+      id: 'uid-fee-next-line@google.com',
+      summary: 'U8 友誼賽 中港熊戰 vs 對手隊',
+      description: [
+        '參賽球員：',
+        '1.簡亦秀',
+        '2.簡翌軒',
+        '比賽費用:',
+        '300'
+      ].join('\n'),
+      location: '',
+      startRaw: '20260505T060000Z',
+      endRaw: '20260505T073000Z'
+    })
+
+    const parsedWithEmptyFee = parseMatchRecord({
+      id: 'uid-fee-empty@google.com',
+      summary: 'U8 友誼賽 中港熊戰 vs 對手隊',
+      description: '參賽球員：\n1.簡亦秀\n比賽費用:',
+      location: '',
+      startRaw: '20260506T060000Z',
+      endRaw: '20260506T073000Z'
+    })
+
+    expect(parsedWithNextLineAmount.matchFeeAmount).toBe(300)
+    expect(parsedWithNextLineAmount.players.map((player) => player.name)).toEqual(['簡亦秀', '簡翌軒'])
+    expect(parsedWithEmptyFee.matchFeeAmount).toBeNull()
+    expect(parsedWithEmptyFee.players.map((player) => player.name)).toEqual(['簡亦秀'])
+  })
+
+  it('supports full-width fee colon, spacing, commas, and invalid fee values', () => {
+    const parsedWithComma = parseMatchRecord({
+      id: 'uid-fee-comma@google.com',
+      summary: 'U10 友誼賽 中港熊戰 vs 對手隊',
+      description: '參賽球員：\n1.簡亦秀\n比賽費用 ： 1,200',
+      location: '',
+      startRaw: '20260503T060000Z',
+      endRaw: '20260503T073000Z'
+    })
+
+    const parsedWithInvalidFee = parseMatchRecord({
+      id: 'uid-fee-invalid@google.com',
+      summary: 'U10 友誼賽 中港熊戰 vs 對手隊',
+      description: '參賽球員：\n1.簡亦秀\n比賽費用：免費',
+      location: '',
+      startRaw: '20260504T060000Z',
+      endRaw: '20260504T073000Z'
+    })
+
+    expect(parsedWithComma.matchFeeAmount).toBe(1200)
+    expect(createMatchRecordInput(parsedWithComma).match_fee_amount).toBe(1200)
+    expect(parsedWithInvalidFee.matchFeeAmount).toBeNull()
+    expect(parsedWithInvalidFee.players.map((player) => player.name)).toEqual(['簡亦秀'])
+    expect(createMatchRecordInput(parsedWithInvalidFee).match_fee_amount).toBeNull()
+  })
+
   it('parses folded iCal text, title variants, and numbered player lines from real-world samples', () => {
     const parsedMatches = parseICalText(`BEGIN:VCALENDAR
 BEGIN:VEVENT
@@ -408,6 +492,43 @@ END:VCALENDAR`)
     )
     expect('players' in updateItem.payload).toBe(false)
     expect('lineup' in updateItem.payload).toBe(false)
+  })
+
+  it('plans match fee changes as schedule updates', () => {
+    const parsed = parseMatchRecord({
+      id: 'uid-fee-update@google.com',
+      summary: 'U10 友誼賽 中港熊戰 vs 對手隊',
+      description: [
+        '組別 / 類別：U10',
+        '參賽球員：',
+        '1.簡亦秀',
+        '比賽費用：300'
+      ].join('\n'),
+      location: '中港球場',
+      startRaw: '20260502T034000Z',
+      endRaw: '20260502T043000Z'
+    })
+
+    const existingMatch: MatchRecord = {
+      ...buildExistingMatch('existing-fee-update', createMatchRecordInput(parsed)),
+      match_fee_amount: null
+    }
+
+    const syncPlan = planCalendarSync([existingMatch], [parsed], {
+      minimumMatchDate: '2026-01-01'
+    })
+
+    const updateItem = syncPlan[0]
+    if (updateItem.action !== 'update') {
+      throw new Error(`Expected update action, received ${updateItem.action}`)
+    }
+
+    expect(updateItem.payload.match_fee_amount).toBe(300)
+    expect(updateItem.scheduleDiffs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: 'match_fee_amount', before: '空白', after: '300' })
+      ])
+    )
   })
 
   it('blocks updates that would overwrite a confirmed opponent with pending confirmation', () => {

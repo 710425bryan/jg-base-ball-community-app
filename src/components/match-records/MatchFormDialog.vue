@@ -85,6 +85,7 @@ const formData = ref<MatchRecordInput>({
   category_group: '',
   match_level: '',
   tournament_name: null,
+  match_fee_amount: null,
   home_score: 0,
   opponent_score: 0,
   coaches: '',
@@ -132,9 +133,20 @@ const selectedCoaches = computed({
   set: (val) => formData.value.coaches = val.join(',')
 })
 
+const isMatchFeePseudoPlayer = (value: unknown) => {
+  const normalized = String(value ?? '').normalize('NFKC').replace(/\s+/g, ' ').trim()
+  return /^比賽費用(?:\s*:.*)?$/.test(normalized) || /^[0-9][0-9,\s]*元?$/.test(normalized)
+}
+
+const normalizePlayerSelection = (value: unknown) =>
+  String(value ?? '')
+    .split(',')
+    .map((name) => name.trim())
+    .filter((name) => name && !isMatchFeePseudoPlayer(name))
+
 const selectedPlayers = computed({
-  get: () => formData.value.players ? formData.value.players.split(',').filter(Boolean) : [],
-  set: (val) => formData.value.players = val.join(',')
+  get: () => normalizePlayerSelection(formData.value.players),
+  set: (val) => formData.value.players = val.filter((name) => !isMatchFeePseudoPlayer(name)).join(',')
 })
 
 const cloneLineup = (lineup?: LineupEntry[]) => JSON.parse(JSON.stringify(Array.isArray(lineup) ? lineup : [])) as LineupEntry[]
@@ -180,6 +192,7 @@ const initForm = async () => {
         inning_logs: cloneInningLogs(data.inning_logs),
         batting_stats: cloneBattingStats(data.batting_stats),
         pitching_stats: clonePitchingStats(data.pitching_stats),
+        match_fee_amount: data.match_fee_amount ?? null,
         video_url: data.video_url || '',
         current_batter_name: data.current_batter_name || '',
         current_inning: data.current_inning || '一上',
@@ -209,6 +222,7 @@ const initForm = async () => {
       category_group: '',
       match_level: '友誼賽',
       tournament_name: null,
+      match_fee_amount: null,
       home_score: 0,
       opponent_score: 0,
       coaches: '',
@@ -985,6 +999,10 @@ const handleSave = async () => {
     }
     formData.value.line_score_data = cloneLineScoreData(formData.value.line_score_data)
     formData.value.tournament_name = formData.value.tournament_name?.trim() || null
+    formData.value.players = normalizePlayerSelection(formData.value.players).join(',')
+    formData.value.match_fee_amount = Number(formData.value.match_fee_amount || 0) > 0
+      ? Math.trunc(Number(formData.value.match_fee_amount))
+      : null
     formData.value.video_url = formData.value.video_url?.trim() || ''
     sortInningLogs()
 
@@ -1176,15 +1194,31 @@ const handlePhotoUpload = async (event: Event) => {
                      <el-option v-for="g in groupOptions" :key="g" :label="g" :value="g" />
                    </el-select>
                  </div>
-                 <div class="flex-1">
-                   <label class="text-xs font-bold text-gray-500 mb-1 block">賽事等級</label>
-                   <el-select v-model="formData.match_level" filterable allow-create clearable placeholder="選擇或輸入" class="w-full" size="large">
-                     <el-option v-for="l in levelOptions" :key="l" :label="l" :value="l" />
-                   </el-select>
-                 </div>
+               <div class="flex-1">
+                 <label class="text-xs font-bold text-gray-500 mb-1 block">賽事等級</label>
+                 <el-select v-model="formData.match_level" filterable allow-create clearable placeholder="選擇或輸入" class="w-full" size="large">
+                   <el-option v-for="l in levelOptions" :key="l" :label="l" :value="l" />
+                 </el-select>
                </div>
+             </div>
 
-               <!-- Score Input Tool -->
+              <div class="rounded-xl border border-amber-100 bg-amber-50/60 p-4">
+                <label class="text-xs font-bold text-amber-700 mb-1 block">比賽費用（每位球員）</label>
+                <el-input-number
+                  v-model="formData.match_fee_amount"
+                  class="!w-full"
+                  :min="0"
+                  :step="50"
+                  :precision="0"
+                  size="large"
+                  placeholder="無費用可留空或填 0"
+                />
+                <p class="mt-1 text-xs font-bold text-amber-700/70">
+                  儲存後會依出賽名單與請假紀錄自動產生繳費項目。
+                </p>
+              </div>
+
+              <!-- Score Input Tool -->
                <div class="bg-gray-50 p-4 rounded-xl border border-gray-100 mt-2">
                  <label class="text-xs font-black text-gray-800 tracking-wider mb-3 block text-center uppercase">Final Score</label>
                  <div class="flex items-center justify-center space-x-6">

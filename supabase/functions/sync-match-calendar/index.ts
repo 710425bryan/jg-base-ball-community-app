@@ -22,11 +22,12 @@ const corsHeaders = {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-type OptionalSyncColumn = "google_calendar_event_id" | "tournament_name";
+type OptionalSyncColumn = "google_calendar_event_id" | "tournament_name" | "match_fee_amount";
 
 const optionalColumnSupport: Record<OptionalSyncColumn, boolean | null> = {
   google_calendar_event_id: null,
   tournament_name: null,
+  match_fee_amount: null,
 };
 
 const isMissingColumnError = (error: any, column: OptionalSyncColumn) => {

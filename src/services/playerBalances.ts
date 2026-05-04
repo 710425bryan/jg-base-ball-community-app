@@ -26,6 +26,7 @@ const normalizeBalanceTransaction = (row: any): PlayerBalanceTransaction => ({
   source: row?.source || 'manual_adjustment',
   related_profile_payment_submission_id: row?.related_profile_payment_submission_id ?? null,
   related_equipment_payment_submission_id: row?.related_equipment_payment_submission_id ?? null,
+  related_match_payment_submission_id: row?.related_match_payment_submission_id ?? null,
   created_by: row?.created_by ?? null,
   created_by_name: row?.created_by_name ?? null,
   created_at: String(row?.created_at || '')

@@ -4,7 +4,7 @@
       <div class="max-w-6xl mx-auto flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <AppPageHeader
           title="繳費資訊"
-          subtitle="查看關聯成員的月繳 / 季繳狀態；若為管理員，也可切換查看其他球員的繳費紀錄"
+          subtitle="查看關聯成員的月繳 / 季繳、比賽費用與裝備付款狀態"
           :icon="Wallet"
           as="h2"
         >
@@ -252,6 +252,8 @@
             </div>
           </section>
 
+          <MyMatchFeesPanel :member-id="selectedMemberId" />
+
           <MyEquipmentPaymentsPanel :member-id="selectedMemberId" />
         </template>
       </div>
@@ -449,6 +451,7 @@ import { Wallet } from '@element-plus/icons-vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
 import MyEquipmentPaymentsPanel from '@/components/equipment/MyEquipmentPaymentsPanel.vue'
+import MyMatchFeesPanel from '@/components/fees/MyMatchFeesPanel.vue'
 import PaymentAccountInfoCard from '@/components/payments/PaymentAccountInfoCard.vue'
 import {
   createMyPaymentSubmission,

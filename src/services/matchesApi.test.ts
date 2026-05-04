@@ -258,4 +258,88 @@ describe('matchesApi optional column fallback', () => {
       [expect.not.objectContaining({ video_url: expect.anything() })]
     )
   })
+
+  it('retries create and update without match_fee_amount when the column is unavailable', async () => {
+    createSingleMock
+      .mockResolvedValueOnce({
+        data: null,
+        error: {
+          message: "Could not find the 'match_fee_amount' column of 'matches' in the schema cache"
+        }
+      })
+      .mockResolvedValueOnce({
+        data: {
+          id: 'match-1',
+          match_name: '春季聯賽',
+          opponent: '華興小學',
+          match_date: '2026-03-28',
+          match_time: '08:00 - 09:30',
+          home_score: 0,
+          opponent_score: 0,
+          absent_players: [],
+          lineup: [],
+          inning_logs: [],
+          batting_stats: []
+        },
+        error: null
+      })
+
+    updateSingleMock.mockResolvedValue({
+      data: {
+        id: 'match-1',
+        match_name: '春季聯賽',
+        opponent: '華興小學',
+        match_date: '2026-03-28',
+        match_time: '08:00 - 09:30',
+        home_score: 0,
+        opponent_score: 0,
+        absent_players: [],
+        lineup: [],
+        inning_logs: [],
+        batting_stats: []
+      },
+      error: null
+    })
+
+    const { matchesApi } = await import('./matchesApi')
+
+    await matchesApi.createMatch({
+      match_name: '春季聯賽',
+      opponent: '華興小學',
+      match_date: '2026-03-28',
+      match_time: '08:00 - 09:30',
+      location: '迪化壘球場',
+      category_group: 'U12',
+      match_level: '一級',
+      match_fee_amount: 250,
+      home_score: 0,
+      opponent_score: 0,
+      coaches: '',
+      players: '',
+      note: '',
+      photo_url: '',
+      absent_players: [],
+      lineup: [],
+      inning_logs: [],
+      batting_stats: []
+    })
+
+    expect(createInsertMock).toHaveBeenNthCalledWith(
+      1,
+      [expect.objectContaining({ match_fee_amount: 250 })]
+    )
+    expect(createInsertMock).toHaveBeenNthCalledWith(
+      2,
+      [expect.not.objectContaining({ match_fee_amount: expect.anything() })]
+    )
+
+    await matchesApi.updateMatch('match-1', {
+      match_name: '春季聯賽更新',
+      match_fee_amount: 300
+    })
+
+    expect(updateMock).toHaveBeenCalledWith({
+      match_name: '春季聯賽更新'
+    })
+  })
 })

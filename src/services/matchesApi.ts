@@ -3,6 +3,7 @@ import type { MatchRecord, MatchRecordInput } from '../types/match'
 
 let supportsGoogleCalendarEventIdColumn: boolean | null = null
 let supportsVideoUrlColumn: boolean | null = null
+let supportsMatchFeeAmountColumn: boolean | null = null
 
 const MATCH_RECORD_SELECT = `
   id,
@@ -15,6 +16,7 @@ const MATCH_RECORD_SELECT = `
   category_group,
   match_level,
   tournament_name,
+  match_fee_amount,
   home_score,
   opponent_score,
   coaches,
@@ -59,6 +61,7 @@ const MATCH_SUMMARY_SELECT = `
   category_group,
   match_level,
   tournament_name,
+  match_fee_amount,
   home_score,
   opponent_score,
   coaches,
@@ -76,6 +79,9 @@ const applyOptionalColumnFallbacks = (select: string) => {
   }
   if (supportsVideoUrlColumn === false) {
     normalizedSelect = normalizedSelect.replace('  video_url,\n', '')
+  }
+  if (supportsMatchFeeAmountColumn === false) {
+    normalizedSelect = normalizedSelect.replace('  match_fee_amount,\n', '')
   }
   return normalizedSelect
 }
@@ -115,6 +121,11 @@ const markMissingOptionalColumns = (error: any) => {
     hasMissingColumn = true
   }
 
+  if (isMissingColumnError(error, 'match_fee_amount')) {
+    supportsMatchFeeAmountColumn = false
+    hasMissingColumn = true
+  }
+
   return hasMissingColumn
 }
 
@@ -126,6 +137,9 @@ const stripUnsupportedColumns = <T extends Partial<MatchRecordInput>>(payload: T
   if (supportsVideoUrlColumn === false) {
     delete normalizedPayload.video_url
   }
+  if (supportsMatchFeeAmountColumn === false) {
+    delete normalizedPayload.match_fee_amount
+  }
   return normalizedPayload
 }
 
@@ -135,6 +149,9 @@ const markSupportedColumnsFromPayload = (payload: Partial<MatchRecordInput>) => 
   }
   if ('video_url' in payload) {
     supportsVideoUrlColumn = true
+  }
+  if ('match_fee_amount' in payload) {
+    supportsMatchFeeAmountColumn = true
   }
 }
 
@@ -171,6 +188,9 @@ const withOptionalSelectFallback = async <T>(
     }
     if (supportsVideoUrlColumn !== false) {
       supportsVideoUrlColumn = true
+    }
+    if (supportsMatchFeeAmountColumn !== false) {
+      supportsMatchFeeAmountColumn = true
     }
   }
 

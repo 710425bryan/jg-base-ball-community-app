@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full flex flex-col relative animate-fade-in p-2 md:p-6 pb-0 md:pb-6">
+  <div class="h-full flex flex-col relative animate-fade-in p-2 md:p-6 pb-0 md:pb-6 overflow-y-auto custom-scrollbar">
     <!-- 頂部標題區 -->
     <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4 shrink-0">
       <AppPageHeader
@@ -23,15 +23,18 @@
     </div>
 
     <!-- 頁籤與內容區塊 -->
-    <div class="flex-1 flex flex-col min-h-0 custom-tabs-container">
+    <div class="flex-1 flex flex-col min-h-[600px] custom-tabs-container">
       <el-tabs v-model="activeTab" class="w-full h-full flex flex-col min-h-0">
         <!-- 1. 詳細列表 -->
         <el-tab-pane label="詳細列表" name="list" class="h-full">
-          <div class="h-full bg-white sm:rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] sm:border border-gray-100/80 flex flex-col min-h-[600px] sm:min-h-0 -mx-2 sm:mx-0">
+          <div
+            class="bg-white sm:rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] sm:border border-gray-100/80 flex flex-col -mx-2 sm:mx-0"
+            :style="{ minHeight: `${leaveListTableCardMinHeight}px` }"
+          >
              
             <!-- 篩選列 -->
             <div class="p-4 border-b border-gray-100 flex flex-col gap-4">
-              <div class="flex flex-col sm:flex-row items-center justify-between">
+              <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <el-date-picker
                   v-model="selectedSearchMonth"
                   type="month"
@@ -41,6 +44,10 @@
                   :clearable="false"
                   class="!w-full sm:!w-[220px]"
                 />
+                <div class="flex w-full items-center justify-between rounded-xl border border-orange-100 bg-orange-50 px-4 py-2 sm:w-auto sm:min-w-[180px]">
+                  <span class="text-sm font-bold text-orange-700">總計請假次數</span>
+                  <span class="text-xl font-black text-primary">{{ leaveRequests.length }}</span>
+                </div>
               </div>
 
               <!-- 日期篩選按鈕區 -->
@@ -88,9 +95,9 @@
 
             <el-table
               v-else
-              :data="filteredLeaveRequests" 
-              style="width: 100%; height: 100%" 
-              height="100%"
+              :data="filteredLeaveRequests"
+              style="width: 100%"
+              :height="leaveListTableHeight"
               empty-text="目前沒有請假紀錄"
               :row-class-name="tableRowClassName"
             >
@@ -142,125 +149,89 @@
           </div>
         </el-tab-pane>
 
-        <!-- 2. 月曆視圖 -->
-        <el-tab-pane label="月曆視圖" name="calendar" class="h-full">
-          <div class="h-full bg-white sm:rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] sm:border border-y border-gray-100/80 p-2 sm:p-4 flex flex-col min-h-0 overflow-y-auto custom-scrollbar -mx-2 sm:mx-0">
-            <el-calendar v-model="calendarDate" class="custom-calendar">
-              <template #date-cell="{ data }">
-                <div class="w-full h-full flex flex-col p-1">
-                  <span class="text-sm font-bold w-6 h-6 flex items-center justify-center rounded-full mb-1" :class="data.isSelected ? 'bg-primary text-white' : 'text-gray-700'">{{ data.day.split('-').slice(2).join('') }}</span>
-                  <div class="flex flex-col gap-1 flex-1 overflow-y-auto custom-scrollbar relative z-10">
-                    <template v-for="leave in getLeavesForDate(data.day)" :key="leave.id">
-                      <div class="text-sm sm:text-sm leading-tight px-1 py-0.5 rounded sm:rounded-md shadow-sm border truncate font-bold flex items-center justify-between gap-0.5"
-                           :class="getLeaveBadgeClass(leave.leave_type)">
-                        <span class="truncate">{{ leave.team_members?.name || '未知' }}</span>
-                        <span class="opacity-75 shrink-0 scale-75 sm:scale-100 origin-right">({{ leave.leave_type.slice(0,1) }})</span>
-                      </div>
-                    </template>
-                  </div>
-                </div>
-              </template>
-            </el-calendar>
-          </div>
-        </el-tab-pane>
-
-        <!-- 3. 統計報表 -->
         <el-tab-pane label="統計報表" name="stats" class="h-full">
-          <div class="h-full flex flex-col min-h-0 space-y-4 pt-4 pb-2 overflow-y-auto custom-scrollbar pr-1">
-            
-            <!-- 統計區間篩選 -->
-            <div class="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 p-4 shrink-0 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div>
-                <span class="font-extrabold text-gray-800 block">統計區間</span>
-                <span class="text-sm text-gray-400">選擇日期範圍來統計球員請假次數</span>
-              </div>
-              <el-date-picker
-                v-model="dateRange"
-                type="daterange"
-                range-separator="至"
-                start-placeholder="開始日期"
-                end-placeholder="結束日期"
-                format="YYYY-MM-DD"
-                value-format="YYYY-MM-DD"
-                @change="fetchData"
-                :shortcuts="dateShortcuts"
-                class="!w-full sm:!w-[400px]"
-              />
-            </div>
-
-            <!-- 五大數據卡片 -->
-            <div class="grid grid-cols-2 md:grid-cols-5 gap-3 shrink-0">
-              <div class="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 p-4 flex flex-col items-center justify-center col-span-2 md:col-span-1">
-                <span class="text-gray-500 font-bold text-sm mb-1">總請假次數</span>
-                <span class="text-4xl font-extrabold text-gray-800">{{ statsByType.總數 }}</span>
-              </div>
-              <div class="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 p-4 flex flex-col items-center justify-center">
-                <span class="text-gray-500 font-bold text-sm mb-1">事假</span>
-                <span class="text-3xl font-extrabold text-primary">{{ statsByType.事假 }}</span>
-              </div>
-              <div class="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 p-4 flex flex-col items-center justify-center">
-                <span class="text-gray-500 font-bold text-sm mb-1">病假</span>
-                <span class="text-3xl font-extrabold text-red-500">{{ statsByType.病假 }}</span>
-              </div>
-              <div class="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 p-4 flex flex-col items-center justify-center">
-                <span class="text-gray-500 font-bold text-sm mb-1">公假</span>
-                <span class="text-3xl font-extrabold text-blue-500">{{ statsByType.公假 }}</span>
-              </div>
-              <div class="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 p-4 flex flex-col items-center justify-center">
-                <span class="text-gray-500 font-bold text-sm mb-1">其他</span>
-                <span class="text-3xl font-extrabold text-gray-500">{{ statsByType.其他 }}</span>
+          <div class="space-y-4 pb-4">
+            <div class="bg-white sm:rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] sm:border border-gray-100/80 p-4 -mx-2 sm:mx-0">
+              <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <h3 class="text-base font-black text-gray-800">球員請假次數統計</h3>
+                  <p class="mt-1 text-sm font-medium text-gray-500">依年月區間與組別篩選球員請假次數。</p>
+                </div>
+                <div class="flex w-full flex-col gap-3 sm:flex-row lg:w-auto">
+                  <el-date-picker
+                    v-model="statsMonthRange"
+                    type="monthrange"
+                    range-separator="至"
+                    start-placeholder="開始年月"
+                    end-placeholder="結束年月"
+                    format="YYYY 年 MM 月"
+                    value-format="YYYY-MM"
+                    :clearable="false"
+                    class="!w-full lg:!w-[360px]"
+                    @change="fetchStatsData"
+                  />
+                  <el-select
+                    v-model="selectedStatsGroup"
+                    placeholder="全部組別"
+                    clearable
+                    class="!w-full sm:!w-[180px] lg:!w-[220px]"
+                  >
+                    <el-option label="全部組別" value="" />
+                    <el-option
+                      v-for="group in statsGroupOptions"
+                      :key="group"
+                      :label="group"
+                      :value="group"
+                    />
+                  </el-select>
+                </div>
               </div>
             </div>
 
-            <!-- 各月份請假趨勢圖 -->
-            <div class="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 p-4 shrink-0 h-[320px] flex flex-col">
-              <span class="font-bold text-gray-800 mb-2">各月份請假趨勢</span>
-              <v-chart class="flex-1 w-full" :option="monthlyChartOption" autoresize />
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <div class="rounded-xl border border-orange-100 bg-orange-50 p-4">
+                <span class="text-sm font-bold text-orange-700">區間請假總次數</span>
+                <div class="mt-2 text-3xl font-black text-primary">{{ statsTotalLeaveCount }}</div>
+              </div>
+              <div class="rounded-xl border border-slate-200 bg-white p-4">
+                <span class="text-sm font-bold text-slate-500">請假球員數</span>
+                <div class="mt-2 text-3xl font-black text-slate-800">{{ statsTotalPlayerCount }}</div>
+              </div>
+              <div class="rounded-xl border border-slate-200 bg-white p-4">
+                <span class="text-sm font-bold text-slate-500">目前組別</span>
+                <div class="mt-2 truncate text-xl font-black text-slate-800">{{ selectedStatsGroupLabel }}</div>
+              </div>
             </div>
 
-            <!-- 排行榜列表 -->
-            <div class="bg-white sm:rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] sm:border border-y border-gray-100/80 flex-1 flex flex-col min-h-[400px] md:min-h-0 overflow-hidden shrink-0 md:shrink -mx-2 sm:mx-0">
-              <div class="p-5 border-b border-gray-100 bg-gray-50/30">
-                <h3 class="font-bold text-gray-800">球員請假排行榜 (由多到少)</h3>
-              </div>
-              <el-table 
-                :data="rankingByPlayer" 
-                style="width: 100%; height: 100%" 
-                height="100%"
+            <div class="bg-white sm:rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] sm:border border-gray-100/80 overflow-hidden -mx-2 sm:mx-0">
+              <el-table
+                v-loading="isStatsLoading"
+                :data="filteredPlayerStatsRows"
+                style="width: 100%"
+                :height="statsTableHeight"
+                empty-text="此區間沒有請假統計資料"
+                stripe
               >
-                <el-table-column label="球員" min-width="100">
+                <el-table-column prop="name" label="球員" min-width="150">
                   <template #default="{ row }">
-                    <span class="font-bold text-gray-700">{{ row.name }}</span>
+                    <span class="font-black text-slate-800">{{ row.name }}</span>
                   </template>
                 </el-table-column>
-                <el-table-column label="請假日期" min-width="260">
+                <el-table-column prop="group" label="組別" min-width="140" sortable />
+                <el-table-column prop="total" label="請假總次數" width="130" align="center" sortable>
                   <template #default="{ row }">
-                    <div class="flex flex-wrap gap-1.5 mt-1 mb-1">
-                      <span v-for="date in row.dates" :key="date" class="text-[11px] bg-gray-50 text-gray-500 px-1.5 py-0.5 rounded border border-gray-200 font-medium">
-                        {{ date }}
-                      </span>
-                    </div>
+                    <span class="text-lg font-black text-primary">{{ row.total }}</span>
                   </template>
                 </el-table-column>
-                <el-table-column prop="total" label="總次數" width="90" align="center">
-                  <template #default="{ row }">
-                     <span class="font-extrabold text-gray-800 text-lg">{{ row.total }}</span>
-                  </template>
-                </el-table-column>
-                <el-table-column label="假別分佈" min-width="180">
-                  <template #default="{ row }">
-                    <div class="flex flex-wrap gap-2">
-                       <span v-if="row.types.事假 > 0" class="bg-orange-50 text-primary px-2 py-0.5 rounded text-sm font-bold border border-orange-100">事假: {{ row.types.事假 }}</span>
-                       <span v-if="row.types.病假 > 0" class="bg-red-50 text-red-600 px-2 py-0.5 rounded text-sm font-bold border border-red-100">病假: {{ row.types.病假 }}</span>
-                       <span v-if="row.types.公假 > 0" class="bg-blue-50 text-blue-600 px-2 py-0.5 rounded text-sm font-bold border border-blue-100">公假: {{ row.types.公假 }}</span>
-                       <span v-if="row.types.其他 > 0" class="bg-gray-100 text-gray-600 px-2 py-0.5 rounded text-sm font-bold border border-gray-200">其他: {{ row.types.其他 }}</span>
-                    </div>
-                  </template>
-                </el-table-column>
+                <el-table-column prop="personal" label="事假" width="90" align="center" sortable />
+                <el-table-column prop="sick" label="病假" width="90" align="center" sortable />
+                <el-table-column prop="official" label="公假" width="90" align="center" sortable />
+                <el-table-column prop="other" label="其他" width="90" align="center" sortable />
               </el-table>
             </div>
           </div>
         </el-tab-pane>
+
       </el-tabs>
     </div>
 
@@ -434,25 +405,24 @@ import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
 import dayjs from 'dayjs'
 
-import { use } from 'echarts/core'
-import { CanvasRenderer } from 'echarts/renderers'
-import { BarChart } from 'echarts/charts'
-import { TitleComponent, TooltipComponent, LegendComponent, GridComponent } from 'echarts/components'
-import VChart from 'vue-echarts'
-
-use([CanvasRenderer, BarChart, TitleComponent, TooltipComponent, LegendComponent, GridComponent])
-
 const authStore = useAuthStore()
 const permissionsStore = usePermissionsStore()
 const activeTab = ref('list')
 const isModalOpen = ref(false)
 const isSettingsOpen = ref(false)
 const route = useRoute()
+const tableRowsVisibleByDefault = 30
+const leaveListTableHeight = 48 + (56 * tableRowsVisibleByDefault)
+const leaveListTableCardMinHeight = leaveListTableHeight + 204
+const statsTableHeight = 48 + (56 * 12)
 
 // --- 資料狀態 ---
 const leaveRequests = ref<any[]>([])
 const team_members_list = ref<any[]>([])
+const playerStatsRows = ref<PlayerStatsRow[]>([])
+const selectedStatsGroup = ref('')
 const isLoading = ref(true)
+const isStatsLoading = ref(false)
 const isSubmitting = ref(false)
 const formRef = ref()
 
@@ -460,13 +430,19 @@ const formRef = ref()
 const defaultStartDate = dayjs().startOf('month').format('YYYY-MM-DD')
 const defaultEndDate = dayjs().endOf('month').format('YYYY-MM-DD')
 const dateRange = ref<[string, string]>([defaultStartDate, defaultEndDate])
+const defaultStatsMonth = dayjs().format('YYYY-MM')
+const statsMonthRange = ref<[string, string]>([defaultStatsMonth, defaultStatsMonth])
 
-const dateShortcuts = [
-  { text: '本月', value: () => [dayjs().startOf('month').format('YYYY-MM-DD'), dayjs().endOf('month').format('YYYY-MM-DD')] },
-  { text: '上個月', value: () => [dayjs().subtract(1, 'month').startOf('month').format('YYYY-MM-DD'), dayjs().subtract(1, 'month').endOf('month').format('YYYY-MM-DD')] },
-  { text: '最近三個月', value: () => [dayjs().subtract(3, 'month').startOf('month').format('YYYY-MM-DD'), dayjs().endOf('month').format('YYYY-MM-DD')] },
-  { text: '今年', value: () => [dayjs().startOf('year').format('YYYY-MM-DD'), dayjs().endOf('year').format('YYYY-MM-DD')] }
-]
+type PlayerStatsRow = {
+  memberId: string
+  name: string
+  group: string
+  total: number
+  personal: number
+  sick: number
+  official: number
+  other: number
+}
 
 // --- 表單狀態 ---
 const form = reactive<LeaveRequestFormState & { user_id: string }>({
@@ -500,22 +476,10 @@ const canDeleteLeaveRecord = (memberId: string) => {
   return isAdminOrManager.value || linkedMemberIds.value.includes(memberId)
 }
 
-// --- 月曆邏輯 ---
-const calendarDate = ref(new Date())
-
 const getLeavesForDate = (dateStr: string) => {
   return leaveRequests.value.filter(leave => {
     return dateStr >= leave.start_date && dateStr <= leave.end_date
   })
-}
-
-const getLeaveBadgeClass = (type: string) => {
-  switch (type) {
-    case '事假': return 'bg-orange-50 text-primary border-orange-100'
-    case '病假': return 'bg-red-50 text-red-600 border-red-100'
-    case '公假': return 'bg-blue-50 text-blue-600 border-blue-100'
-    default: return 'bg-gray-50 text-gray-600 border-gray-200'
-  }
 }
 
 // --- 日期篩選邏輯 ---
@@ -585,120 +549,109 @@ const filteredLeaveRequests = computed(() => {
   })
 })
 
-// --- 統計邏輯 ---
-const statsByType = computed(() => {
-  let stats: Record<string, number> = { 事假: 0, 病假: 0, 公假: 0, 其他: 0, 總數: leaveRequests.value.length }
-  for (const r of leaveRequests.value) {
-    if (r.leave_type in stats) {
-      stats[r.leave_type]++
-    } else {
-      stats['其他']++
-    }
-  }
-  return stats
+type LeaveTypeBucket = 'personal' | 'sick' | 'official' | 'other'
+
+const statsGroupOptions = computed(() =>
+  Array.from(new Set(playerStatsRows.value.map((row) => row.group)))
+    .sort((left, right) => left.localeCompare(right, 'zh-Hant'))
+)
+
+const filteredPlayerStatsRows = computed(() => {
+  if (!selectedStatsGroup.value) return playerStatsRows.value
+  return playerStatsRows.value.filter((row) => row.group === selectedStatsGroup.value)
 })
 
-// === Echarts 月份趨勢圖選項 ===
-const monthlyChartOption = computed(() => {
-  const monthMap: Record<string, Record<string, number>> = {}
-  
-  leaveRequests.value.forEach(r => {
-    // 依據 start_date 解析 YYYY-MM
-    const month = r.start_date.substring(0, 7)
-    if (!monthMap[month]) {
-      monthMap[month] = { 事假: 0, 病假: 0, 公假: 0, 其他: 0 }
-    }
-    const type = r.leave_type in monthMap[month] ? r.leave_type : '其他'
-    monthMap[month][type]++
-  })
+const statsTotalLeaveCount = computed(() =>
+  filteredPlayerStatsRows.value.reduce((sum, row) => sum + row.total, 0)
+)
 
-  // 將月份排序
-  const months = Object.keys(monthMap).sort()
+const statsTotalPlayerCount = computed(() => filteredPlayerStatsRows.value.length)
 
-  const seriesData = ['事假', '病假', '公假', '其他'].map(type => {
-    return {
-      name: type,
-      type: 'bar',
-      stack: 'total', // 堆積長條圖
-      barMaxWidth: 35,
-      itemStyle: { borderRadius: [2, 2, 0, 0] },
-      data: months.map(m => monthMap[m][type])
-    }
-  })
+const selectedStatsGroupLabel = computed(() => selectedStatsGroup.value || '全部組別')
 
-  // 如果這整段區間完全沒有資料，顯示預設值
-  const isNoData = months.length === 0
+const getLeaveTypeBucket = (leaveType: string): LeaveTypeBucket => {
+  if (leaveType === '事假') return 'personal'
+  if (leaveType === '病假') return 'sick'
+  if (leaveType === '公假') return 'official'
+  return 'other'
+}
 
-  return {
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: { type: 'shadow' }
-    },
-    legend: {
-      data: ['事假', '病假', '公假', '其他'],
-      bottom: 0,
-      icon: 'circle',
-      textStyle: { color: '#6b7280' }
-    },
-    grid: {
-      left: '2%',
-      right: '2%',
-      bottom: '10%',
-      top: '10%',
-      containLabel: true
-    },
-    xAxis: {
-      type: 'category',
-      data: isNoData ? ['無資料'] : months,
-      axisLabel: { color: '#6b7280', fontSize: 12 },
-      axisLine: { lineStyle: { color: '#e5e7eb' } }
-    },
-    yAxis: {
-      type: 'value',
-      minInterval: 1, // 只能是整數人次
-      splitLine: { lineStyle: { type: 'dashed', color: '#f3f4f6' } },
-      axisLabel: { color: '#9ca3af' }
-    },
-    color: ['#D88F22', '#ef4444', '#3b82f6', '#9ca3af'],
-    series: isNoData ? [] : seriesData
-  }
-})
+const normalizeStatsMonthRange = (): [string, string] => {
+  const [rawStart, rawEnd] = statsMonthRange.value || [defaultStatsMonth, defaultStatsMonth]
+  const startMonth = rawStart || defaultStatsMonth
+  const endMonth = rawEnd || startMonth
 
-const rankingByPlayer = computed(() => {
-  const map: Record<string, any> = {}
-  leaveRequests.value.forEach(r => {
-    const pId = r.user_id
-    if (!map[pId]) {
-      map[pId] = {
-        name: r.team_members?.name || '未知',
-        avatar_url: r.team_members?.avatar_url,
-        total: 0,
-        types: { 事假: 0, 病假: 0, 公假: 0, 其他: 0 },
-        dates: []
+  return startMonth <= endMonth
+    ? [startMonth, endMonth]
+    : [endMonth, startMonth]
+}
+
+const fetchStatsData = async () => {
+  isStatsLoading.value = true
+  try {
+    const [startMonth, endMonth] = normalizeStatsMonthRange()
+    const startDate = dayjs(startMonth).startOf('month').format('YYYY-MM-DD')
+    const endDate = dayjs(endMonth).endOf('month').format('YYYY-MM-DD')
+
+    const { data, error } = await supabase
+      .from('leave_requests')
+      .select(`
+        id, user_id, leave_type, start_date, end_date,
+        team_members ( id, name, team_group )
+      `)
+      .lte('start_date', endDate)
+      .gte('end_date', startDate)
+
+    if (error) throw error
+
+    const grouped = new Map<string, PlayerStatsRow>()
+
+    ;(data || []).forEach((record: any) => {
+      const member = Array.isArray(record.team_members) ? record.team_members[0] : record.team_members
+      const memberId = String(record.user_id || member?.id || record.id)
+      const name = typeof member?.name === 'string' && member.name.trim()
+        ? member.name.trim()
+        : '未知球員'
+      const teamGroup = typeof member?.team_group === 'string' ? member.team_group.trim() : ''
+      const group = teamGroup || '未分組'
+
+      if (!grouped.has(memberId)) {
+        grouped.set(memberId, {
+          memberId,
+          name,
+          group,
+          total: 0,
+          personal: 0,
+          sick: 0,
+          official: 0,
+          other: 0
+        })
       }
-    }
-    map[pId].total++
-    if (r.leave_type in map[pId].types) {
-      map[pId].types[r.leave_type]++
-    } else {
-      map[pId].types.其他++
-    }
 
-    // 整理請假日期字串 (例如 "2026-03-28(事)" 或 "2026-03-28~2026-03-29(病)")
-    const typeLabel = r.leave_type.charAt(0)
-    let dateStr = ''
-    if (r.start_date === r.end_date) {
-      dateStr = r.start_date // 完整 YYYY-MM-DD
-    } else {
-      dateStr = `${r.start_date}~${r.end_date}`
-    }
-    map[pId].dates.push(`${dateStr}(${typeLabel})`)
-  })
-  
-  Object.values(map).forEach((p: any) => p.dates.sort())
+      const row = grouped.get(memberId)!
+      const bucket = getLeaveTypeBucket(record.leave_type)
+      row.total += 1
+      row[bucket] += 1
+    })
 
-  return Object.values(map).sort((a, b) => b.total - a.total)
-})
+    const sortedRows = Array.from(grouped.values())
+      .sort((left, right) =>
+        right.total - left.total ||
+        left.group.localeCompare(right.group, 'zh-Hant') ||
+        left.name.localeCompare(right.name, 'zh-Hant')
+      )
+
+    playerStatsRows.value = sortedRows
+
+    if (selectedStatsGroup.value && !sortedRows.some((row) => row.group === selectedStatsGroup.value)) {
+      selectedStatsGroup.value = ''
+    }
+  } catch (error: any) {
+    ElMessage.error('統計資料讀取失敗：' + error.message)
+  } finally {
+    isStatsLoading.value = false
+  }
+}
 
 // --- 讀取資料 ---
 const fetchData = async () => {
@@ -856,11 +809,13 @@ let realtimeChannel: any
 // --- 初始掛載 ---
 onMounted(() => {
   fetchData()
+  fetchStatsData()
 
   // 監聽 leave_requests 資料表變更
   realtimeChannel = supabase.channel('leave-requests-changes')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'leave_requests' }, () => {
       fetchData()
+      fetchStatsData()
     })
     .subscribe()
 })
@@ -921,28 +876,6 @@ onUnmounted(() => {
   padding: 16px 24px 0px 24px;
 }
 
-/* 客製化月曆樣式 */
-.custom-calendar {
-  --el-calendar-cell-width: auto;
-}
-.custom-calendar .el-calendar__body {
-  padding: 12px 20px 20px;
-}
-.custom-calendar .el-calendar-table .el-calendar-day {
-  height: 100px;
-  padding: 4px;
-}
-@media (min-width: 640px) {
-  .custom-calendar .el-calendar-table .el-calendar-day {
-    height: 120px;
-  }
-}
-.custom-calendar .el-calendar-table td.is-selected {
-  background-color: transparent;
-}
-.custom-calendar .el-calendar-table td.is-today {
-  color: inherit;
-}
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
 }

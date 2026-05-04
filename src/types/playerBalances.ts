@@ -22,6 +22,7 @@ export type PlayerBalanceTransaction = {
   source: PlayerBalanceTransactionSource
   related_profile_payment_submission_id: string | null
   related_equipment_payment_submission_id: string | null
+  related_match_payment_submission_id?: string | null
   created_by: string | null
   created_by_name: string | null
   created_at: string

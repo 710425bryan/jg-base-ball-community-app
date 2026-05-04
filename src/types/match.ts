@@ -87,6 +87,7 @@ export interface MatchRecord {
   category_group?: string; // U12, etc.
   match_level?: string; // 友誼賽, etc.
   tournament_name?: string | null;
+  match_fee_amount?: number | null;
   home_score: number;
   opponent_score: number;
   coaches?: string; // Comma separated

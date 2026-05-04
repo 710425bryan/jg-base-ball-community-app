@@ -21,6 +21,7 @@ interface ParsedDescription {
   level: string
   gatherTime: string
   tournamentName: string
+  matchFeeAmount: number | null
   coaches: string[]
   players: Array<{ number: string; name: string }>
   absentPlayers: string[]
@@ -53,6 +54,7 @@ export interface ParsedMatch {
   category: string
   level: string
   gatherTime: string
+  matchFeeAmount: number | null
   coaches: string[]
   players: Array<{ number: string; name: string }>
   absentPlayers: string[]
@@ -296,7 +298,32 @@ const splitMultiValueLine = (value: string) =>
     .map((item) => collapseWhitespace(item))
     .filter(Boolean)
 
+const matchFeeLinePattern = /^比賽費用\s*[:：]\s*(.*)$/
+
+const parseMatchFeeAmountValue = (value: string) => {
+  const normalized = collapseWhitespace(value).replace(/元$/, '').trim()
+  if (!/^[0-9][0-9,\s]*$/.test(normalized)) return null
+
+  const amount = Number(normalized.replace(/[,\s]/g, ''))
+  return Number.isSafeInteger(amount) && amount > 0 ? amount : null
+}
+
+const parseMatchFeeAmount = (line: string) => {
+  const match = line.match(matchFeeLinePattern)
+  if (!match) return null
+  return parseMatchFeeAmountValue(match[1])
+}
+
+const isMatchFeePseudoPlayerLine = (line: string) => {
+  const normalized = collapseWhitespace(line.normalize('NFKC'))
+  return /^比賽費用(?:\s*:.*)?$/.test(normalized)
+}
+
 const parsePlayerLine = (line: string) => {
+  if (isMatchFeePseudoPlayerLine(line)) {
+    return null
+  }
+
   const isAbsent = /[（(]請假[）)]/.test(line)
   let working = line.replace(/[（(]請假[）)]/g, '').trim()
 
@@ -342,6 +369,7 @@ const parseDescription = (description: string): ParsedDescription => {
     level: '',
     gatherTime: '',
     tournamentName: '',
+    matchFeeAmount: null,
     coaches: [],
     players: [],
     absentPlayers: []
@@ -354,10 +382,22 @@ const parseDescription = (description: string): ParsedDescription => {
     .map((line) => collapseWhitespace(line))
 
   let currentSection: 'coaches' | 'players' | null = null
+  let awaitingMatchFeeAmount = false
 
   for (const rawLine of lines) {
     const line = rawLine.trim()
     if (!line) continue
+
+    if (awaitingMatchFeeAmount && result.matchFeeAmount == null) {
+      const pendingAmount = parseMatchFeeAmountValue(line)
+      if (pendingAmount != null) {
+        result.matchFeeAmount = pendingAmount
+        awaitingMatchFeeAmount = false
+        currentSection = null
+        continue
+      }
+      awaitingMatchFeeAmount = false
+    }
 
     const categoryMatch = line.match(/^組別\s*\/\s*類別\s*[：:]\s*(.*)$/)
     if (categoryMatch) {
@@ -383,6 +423,16 @@ const parseDescription = (description: string): ParsedDescription => {
     const tournamentNameMatch = line.match(/^盃賽名稱\s*[：:]\s*(.*)$/)
     if (tournamentNameMatch) {
       result.tournamentName = tournamentNameMatch[1].trim()
+      currentSection = null
+      continue
+    }
+
+    const matchFeeMatch = line.match(matchFeeLinePattern)
+    if (matchFeeMatch) {
+      if (result.matchFeeAmount == null) {
+        result.matchFeeAmount = parseMatchFeeAmount(line)
+        awaitingMatchFeeAmount = result.matchFeeAmount == null && matchFeeMatch[1].trim() === ''
+      }
       currentSection = null
       continue
     }
@@ -665,6 +715,7 @@ export const createMatchRecordInput = (
     google_calendar_event_id: match.id || null,
     match_name: match.matchName || match.title || '未命名賽事',
     tournament_name: getCalendarTournamentName(match) || null,
+    match_fee_amount: match.matchFeeAmount,
     opponent: match.opponent || '待確認',
     match_date: match.date,
     match_time: match.matchTime,
@@ -693,7 +744,8 @@ const createMatchScheduleUpdateInput = (match: ParsedMatch): Partial<MatchRecord
     match_time: match.matchTime,
     location: match.location,
     category_group: match.category,
-    match_level: match.level
+    match_level: match.level,
+    match_fee_amount: match.matchFeeAmount
   }
 
   const tournamentName = getCalendarTournamentName(match)
@@ -735,7 +787,8 @@ const syncUpdateFields: Array<keyof MatchRecordInput> = [
   'match_time',
   'location',
   'category_group',
-  'match_level'
+  'match_level',
+  'match_fee_amount'
 ]
 
 const normalizeSyncValue = (value: unknown) => {
@@ -757,7 +810,8 @@ const scheduleFieldLabels: Partial<Record<keyof MatchRecordInput, string>> = {
   match_time: '時間',
   location: '地點',
   category_group: '組別',
-  match_level: '賽事等級'
+  match_level: '賽事等級',
+  match_fee_amount: '比賽費用'
 }
 
 const isSyncPayloadEqual = (existing: MatchRecord, payload: Partial<MatchRecordInput>) =>
@@ -937,6 +991,7 @@ export const parseMatchRecord = (event: ParsedICalEvent): ParsedMatch => {
     category: descriptionFields.category,
     level: descriptionFields.level,
     gatherTime: descriptionFields.gatherTime,
+    matchFeeAmount: descriptionFields.matchFeeAmount,
     coaches: descriptionFields.coaches,
     players: descriptionFields.players,
     absentPlayers: descriptionFields.absentPlayers,
