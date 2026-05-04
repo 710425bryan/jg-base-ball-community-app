@@ -53,7 +53,7 @@ export interface DashboardSnapshot {
   recentAnnouncements: DashboardAnnouncement[]
 }
 
-export type NotificationSource = 'leave' | 'member' | 'join' | 'fee' | 'match' | 'announcement' | 'equipment' | 'training'
+export type NotificationSource = 'leave' | 'member' | 'join' | 'fee' | 'match' | 'announcement' | 'equipment' | 'training' | 'training_location'
 
 export interface NotificationFeedRow {
   id: string

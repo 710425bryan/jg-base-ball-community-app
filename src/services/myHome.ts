@@ -6,7 +6,8 @@ import {
   type MyHomeMember,
   type MyHomeNextEvent,
   type MyHomePaymentDueItem,
-  type MyHomeSnapshot
+  type MyHomeSnapshot,
+  type MyHomeTrainingLocation
 } from '@/types/myHome'
 import {
   isSupabaseRpcMissingError,
@@ -23,6 +24,17 @@ const normalizeNumber = (value: unknown) => {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
+const getWeekStartDate = (today?: string | null) => {
+  if (!today) return null
+  const [year, month, day] = today.split('-').map(Number)
+  if (!year || !month || !day) return null
+
+  const date = new Date(Date.UTC(year, month - 1, day))
+  const weekday = date.getUTCDay() || 7
+  date.setUTCDate(date.getUTCDate() - weekday + 1)
+  return date.toISOString().slice(0, 10)
+}
+
 const hasTrainingPointFields = (member: Partial<MyHomeMember> | null | undefined) =>
   Boolean(member && (
     'point_balance' in member
@@ -35,6 +47,20 @@ const normalizeMember = (member: MyHomeMember): MyHomeMember => ({
   point_balance: normalizeNumber(member.point_balance),
   reserved_training_points: normalizeNumber(member.reserved_training_points),
   available_training_points: normalizeNumber(member.available_training_points)
+})
+
+const normalizeTrainingLocation = (row: Partial<MyHomeTrainingLocation>): MyHomeTrainingLocation => ({
+  session_id: String(row?.session_id || ''),
+  member_id: String(row?.member_id || ''),
+  member_name: String(row?.member_name || ''),
+  title: String(row?.title || ''),
+  training_date: String(row?.training_date || ''),
+  start_time: row?.start_time ? String(row.start_time) : null,
+  end_time: row?.end_time ? String(row.end_time) : null,
+  venue_name: String(row?.venue_name || ''),
+  venue_address: row?.venue_address ? String(row.venue_address) : null,
+  venue_maps_url: row?.venue_maps_url ? String(row.venue_maps_url) : null,
+  is_on_leave: Boolean(row?.is_on_leave)
 })
 
 const enrichMembersWithTrainingPoints = async (
@@ -73,6 +99,31 @@ const enrichMembersWithTrainingPoints = async (
   }
 }
 
+const enrichSnapshotWithTrainingLocations = async (
+  snapshot: MyHomeSnapshot,
+  rawPayload: Partial<MyHomeSnapshot> | null | undefined,
+  today?: string | null
+): Promise<MyHomeSnapshot> => {
+  if (rawPayload && 'training_locations' in rawPayload) {
+    return snapshot
+  }
+
+  try {
+    const { data, error } = await supabase.rpc('list_my_week_training_locations', {
+      p_week_start: getWeekStartDate(today)
+    })
+    if (error) throw error
+
+    return {
+      ...snapshot,
+      training_locations: ensureArray<Partial<MyHomeTrainingLocation>>(data).map(normalizeTrainingLocation)
+    }
+  } catch (error) {
+    console.warn('list_my_week_training_locations RPC 無法補齊首頁訓練場地，暫以首頁摘要資料顯示。', error)
+    return snapshot
+  }
+}
+
 const normalizeSnapshot = (payload: Partial<MyHomeSnapshot> | null | undefined): MyHomeSnapshot => {
   const fallback = createEmptyMyHomeSnapshot()
 
@@ -80,6 +131,7 @@ const normalizeSnapshot = (payload: Partial<MyHomeSnapshot> | null | undefined):
     members: ensureArray<MyHomeMember>(payload?.members).map(normalizeMember),
     next_event: (payload?.next_event ?? fallback.next_event) as MyHomeNextEvent | null,
     today_leaves: ensureArray<MyHomeLeaveStatus>(payload?.today_leaves),
+    training_locations: ensureArray<Partial<MyHomeTrainingLocation>>(payload?.training_locations).map(normalizeTrainingLocation),
     payment_summary: {
       unpaid_count: normalizeNumber(payload?.payment_summary?.unpaid_count),
       pending_review_count: normalizeNumber(payload?.payment_summary?.pending_review_count),
@@ -120,7 +172,11 @@ export const getMyHomeSnapshot = async (today?: string | null) => {
 
   const payload = (data ?? null) as Partial<MyHomeSnapshot> | null
   const rawMembers = ensureArray<Partial<MyHomeMember>>(payload?.members)
-  const snapshot = normalizeSnapshot(payload)
+  const snapshot = await enrichSnapshotWithTrainingLocations(
+    normalizeSnapshot(payload),
+    payload,
+    today
+  )
 
   return enrichMembersWithTrainingPoints(snapshot, rawMembers)
 }

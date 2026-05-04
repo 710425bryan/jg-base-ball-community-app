@@ -54,7 +54,7 @@ description: "Training registration and player points workflow for jg-base-ball-
 
 - 報名設定新增 / 更新走 `upsert_training_session_settings(...)`。
 - 沒有特訓資料時，教練可用 `create_training_match_with_settings(...)` 建立 `matches` + `training_session_settings`。
-- 新增特訓課預設上課時間為 `09:00 - 11:00`，地點為 `中港國小`。
+- 新增特訓課預設上課時間為 `09:00 - 12:00`，地點為 `中港國小`。
 - 上課時間輸入使用 Element Plus 時間範圍元件，送出仍存成 `matches.match_time` 字串。
 - 錄取、候補、未錄取走 `review_training_registration(...)`。
 - 公布名單走 `publish_training_selection(...)`。

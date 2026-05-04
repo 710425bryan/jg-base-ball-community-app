@@ -55,7 +55,7 @@ type PointGrantPreset = {
   reason: string
 }
 
-const DEFAULT_TRAINING_TIME_RANGE: TrainingTimeRange = ['09:00', '11:00']
+const DEFAULT_TRAINING_TIME_RANGE: TrainingTimeRange = ['09:00', '12:00']
 const DEFAULT_TRAINING_LOCATION = '中港國小'
 const createDefaultTrainingTimeRange = (): TrainingTimeRange => [...DEFAULT_TRAINING_TIME_RANGE]
 

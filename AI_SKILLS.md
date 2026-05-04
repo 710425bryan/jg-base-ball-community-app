@@ -53,6 +53,12 @@
 - 用途：特訓報名、球員點數、教練錄取、特訓點名與禁報流程。
 - 典型情境：修改 `/training`、`training_session_settings`、`training_registrations`、`player_point_transactions`、`training_no_show_blocks`、特訓快速發放點數、或 `attendance_events.training_session_id` 串接。
 
+### `jg-baseball-training-locations`
+
+- 路徑：`.codex/skills/jg-baseball-training-locations/SKILL.md`
+- 用途：訓練場地與人員配置、分組快速帶入、個人首頁本週場地、場地通知。
+- 典型情境：修改 `/training-locations`、`training_venues`、`training_location_sessions`、`training_location_assignments`、`send-training-location-notifications`、或 `training_locations` 權限。
+
 ### `jg-baseball-equipment-management`
 
 - 路徑：`.codex/skills/jg-baseball-equipment-management/SKILL.md`

@@ -173,6 +173,30 @@ describe('notification feed controller', () => {
     })
   })
 
+  it('maps training location notifications', async () => {
+    const fetcher = vi.fn().mockResolvedValue([
+      {
+        id: 'training_location:session-1:user-1:2026-05-01T08:00:00.000Z',
+        source: 'training_location',
+        title: '訓練場地通知：2026-05-02 週六訓練',
+        body: '王小明：中港國小',
+        created_at: '2026-05-01T12:10:00.000Z',
+        link: '/dashboard?training_date=2026-05-02',
+        highlight_member_id: 'member-1'
+      }
+    ])
+
+    const controller = createNotificationFeedController(fetcher)
+    await controller.loadNotificationFeed(10)
+
+    expect(controller.notifications.value[0]).toMatchObject({
+      id: 'training_location:training_location:session-1:user-1:2026-05-01T08:00:00.000Z',
+      source: 'training_location',
+      link: '/dashboard?training_date=2026-05-02',
+      highlightMemberId: 'member-1'
+    })
+  })
+
   it('maps fee management reminder notifications and keeps current todo ids stable', async () => {
     const fetcher = vi.fn()
       .mockResolvedValueOnce([

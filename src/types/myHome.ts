@@ -40,6 +40,20 @@ export type MyHomeLeaveStatus = {
   reason: string | null
 }
 
+export type MyHomeTrainingLocation = {
+  session_id: string
+  member_id: string
+  member_name: string
+  title: string
+  training_date: string
+  start_time: string | null
+  end_time: string | null
+  venue_name: string
+  venue_address: string | null
+  venue_maps_url: string | null
+  is_on_leave: boolean
+}
+
 export type MyHomePaymentDueItem = {
   member_id: string
   member_name: string
@@ -79,6 +93,7 @@ export type MyHomeSnapshot = {
   members: MyHomeMember[]
   next_event: MyHomeNextEvent | null
   today_leaves: MyHomeLeaveStatus[]
+  training_locations: MyHomeTrainingLocation[]
   payment_summary: MyHomePaymentSummary
   equipment_summary: MyHomeEquipmentSummary
   recent_notifications: NotificationFeedRow[]
@@ -100,6 +115,7 @@ export const createEmptyMyHomeSnapshot = (): MyHomeSnapshot => ({
   members: [],
   next_event: null,
   today_leaves: [],
+  training_locations: [],
   payment_summary: {
     unpaid_count: 0,
     pending_review_count: 0,

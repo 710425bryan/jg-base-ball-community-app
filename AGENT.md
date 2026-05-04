@@ -41,6 +41,7 @@
 | 推播、通知中心、eventKey、subscription | `jg-baseball-push-notifications` | `src/utils/pushNotifications.ts`、`supabase/functions/send-push-notification/*` |
 | Google Calendar / iCal 賽事同步 | `jg-baseball-match-calendar-sync` | `src/utils/googleCalendarParser.ts`、`src/services/matchesApi.ts`、`SyncCalendarDialog.vue` |
 | 特訓報名、球員點數、特訓點名 | `jg-baseball-training` | `src/views/TrainingView.vue`、`src/services/trainingApi.ts`、`src/utils/training.ts`、`supabase_training_points_migration.sql` |
+| 場地與人員配置 | `jg-baseball-training-locations` | `src/views/TrainingLocationsView.vue`、`src/services/trainingLocationsApi.ts`、`src/utils/trainingLocationNotification.ts`、`supabase_training_locations_migration.sql` |
 | 裝備管理、加購、庫存、裝備付款 | `jg-baseball-equipment-management` | `src/types/equipment.ts`、`src/services/equipmentApi.ts`、`src/stores/equipment*.ts`、`src/components/equipment/*` |
 | 棒球能力 / 體能測驗數據 | `jg-baseball-performance-data` | `src/services/performanceApi.ts`、`src/stores/performance.ts`、`src/components/performance/*` |
 | 節日主題、全站動畫、節日推播 | `jg-baseball-holiday-theme` | `src/composables/useHolidayTheme.ts`、`HolidayThemeSettingsView.vue`、`notify-holiday-theme/*` |
@@ -109,7 +110,7 @@
 登入後頁面掛在 `MainLayout`，父層 `meta.requiresAuth = true`。
 
 - 不需額外 feature 的登入頁：`/dashboard`、`/calendar`、`/profile`、`/my-records`、`/my-payments`、`/equipment-addons`、`/my-leave-requests`。
-- 需要 `meta.feature` 的後台頁：`leave_requests`、`players`、`users`、`join_inquiries`、`announcements`、`holiday_theme_settings`、`attendance`、`training`、`matches`、`fees`、`baseball_ability`、`physical_tests`、`equipment`。
+- 需要 `meta.feature` 的後台頁：`leave_requests`、`players`、`users`、`join_inquiries`、`announcements`、`holiday_theme_settings`、`attendance`、`training`、`training_locations`、`matches`、`fees`、`baseball_ability`、`physical_tests`、`equipment`。
 - `baseball_ability` 與 `physical_tests` 有 `allowLinkedMemberView` 例外：有綁定球員者可唯讀自己的資料；管理權限者可看全隊。
 - 無權限時導回 `/dashboard`。
 
@@ -177,10 +178,18 @@
 - 前端頁面為 `/training`，分為個人報名、教練管理、點數管理；資料存取皆走 `src/services/trainingApi.ts` 封裝的 security definer RPC。
 - `training` feature/actions：`VIEW / CREATE / EDIT / DELETE`；linked member 可進入 `/training` 看自己的點數與報名。教練管理與點數管理只給 `CREATE / EDIT / DELETE` 其中一種管理權限者，單純 `VIEW` 不顯示管理工具。
 - 報名開關由 DB 端檢查手動狀態與時間窗；個人端不可直接寫 raw table。
-- 教練可在沒有資料時建立特訓課與報名設定；新增特訓課預設上課時間 `09:00 - 11:00`、地點 `中港國小`，上課時間使用 Element Plus 時間範圍元件。
+- 教練可在沒有資料時建立特訓課與報名設定；新增特訓課預設上課時間 `09:00 - 12:00`、地點 `中港國小`，上課時間使用 Element Plus 時間範圍元件。
 - 報名開始時間到達且狀態為開放時，由 `send-training-registration-notifications` 排程檢查發送「特訓課開放報名」通知；事件寫入 `push_dispatch_events` 供通知中心顯示，同時發送 Web Push。
 - 點數管理支援大量發放：可依全隊、角色、組別快速選取，並套用常用點數 / 原因 preset；送出仍只呼叫 `grant_player_points(uuid[], integer, text)`，不可直接寫 `player_point_transactions`。
 - 特訓點名透過 `attendance_events.training_session_id` 串接；後端缺席狀態會建立下一場禁報，出席 / 請假會解除該次禁報，但 `/attendance/:id` Detail UI 不顯示或提供 `缺席` 操作。
+
+### 場地與人員配置
+
+- 後台路由 `/training-locations`，feature key 為 `training_locations`，actions：`VIEW / CREATE / EDIT / DELETE`。
+- 資料表為 `training_venues`、`training_location_sessions`、`training_location_session_venues`、`training_location_assignments`；前端一律走 `src/services/trainingLocationsApi.ts` 封裝的 security definer RPC。
+- 設定頁可建立某天訓練的多場地區塊，依全隊、角色或 `team_group` 快速帶入球員，再手動拖曳 / 勾選微調；同一訓練同一球員只能被配置到一個場地。
+- 個人首頁透過 `get_my_home_snapshot()` 或 `list_my_week_training_locations()` 顯示 linked member 本週訓練場地；已請假球員仍可看到配置，但標示已請假。
+- `send-training-location-notifications` 於台灣時間前一天 20:10 或手動觸發，僅通知該球員綁定的有效使用者，且排除該訓練日已請假的球員；通知事件寫入 `push_dispatch_events.target_user_id` / `target_member_ids`，通知中心只顯示自己的場地通知。
 
 ### 收費與付款
 

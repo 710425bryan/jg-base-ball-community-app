@@ -76,6 +76,7 @@
 | `src/services/playerRosterApi.ts` | 球員名單查詢與 cache meta RPC | `team_members` / `team_members_safe` / `get_team_members_cache_meta()` |
 | `src/services/matchesApi.ts` | 賽事 CRUD | `matches` |
 | `src/services/trainingApi.ts` | 特訓報名、點數、特訓點名 RPC | `training_*` / `player_point_transactions` / `attendance_events.training_session_id` |
+| `src/services/trainingLocationsApi.ts` | 場地與人員配置 RPC | `training_location_*` / `training_venues` |
 | `src/services/equipmentApi.ts` | 裝備、加購、付款、庫存 API | 裝備 tables / RPC / `equipments` bucket |
 | `src/services/performanceApi.ts` | 棒球能力 / 體測 API | performance tables / RPC |
 | `src/services/supabase.ts` | Supabase client | env vars |
@@ -97,6 +98,7 @@
 | `src/utils/pushNotifications.ts` | 前端推播派送、event key helper |
 | `src/utils/pushDeepLink.ts` | Web Push 點擊 target 正規化、IndexedDB / Cache Storage pending target、iOS PWA deep link fallback 與診斷 |
 | `src/utils/trainingRegistrationNotification.ts` | 特訓報名開始通知文案、URL、event key |
+| `src/utils/trainingLocationNotification.ts` | 場地通知文案、URL、event key、收件分組 |
 | `src/utils/googleCalendarParser.ts` | Google Calendar / iCal parser 與同步規劃 |
 | `src/utils/equipmentInventory.ts` | 裝備庫存計算 |
 | `src/utils/equipmentPricing.ts` | 裝備價格計算 |
@@ -138,6 +140,7 @@
 | `/attendance` | `src/views/AttendanceListView.vue` | `attendance:VIEW` |
 | `/attendance/:id` | `src/views/RollCallView.vue` | `attendance:VIEW` |
 | `/training` | `src/views/TrainingView.vue` | `training` + linked member exception |
+| `/training-locations` | `src/views/TrainingLocationsView.vue` | `training_locations:VIEW` |
 | `/match-records` | `src/views/MatchRecordsView.vue` | `matches:VIEW` |
 | `/fees` | `src/views/FeesView.vue` | `fees:VIEW` |
 | `/equipment` | `src/views/EquipmentView.vue` | `equipment:VIEW` |
@@ -234,6 +237,7 @@
 | 裝備 | `supabase_equipment_management_migration.sql`、`supabase_equipment_inventory_adjustments_migration.sql`、`supabase_equipment_manual_purchase_records_migration.sql`、`supabase_equipment_multiple_photos_migration.sql` |
 | 能力 / 體測 | `supabase_performance_data_migration.sql`、`supabase_performance_view_scope_migration.sql` |
 | 特訓 / 點數 | `supabase_training_points_migration.sql`、`supabase_zz_training_point_transaction_delete_migration.sql`、`supabase_zz_training_registration_notifications_migration.sql` |
+| 場地與人員配置 | `supabase_training_locations_migration.sql` |
 | 賽事同步 | `supabase_matches_google_calendar_sync_migration.sql`、`supabase_match_calendar_daily_sync_schedule.sql` |
 | 推播 | `supabase_web_push_subscriptions_migration.sql`、`supabase_push_dispatch_events_migration.sql`、`supabase_match_reminder_notifications_migration.sql` |
 | 節日主題 | `supabase_holiday_theme_migration.sql` |
@@ -250,6 +254,7 @@
 | `supabase/functions/notify-holiday-theme/logic.ts` | 節日通知邏輯 |
 | `supabase/functions/send-match-reminders/index.ts` | 賽事提醒 |
 | `supabase/functions/send-training-registration-notifications/index.ts` | 特訓報名開始通知 |
+| `supabase/functions/send-training-location-notifications/index.ts` | 訓練場地通知 |
 | `supabase/functions/sync-match-calendar/index.ts` | 賽事日曆同步 |
 | `supabase/functions/leave-webhook/index.ts` | 請假 webhook |
 | `supabase/functions/record-fee-remittance/index.ts` | 繳費匯款紀錄 |

@@ -115,6 +115,12 @@ const router = createRouter({
           meta: { feature: 'training', allowLinkedMemberView: true }
         },
         {
+          path: 'training-locations',
+          name: 'TrainingLocations',
+          component: () => import('../views/TrainingLocationsView.vue'),
+          meta: { feature: 'training_locations' }
+        },
+        {
           path: 'leave-requests',
           name: 'LeaveRequests',
           component: () => import('../views/LeaveRequestsView.vue'),

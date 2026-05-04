@@ -357,6 +357,12 @@ const systemFeatures = [
     actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
   },
   {
+    key: 'training_locations',
+    name: '場地與人員配置',
+    desc: '設定訓練場地、人員分組與場地通知',
+    actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
+  },
+  {
     key: 'matches',
     name: '比賽紀錄',
     desc: '新增編輯賽事成績、先發名單',

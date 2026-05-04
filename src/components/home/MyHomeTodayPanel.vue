@@ -33,6 +33,15 @@ const selectedMember = computed(() => getSelectedMyHomeMember(members.value, pro
 const selectedLeave = computed(() => getMyHomeMemberLeave(props.snapshot, selectedMember.value?.id))
 const todoItems = computed(() => buildMyHomeTodoItems(props.snapshot, selectedMember.value?.id))
 const nextEvent = computed(() => props.snapshot.next_event)
+const selectedTrainingLocations = computed(() =>
+  props.snapshot.training_locations
+    .filter((location) => location.member_id === selectedMember.value?.id)
+    .sort((left, right) => {
+      const leftKey = `${left.training_date} ${left.start_time || '23:59'}`
+      const rightKey = `${right.training_date} ${right.start_time || '23:59'}`
+      return leftKey.localeCompare(rightKey)
+    })
+)
 const paymentSummary = computed(() => props.snapshot.payment_summary)
 const equipmentSummary = computed(() => props.snapshot.equipment_summary)
 const isPointCardFlipped = ref(false)
@@ -66,6 +75,23 @@ const getMapsHref = (location: string | null | undefined) => {
 }
 
 const nextEventLocationHref = computed(() => getMapsHref(nextEvent.value?.location))
+
+const getTrainingLocationHref = (location: {
+  venue_name?: string | null
+  venue_address?: string | null
+  venue_maps_url?: string | null
+}) => location.venue_maps_url || getMapsHref(location.venue_address || location.venue_name)
+
+const formatTrainingLocationDate = (value: string) => {
+  const date = new Date(`${value}T00:00:00+08:00`)
+  if (Number.isNaN(date.getTime())) return value
+  return `${value.slice(5).replace('-', '/')} 週${'日一二三四五六'[date.getDay()]}`
+}
+
+const formatTrainingLocationTime = (start?: string | null, end?: string | null) => {
+  if (start && end) return `${start}-${end}`
+  return start || end || '時間未設定'
+}
 
 const getTodoClass = (todo: MyHomeTodoItem) => {
   const classMap: Record<MyHomeTodoItem['severity'], string> = {
@@ -135,14 +161,16 @@ watch(() => selectedMember.value?.id, () => {
         <div v-for="index in 3" :key="index" class="h-40 animate-pulse rounded-2xl bg-slate-100"></div>
       </div>
 
-      <div v-else-if="errorMessage" class="p-5 md:p-6">
-        <div class="rounded-2xl border border-amber-100 bg-amber-50 px-5 py-4 text-sm font-bold text-amber-700">
-          {{ errorMessage }}
+      <div v-else class="p-5 md:p-6">
+        <div
+          v-if="errorMessage"
+          class="mb-4 rounded-2xl border border-amber-100 bg-amber-50 px-5 py-4 text-sm font-bold text-amber-700"
+        >
+          部分資料暫時無法更新：{{ errorMessage }}
         </div>
-      </div>
 
-      <div v-else class="grid gap-4 p-5 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] md:p-6 xl:grid-cols-[minmax(0,0.75fr)_minmax(0,1.05fr)_minmax(320px,0.9fr)]">
-        <section class="rounded-2xl border border-slate-100 bg-slate-50 p-5">
+        <div class="grid gap-4 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] xl:grid-cols-[minmax(0,0.75fr)_minmax(0,1.05fr)_minmax(320px,0.9fr)]">
+          <section class="rounded-2xl border border-slate-100 bg-slate-50 p-5">
           <div class="flex items-center gap-3">
             <div class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white text-slate-400 shadow-sm">
               <img
@@ -219,9 +247,9 @@ watch(() => selectedMember.value?.id, () => {
               </span>
             </span>
           </button>
-        </section>
+          </section>
 
-        <section class="rounded-2xl border border-primary/10 bg-primary/5 p-5">
+          <section class="rounded-2xl border border-primary/10 bg-primary/5 p-5">
           <div class="flex items-start justify-between gap-4">
             <div>
               <div class="text-[11px] font-black uppercase tracking-[0.18em] text-primary/80">Next Up</div>
@@ -239,6 +267,49 @@ watch(() => selectedMember.value?.id, () => {
               <span class="truncate">{{ nextEvent.location }}</span>
             </div>
             <div v-if="nextEvent.coaches" class="line-clamp-1">帶隊教練：{{ nextEvent.coaches }}</div>
+          </div>
+
+          <div class="mt-5 rounded-2xl border border-white/70 bg-white/70 p-4">
+            <div class="flex items-center justify-between gap-3">
+              <div class="text-sm font-black text-slate-900">本週訓練場地</div>
+              <span class="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-black text-primary">{{ selectedTrainingLocations.length }} 筆</span>
+            </div>
+
+            <div v-if="selectedTrainingLocations.length > 0" class="mt-3 grid gap-2">
+              <article
+                v-for="location in selectedTrainingLocations"
+                :key="`${location.session_id}:${location.member_id}`"
+                class="rounded-xl border px-3 py-2"
+                :class="location.is_on_leave ? 'border-amber-100 bg-amber-50 text-amber-800' : 'border-slate-100 bg-slate-50 text-slate-700'"
+              >
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <div class="truncate text-sm font-black">{{ location.title }}</div>
+                    <div class="mt-1 text-xs font-bold opacity-75">
+                      {{ formatTrainingLocationDate(location.training_date) }}｜{{ formatTrainingLocationTime(location.start_time, location.end_time) }}
+                    </div>
+                  </div>
+                  <span v-if="location.is_on_leave" class="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-black text-amber-700">已請假</span>
+                </div>
+                <div class="mt-2 flex min-w-0 items-center gap-2 text-sm font-black">
+                  <el-icon class="shrink-0 text-primary"><Location /></el-icon>
+                  <span class="truncate">{{ location.venue_name }}</span>
+                </div>
+                <a
+                  v-if="getTrainingLocationHref(location)"
+                  :href="getTrainingLocationHref(location) || undefined"
+                  target="_blank"
+                  rel="noreferrer"
+                  class="mt-2 inline-flex text-xs font-black text-primary hover:underline"
+                >
+                  開啟導航
+                </a>
+              </article>
+            </div>
+
+            <div v-else class="mt-3 rounded-xl border border-dashed border-slate-200 bg-white px-3 py-4 text-center text-sm font-bold text-slate-400">
+              本週尚未發布場地配置。
+            </div>
           </div>
 
           <div class="mt-5 flex flex-wrap gap-2">
@@ -265,9 +336,9 @@ watch(() => selectedMember.value?.id, () => {
               我要請假
             </RouterLink>
           </div>
-        </section>
+          </section>
 
-        <section class="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm md:col-span-2 xl:col-span-1">
+          <section class="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm md:col-span-2 xl:col-span-1">
           <div class="flex items-center justify-between gap-3">
             <div>
               <div class="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">To-do</div>
@@ -308,7 +379,8 @@ watch(() => selectedMember.value?.id, () => {
               <div class="mt-1 text-xs font-bold text-primary">待領 {{ equipmentSummary.ready_for_pickup_count }} 筆</div>
             </div>
           </div>
-        </section>
+          </section>
+        </div>
       </div>
     </div>
   </section>
