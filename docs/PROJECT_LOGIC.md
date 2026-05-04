@@ -181,11 +181,13 @@ UI 約定：
 - `get_team_members_cache_meta()` 只回傳版本資訊，不回傳球員個資，且需通過 `players:VIEW`。
 - 使用者新增 / 更新 / 刪除走 admin RPC，例如 `admin_insert_profile()`、`admin_update_profile()`、`admin_delete_user()`。
 - 角色權限 UI 讀寫 `app_roles`、`app_role_permissions`。
+- `team_members.joined_date` 記錄球員加入時間；既有名單無歷史資料時回填 `2026-02-01`，新建資料預設為台灣當天日期。
 
 同步規則：
 
 - Google Form / Sheet 同步使用 `src/utils/playerSync.ts`。
 - 既有球員同步不得覆蓋 `is_primary_payer`、`is_half_price` 與 `fee_billing_mode`。
+- Google Form / Sheet 未提供加入時間來源時，不覆蓋既有 `joined_date`；新增球員交由 DB 預設台灣當天日期。
 - 新增球員時主要繳費人 / 半價預設為 `false`，收費模式預設 `role_default`。
 - dedupe key 空白時不可把多筆資料合併成同一人。
 

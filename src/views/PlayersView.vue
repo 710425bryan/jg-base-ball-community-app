@@ -126,6 +126,12 @@
               <span v-else class="text-gray-300">-</span>
             </template>
           </el-table-column>
+          <el-table-column prop="joined_date" label="加入時間" width="115" sortable>
+            <template #default="{ row }">
+              <span v-if="row.joined_date" class="font-bold text-gray-800 text-[13px] md:text-sm">{{ row.joined_date }}</span>
+              <span v-else class="text-gray-300">-</span>
+            </template>
+          </el-table-column>
           <el-table-column prop="role" label="身分" width="90">
             <template #default="{ row }">
               <span class="players-role-badge font-bold px-2 py-0.5 rounded border uppercase tracking-wider" :class="getRoleClass(row.role)">{{ row.role }}</span>
@@ -253,6 +259,13 @@
                   <span v-else class="text-gray-300">-</span>
                 </div>
                 <div class="min-w-0">
+                  <span class="block text-[10px] font-bold text-slate-400 mb-0.5">加入時間</span>
+                  <span v-if="member.joined_date" class="block font-bold text-slate-800 truncate">
+                    {{ member.joined_date }}
+                  </span>
+                  <span v-else class="text-gray-300">-</span>
+                </div>
+                <div class="min-w-0">
                   <span class="block text-[10px] font-bold text-slate-400 mb-0.5">球衣名字</span>
                   <span v-if="member.jersey_name" class="block font-bold text-slate-800 truncate">
                     {{ member.jersey_name }}
@@ -366,6 +379,9 @@
             </el-form-item>
             <el-form-item label="生日 (西元年)" prop="birth_date" class="font-bold mb-0">
               <el-date-picker v-model="form.birth_date" type="date" placeholder="選擇生日" format="YYYY-MM-DD" value-format="YYYY-MM-DD" class="!w-full" />
+            </el-form-item>
+            <el-form-item label="加入時間" prop="joined_date" class="font-bold mb-0">
+              <el-date-picker v-model="form.joined_date" type="date" placeholder="選擇加入時間" format="YYYY-MM-DD" value-format="YYYY-MM-DD" class="!w-full" />
             </el-form-item>
             <el-form-item v-if="canEditPlayers" label="身分證字號" prop="national_id" class="font-bold mb-0">
               <el-input v-model="form.national_id" placeholder="身分證字號" />
@@ -662,6 +678,14 @@ const DEFAULT_SYNC_USER_PASSWORD = '123456'
 const GENERAL_MEMBER_ROLE_FALLBACK = 'MEMBER'
 const GENERAL_MEMBER_ROLE_CANDIDATE_KEYS = ['MEMBER', 'PARENT', 'GENERAL_MEMBER']
 const DEFAULT_U_LEVEL_OPTIONS = ['U12', 'U11', 'U10', 'U9', 'U8']
+const DEFAULT_EXISTING_MEMBER_JOINED_DATE = '2026-02-01'
+const getTodayDateInputValue = () => {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const date = String(today.getDate()).padStart(2, '0')
+  return `${year}-${month}-${date}`
+}
 const TEAM_GROUP_OPTIONS = [
   {
     label: '拉拉熊(小組)',
@@ -713,6 +737,7 @@ const members = computed(() =>
   buildMembersWithNormalizedSiblings(playerRosterStore.members).map(m => ({
     ...m,
     team_group: isTeamGroupEligibleRole(m.role) ? normalizeTeamGroup(m.team_group) : null,
+    joined_date: m.joined_date || DEFAULT_EXISTING_MEMBER_JOINED_DATE,
     is_inactive_or_graduated: !!m.is_inactive_or_graduated,
     is_primary_payer: !!m.is_primary_payer,
     is_half_price: !!m.is_half_price,
@@ -968,6 +993,7 @@ const playerExportColumns = computed<PlayerExportColumn[]>(() => [
   { key: 'jersey_size', label: '球衣尺寸', sourceKeys: ['jersey_size'], getValue: (member) => member.jersey_size },
   { key: 'birth_date', label: '生日(西元)', basic: true, sourceKeys: ['birth_date'], getValue: (member) => member.birth_date },
   { key: 'roc_birth_date', label: '生日(民國)', basic: true, getValue: (member) => getROCDate(member.birth_date) },
+  { key: 'joined_date', label: '加入時間', basic: true, sourceKeys: ['joined_date'], getValue: (member) => member.joined_date },
   { key: 'national_id', label: '身分證字號', sensitive: true, sourceKeys: ['national_id'], getValue: (member) => member.national_id },
   { key: 'throwing_hand', label: '投球習慣', basic: true, sourceKeys: ['throwing_hand'], getValue: (member) => member.throwing_hand },
   { key: 'batting_hand', label: '打擊習慣', basic: true, sourceKeys: ['batting_hand'], getValue: (member) => member.batting_hand },
@@ -1188,7 +1214,7 @@ const formRef = ref()
 const previewAvatar = ref('')
 let selectedFile: File | null = null
 
-const initialForm = {
+const createInitialForm = () => ({
   id: '',
   name: '',
   role: '球員',
@@ -1198,6 +1224,7 @@ const initialForm = {
   jersey_name: '',
   jersey_size: '',
   birth_date: '',
+  joined_date: getTodayDateInputValue(),
   is_early_enrollment: false,
   is_inactive_or_graduated: false,
   is_primary_payer: false,
@@ -1215,14 +1242,15 @@ const initialForm = {
   portrait_auth: false,
   notes: '',
   avatar_url: ''
-}
+})
 
-const form = reactive({ ...initialForm })
+const form = reactive(createInitialForm())
 
 const rules = computed(() => ({
   name: [{ required: true, message: '請填寫姓名', trigger: 'blur' }],
   role: [{ required: true, message: '請選擇身分', trigger: 'change' }],
   birth_date: [{ required: true, message: '請選擇生日', trigger: 'change' }],
+  joined_date: [{ required: true, message: '請選擇加入時間', trigger: 'change' }],
   national_id: [{ required: true, message: '請填寫身分證字號', trigger: 'blur' }],
   throwing_hand: [{ required: form.role === '球員' || form.role === '校隊' || form.role === '教練', message: '請選擇投球慣用手', trigger: 'change' }],
   batting_hand: [{ required: form.role === '球員' || form.role === '校隊' || form.role === '教練', message: '請選擇打擊慣用方向', trigger: 'change' }],
@@ -1772,7 +1800,7 @@ const fetchData = async (options: { force?: boolean } = {}) => {
 // --- Modal 操作 ---
 const openCreateModal = () => {
   isEditing.value = false
-  Object.assign(form, initialForm)
+  Object.assign(form, createInitialForm())
   previewAvatar.value = ''
   selectedFile = null
   if(formRef.value) formRef.value.clearValidate()
@@ -1783,9 +1811,10 @@ const openEditModal = (member: any) => {
   // 有 EDIT 權限才可開啟編輯，否則直接 return（只讀情境可於此擴充）
   if (!canEditPlayers.value) return
   isEditing.value = true
-  Object.assign(form, initialForm)
+  Object.assign(form, createInitialForm())
   Object.assign(form, member)
   if (!form.status) form.status = '在隊'
+  if (!form.joined_date) form.joined_date = DEFAULT_EXISTING_MEMBER_JOINED_DATE
   form.is_inactive_or_graduated = !!member.is_inactive_or_graduated
   form.fee_billing_mode = normalizeMemberFeeBillingMode(member.fee_billing_mode)
   if (!form.sibling_ids) form.sibling_ids = []
