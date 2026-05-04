@@ -128,7 +128,7 @@ UI 約定：
 
 資料流：
 
-- 個人化首頁摘要走 `get_my_home_snapshot(p_today)`。
+- 個人化首頁摘要走 `get_my_home_snapshot(p_today)`，`MyHomeTodayPanel` 會在目前選取的綁定成員區塊顯示特訓點數卡；點數欄位優先由 snapshot 的 `members[*]` 帶入，若線上 RPC 尚未更新則由 `list_my_training_members()` 補齊，只呈現自己的 linked member。
 - 後台大廳的「今日訓練點名狀態」走 `get_dashboard_today_attendance_status(p_today)`，只給具備 `leave_requests:VIEW` 的角色顯示。
 - 我的假單：
   - `list_my_leave_members()`
@@ -273,13 +273,14 @@ UI 約定：
 
 資料流：
 
-- 家長 / 球員透過 `/training` 依 linked member 查看點數、可報名特訓與自己的報名狀態。
+- 家長 / 球員透過 `/training` 依 linked member 查看點數、點數紀錄、可報名特訓與自己的報名狀態；即使是管理者，在「我要報名」區塊也只顯示目前選取成員的點數紀錄。
 - 教練在 `/training` 設定特訓報名時間窗、手動開關、名額與扣點數，並審核錄取 / 候補 / 未錄取；教練管理與點數管理只給 `training:CREATE / EDIT / DELETE` 任一管理權限者。
 - 沒有特訓資料時，教練可在報名設定內新增特訓課與 settings；新增特訓課預設上課時間 `09:00 - 11:00`、地點 `中港國小`，上課時間使用 Element Plus 時間範圍元件，送出仍存成 `matches.match_time` 字串。
 - 報名開始時間到達且 `manual_status = 'open'` 時，`send-training-registration-notifications` 會建立 `training_registration_open:*` 事件，讓系統通知中心與 Web Push 同步收到「特訓課開放報名」通知。
 - 報名 RPC 會在 DB 端檢查 linked member、點數、禁報狀態、手動狀態與報名時間窗。
 - 錄取時保留點數；`process_training_session_automation()` 在上課當天對已錄取名單扣點，並用 idempotency key 避免重複扣。
 - 點數管理支援快速發放：可一鍵選全隊、角色、組別，套用常用點數 / 原因 preset；真正寫入仍統一呼叫 `grant_player_points(uuid[], integer, text)`，以交易紀錄追加方式建立流水帳。
+- 點數流水帳可由 `training:DELETE` 權限者刪除手動建立的誤發紀錄；刪除統一走 `delete_player_point_transactions(uuid[])`，系統扣點 / 關聯報名 / idempotency 紀錄不可刪，且刪除後餘額不得低於已保留點數。
 - 特訓點名單由 `create_training_attendance_event()` 建立，只列錄取球員；後端缺席狀態會建立下一場特訓禁報，改成出席 / 請假會解除該次禁報，但 `/attendance/:id` Detail UI 不顯示或提供 `缺席` 操作。
 
 重要規則：
@@ -287,7 +288,7 @@ UI 約定：
 - 個人端不直接寫入 training raw table，新增 / 取消報名走 security definer RPC。
 - 一般成員或家長即使有 `training:VIEW`，也只看到個人報名 / 點數檢視，不可看到教練管理或點數發放工具。
 - 錄取名單公布後，登入使用者只能看到非敏感名單欄位。
-- 點數流水帳不可任意更新；加點、扣點、調整都新增 `player_point_transactions`。
+- 點數流水帳不可任意更新；加點、扣點、調整都新增 `player_point_transactions`，誤發刪除需走受權限與餘額檢查保護的 RPC。
 - 特訓報名開始通知必須有穩定 event key，避免排程重試造成通知中心與 Web Push 重複顯示。
 
 ## 11. 收費與付款

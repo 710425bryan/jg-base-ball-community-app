@@ -66,6 +66,7 @@ description: "Training registration and player points workflow for jg-base-ball-
 - 快速操作只負責填入 `member_ids`、`delta`、`reason`，不可繞過 RPC 直接寫 `player_point_transactions`。
 - 負數調整必須避免讓可用點數低於已保留點數，這個檢查在 DB RPC 中維持。
 - 點數餘額由 `get_player_point_balance()` 與 `get_player_reserved_training_points()` 推導，不新增前端自算權威餘額。
+- 後台大廳 `MyHomeTodayPanel` 的特訓點數卡優先讀 `get_my_home_snapshot()` 回傳的 linked member 點數欄位；若 snapshot 尚未部署點數欄位，`src/services/myHome.ts` 會用 `list_my_training_members()` 補齊，只顯示目前選取成員，不直接查 raw table。
 
 ## 點名與禁報
 

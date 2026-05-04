@@ -3,7 +3,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Check, Close, Medal, Plus, Refresh, Select, Setting, Tickets, Timer } from '@element-plus/icons-vue'
+import { Check, Close, Delete, Medal, Plus, Refresh, Select, Setting, Tickets, Timer } from '@element-plus/icons-vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
 import { supabase } from '@/services/supabase'
@@ -71,10 +71,12 @@ const sessions = ref<TrainingSession[]>([])
 const selectedMemberId = ref('')
 const selectedAdminSessionId = ref('')
 const adminRegistrations = ref<TrainingAdminRegistration[]>([])
-const pointTransactions = ref<TrainingPointTransaction[]>([])
+const memberPointTransactions = ref<TrainingPointTransaction[]>([])
+const managementPointTransactions = ref<TrainingPointTransaction[]>([])
 const rosterOptions = ref<TeamMemberOption[]>([])
 const isSavingSettings = ref(false)
 const isGrantingPoints = ref(false)
+const deletingPointTransactionId = ref<string | null>(null)
 const isReviewing = ref(false)
 const isCreatingAttendance = ref(false)
 const isCreateSessionDialogOpen = ref(false)
@@ -114,7 +116,9 @@ const canManageTraining = computed(() =>
 )
 const canEditTraining = computed(() => permissionsStore.can('training', 'EDIT'))
 const canCreateTraining = computed(() => permissionsStore.can('training', 'CREATE'))
+const canDeletePoints = computed(() => permissionsStore.can('training', 'DELETE'))
 const canGrantPoints = computed(() => canCreateTraining.value || canEditTraining.value)
+const canManagePoints = computed(() => canGrantPoints.value || canDeletePoints.value)
 const pageSubtitle = computed(() =>
   canManageTraining.value
     ? '球員點數、特訓報名與教練錄取管理'
@@ -238,8 +242,22 @@ const refreshAdminRegistrations = async () => {
   adminRegistrations.value = await trainingApi.listAdminRegistrations(selectedAdminSession.value.session_id)
 }
 
-const refreshPointTransactions = async () => {
-  pointTransactions.value = await trainingApi.listPointTransactions(canManageTraining.value ? null : selectedMemberId.value)
+const refreshMemberPointTransactions = async () => {
+  if (!selectedMemberId.value) {
+    memberPointTransactions.value = []
+    return
+  }
+
+  memberPointTransactions.value = await trainingApi.listPointTransactions(selectedMemberId.value)
+}
+
+const refreshManagementPointTransactions = async () => {
+  if (!canManagePoints.value) {
+    managementPointTransactions.value = []
+    return
+  }
+
+  managementPointTransactions.value = await trainingApi.listPointTransactions(null)
 }
 
 const refreshData = async () => {
@@ -264,7 +282,8 @@ const refreshData = async () => {
 
     await Promise.all([
       refreshAdminRegistrations(),
-      refreshPointTransactions(),
+      refreshMemberPointTransactions(),
+      refreshManagementPointTransactions(),
       loadRosterOptions()
     ])
   } catch (error: any) {
@@ -277,7 +296,7 @@ const refreshData = async () => {
 
 const handleMemberChange = async () => {
   sessions.value = await trainingApi.listTrainingSessions(selectedMemberId.value || null)
-  await refreshPointTransactions()
+  await refreshMemberPointTransactions()
 }
 
 const handleAdminSessionChange = async () => {
@@ -500,6 +519,42 @@ const grantPoints = async () => {
   }
 }
 
+const canDeletePointTransaction = (transaction: TrainingPointTransaction) =>
+  transaction.source === 'manual'
+  && !transaction.related_session_id
+  && !transaction.related_registration_id
+
+const deletePointTransaction = async (transaction: TrainingPointTransaction) => {
+  if (!canDeletePoints.value || !canDeletePointTransaction(transaction)) return
+
+  try {
+    const signedDelta = `${transaction.delta > 0 ? '+' : ''}${transaction.delta}`
+    await ElMessageBox.confirm(
+      `確定要刪除「${transaction.member_name}」的 ${signedDelta} 點紀錄嗎？刪除後會重新計算點數餘額。`,
+      '刪除點數紀錄',
+      {
+        confirmButtonText: '確定刪除',
+        cancelButtonText: '取消',
+        type: 'error',
+        buttonSize: 'large'
+      }
+    )
+
+    deletingPointTransactionId.value = transaction.id
+    await trainingApi.deletePointTransaction(transaction.id)
+    ElMessage.success('已刪除點數紀錄')
+    await refreshData()
+  } catch (error: any) {
+    if (error !== 'cancel' && error !== 'close') {
+      ElMessage.error(error?.message || '刪除點數紀錄失敗')
+    }
+  } finally {
+    if (deletingPointTransactionId.value === transaction.id) {
+      deletingPointTransactionId.value = null
+    }
+  }
+}
+
 onMounted(() => {
   void refreshData()
 })
@@ -676,7 +731,7 @@ watch(selectedAdminSessionId, (next, prev) => {
                 </div>
                 <div class="mt-4 space-y-3">
                   <div
-                    v-for="tx in pointTransactions.slice(0, 8)"
+                    v-for="tx in memberPointTransactions.slice(0, 8)"
                     :key="tx.id"
                     class="rounded-2xl border border-gray-100 bg-gray-50/70 px-4 py-3"
                   >
@@ -688,7 +743,7 @@ watch(selectedAdminSessionId, (next, prev) => {
                     </div>
                     <div class="mt-1 text-xs font-bold text-gray-400">{{ formatDateTime(tx.created_at) }}</div>
                   </div>
-                  <div v-if="pointTransactions.length === 0" class="text-sm font-bold text-gray-400">尚無點數紀錄。</div>
+                  <div v-if="memberPointTransactions.length === 0" class="text-sm font-bold text-gray-400">尚無點數紀錄。</div>
                 </div>
               </aside>
             </div>
@@ -865,9 +920,9 @@ watch(selectedAdminSessionId, (next, prev) => {
             </div>
           </el-tab-pane>
 
-          <el-tab-pane v-if="canGrantPoints" label="點數管理" name="points">
-            <div class="grid gap-4 lg:grid-cols-[420px_minmax(0,1fr)]">
-              <section class="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm h-fit">
+          <el-tab-pane v-if="canManagePoints" label="點數管理" name="points">
+            <div class="grid gap-4" :class="{ 'lg:grid-cols-[420px_minmax(0,1fr)]': canGrantPoints }">
+              <section v-if="canGrantPoints" class="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm h-fit">
                 <div class="flex items-center gap-2 text-lg font-black text-slate-800">
                   <el-icon class="text-primary"><Plus /></el-icon>
                   手動發放點數
@@ -975,7 +1030,7 @@ watch(selectedAdminSessionId, (next, prev) => {
 
               <section class="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
                 <h3 class="text-lg font-black text-slate-800">點數流水帳</h3>
-                <el-table :data="pointTransactions" class="mt-4" empty-text="尚無點數紀錄" stripe>
+                <el-table :data="managementPointTransactions" class="mt-4" empty-text="尚無點數紀錄" stripe>
                   <el-table-column prop="member_name" label="球員" min-width="130" />
                   <el-table-column label="異動" width="100" align="center">
                     <template #default="{ row }">
@@ -989,6 +1044,19 @@ watch(selectedAdminSessionId, (next, prev) => {
                     <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
                   </el-table-column>
                   <el-table-column prop="created_by_name" label="操作人" width="120" />
+                  <el-table-column v-if="canDeletePoints" label="操作" width="88" align="center" fixed="right">
+                    <template #default="{ row }">
+                      <button
+                        type="button"
+                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-500 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-300"
+                        :disabled="deletingPointTransactionId === row.id || !canDeletePointTransaction(row)"
+                        :title="canDeletePointTransaction(row) ? '刪除' : '系統扣點不可刪除'"
+                        @click="deletePointTransaction(row)"
+                      >
+                        <el-icon><Delete /></el-icon>
+                      </button>
+                    </template>
+                  </el-table-column>
                 </el-table>
               </section>
             </div>

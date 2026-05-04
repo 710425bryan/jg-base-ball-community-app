@@ -134,7 +134,7 @@
 
 ### 個人首頁與個人功能
 
-- `HomeView` 同時有後台 dashboard 與個人化區塊；個人化摘要走 `src/services/myHome.ts` 的 `get_my_home_snapshot()`，RPC 未部署時顯示空狀態 fallback。
+- `HomeView` 同時有後台 dashboard 與個人化區塊；個人化摘要走 `src/services/myHome.ts` 的 `get_my_home_snapshot()`，RPC 未部署時顯示空狀態 fallback；`MyHomeTodayPanel` 的特訓點數卡只顯示目前選取 linked member 的 snapshot 點數欄位，若線上 snapshot 尚未帶點數欄位，前端會用 `list_my_training_members()` 補齊。
 - `MyLeaveRequestsView` 走 `src/services/myLeaveRequests.ts`：`list_my_leave_members()`、`list_my_leave_requests()`、`create_my_leave_requests()`、`delete_my_leave_request()`。
 - `MyPaymentsView` 走 `src/services/myPayments.ts`：`list_my_payment_members()`、`get_my_payment_records()`、`list_my_payment_submissions()`、`create_my_payment_submission()`、`get_my_payment_submission_estimate()`；一般繳費與裝備付款皆可使用 `player_balance_transactions` 計算出的球員餘額扣抵。
 - `MyPlayerRecordsView` 走 `src/services/myPlayerRecords.ts`：`list_my_player_record_members()`、`get_my_player_match_records()`；一般使用者只能看綁定球員，具 `players:VIEW` 者可切換全隊球員但預設仍優先關聯球員。

@@ -165,6 +165,14 @@ export const trainingApi = {
     return unwrapRows<TrainingPointTransaction>(data)
   },
 
+  async deletePointTransaction(transactionId: string) {
+    const { data, error } = await supabase.rpc('delete_player_point_transactions', {
+      p_transaction_ids: [transactionId]
+    })
+    if (error) throw error
+    return Number(data || 0)
+  },
+
   async createAttendanceEvent(sessionId: string) {
     const { data, error } = await supabase.rpc('create_training_attendance_event', {
       p_session_id: sessionId

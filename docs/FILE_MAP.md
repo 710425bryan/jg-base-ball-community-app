@@ -201,7 +201,7 @@
 | 檔案 | 用途 |
 | --- | --- |
 | `src/components/home/HomeHolidayHeroOverlay.vue` | 首頁節日 hero overlay |
-| `src/components/home/MyHomeTodayPanel.vue` | 個人首頁今日摘要 |
+| `src/components/home/MyHomeTodayPanel.vue` | 個人首頁今日摘要與特訓點數卡 |
 | `src/components/layout/HolidayThemeRibbon.vue` | 全站節日橫幅 |
 | `src/components/layout/HolidayThemeSiteEffects.vue` | 全站節日動畫 |
 | `src/components/settings/HolidayThemePreviewStage.vue` | 後台節日預覽 |
@@ -227,13 +227,13 @@
 | --- | --- |
 | 權限 / RLS | `supabase_access_control_rls_migration.sql`、`supabase_access_control_policy_cleanup_migration.sql` |
 | Profile access | `supabase_profile_access_control_migration.sql`、`supabase_profiles_personal_settings_migration.sql` |
-| 公開首頁 / Dashboard | `supabase_dashboard_snapshot_migration.sql`、`supabase_my_home_snapshot_migration.sql` |
+| 公開首頁 / Dashboard | `supabase_dashboard_snapshot_migration.sql`、`supabase_my_home_snapshot_migration.sql`、`supabase_zz_my_home_training_points_migration.sql` |
 | 假單 | `supabase_my_leave_requests_migration.sql` |
 | 個人成績 | `supabase_my_player_records_migration.sql` |
 | 收費 / 付款 | `supabase_fees_migration.sql`、`supabase_quarterly_fees_migration.sql`、`supabase_profile_payment_submissions_migration.sql`、`supabase_player_balance_transactions_migration.sql`、`supabase_fixed_monthly_billing_migration.sql` |
 | 裝備 | `supabase_equipment_management_migration.sql`、`supabase_equipment_inventory_adjustments_migration.sql`、`supabase_equipment_manual_purchase_records_migration.sql`、`supabase_equipment_multiple_photos_migration.sql` |
 | 能力 / 體測 | `supabase_performance_data_migration.sql`、`supabase_performance_view_scope_migration.sql` |
-| 特訓 / 點數 | `supabase_training_points_migration.sql`、`supabase_zz_training_registration_notifications_migration.sql` |
+| 特訓 / 點數 | `supabase_training_points_migration.sql`、`supabase_zz_training_point_transaction_delete_migration.sql`、`supabase_zz_training_registration_notifications_migration.sql` |
 | 賽事同步 | `supabase_matches_google_calendar_sync_migration.sql`、`supabase_match_calendar_daily_sync_schedule.sql` |
 | 推播 | `supabase_web_push_subscriptions_migration.sql`、`supabase_push_dispatch_events_migration.sql`、`supabase_match_reminder_notifications_migration.sql` |
 | 節日主題 | `supabase_holiday_theme_migration.sql` |

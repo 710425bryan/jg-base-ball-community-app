@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { Calendar, Location, Refresh, UserFilled } from '@element-plus/icons-vue'
 import type { MyHomeSnapshot, MyHomeTodoItem } from '@/types/myHome'
@@ -35,6 +35,13 @@ const todoItems = computed(() => buildMyHomeTodoItems(props.snapshot, selectedMe
 const nextEvent = computed(() => props.snapshot.next_event)
 const paymentSummary = computed(() => props.snapshot.payment_summary)
 const equipmentSummary = computed(() => props.snapshot.equipment_summary)
+const isPointCardFlipped = ref(false)
+
+const trainingPointCard = computed(() => ({
+  balance: selectedMember.value?.point_balance ?? 0,
+  reserved: selectedMember.value?.reserved_training_points ?? 0,
+  available: selectedMember.value?.available_training_points ?? 0
+}))
 
 const memberStatusText = computed(() => {
   if (!selectedMember.value) return '尚未綁定'
@@ -79,6 +86,10 @@ const navigateToTodo = (todo: MyHomeTodoItem) => {
   if (!todo.route) return
   void router.push(todo.route)
 }
+
+watch(() => selectedMember.value?.id, () => {
+  isPointCardFlipped.value = false
+})
 </script>
 
 <template>
@@ -159,6 +170,55 @@ const navigateToTodo = (todo: MyHomeTodoItem) => {
               <p class="mt-1 text-xs font-bold text-slate-500">{{ weather?.summary || '氣象資料更新中' }}</p>
             </div>
           </div>
+
+          <button
+            v-if="selectedMember"
+            type="button"
+            class="training-point-card mt-4"
+            :class="{ 'is-flipped': isPointCardFlipped }"
+            aria-label="翻轉特訓點數卡"
+            @click="isPointCardFlipped = !isPointCardFlipped"
+          >
+            <span class="training-point-card__inner">
+              <span class="training-point-card__face training-point-card__face--front">
+                <span class="training-point-card__shine"></span>
+                <span class="training-point-card__front-content">
+                  <span class="training-point-card__brand">
+                    <img :src="'/logo.jpg'" alt="中港熊戰 Logo" class="training-point-card__logo" />
+                    <span>
+                      <span class="training-point-card__label">特訓點數</span>
+                      <span class="training-point-card__member">{{ selectedMember.name }}</span>
+                    </span>
+                  </span>
+                  <span class="training-point-card__available">
+                    <span class="training-point-card__caption">目前可用</span>
+                    <span class="training-point-card__number">{{ trainingPointCard.available }}</span>
+                  </span>
+                </span>
+                <span class="training-point-card__hint">點擊查看明細</span>
+              </span>
+              <span class="training-point-card__face training-point-card__face--back">
+                <span class="training-point-card__back-header">
+                  <span class="training-point-card__label">點數明細</span>
+                  <span>點擊返回</span>
+                </span>
+                <span class="training-point-card__back-main">
+                  <span>可報名點數</span>
+                  <strong>{{ trainingPointCard.available }}</strong>
+                </span>
+                <span class="training-point-card__detail-grid">
+                  <span class="training-point-card__detail">
+                    <span>總點數</span>
+                    <strong>{{ trainingPointCard.balance }}</strong>
+                  </span>
+                  <span class="training-point-card__detail">
+                    <span>已保留</span>
+                    <strong>{{ trainingPointCard.reserved }}</strong>
+                  </span>
+                </span>
+              </span>
+            </span>
+          </button>
         </section>
 
         <section class="rounded-2xl border border-primary/10 bg-primary/5 p-5">
@@ -253,3 +313,259 @@ const navigateToTodo = (todo: MyHomeTodoItem) => {
     </div>
   </section>
 </template>
+
+<style scoped>
+.training-point-card {
+  display: block;
+  width: 100%;
+  min-height: 13.75rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  perspective: 980px;
+  text-align: left;
+}
+
+.training-point-card__inner {
+  position: relative;
+  display: block;
+  min-height: 13.75rem;
+  transform-style: preserve-3d;
+  transition: transform 720ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.training-point-card.is-flipped .training-point-card__inner {
+  transform: rotateY(180deg);
+}
+
+.training-point-card__face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  min-height: 13.75rem;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(234, 179, 8, 0.34);
+  border-radius: 1.25rem;
+  backface-visibility: hidden;
+  box-shadow: 0 18px 32px rgba(15, 23, 42, 0.14);
+}
+
+.training-point-card__face--front {
+  justify-content: space-between;
+  padding: 1rem 1.1rem;
+  background:
+    radial-gradient(circle at 12% 18%, rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0) 22%),
+    linear-gradient(135deg, #fff7d6 0%, #f59e0b 42%, #111827 100%);
+}
+
+.training-point-card__face--back {
+  gap: 0.8rem;
+  justify-content: space-between;
+  padding: 1rem 1.1rem;
+  transform: rotateY(180deg);
+  background:
+    linear-gradient(135deg, rgba(15, 23, 42, 0.97), rgba(30, 41, 59, 0.92)),
+    radial-gradient(circle at 85% 18%, rgba(245, 158, 11, 0.42), transparent 28%);
+  color: white;
+}
+
+.training-point-card__shine {
+  position: absolute;
+  inset: -40%;
+  transform: translateX(-56%) rotate(18deg);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.78), transparent);
+  animation: training-card-shine 3.8s ease-in-out infinite;
+}
+
+.training-point-card__front-content,
+.training-point-card__brand,
+.training-point-card__available,
+.training-point-card__back-header,
+.training-point-card__back-main,
+.training-point-card__detail,
+.training-point-card__hint {
+  position: relative;
+  z-index: 1;
+  display: flex;
+}
+
+.training-point-card__front-content {
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.training-point-card__brand {
+  min-width: 0;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.training-point-card__logo {
+  height: 3.2rem;
+  width: 3.2rem;
+  border-radius: 1rem;
+  border: 2px solid rgba(255, 255, 255, 0.82);
+  object-fit: cover;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.24);
+}
+
+.training-point-card__label {
+  position: relative;
+  z-index: 1;
+  max-width: 100%;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.training-point-card__member {
+  display: block;
+  margin-top: 0.35rem;
+  max-width: 7.5rem;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.78rem;
+  font-weight: 900;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.training-point-card__available {
+  min-width: 5.4rem;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.training-point-card__number {
+  position: relative;
+  z-index: 1;
+  color: white;
+  font-size: 4.75rem;
+  font-weight: 950;
+  letter-spacing: 0;
+  line-height: 0.9;
+  text-shadow: 0 8px 22px rgba(15, 23, 42, 0.28);
+}
+
+.training-point-card__caption {
+  position: relative;
+  z-index: 1;
+  color: rgba(255, 255, 255, 0.84);
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.training-point-card__hint {
+  align-self: flex-end;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  padding: 0.38rem 0.68rem;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.training-point-card__back-header {
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.training-point-card__back-main {
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-radius: 1.05rem;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.85rem 0.95rem;
+  font-size: 0.95rem;
+  font-weight: 950;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.training-point-card__back-main strong {
+  color: #facc15;
+  font-size: 2.3rem;
+  line-height: 1;
+}
+
+.training-point-card__detail-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.training-point-card__detail {
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.09);
+  padding: 0.72rem 0.78rem;
+  font-size: 0.78rem;
+  font-weight: 900;
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.training-point-card__detail strong {
+  color: #facc15;
+  font-size: 1.45rem;
+  line-height: 1;
+}
+
+@media (max-width: 380px) {
+  .training-point-card__face {
+    min-height: 14.25rem;
+  }
+
+  .training-point-card__inner,
+  .training-point-card {
+    min-height: 14.25rem;
+  }
+
+  .training-point-card__number {
+    font-size: 4rem;
+  }
+
+  .training-point-card__member {
+    max-width: 5.8rem;
+  }
+}
+
+@keyframes training-card-shine {
+  0%,
+  42% {
+    transform: translateX(-56%) rotate(18deg);
+    opacity: 0;
+  }
+  56% {
+    opacity: 1;
+  }
+  76%,
+  100% {
+    transform: translateX(56%) rotate(18deg);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .training-point-card__inner,
+  .training-point-card__shine {
+    animation: none;
+    transition: none;
+  }
+}
+</style>

@@ -8,6 +8,9 @@ export type MyHomeMember = {
   status: string | null
   jersey_number: string | null
   avatar_url: string | null
+  point_balance?: number
+  reserved_training_points?: number
+  available_training_points?: number
 }
 
 export type MyHomeEventType = 'match' | 'attendance'
