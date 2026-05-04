@@ -272,14 +272,14 @@ UI 約定：
 - `player_point_transactions`
 - `training_no_show_blocks`
 - `attendance_events.training_session_id`
-- `push_dispatch_events`：特訓報名開始通知去重與通知中心來源
+- `push_dispatch_events`：特訓報名開始 / 截止前一天通知去重與通知中心來源
 
 資料流：
 
 - 家長 / 球員透過 `/training` 依 linked member 查看點數、點數紀錄、可報名特訓與自己的報名狀態；即使是管理者，在「我要報名」區塊也只顯示目前選取成員的點數紀錄。
 - 教練在 `/training` 設定特訓報名時間窗、手動開關、名額與扣點數，並審核錄取 / 候補 / 未錄取；教練管理與點數管理只給 `training:CREATE / EDIT / DELETE` 任一管理權限者。
 - 沒有特訓資料時，教練可在報名設定內新增特訓課與 settings；新增特訓課預設上課時間 `09:00 - 12:00`、地點 `中港國小`，上課時間使用 Element Plus 時間範圍元件，送出仍存成 `matches.match_time` 字串。
-- 報名開始時間到達且 `manual_status = 'open'` 時，`send-training-registration-notifications` 會建立 `training_registration_open:*` 事件，讓系統通知中心與 Web Push 同步收到「特訓課開放報名」通知。
+- 報名開始時間到達且 `manual_status = 'open'` 時，`send-training-registration-notifications` 會建立 `training_registration_open:*` 事件，讓系統通知中心與 Web Push 同步收到「特訓課開放報名」通知；報名截止前 24 小時內若 `selected_count < capacity`（或不限名額），會建立 `training_registration_deadline:*` 事件再提醒一次。
 - 報名 RPC 會在 DB 端檢查 linked member、點數、禁報狀態、手動狀態與報名時間窗。
 - 錄取時保留點數；`process_training_session_automation()` 在上課當天對已錄取名單扣點，並用 idempotency key 避免重複扣。
 - 點數管理支援快速發放：可一鍵選全隊、角色、組別，套用常用點數 / 原因 preset；真正寫入仍統一呼叫 `grant_player_points(uuid[], integer, text)`，以交易紀錄追加方式建立流水帳。
@@ -292,7 +292,7 @@ UI 約定：
 - 一般成員或家長即使有 `training:VIEW`，也只看到個人報名 / 點數檢視，不可看到教練管理或點數發放工具。
 - 錄取名單公布後，登入使用者只能看到非敏感名單欄位。
 - 點數流水帳不可任意更新；加點、扣點、調整都新增 `player_point_transactions`，誤發刪除需走受權限與餘額檢查保護的 RPC。
-- 特訓報名開始通知必須有穩定 event key，避免排程重試造成通知中心與 Web Push 重複顯示。
+- 特訓報名開始與截止前提醒通知必須有穩定 event key，避免排程重試造成通知中心與 Web Push 重複顯示。
 
 ## 11. 場地與人員配置
 
@@ -501,7 +501,7 @@ UI 約定：
 4. `eventKey` 進 `push_dispatch_events` 去重。
 5. 過期 subscription 由 Edge Function 清理。
 6. 通知中心透過 `get_notification_feed()` 匯整顯示。
-7. 排程型通知如賽事提醒、特訓報名開始、場地通知，使用專屬 Edge Function 建立 `push_dispatch_events` 並派送 Web Push。
+7. 排程型通知如賽事提醒、特訓報名開始 / 截止前提醒、場地通知，使用專屬 Edge Function 建立 `push_dispatch_events` 並派送 Web Push。
 8. 使用者點擊 Web Push 時，`public/push-sw.js` 同步啟動 client 導向，並把 target 寫入 IndexedDB `jg-baseball-push-deeplink/pendingTargets/latest` 與 Cache Storage `jg-baseball-push-deeplink-cache`；前端用 `pushDeepLink.ts` 正規化、短時間重試 consume pending target 後交給 router，推播設定可查看最後一次 click 診斷。
 
 重要規則：

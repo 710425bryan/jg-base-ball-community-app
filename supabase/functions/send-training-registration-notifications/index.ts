@@ -9,6 +9,9 @@ import {
   buildTrainingRegistrationNotificationEventKey,
   buildTrainingRegistrationNotificationTitle,
   buildTrainingRegistrationNotificationUrl,
+  hasRemainingTrainingRegistrationSlots,
+  isTrainingRegistrationDeadlineReminderDue,
+  type TrainingRegistrationNotificationKind,
   type TrainingRegistrationNotificationSession,
 } from "../../../src/utils/trainingRegistrationNotification.ts";
 
@@ -52,6 +55,16 @@ type TeamMemberRow = {
   id: string;
   role: string | null;
   status: string | null;
+};
+
+type RegistrationStatusRow = {
+  session_id: string | null;
+  status: string | null;
+};
+
+type TrainingNotificationJob = {
+  kind: TrainingRegistrationNotificationKind;
+  session: TrainingRegistrationNotificationSession;
 };
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -119,10 +132,11 @@ const normalizeTrainingSession = (row: TrainingSettingsRow): TrainingRegistratio
     registration_end_at: row.registration_end_at,
     point_cost: row.point_cost,
     capacity: row.capacity,
+    selected_count: 0,
   };
 };
 
-const fetchDueTrainingSessions = async (now: Date, limit: number) => {
+const fetchOpenTrainingSessions = async (now: Date, limit: number) => {
   const nowIso = now.toISOString();
   const { data, error } = await supabase
     .from("training_session_settings")
@@ -154,6 +168,50 @@ const fetchDueTrainingSessions = async (now: Date, limit: number) => {
   return ((data || []) as TrainingSettingsRow[])
     .map(normalizeTrainingSession)
     .filter((session): session is TrainingRegistrationNotificationSession => Boolean(session));
+};
+
+const fetchSelectedCountsBySession = async (sessionIds: string[]) => {
+  const counts = new Map<string, number>();
+  if (sessionIds.length === 0) return counts;
+
+  const { data, error } = await supabase
+    .from("training_registrations")
+    .select("session_id, status")
+    .in("session_id", sessionIds)
+    .eq("status", "selected");
+
+  if (error) throw error;
+
+  for (const row of (data || []) as RegistrationStatusRow[]) {
+    if (!row.session_id) continue;
+    counts.set(row.session_id, (counts.get(row.session_id) || 0) + 1);
+  }
+
+  return counts;
+};
+
+const fetchDueTrainingNotificationJobs = async (now: Date, limit: number): Promise<TrainingNotificationJob[]> => {
+  const sessions = await fetchOpenTrainingSessions(now, limit);
+  const selectedCounts = await fetchSelectedCountsBySession(sessions.map((session) => session.session_id));
+  const hydratedSessions = sessions.map((session) => ({
+    ...session,
+    selected_count: selectedCounts.get(session.session_id) || 0,
+  }));
+
+  const jobs: TrainingNotificationJob[] = [];
+
+  for (const session of hydratedSessions) {
+    jobs.push({ kind: "open", session });
+
+    if (
+      isTrainingRegistrationDeadlineReminderDue(session, now)
+      && hasRemainingTrainingRegistrationSlots(session)
+    ) {
+      jobs.push({ kind: "deadline_reminder", session });
+    }
+  }
+
+  return jobs;
 };
 
 const fetchTrainingPermissionRoles = async () => {
@@ -221,6 +279,7 @@ const fetchTrainingTargetUserIds = async (now: Date) => {
 
 const createTrainingNotificationEvent = async (
   session: TrainingRegistrationNotificationSession,
+  kind: TrainingRegistrationNotificationKind,
   title: string,
   body: string,
   url: string,
@@ -228,7 +287,7 @@ const createTrainingNotificationEvent = async (
   const { data, error } = await supabase
     .from("push_dispatch_events")
     .insert({
-      event_key: buildTrainingRegistrationNotificationEventKey(session),
+      event_key: buildTrainingRegistrationNotificationEventKey(session, kind),
       feature: "training",
       action: "VIEW",
       title,
@@ -270,13 +329,16 @@ serve(async (req) => {
 
     const limit = normalizeLimit(payload.limit);
     const dryRun = payload.dry_run === true;
-    const sessions = await fetchDueTrainingSessions(now, limit);
+    const jobs = await fetchDueTrainingNotificationJobs(now, limit);
 
-    if (sessions.length === 0) {
+    if (jobs.length === 0) {
       return jsonResponse({
         success: true,
         dry_run: dryRun,
+        job_count: 0,
         session_count: 0,
+        open_count: 0,
+        deadline_reminder_count: 0,
         created_count: 0,
         duplicate_count: 0,
         dispatched_count: 0,
@@ -295,13 +357,15 @@ serve(async (req) => {
     const providerCounts: Record<string, number> = {};
     const sessionResults: Array<Record<string, unknown>> = [];
 
-    for (const session of sessions) {
-      const title = buildTrainingRegistrationNotificationTitle(session);
-      const body = buildTrainingRegistrationNotificationBody(session);
+    for (const job of jobs) {
+      const { kind, session } = job;
+      const title = buildTrainingRegistrationNotificationTitle(session, kind);
+      const body = buildTrainingRegistrationNotificationBody(session, kind);
       const url = buildTrainingRegistrationNotificationUrl(session);
 
       if (dryRun) {
         sessionResults.push({
+          kind,
           session_id: session.session_id,
           match_id: session.match_id,
           title,
@@ -313,10 +377,11 @@ serve(async (req) => {
         continue;
       }
 
-      const event = await createTrainingNotificationEvent(session, title, body, url);
+      const event = await createTrainingNotificationEvent(session, kind, title, body, url);
       if (!event.created) {
         duplicateCount += 1;
         sessionResults.push({
+          kind,
           session_id: session.session_id,
           match_id: session.match_id,
           created: false,
@@ -342,6 +407,7 @@ serve(async (req) => {
       }
 
       sessionResults.push({
+        kind,
         session_id: session.session_id,
         match_id: session.match_id,
         event_id: event.id,
@@ -353,7 +419,10 @@ serve(async (req) => {
     return jsonResponse({
       success: true,
       dry_run: dryRun,
-      session_count: sessions.length,
+      job_count: jobs.length,
+      session_count: new Set(jobs.map((job) => job.session.session_id)).size,
+      open_count: jobs.filter((job) => job.kind === "open").length,
+      deadline_reminder_count: jobs.filter((job) => job.kind === "deadline_reminder").length,
       active_user_count: targetUserIds.length,
       total_targets: subscriptions.length,
       created_count: createdCount,

@@ -10,6 +10,7 @@ import { supabase } from '@/services/supabase'
 import { trainingApi } from '@/services/trainingApi'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
+import { useTeamGroupsStore } from '@/stores/teamGroups'
 import type {
   TrainingAdminRegistration,
   TrainingManualStatus,
@@ -26,6 +27,7 @@ import {
   getTrainingRegistrationStatusLabel,
   isActiveTrainingRegistrationStatus
 } from '@/utils/training'
+import { getUniqueTeamGroupOptions, normalizeTeamGroup } from '@/utils/teamGroups'
 
 type TeamMemberOption = {
   id: string
@@ -62,6 +64,7 @@ const createDefaultTrainingTimeRange = (): TrainingTimeRange => [...DEFAULT_TRAI
 const router = useRouter()
 const authStore = useAuthStore()
 const permissionsStore = usePermissionsStore()
+const teamGroupsStore = useTeamGroupsStore()
 
 const isLoading = ref(true)
 const isRefreshing = ref(false)
@@ -151,8 +154,10 @@ const pointGrantPresets: PointGrantPreset[] = [
 ]
 
 const pointGroupOptions = computed(() =>
-  Array.from(new Set(rosterOptions.value.map((member) => member.team_group).filter(Boolean) as string[]))
-    .sort((a, b) => a.localeCompare(b, 'zh-Hant'))
+  getUniqueTeamGroupOptions(
+    rosterOptions.value.map((member) => member.team_group),
+    teamGroupsStore.options
+  ).map((option) => option.value)
 )
 
 const selectedPointMemberCount = computed(() => pointForm.member_ids.length)
@@ -230,7 +235,10 @@ const loadRosterOptions = async () => {
     .order('name')
 
   if (error) throw error
-  rosterOptions.value = (data || []) as TeamMemberOption[]
+  rosterOptions.value = (data || []).map((member: TeamMemberOption) => ({
+    ...member,
+    team_group: normalizeTeamGroup(member.team_group) || null
+  })) as TeamMemberOption[]
 }
 
 const refreshAdminRegistrations = async () => {
@@ -556,6 +564,9 @@ const deletePointTransaction = async (transaction: TrainingPointTransaction) => 
 }
 
 onMounted(() => {
+  void teamGroupsStore.loadGroups().catch((error: any) => {
+    console.warn('Failed to load team group settings:', error)
+  })
   void refreshData()
 })
 

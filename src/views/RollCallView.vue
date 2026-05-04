@@ -160,6 +160,8 @@ import { supabase } from '@/services/supabase'
 import { trainingApi } from '@/services/trainingApi'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
+import { useTeamGroupsStore } from '@/stores/teamGroups'
+import { normalizeTeamGroup } from '@/utils/teamGroups'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, Check, Checked, Delete, Loading, Search } from '@element-plus/icons-vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
@@ -169,6 +171,7 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const permissionsStore = usePermissionsStore()
+const teamGroupsStore = useTeamGroupsStore()
 
 const eventId = route.params.id as string
 const isLoading = ref(true)
@@ -178,16 +181,11 @@ const eventData = ref<any>(null)
 const playersList = ref<any[]>([])
 const searchQuery = ref('')
 const activeFilter = ref('全部') // 新增過濾器
-const rollCallFilters = ['全部', '拉拉熊(小組)', '泰迪熊(小組)', '黑熊(中組)', '北極熊(中組)', '暴力熊(大組)', '校隊']
-const legacyTeamGroupRenames: Record<string, string> = {
-  '灰熊(大組)': '暴力熊(大組)',
-  '成灰熊(中組)': '黑熊(中組)'
-}
-
-const normalizeTeamGroup = (teamGroup: unknown) => {
-  const group = typeof teamGroup === 'string' ? teamGroup.trim() : ''
-  return group ? legacyTeamGroupRenames[group] || group : group
-}
+const rollCallFilters = computed(() => [
+  '全部',
+  ...teamGroupsStore.options.map((option) => option.value),
+  '校隊'
+])
 
 const filteredPlayers = computed(() => {
   let result = playersList.value
@@ -434,6 +432,9 @@ const confirmDelete = async () => {
 }
 
 onMounted(() => {
+  void teamGroupsStore.loadGroups().catch((error: any) => {
+    console.warn('Failed to load team group settings:', error)
+  })
   fetchData()
 })
 

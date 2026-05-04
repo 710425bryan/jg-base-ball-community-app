@@ -97,7 +97,7 @@
 | `src/utils/playerSync.ts` | Google Form / Sheet 球員同步、dedupe、保護欄位 |
 | `src/utils/pushNotifications.ts` | 前端推播派送、event key helper |
 | `src/utils/pushDeepLink.ts` | Web Push 點擊 target 正規化、IndexedDB / Cache Storage pending target、iOS PWA deep link fallback 與診斷 |
-| `src/utils/trainingRegistrationNotification.ts` | 特訓報名開始通知文案、URL、event key |
+| `src/utils/trainingRegistrationNotification.ts` | 特訓報名開始 / 截止前提醒文案、URL、event key |
 | `src/utils/trainingLocationNotification.ts` | 場地通知文案、URL、event key、收件分組 |
 | `src/utils/googleCalendarParser.ts` | Google Calendar / iCal parser 與同步規劃 |
 | `src/utils/equipmentInventory.ts` | 裝備庫存計算 |
@@ -253,7 +253,7 @@
 | `supabase/functions/notify-holiday-theme/index.ts` | 節日主題通知 |
 | `supabase/functions/notify-holiday-theme/logic.ts` | 節日通知邏輯 |
 | `supabase/functions/send-match-reminders/index.ts` | 賽事提醒 |
-| `supabase/functions/send-training-registration-notifications/index.ts` | 特訓報名開始通知 |
+| `supabase/functions/send-training-registration-notifications/index.ts` | 特訓報名開始 / 截止前提醒通知 |
 | `supabase/functions/send-training-location-notifications/index.ts` | 訓練場地通知 |
 | `supabase/functions/sync-match-calendar/index.ts` | 賽事日曆同步 |
 | `supabase/functions/leave-webhook/index.ts` | 請假 webhook |

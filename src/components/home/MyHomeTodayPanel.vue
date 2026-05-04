@@ -212,7 +212,7 @@ watch(() => selectedMember.value?.id, () => {
                 <span class="training-point-card__shine"></span>
                 <span class="training-point-card__front-content">
                   <span class="training-point-card__brand">
-                    <img :src="'/logo.jpg'" alt="中港熊戰 Logo" class="training-point-card__logo" />
+                    <img src="/training-point-logo.jpg" alt="中港熊戰 Logo" class="training-point-card__logo" />
                     <span>
                       <span class="training-point-card__label">特訓點數</span>
                       <span class="training-point-card__member">{{ selectedMember.name }}</span>
@@ -249,27 +249,54 @@ watch(() => selectedMember.value?.id, () => {
           </button>
           </section>
 
-          <section class="rounded-2xl border border-primary/10 bg-primary/5 p-5">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <div class="text-[11px] font-black uppercase tracking-[0.18em] text-primary/80">Next Up</div>
-              <h3 class="mt-2 text-xl font-black leading-tight text-slate-900">
-                {{ nextEvent?.title || '目前沒有即將到來的賽程' }}
-              </h3>
+          <div class="grid content-start gap-4">
+            <section class="rounded-2xl border border-primary/20 bg-amber-50 p-5 shadow-sm">
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <div class="text-[11px] font-black uppercase tracking-[0.18em] text-primary/80">Next Up</div>
+                <h3 class="mt-2 text-xl font-black leading-tight text-slate-900">
+                  {{ nextEvent?.title || '目前沒有即將到來的賽程' }}
+                </h3>
+              </div>
+              <el-icon class="shrink-0 text-2xl text-primary"><Calendar /></el-icon>
             </div>
-            <el-icon class="shrink-0 text-2xl text-primary"><Calendar /></el-icon>
-          </div>
 
-          <div v-if="nextEvent" class="mt-4 grid gap-2 text-sm font-bold text-slate-600">
-            <div>{{ nextEvent.date }}<span v-if="nextEvent.time">｜{{ nextEvent.time }}</span></div>
-            <div v-if="nextEvent.location" class="flex min-w-0 items-center gap-2">
-              <el-icon class="text-primary"><Location /></el-icon>
-              <span class="truncate">{{ nextEvent.location }}</span>
+            <div v-if="nextEvent" class="mt-4 grid gap-2 text-sm font-bold text-slate-600">
+              <div>{{ nextEvent.date }}<span v-if="nextEvent.time">｜{{ nextEvent.time }}</span></div>
+              <div v-if="nextEvent.location" class="flex min-w-0 items-center gap-2">
+                <el-icon class="text-primary"><Location /></el-icon>
+                <span class="truncate">{{ nextEvent.location }}</span>
+              </div>
+              <div v-if="nextEvent.coaches" class="line-clamp-1">帶隊教練：{{ nextEvent.coaches }}</div>
             </div>
-            <div v-if="nextEvent.coaches" class="line-clamp-1">帶隊教練：{{ nextEvent.coaches }}</div>
-          </div>
 
-          <div class="mt-5 rounded-2xl border border-white/70 bg-white/70 p-4">
+            <div class="mt-5 flex flex-wrap gap-2">
+              <RouterLink
+                v-if="nextEvent"
+                :to="nextEvent.route"
+                class="inline-flex min-h-11 items-center justify-center rounded-2xl bg-primary px-4 text-sm font-black text-white transition-colors hover:bg-primary-hover"
+              >
+                查看詳情
+              </RouterLink>
+              <a
+                v-if="nextEventLocationHref"
+                :href="nextEventLocationHref"
+                target="_blank"
+                rel="noreferrer"
+                class="inline-flex min-h-11 items-center justify-center rounded-2xl border border-primary/20 bg-white px-4 text-sm font-black text-primary transition-colors hover:border-primary"
+              >
+                開啟導航
+              </a>
+              <RouterLink
+                to="/my-leave-requests"
+                class="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition-colors hover:border-primary hover:text-primary"
+              >
+                我要請假
+              </RouterLink>
+            </div>
+            </section>
+
+            <section class="rounded-2xl border border-sky-100 bg-sky-50 p-5 shadow-sm">
             <div class="flex items-center justify-between gap-3">
               <div class="text-sm font-black text-slate-900">本週訓練場地</div>
               <span class="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-black text-primary">{{ selectedTrainingLocations.length }} 筆</span>
@@ -280,7 +307,7 @@ watch(() => selectedMember.value?.id, () => {
                 v-for="location in selectedTrainingLocations"
                 :key="`${location.session_id}:${location.member_id}`"
                 class="rounded-xl border px-3 py-2"
-                :class="location.is_on_leave ? 'border-amber-100 bg-amber-50 text-amber-800' : 'border-slate-100 bg-slate-50 text-slate-700'"
+                :class="location.is_on_leave ? 'border-amber-100 bg-amber-50 text-amber-800' : 'border-sky-100 bg-white/85 text-slate-700'"
               >
                 <div class="flex items-start justify-between gap-3">
                   <div class="min-w-0">
@@ -307,36 +334,11 @@ watch(() => selectedMember.value?.id, () => {
               </article>
             </div>
 
-            <div v-else class="mt-3 rounded-xl border border-dashed border-slate-200 bg-white px-3 py-4 text-center text-sm font-bold text-slate-400">
+            <div v-else class="mt-3 rounded-xl border border-dashed border-sky-200 bg-white/85 px-3 py-4 text-center text-sm font-bold text-slate-500">
               本週尚未發布場地配置。
             </div>
+            </section>
           </div>
-
-          <div class="mt-5 flex flex-wrap gap-2">
-            <RouterLink
-              v-if="nextEvent"
-              :to="nextEvent.route"
-              class="inline-flex min-h-11 items-center justify-center rounded-2xl bg-primary px-4 text-sm font-black text-white transition-colors hover:bg-primary-hover"
-            >
-              查看詳情
-            </RouterLink>
-            <a
-              v-if="nextEventLocationHref"
-              :href="nextEventLocationHref"
-              target="_blank"
-              rel="noreferrer"
-              class="inline-flex min-h-11 items-center justify-center rounded-2xl border border-primary/20 bg-white px-4 text-sm font-black text-primary transition-colors hover:border-primary"
-            >
-              開啟導航
-            </a>
-            <RouterLink
-              to="/my-leave-requests"
-              class="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition-colors hover:border-primary hover:text-primary"
-            >
-              我要請假
-            </RouterLink>
-          </div>
-          </section>
 
           <section class="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm md:col-span-2 xl:col-span-1">
           <div class="flex items-center justify-between gap-3">
@@ -490,7 +492,9 @@ watch(() => selectedMember.value?.id, () => {
   width: 3.2rem;
   border-radius: 1rem;
   border: 2px solid rgba(255, 255, 255, 0.82);
-  object-fit: cover;
+  background: rgba(255, 255, 255, 0.92);
+  object-fit: contain;
+  padding: 0.18rem;
   box-shadow: 0 10px 20px rgba(15, 23, 42, 0.24);
 }
 

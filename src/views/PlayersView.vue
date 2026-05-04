@@ -26,7 +26,7 @@
           <el-select v-model="filterMemberGroup" class="w-40" size="default" placeholder="所屬群組">
             <el-option label="全部群組" value="全部" />
             <el-option label="教練" value="教練" />
-            <el-option v-for="option in TEAM_GROUP_OPTIONS" :key="option.value" :label="option.label" :value="option.value" />
+            <el-option v-for="option in teamGroupOptions" :key="option.value" :label="option.label" :value="option.value" />
           </el-select>
         </div>
 
@@ -54,6 +54,10 @@
         <button v-if="canEditPlayers" @click="openPlayerExportDialog" class="players-toolbar-button bg-white hover:bg-slate-50 active:scale-95 text-slate-700 border border-slate-200 px-4 py-2.5 min-h-10 rounded-lg shadow-sm text-sm font-bold transition-all flex items-center gap-2">
           <el-icon class="text-primary"><Download /></el-icon>
           <span class="hidden sm:inline">下載比賽資料</span>
+        </button>
+        <button v-if="canManageTeamGroups" @click="openTeamGroupSettingsDialog" class="players-toolbar-button bg-white hover:bg-slate-50 active:scale-95 text-slate-700 border border-slate-200 px-4 py-2.5 min-h-10 rounded-lg shadow-sm text-sm font-bold transition-all flex items-center gap-2">
+          <el-icon class="text-primary"><Setting /></el-icon>
+          <span class="hidden sm:inline">群組設定</span>
         </button>
         <button v-if="canEditPlayers" @click="syncFromGoogleSheet" :disabled="isSyncing" class="players-toolbar-button bg-[#ca8a04] hover:bg-[#a16207] active:scale-95 text-white px-4 py-2.5 min-h-10 rounded-lg shadow-sm text-sm font-bold transition-all flex items-center gap-2 disabled:opacity-70">
           <el-icon v-if="isSyncing" class="is-loading"><Loading /></el-icon>
@@ -356,8 +360,8 @@
               </el-select>
             </el-form-item>
             <el-form-item label="所屬群組 (熊隊)" prop="team_group" class="font-bold mb-0" v-if="form.role === '球員' || form.role === '校隊'">
-              <el-select v-model="form.team_group" class="w-full">
-                <el-option v-for="option in TEAM_GROUP_OPTIONS" :key="option.value" :label="option.label" :value="option.value" />
+              <el-select v-model="form.team_group" class="w-full" filterable>
+                <el-option v-for="option in teamGroupOptions" :key="option.value" :label="option.label" :value="option.value" />
               </el-select>
             </el-form-item>
             <el-form-item label="在隊狀態" prop="status" class="font-bold mb-0">
@@ -628,6 +632,11 @@
         </div>
       </template>
     </el-dialog>
+
+    <TeamGroupSettingsDialog
+      v-model="isTeamGroupSettingsOpen"
+      @changed="handleTeamGroupsChanged"
+    />
   </div>
 </template>
 
@@ -654,19 +663,30 @@ import {
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
 import { usePlayerRosterStore } from '@/stores/playerRoster'
+import { useTeamGroupsStore } from '@/stores/teamGroups'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Baseball, Loading, InfoFilled, Search, Download } from '@element-plus/icons-vue'
+import { Baseball, Loading, InfoFilled, Search, Download, Setting } from '@element-plus/icons-vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
 import PreviewableImage from '@/components/common/PreviewableImage.vue'
+import TeamGroupSettingsDialog from '@/components/players/TeamGroupSettingsDialog.vue'
 import { downloadUtf8BomCsv } from '@/utils/csvExport'
+import {
+  getTeamGroupAccentClass as resolveTeamGroupAccentClass,
+  getTeamGroupBadgeClass as resolveTeamGroupBadgeClass,
+  getTeamGroupSortValue,
+  isTeamGroupEligibleRole,
+  normalizeTeamGroup
+} from '@/utils/teamGroups'
 import axios from 'axios'
 
 const authStore = useAuthStore()
 const permissionsStore = usePermissionsStore()
 const playerRosterStore = usePlayerRosterStore()
+const teamGroupsStore = useTeamGroupsStore()
 const canEditPlayers = computed(() => permissionsStore.can('players', 'EDIT'))
 const canCreatePlayers = computed(() => permissionsStore.can('players', 'CREATE'))
 const canDeletePlayers = computed(() => permissionsStore.can('players', 'DELETE'))
+const canManageTeamGroups = computed(() => canCreatePlayers.value || canEditPlayers.value || canDeletePlayers.value)
 const canViewUsers = computed(() => permissionsStore.can('users', 'VIEW'))
 const canCreateUsers = computed(() => permissionsStore.can('users', 'CREATE'))
 const canEditUsers = computed(() => permissionsStore.can('users', 'EDIT'))
@@ -679,6 +699,8 @@ const GENERAL_MEMBER_ROLE_FALLBACK = 'MEMBER'
 const GENERAL_MEMBER_ROLE_CANDIDATE_KEYS = ['MEMBER', 'PARENT', 'GENERAL_MEMBER']
 const DEFAULT_U_LEVEL_OPTIONS = ['U12', 'U11', 'U10', 'U9', 'U8']
 const DEFAULT_EXISTING_MEMBER_JOINED_DATE = '2026-02-01'
+const teamGroupOptions = computed(() => teamGroupsStore.options)
+const defaultTeamGroupValue = computed(() => teamGroupOptions.value[0]?.value || '')
 const getTodayDateInputValue = () => {
   const today = new Date()
   const year = today.getFullYear()
@@ -686,53 +708,11 @@ const getTodayDateInputValue = () => {
   const date = String(today.getDate()).padStart(2, '0')
   return `${year}-${month}-${date}`
 }
-const TEAM_GROUP_OPTIONS = [
-  {
-    label: '拉拉熊(小組)',
-    value: '拉拉熊(小組)',
-    accentClass: 'bg-orange-400',
-    badgeClass: 'bg-orange-50 text-orange-600 border-orange-200'
-  },
-  {
-    label: '泰迪熊(小組)',
-    value: '泰迪熊(小組)',
-    accentClass: 'bg-amber-500',
-    badgeClass: 'bg-amber-50 text-amber-700 border-amber-200'
-  },
-  {
-    label: '黑熊(中組)',
-    value: '黑熊(中組)',
-    accentClass: 'bg-neutral-800',
-    badgeClass: 'bg-neutral-800 text-neutral-100 border-neutral-700'
-  },
-  {
-    label: '北極熊(中組)',
-    value: '北極熊(中組)',
-    accentClass: 'bg-sky-400',
-    badgeClass: 'bg-sky-50 text-sky-700 border-sky-200'
-  },
-  {
-    label: '暴力熊(大組)',
-    value: '暴力熊(大組)',
-    accentClass: 'bg-red-600',
-    badgeClass: 'bg-red-50 text-red-700 border-red-200'
-  }
-] as const
-const LEGACY_TEAM_GROUP_RENAMES: Record<string, string> = {
-  '灰熊(大組)': '暴力熊(大組)',
-  '成灰熊(中組)': '黑熊(中組)'
-}
-const TEAM_GROUP_ORDER = TEAM_GROUP_OPTIONS.map((option) => option.value)
-
-const normalizeTeamGroup = (teamGroup: unknown) => {
-  const group = typeof teamGroup === 'string' ? teamGroup.trim() : ''
-  return group ? LEGACY_TEAM_GROUP_RENAMES[group] || group : group
-}
-const isTeamGroupEligibleRole = (role: string | null | undefined) => role === '球員' || role === '校隊'
 
 const isLoading = computed(() => playerRosterStore.loading)
 const lastRosterWarning = ref('')
 const isSubmitting = ref(false)
+const isTeamGroupSettingsOpen = ref(false)
 const members = computed(() =>
   buildMembersWithNormalizedSiblings(playerRosterStore.members).map(m => ({
     ...m,
@@ -762,9 +742,8 @@ type MemberGroup = {
   members: any[]
 }
 
-const getTeamGroupAccentClass = (group: string) => {
-  return TEAM_GROUP_OPTIONS.find((option) => option.value === group)?.accentClass || 'bg-slate-300'
-}
+const getTeamGroupAccentClass = (group: string) =>
+  resolveTeamGroupAccentClass(group, teamGroupOptions.value)
 
 const getMemberGroupMeta = (member: any) => {
   if (member.role === '教練') {
@@ -778,11 +757,14 @@ const getMemberGroupMeta = (member: any) => {
 
   if (member.role === '球員' || member.role === '校隊') {
     const group = member.team_group || '未分組'
-    const groupIndex = TEAM_GROUP_ORDER.indexOf(group)
+    const rawGroupSort = group === '未分組'
+      ? 10000
+      : getTeamGroupSortValue(group, teamGroupOptions.value)
+    const groupSort = rawGroupSort >= Number.MAX_SAFE_INTEGER - 10 ? 9000 : rawGroupSort
     return {
       key: `team_group:${group}`,
       title: group,
-      sort: groupIndex >= 0 ? groupIndex + 10 : 50,
+      sort: groupSort,
       accentClass: getTeamGroupAccentClass(group)
     }
   }
@@ -791,7 +773,7 @@ const getMemberGroupMeta = (member: any) => {
   return {
     key: `role:${role}`,
     title: role,
-    sort: role === '管理群' ? 80 : 90,
+    sort: role === '管理群' ? 20000 : 21000,
     accentClass: 'bg-slate-400'
   }
 }
@@ -1218,7 +1200,7 @@ const createInitialForm = () => ({
   id: '',
   name: '',
   role: '球員',
-  team_group: TEAM_GROUP_OPTIONS[0].value,
+  team_group: defaultTeamGroupValue.value,
   status: '在隊',
   jersey_number: '',
   jersey_name: '',
@@ -1960,11 +1942,28 @@ const getRoleClass = (role: string) => {
   }
 }
 
-const getTeamGroupClass = (group: string) => {
-  return TEAM_GROUP_OPTIONS.find((option) => option.value === group)?.badgeClass || 'bg-gray-50 text-gray-500 border-gray-200'
+const getTeamGroupClass = (group: string) =>
+  resolveTeamGroupBadgeClass(group, teamGroupOptions.value)
+
+const openTeamGroupSettingsDialog = () => {
+  isTeamGroupSettingsOpen.value = true
+}
+
+const handleTeamGroupsChanged = async (affectsRoster: boolean) => {
+  if (filterMemberGroup.value !== '全部' && filterMemberGroup.value !== '教練') {
+    const stillExists = teamGroupOptions.value.some((option) => option.value === filterMemberGroup.value)
+    if (!stillExists) filterMemberGroup.value = '全部'
+  }
+
+  if (affectsRoster) {
+    await fetchData({ force: true })
+  }
 }
 
 onMounted(() => {
+  void teamGroupsStore.loadGroups().catch((error: any) => {
+    console.warn('Failed to load team group settings:', error)
+  })
   void fetchData()
 })
 </script>

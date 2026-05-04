@@ -179,7 +179,7 @@
 - `training` feature/actions：`VIEW / CREATE / EDIT / DELETE`；linked member 可進入 `/training` 看自己的點數與報名。教練管理與點數管理只給 `CREATE / EDIT / DELETE` 其中一種管理權限者，單純 `VIEW` 不顯示管理工具。
 - 報名開關由 DB 端檢查手動狀態與時間窗；個人端不可直接寫 raw table。
 - 教練可在沒有資料時建立特訓課與報名設定；新增特訓課預設上課時間 `09:00 - 12:00`、地點 `中港國小`，上課時間使用 Element Plus 時間範圍元件。
-- 報名開始時間到達且狀態為開放時，由 `send-training-registration-notifications` 排程檢查發送「特訓課開放報名」通知；事件寫入 `push_dispatch_events` 供通知中心顯示，同時發送 Web Push。
+- 報名開始時間到達且狀態為開放時，由 `send-training-registration-notifications` 排程檢查發送「特訓課開放報名」通知；報名截止前 24 小時內若還有錄取名額，會再發送一次「特訓課報名即將截止」通知；事件寫入 `push_dispatch_events` 供通知中心顯示，同時發送 Web Push。
 - 點數管理支援大量發放：可依全隊、角色、組別快速選取，並套用常用點數 / 原因 preset；送出仍只呼叫 `grant_player_points(uuid[], integer, text)`，不可直接寫 `player_point_transactions`。
 - 特訓點名透過 `attendance_events.training_session_id` 串接；後端缺席狀態會建立下一場禁報，出席 / 請假會解除該次禁報，但 `/attendance/:id` Detail UI 不顯示或提供 `缺席` 操作。
 

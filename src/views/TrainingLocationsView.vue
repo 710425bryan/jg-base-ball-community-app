@@ -18,6 +18,8 @@ import AppPageHeader from '@/components/common/AppPageHeader.vue'
 import { TrainingLocationAuthError, trainingLocationsApi } from '@/services/trainingLocationsApi'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
+import { useTeamGroupsStore } from '@/stores/teamGroups'
+import { getUniqueTeamGroupOptions, normalizeTeamGroup } from '@/utils/teamGroups'
 import type {
   TrainingLocationRosterMember,
   TrainingLocationSession,
@@ -36,6 +38,7 @@ const DEFAULT_END_TIME = '12:00'
 const router = useRouter()
 const authStore = useAuthStore()
 const permissionsStore = usePermissionsStore()
+const teamGroupsStore = useTeamGroupsStore()
 const canCreate = computed(() => permissionsStore.can('training_locations', 'CREATE'))
 const canEdit = computed(() => permissionsStore.can('training_locations', 'EDIT'))
 const canDelete = computed(() => permissionsStore.can('training_locations', 'DELETE'))
@@ -92,8 +95,10 @@ const assignedMemberIds = computed(() =>
 )
 
 const teamGroupOptions = computed(() =>
-  Array.from(new Set(roster.value.map((member) => member.team_group).filter(Boolean) as string[]))
-    .sort((left, right) => left.localeCompare(right, 'zh-Hant'))
+  getUniqueTeamGroupOptions(
+    roster.value.map((member) => member.team_group),
+    teamGroupsStore.options
+  ).map((option) => option.value)
 )
 
 const normalizedSearchQuery = computed(() => searchQuery.value.trim().toLowerCase())
@@ -161,7 +166,10 @@ const loadSessions = async () => {
 }
 
 const loadRoster = async () => {
-  roster.value = await trainingLocationsApi.listRoster(form.training_date)
+  roster.value = (await trainingLocationsApi.listRoster(form.training_date)).map((member) => ({
+    ...member,
+    team_group: normalizeTeamGroup(member.team_group) || null
+  }))
   selectedPoolMemberIds.value = selectedPoolMemberIds.value.filter((memberId) =>
     rosterById.value.has(memberId)
   )
@@ -442,7 +450,12 @@ watch(() => form.training_date, () => {
   void loadRoster()
 })
 
-onMounted(loadAll)
+onMounted(() => {
+  void teamGroupsStore.loadGroups().catch((error: any) => {
+    console.warn('Failed to load team group settings:', error)
+  })
+  void loadAll()
+})
 </script>
 
 <template>

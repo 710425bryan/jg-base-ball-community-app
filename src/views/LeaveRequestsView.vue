@@ -399,6 +399,8 @@ import {
 } from '@/utils/leaveRequests'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
+import { useTeamGroupsStore } from '@/stores/teamGroups'
+import { getUniqueTeamGroupOptions, normalizeTeamGroup } from '@/utils/teamGroups'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading, Memo, Plus, Setting } from '@element-plus/icons-vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
@@ -407,6 +409,7 @@ import dayjs from 'dayjs'
 
 const authStore = useAuthStore()
 const permissionsStore = usePermissionsStore()
+const teamGroupsStore = useTeamGroupsStore()
 const activeTab = ref('list')
 const isModalOpen = ref(false)
 const isSettingsOpen = ref(false)
@@ -552,8 +555,10 @@ const filteredLeaveRequests = computed(() => {
 type LeaveTypeBucket = 'personal' | 'sick' | 'official' | 'other'
 
 const statsGroupOptions = computed(() =>
-  Array.from(new Set(playerStatsRows.value.map((row) => row.group)))
-    .sort((left, right) => left.localeCompare(right, 'zh-Hant'))
+  getUniqueTeamGroupOptions(
+    playerStatsRows.value.map((row) => row.group),
+    teamGroupsStore.options
+  ).map((option) => option.value)
 )
 
 const filteredPlayerStatsRows = computed(() => {
@@ -612,7 +617,7 @@ const fetchStatsData = async () => {
       const name = typeof member?.name === 'string' && member.name.trim()
         ? member.name.trim()
         : '未知球員'
-      const teamGroup = typeof member?.team_group === 'string' ? member.team_group.trim() : ''
+      const teamGroup = normalizeTeamGroup(member?.team_group)
       const group = teamGroup || '未分組'
 
       if (!grouped.has(memberId)) {
@@ -808,6 +813,9 @@ let realtimeChannel: any
 
 // --- 初始掛載 ---
 onMounted(() => {
+  void teamGroupsStore.loadGroups().catch((error: any) => {
+    console.warn('Failed to load team group settings:', error)
+  })
   fetchData()
   fetchStatsData()
 

@@ -35,18 +35,29 @@ const getWeekStartDate = (today?: string | null) => {
   return date.toISOString().slice(0, 10)
 }
 
-const hasTrainingPointFields = (member: Partial<MyHomeMember> | null | undefined) =>
-  Boolean(member && (
-    'point_balance' in member
-    || 'reserved_training_points' in member
-    || 'available_training_points' in member
-  ))
+const hasOwn = (value: object, key: string) =>
+  Object.prototype.hasOwnProperty.call(value, key)
 
-const normalizeMember = (member: MyHomeMember): MyHomeMember => ({
+const hasTrainingPointFields = (member: Partial<MyHomeMember> | null | undefined) =>
+  Boolean(member
+    && hasOwn(member, 'point_balance')
+    && (hasOwn(member, 'reserved_training_points') || hasOwn(member, 'reserved_points'))
+    && (hasOwn(member, 'available_training_points') || hasOwn(member, 'available_points')))
+
+const normalizeMember = (member: Partial<MyHomeMember> & Record<string, unknown>): MyHomeMember => ({
   ...member,
+  id: String(member.id || ''),
+  name: String(member.name || ''),
+  role: member.role ? String(member.role) : null,
+  team_group: member.team_group ? String(member.team_group) : null,
+  status: member.status ? String(member.status) : null,
+  jersey_number: member.jersey_number === null || member.jersey_number === undefined
+    ? null
+    : String(member.jersey_number),
+  avatar_url: member.avatar_url ? String(member.avatar_url) : null,
   point_balance: normalizeNumber(member.point_balance),
-  reserved_training_points: normalizeNumber(member.reserved_training_points),
-  available_training_points: normalizeNumber(member.available_training_points)
+  reserved_training_points: normalizeNumber(member.reserved_training_points ?? member.reserved_points),
+  available_training_points: normalizeNumber(member.available_training_points ?? member.available_points)
 })
 
 const normalizeTrainingLocation = (row: Partial<MyHomeTrainingLocation>): MyHomeTrainingLocation => ({

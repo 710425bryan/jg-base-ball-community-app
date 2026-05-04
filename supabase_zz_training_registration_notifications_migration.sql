@@ -282,7 +282,8 @@ select cron.schedule(
       )),
       body := jsonb_build_object(
         'source', 'pg_cron',
-        'schedule', 'every 5 minutes'
+        'schedule', 'every 5 minutes',
+        'checks', 'registration_open_and_deadline_reminder'
       ),
       timeout_milliseconds := 60000
     );
