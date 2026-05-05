@@ -52,3 +52,11 @@ export const deleteTeamGroupSetting = async (id: string, transferToId?: string |
   if (error) throw error
   return normalizeDeleteResult(unwrapFirstRow(data))
 }
+
+export const reorderTeamGroupSettings = async (groupIds: string[]) => {
+  const { data, error } = await supabase.rpc('reorder_team_group_settings', {
+    p_group_ids: groupIds
+  })
+  if (error) throw error
+  return (Array.isArray(data) ? data : []).map(normalizeTeamGroupSetting)
+}

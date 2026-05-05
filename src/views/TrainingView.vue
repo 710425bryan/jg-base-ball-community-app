@@ -16,6 +16,8 @@ import type {
   TrainingManualStatus,
   TrainingMember,
   TrainingPointTransaction,
+  TrainingRegistrationNotificationDiagnostics,
+  TrainingRegistrationNotificationInvokeResult,
   TrainingRegistrationStatus,
   TrainingSession
 } from '@/types/training'
@@ -84,6 +86,11 @@ const isReviewing = ref(false)
 const isCreatingAttendance = ref(false)
 const isCreateSessionDialogOpen = ref(false)
 const isCreatingSession = ref(false)
+const isNotificationDiagnosticsDialogOpen = ref(false)
+const isLoadingNotificationDiagnostics = ref(false)
+const isInvokingNotificationOnce = ref(false)
+const notificationDiagnostics = ref<TrainingRegistrationNotificationDiagnostics | null>(null)
+const notificationInvokeResult = ref<TrainingRegistrationNotificationInvokeResult | null>(null)
 
 const settingsForm = reactive({
   match_id: '',
@@ -166,6 +173,59 @@ const formatDateTime = (value?: string | null) => {
   if (!value) return '未設定'
   const parsed = dayjs(value)
   return parsed.isValid() ? parsed.format('YYYY-MM-DD HH:mm') : '未設定'
+}
+
+const notificationDiagnosticSettingItems = computed(() => {
+  const settings = notificationDiagnostics.value?.settings
+  return [
+    {
+      key: 'function-url',
+      label: 'Function URL',
+      ok: Boolean(settings?.function_url_configured),
+      hint: 'app.training_registration_notification_function_url'
+    },
+    {
+      key: 'authorization',
+      label: 'Authorization',
+      ok: Boolean(settings?.authorization_configured),
+      hint: 'app.training_registration_notification_authorization'
+    },
+    {
+      key: 'secret',
+      label: 'Secret',
+      ok: Boolean(settings?.secret_configured),
+      hint: 'app.training_registration_notification_secret'
+    }
+  ]
+})
+
+const notificationBlockerLabels: Record<string, string> = {
+  not_training_match: '不是特訓課',
+  manual_status_not_open: '手動狀態不是開放報名',
+  registration_start_missing: '沒有報名開始時間',
+  registration_start_future: '報名開始尚未到',
+  registration_end_expired: '報名截止已過'
+}
+
+const getNotificationBlockerLabel = (blocker: string) => notificationBlockerLabels[blocker] || blocker
+
+const getNotificationDiagnosticStateLabel = (state: string) => {
+  if (state === 'ready') return '可觸發'
+  if (state === 'duplicate') return '已建立事件'
+  return '條件未滿足'
+}
+
+const getNotificationDiagnosticStateType = (state: string) => {
+  if (state === 'ready') return 'success'
+  if (state === 'duplicate') return 'warning'
+  return 'danger'
+}
+
+const getCronRunStatusType = (status?: string | null) => {
+  const normalized = String(status || '').toLowerCase()
+  if (normalized.includes('succeed') || normalized === 'success') return 'success'
+  if (normalized.includes('fail') || normalized.includes('error')) return 'danger'
+  return 'info'
 }
 
 const formatSessionDate = (session: TrainingSession) => {
@@ -418,12 +478,48 @@ const saveSettings = async () => {
     if (savedSettings?.id) {
       selectedAdminSessionId.value = savedSettings.id
     }
-    ElMessage.success('已儲存特訓報名設定')
+    ElMessage.success('已儲存特訓報名設定，通知會由排程檢查送出')
     await refreshData()
   } catch (error: any) {
     ElMessage.error(error?.message || '儲存設定失敗')
   } finally {
     isSavingSettings.value = false
+  }
+}
+
+const loadNotificationDiagnostics = async () => {
+  isLoadingNotificationDiagnostics.value = true
+  try {
+    notificationDiagnostics.value = await trainingApi.getRegistrationNotificationDiagnostics(5)
+    isNotificationDiagnosticsDialogOpen.value = true
+  } catch (error: any) {
+    ElMessage.error(error?.message || '讀取通知診斷失敗')
+  } finally {
+    isLoadingNotificationDiagnostics.value = false
+  }
+}
+
+const invokeNotificationOnce = async () => {
+  if (!canEditTraining.value) {
+    ElMessage.warning('需要 training:EDIT 權限才能手動觸發通知')
+    return
+  }
+
+  isInvokingNotificationOnce.value = true
+  try {
+    notificationInvokeResult.value = await trainingApi.invokeRegistrationNotificationOnce({
+      dryRun: false,
+      limit: 20
+    })
+    ElMessage.success('已觸發一次特訓報名通知檢查，Edge Function 會在背景送出')
+
+    window.setTimeout(() => {
+      void loadNotificationDiagnostics()
+    }, 4000)
+  } catch (error: any) {
+    ElMessage.error(error?.message || '手動觸發通知失敗')
+  } finally {
+    isInvokingNotificationOnce.value = false
   }
 }
 
@@ -763,20 +859,41 @@ watch(selectedAdminSessionId, (next, prev) => {
           <el-tab-pane v-if="canManageTraining" label="教練管理" name="manage">
             <div class="grid min-w-0 gap-4 xl:grid-cols-[380px_minmax(0,1fr)]">
               <section class="min-w-0 rounded-3xl border border-gray-100 bg-white p-5 shadow-sm h-fit">
-                <div class="flex items-center justify-between gap-3">
-                  <div class="flex items-center gap-2 text-lg font-black text-slate-800">
+                <div class="flex flex-col gap-3">
+                  <div class="flex items-center gap-2 whitespace-nowrap text-lg font-black text-slate-800">
                     <el-icon class="text-primary"><Setting /></el-icon>
                     報名設定
                   </div>
-                  <button
-                    v-if="canCreateTraining"
-                    type="button"
-                    class="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl border border-primary/20 bg-primary/5 px-3 text-xs font-black text-primary transition-colors hover:bg-primary hover:text-white"
-                    @click="openCreateSessionDialog"
-                  >
-                    <el-icon><Plus /></el-icon>
-                    新增
-                  </button>
+                  <div class="flex flex-wrap gap-2">
+                    <button
+                      v-if="canEditTraining"
+                      type="button"
+                      class="inline-flex min-h-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-slate-900 px-3 text-xs font-black text-white transition-colors hover:bg-black disabled:opacity-60"
+                      :disabled="isInvokingNotificationOnce"
+                      @click="invokeNotificationOnce"
+                    >
+                      <el-icon :class="{ 'is-loading': isInvokingNotificationOnce }"><Select /></el-icon>
+                      發送一次
+                    </button>
+                    <button
+                      type="button"
+                      class="inline-flex min-h-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-gray-200 px-3 text-xs font-black text-gray-600 transition-colors hover:border-primary hover:text-primary disabled:opacity-60"
+                      :disabled="isLoadingNotificationDiagnostics"
+                      @click="loadNotificationDiagnostics"
+                    >
+                      <el-icon :class="{ 'is-loading': isLoadingNotificationDiagnostics }"><Refresh /></el-icon>
+                      檢查通知
+                    </button>
+                    <button
+                      v-if="canCreateTraining"
+                      type="button"
+                      class="inline-flex min-h-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-primary/20 bg-primary/5 px-3 text-xs font-black text-primary transition-colors hover:bg-primary hover:text-white"
+                      @click="openCreateSessionDialog"
+                    >
+                      <el-icon><Plus /></el-icon>
+                      新增
+                    </button>
+                  </div>
                 </div>
 
                 <div class="mt-4 space-y-4">
@@ -1079,6 +1196,174 @@ watch(selectedAdminSessionId, (next, prev) => {
         </el-tabs>
       </div>
     </div>
+
+    <el-dialog
+      v-model="isNotificationDiagnosticsDialogOpen"
+      title="報名開始通知診斷"
+      width="min(92vw, 760px)"
+      align-center
+      destroy-on-close
+    >
+      <div v-if="notificationDiagnostics" class="space-y-5">
+        <section class="space-y-3">
+          <div class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h3 class="text-base font-black text-slate-800">排程設定</h3>
+              <p class="text-xs font-bold text-gray-400">產生時間：{{ formatDateTime(notificationDiagnostics.generated_at) }}</p>
+            </div>
+            <el-tag :type="notificationDiagnostics.cron.job_exists ? 'success' : 'danger'" effect="plain" class="!font-black">
+              {{ notificationDiagnostics.cron.job_exists ? 'Cron 已建立' : 'Cron 不存在' }}
+            </el-tag>
+          </div>
+
+          <div class="grid gap-2 sm:grid-cols-3">
+            <div
+              v-for="item in notificationDiagnosticSettingItems"
+              :key="item.key"
+              class="rounded-lg border border-gray-100 bg-gray-50 p-3"
+            >
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-sm font-black text-slate-700">{{ item.label }}</span>
+                <el-tag :type="item.ok ? 'success' : 'danger'" effect="plain" class="!font-black">
+                  {{ item.ok ? '已設定' : '缺少' }}
+                </el-tag>
+              </div>
+              <div class="mt-2 break-words text-[11px] font-bold text-gray-400">{{ item.hint }}</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="space-y-3">
+          <h3 class="text-base font-black text-slate-800">Cron 最近執行</h3>
+          <div v-if="notificationDiagnostics.cron.recent_runs.length === 0" class="rounded-lg border border-dashed border-gray-200 p-4 text-sm font-bold text-gray-400">
+            尚無 cron 執行紀錄。若 job 已建立，請等下一個 5 分鐘週期後再檢查。
+          </div>
+          <div v-else class="space-y-2">
+            <div
+              v-for="run in notificationDiagnostics.cron.recent_runs"
+              :key="run.runid"
+              class="rounded-lg border border-gray-100 p-3"
+            >
+              <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <el-tag :type="getCronRunStatusType(run.status)" effect="plain" class="!w-fit !font-black">
+                  {{ run.status || 'unknown' }}
+                </el-tag>
+                <span class="text-xs font-bold text-gray-400">{{ formatDateTime(run.start_time) }}</span>
+              </div>
+              <div class="mt-2 whitespace-pre-wrap break-words text-xs font-bold text-gray-500">
+                {{ run.return_message || '-' }}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="space-y-3">
+          <h3 class="text-base font-black text-slate-800">最近特訓課觸發條件</h3>
+          <div v-if="notificationDiagnostics.recent_sessions.length === 0" class="rounded-lg border border-dashed border-gray-200 p-4 text-sm font-bold text-gray-400">
+            找不到近期特訓報名設定。
+          </div>
+          <div v-else class="space-y-2">
+            <div
+              v-for="session in notificationDiagnostics.recent_sessions"
+              :key="session.session_id"
+              class="rounded-lg border border-gray-100 p-3"
+            >
+              <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div class="min-w-0">
+                  <div class="truncate text-sm font-black text-slate-800">{{ session.match_name || '未命名特訓課' }}</div>
+                  <div class="mt-1 text-xs font-bold text-gray-400">
+                    {{ session.match_date || '未設定日期' }}｜{{ session.match_time || '未設定時間' }}｜{{ session.location || '未設定地點' }}
+                  </div>
+                </div>
+                <el-tag :type="getNotificationDiagnosticStateType(session.trigger_state)" effect="plain" class="!w-fit !font-black">
+                  {{ getNotificationDiagnosticStateLabel(session.trigger_state) }}
+                </el-tag>
+              </div>
+
+              <div class="mt-3 grid gap-2 text-xs font-bold text-gray-500 sm:grid-cols-2">
+                <div>手動狀態：{{ getTrainingManualStatusLabel(session.manual_status) }}</div>
+                <div>報名開始：{{ formatDateTime(session.registration_start_at) }}</div>
+                <div>報名截止：{{ formatDateTime(session.registration_end_at) }}</div>
+                <div>通知事件：{{ session.open_event_exists ? '已存在' : '尚未建立' }}</div>
+              </div>
+
+              <div v-if="session.blockers.length > 0" class="mt-3 flex flex-wrap gap-2">
+                <el-tag
+                  v-for="blocker in session.blockers"
+                  :key="`${session.session_id}-${blocker}`"
+                  type="danger"
+                  effect="plain"
+                  class="!font-black"
+                >
+                  {{ getNotificationBlockerLabel(blocker) }}
+                </el-tag>
+              </div>
+              <div v-else-if="session.open_event_key" class="mt-3 break-words text-[11px] font-bold text-amber-600">
+                {{ session.open_event_key }}
+              </div>
+              <div v-else class="mt-3 break-words text-[11px] font-bold text-emerald-600">
+                下一輪排程應建立 {{ session.open_event_key_prefix }}...
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="grid gap-3 md:grid-cols-[220px_minmax(0,1fr)]">
+          <div class="rounded-lg border border-gray-100 p-3">
+            <h3 class="text-base font-black text-slate-800">推播目標</h3>
+            <div class="mt-3 space-y-2 text-sm font-bold text-gray-500">
+              <div class="flex items-center justify-between gap-3">
+                <span>可通知使用者</span>
+                <span class="font-black text-slate-800">{{ notificationDiagnostics.push_targets.active_training_users }}</span>
+              </div>
+              <div class="flex items-center justify-between gap-3">
+                <span>有效瀏覽器訂閱</span>
+                <span class="font-black text-slate-800">{{ notificationDiagnostics.push_targets.enabled_subscriptions }}</span>
+              </div>
+            </div>
+            <div v-if="notificationInvokeResult" class="mt-3 rounded-lg bg-emerald-50 p-2 text-xs font-bold text-emerald-700">
+              已排入一次手動觸發：request {{ notificationInvokeResult.request_id || '-' }}
+            </div>
+          </div>
+
+          <div class="rounded-lg border border-gray-100 p-3">
+            <h3 class="text-base font-black text-slate-800">最近通知事件</h3>
+            <div v-if="notificationDiagnostics.recent_events.length === 0" class="mt-3 text-sm font-bold text-gray-400">
+              尚無特訓報名通知事件。
+            </div>
+            <div v-else class="mt-3 max-h-56 space-y-2 overflow-y-auto pr-1">
+              <div
+                v-for="event in notificationDiagnostics.recent_events"
+                :key="event.event_key"
+                class="rounded-lg bg-gray-50 p-2"
+              >
+                <div class="truncate text-xs font-black text-slate-700">{{ event.title || event.event_key }}</div>
+                <div class="mt-1 break-words text-[11px] font-bold text-gray-400">{{ event.event_key }}</div>
+                <div class="mt-1 text-[11px] font-bold text-gray-400">{{ formatDateTime(event.created_at) }}</div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+      <div v-else class="py-8 text-center text-sm font-bold text-gray-400">
+        尚未載入診斷資料
+      </div>
+
+      <template #footer>
+        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <el-button class="!m-0" type="primary" @click="isNotificationDiagnosticsDialogOpen = false">關閉</el-button>
+          <el-button
+            v-if="canEditTraining"
+            class="!m-0"
+            type="success"
+            :loading="isInvokingNotificationOnce"
+            @click="invokeNotificationOnce"
+          >
+            發送一次
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
 
     <el-dialog
       v-model="isCreateSessionDialogOpen"

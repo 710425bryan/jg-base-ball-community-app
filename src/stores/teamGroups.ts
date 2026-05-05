@@ -4,6 +4,7 @@ import {
   createTeamGroupSetting,
   deleteTeamGroupSetting,
   fetchTeamGroupSettings,
+  reorderTeamGroupSettings,
   updateTeamGroupSetting
 } from '@/services/teamGroupsApi'
 import type { DeleteTeamGroupResult, TeamGroupSetting } from '@/types/teamGroup'
@@ -70,6 +71,17 @@ export const useTeamGroupsStore = defineStore('teamGroups', () => {
     }
   }
 
+  const reorderGroups = async (groupIds: string[]) => {
+    saving.value = true
+    try {
+      groups.value = await reorderTeamGroupSettings(groupIds)
+      loaded.value = true
+      return groups.value
+    } finally {
+      saving.value = false
+    }
+  }
+
   return {
     groups,
     options,
@@ -81,6 +93,7 @@ export const useTeamGroupsStore = defineStore('teamGroups', () => {
     refreshGroups,
     createGroup,
     updateGroup,
-    deleteGroup
+    deleteGroup,
+    reorderGroups
   }
 })

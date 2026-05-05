@@ -81,9 +81,33 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="排序" width="88" align="center">
+        <el-table-column label="排序" width="128" align="center">
           <template #default="{ row }">
-            <span class="text-xs font-bold text-slate-400">{{ row.sort_order }}</span>
+            <div v-if="canEdit && isPersistedGroup(row)" class="flex items-center justify-center gap-1">
+              <el-tooltip content="上移" placement="top">
+                <button
+                  type="button"
+                  class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                  :disabled="!canMoveGroup(row, -1)"
+                  :aria-label="`上移 ${row.name}`"
+                  @click="moveGroup(row, -1)"
+                >
+                  <el-icon><ArrowUp /></el-icon>
+                </button>
+              </el-tooltip>
+              <el-tooltip content="下移" placement="top">
+                <button
+                  type="button"
+                  class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                  :disabled="!canMoveGroup(row, 1)"
+                  :aria-label="`下移 ${row.name}`"
+                  @click="moveGroup(row, 1)"
+                >
+                  <el-icon><ArrowDown /></el-icon>
+                </button>
+              </el-tooltip>
+            </div>
+            <span v-else class="text-xs font-bold text-slate-400">{{ row.sort_order }}</span>
           </template>
         </el-table-column>
 
@@ -186,7 +210,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Delete, Edit, Plus } from '@element-plus/icons-vue'
+import { ArrowDown, ArrowUp, Delete, Edit, Plus } from '@element-plus/icons-vue'
 import { usePermissionsStore } from '@/stores/permissions'
 import { useTeamGroupsStore } from '@/stores/teamGroups'
 import type { TeamGroupOption } from '@/types/teamGroup'
@@ -219,6 +243,9 @@ const canCreate = computed(() => permissionsStore.can('players', 'CREATE'))
 const canEdit = computed(() => permissionsStore.can('players', 'EDIT'))
 const canDelete = computed(() => permissionsStore.can('players', 'DELETE'))
 const teamGroupOptions = computed(() => teamGroupsStore.options)
+const persistedTeamGroupOptions = computed(() =>
+  teamGroupOptions.value.filter((group) => isPersistedGroup(group))
+)
 const transferTargetOptions = computed(() =>
   teamGroupOptions.value.filter((group) => group.id !== deletingGroup.value?.id)
 )
@@ -226,6 +253,22 @@ const deleteDisabled = computed(() =>
   Boolean(deletingGroup.value && deletingGroup.value.member_count > 0 && !transferToId.value)
 )
 const isPersistedGroup = (group: TeamGroupOption) => !group.id.includes(':')
+const getPersistedGroupIndex = (group: TeamGroupOption) =>
+  persistedTeamGroupOptions.value.findIndex((item) => item.id === group.id)
+
+const canMoveGroup = (group: TeamGroupOption, direction: -1 | 1) => {
+  const currentIndex = getPersistedGroupIndex(group)
+  const targetIndex = currentIndex + direction
+  return (
+    canEdit.value &&
+    isPersistedGroup(group) &&
+    editingId.value !== group.id &&
+    !teamGroupsStore.saving &&
+    currentIndex >= 0 &&
+    targetIndex >= 0 &&
+    targetIndex < persistedTeamGroupOptions.value.length
+  )
+}
 
 watch(isOpen, (open) => {
   if (open) {
@@ -298,6 +341,23 @@ const confirmDelete = async () => {
     emit('changed', result.transferred_member_count > 0)
   } catch (error: any) {
     ElMessage.error(error?.message || '刪除群組失敗')
+  }
+}
+
+const moveGroup = async (group: TeamGroupOption, direction: -1 | 1) => {
+  if (!canMoveGroup(group, direction)) return
+
+  const nextOrder = persistedTeamGroupOptions.value.map((item) => item.id)
+  const currentIndex = getPersistedGroupIndex(group)
+  const targetIndex = currentIndex + direction
+  ;[nextOrder[currentIndex], nextOrder[targetIndex]] = [nextOrder[targetIndex], nextOrder[currentIndex]]
+
+  try {
+    await teamGroupsStore.reorderGroups(nextOrder)
+    ElMessage.success('群組排序已更新')
+    emit('changed', false)
+  } catch (error: any) {
+    ElMessage.error(error?.message || '更新群組排序失敗')
   }
 }
 </script>

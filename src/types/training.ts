@@ -88,6 +88,85 @@ export interface TrainingPointTransaction {
   created_at: string
 }
 
+export type TrainingNotificationDiagnosticState = 'ready' | 'blocked' | 'duplicate'
+
+export interface TrainingNotificationCronJob {
+  jobid: number
+  jobname: string
+  schedule: string
+  active: boolean
+  command_preview: string | null
+}
+
+export interface TrainingNotificationCronRun {
+  runid: number
+  jobid: number
+  status: string | null
+  return_message: string | null
+  start_time: string | null
+  end_time: string | null
+}
+
+export interface TrainingNotificationDiagnosticSession {
+  session_id: string
+  match_id: string
+  match_name: string | null
+  match_date: string | null
+  match_time: string | null
+  location: string | null
+  match_level: string | null
+  manual_status: TrainingManualStatus | string | null
+  registration_start_at: string | null
+  registration_end_at: string | null
+  capacity: number | null
+  point_cost: number | null
+  selected_count: number
+  open_event_key_prefix: string
+  open_event_exists: boolean
+  open_event_key: string | null
+  open_event_created_at: string | null
+  blockers: string[]
+  trigger_state: TrainingNotificationDiagnosticState
+}
+
+export interface TrainingNotificationDiagnosticEvent {
+  event_key: string
+  title: string | null
+  body: string | null
+  url: string | null
+  match_id: string | null
+  created_at: string
+}
+
+export interface TrainingRegistrationNotificationDiagnostics {
+  generated_at: string
+  settings: {
+    function_url_configured: boolean
+    function_url_source?: 'db_setting' | 'project_default'
+    authorization_configured: boolean
+    secret_configured: boolean
+  }
+  cron: {
+    job_exists: boolean
+    jobs: TrainingNotificationCronJob[]
+    recent_runs: TrainingNotificationCronRun[]
+  }
+  recent_sessions: TrainingNotificationDiagnosticSession[]
+  recent_events: TrainingNotificationDiagnosticEvent[]
+  push_targets: {
+    active_training_users: number
+    enabled_subscriptions: number
+  }
+}
+
+export interface TrainingRegistrationNotificationInvokeResult {
+  queued: boolean
+  request_id: number | null
+  dry_run: boolean
+  limit: number
+  queued_at: string
+}
+
 export interface TrainingSessionSettingsInput {
   match_id: string
   registration_start_at?: string | null

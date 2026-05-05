@@ -3,6 +3,8 @@ import type {
   TrainingAdminRegistration,
   TrainingMember,
   TrainingPointTransaction,
+  TrainingRegistrationNotificationDiagnostics,
+  TrainingRegistrationNotificationInvokeResult,
   TrainingRegistrationStatus,
   TrainingSession,
   TrainingSessionCreateInput,
@@ -171,6 +173,24 @@ export const trainingApi = {
     })
     if (error) throw error
     return Number(data || 0)
+  },
+
+  async getRegistrationNotificationDiagnostics(limit = 5) {
+    const { data, error } = await supabase.rpc('get_training_registration_notification_diagnostics', {
+      p_limit: limit
+    })
+    if (error) throw error
+    return data as TrainingRegistrationNotificationDiagnostics
+  },
+
+  async invokeRegistrationNotificationOnce(options?: { dryRun?: boolean; limit?: number; now?: string | null }) {
+    const { data, error } = await supabase.rpc('invoke_training_registration_notification_once', {
+      p_dry_run: options?.dryRun ?? false,
+      p_limit: options?.limit ?? 20,
+      p_now: options?.now || null
+    })
+    if (error) throw error
+    return data as TrainingRegistrationNotificationInvokeResult
   },
 
   async createAttendanceEvent(sessionId: string) {

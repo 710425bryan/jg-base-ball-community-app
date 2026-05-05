@@ -1,23 +1,21 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
-import {
-  fetchEnabledPushSubscriptions,
-  sendPushToSubscriptions,
-} from "../_shared/push.ts";
-import {
-  buildTrainingRegistrationNotificationBody,
-  buildTrainingRegistrationNotificationEventKey,
-  buildTrainingRegistrationNotificationTitle,
-  buildTrainingRegistrationNotificationUrl,
-  hasRemainingTrainingRegistrationSlots,
-  isTrainingRegistrationDeadlineReminderDue,
-  type TrainingRegistrationNotificationKind,
-  type TrainingRegistrationNotificationSession,
-} from "../../../src/utils/trainingRegistrationNotification.ts";
+import webpush from "https://esm.sh/web-push@3.6.7";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const TRAINING_NOTIFICATION_SECRET = Deno.env.get("TRAINING_NOTIFICATION_SECRET") || "";
+const FALLBACK_TRAINING_NOTIFICATION_SECRET = Deno.env.get("TRAINING_NOTIFICATION_SECRET") || "";
+const TRAINING_NOTIFICATION_SETTINGS_KEY = "training_registration_notification";
+const TAIPEI_TIME_ZONE = "Asia/Taipei";
+const EMPTY_VALUE = "未設定";
+const publicVapidKey = "BIrzQ2oSy_bdMkLjQMDZCnBMzpkFzNHYa1QlcFKNQ3OCjDsMLeKC-2WazmnkSFUK7nwSlM3n8XFahxUxNrLMCmg";
+const privateVapidKey = "wLgkicqYN9HKaOg2oZbdpvcFXdVybK11OdaOjOjQ72U";
+
+webpush.setVapidDetails(
+  "mailto:team@example.com",
+  publicVapidKey,
+  privateVapidKey,
+);
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -67,6 +65,44 @@ type TrainingNotificationJob = {
   session: TrainingRegistrationNotificationSession;
 };
 
+type TrainingNotificationConfig = {
+  sync_secret?: string | null;
+};
+
+type StoredWebPushSubscription = {
+  id: string;
+  user_id: string;
+  endpoint: string;
+  subscription: Record<string, unknown>;
+  enabled: boolean;
+  platform: string | null;
+  user_agent: string | null;
+};
+
+type PushDispatchSummary = {
+  total_targets: number;
+  dispatched_count: number;
+  expired_count: number;
+  failed_count: number;
+  provider_counts: Record<string, number>;
+};
+
+type TrainingRegistrationNotificationKind = "open" | "deadline_reminder";
+
+type TrainingRegistrationNotificationSession = {
+  session_id: string;
+  match_id: string;
+  match_name?: string | null;
+  match_date?: string | null;
+  match_time?: string | null;
+  location?: string | null;
+  registration_start_at?: string | null;
+  registration_end_at?: string | null;
+  point_cost?: number | null;
+  capacity?: number | null;
+  selected_count?: number | null;
+};
+
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 const jsonResponse = (body: Record<string, unknown>, status = 200) =>
@@ -88,15 +124,251 @@ const normalizeLimit = (value: unknown) => {
   return Number.isFinite(parsed) ? Math.max(1, Math.min(parsed, 50)) : 20;
 };
 
-const assertAuthorized = (req: Request, payload: any) => {
-  if (!TRAINING_NOTIFICATION_SECRET) {
-    throw jsonResponse({ error: "TRAINING_NOTIFICATION_SECRET is not configured" }, 500);
+const detectPushProvider = (endpoint?: string | null) => {
+  if (!endpoint) return "Unknown";
+  if (endpoint.includes("push.apple.com")) return "Apple Web Push";
+  if (endpoint.includes("fcm.googleapis.com")) return "FCM Web Push";
+  if (endpoint.includes("updates.push.services.mozilla.com")) return "Mozilla Web Push";
+  return "Web Push";
+};
+
+const fetchEnabledPushSubscriptions = async (
+  supabaseClient: any,
+  userIds: string[],
+) => {
+  if (userIds.length === 0) {
+    return [] as StoredWebPushSubscription[];
+  }
+
+  const { data, error } = await supabaseClient
+    .from("web_push_subscriptions")
+    .select("id, user_id, endpoint, subscription, enabled, platform, user_agent")
+    .eq("enabled", true)
+    .in("user_id", userIds);
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as StoredWebPushSubscription[];
+};
+
+const sendPushToSubscriptions = async (
+  supabaseClient: any,
+  subscriptions: StoredWebPushSubscription[],
+  payload: { title: string; body: string; url?: string },
+): Promise<PushDispatchSummary> => {
+  const pushPayload = JSON.stringify({
+    title: payload.title,
+    body: payload.body,
+    url: payload.url || "/training",
+  });
+
+  const summary: PushDispatchSummary = {
+    total_targets: subscriptions.length,
+    dispatched_count: 0,
+    expired_count: 0,
+    failed_count: 0,
+    provider_counts: {},
+  };
+
+  const results = await Promise.all(subscriptions.map(async (subscription) => {
+    const provider = detectPushProvider(subscription.endpoint);
+    summary.provider_counts[provider] = (summary.provider_counts[provider] || 0) + 1;
+
+    try {
+      await webpush.sendNotification(subscription.subscription as webpush.PushSubscription, pushPayload);
+      return { status: "sent" as const };
+    } catch (error: any) {
+      const statusCode = error?.statusCode;
+      if (statusCode === 404 || statusCode === 410) {
+        const { error: deleteError } = await supabaseClient
+          .from("web_push_subscriptions")
+          .delete()
+          .eq("id", subscription.id);
+
+        if (deleteError) {
+          console.error("Failed to delete expired push subscription", {
+            subscriptionId: subscription.id,
+            endpoint: subscription.endpoint,
+            deleteError,
+          });
+        }
+
+        return { status: "expired" as const };
+      }
+
+      console.error("Web push delivery failed", {
+        subscriptionId: subscription.id,
+        endpoint: subscription.endpoint,
+        statusCode,
+        error,
+      });
+
+      return { status: "failed" as const };
+    }
+  }));
+
+  for (const result of results) {
+    if (result.status === "sent") {
+      summary.dispatched_count += 1;
+    } else if (result.status === "expired") {
+      summary.expired_count += 1;
+    } else {
+      summary.failed_count += 1;
+    }
+  }
+
+  return summary;
+};
+
+const normalizeDisplayValue = (value: unknown) => {
+  if (value === null || value === undefined) return EMPTY_VALUE;
+  const normalized = String(value).replace(/\s+/g, " ").trim();
+  return normalized || EMPTY_VALUE;
+};
+
+const formatDateTimeInTimeZone = (value: string | null | undefined, timeZone: string) => {
+  if (!value) return EMPTY_VALUE;
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return EMPTY_VALUE;
+
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+  const parts = formatter.formatToParts(date);
+  const partMap = new Map(parts.map((part) => [part.type, part.value]));
+
+  return [
+    `${partMap.get("year")}-${partMap.get("month")}-${partMap.get("day")}`,
+    `${partMap.get("hour")}:${partMap.get("minute")}`,
+  ].join(" ");
+};
+
+const getRemainingSlotsLabel = (
+  session: Pick<TrainingRegistrationNotificationSession, "capacity" | "selected_count">,
+) => {
+  const capacity = Number(session.capacity ?? 0);
+  if (!Number.isFinite(capacity) || capacity <= 0) return "不限";
+
+  const selectedCount = Number(session.selected_count ?? 0);
+  const remainingSlots = Math.max(0, capacity - (Number.isFinite(selectedCount) ? selectedCount : 0));
+
+  return `${remainingSlots} 人`;
+};
+
+const hasRemainingTrainingRegistrationSlots = (
+  session: Pick<TrainingRegistrationNotificationSession, "capacity" | "selected_count">,
+) => {
+  const capacity = Number(session.capacity ?? 0);
+  if (!Number.isFinite(capacity) || capacity <= 0) return true;
+
+  const selectedCount = Number(session.selected_count ?? 0);
+  return (Number.isFinite(selectedCount) ? selectedCount : 0) < capacity;
+};
+
+const isTrainingRegistrationDeadlineReminderDue = (
+  session: Pick<TrainingRegistrationNotificationSession, "registration_end_at">,
+  now: Date,
+  reminderWindowMs = 24 * 60 * 60 * 1000,
+) => {
+  if (!session.registration_end_at) return false;
+
+  const endTime = new Date(session.registration_end_at).getTime();
+  if (Number.isNaN(endTime)) return false;
+
+  const nowTime = now.getTime();
+  return endTime > nowTime && endTime - nowTime <= reminderWindowMs;
+};
+
+const buildTrainingRegistrationNotificationEventKey = (
+  session: Pick<TrainingRegistrationNotificationSession, "session_id" | "registration_start_at" | "registration_end_at">,
+  kind: TrainingRegistrationNotificationKind = "open",
+) => {
+  if (kind === "deadline_reminder") {
+    return `training_registration_deadline:${session.session_id}:${session.registration_end_at || "no-end"}`;
+  }
+
+  return `training_registration_open:${session.session_id}:${session.registration_start_at || "no-start"}`;
+};
+
+const buildTrainingRegistrationNotificationUrl = (
+  session: Pick<TrainingRegistrationNotificationSession, "session_id">,
+) => `/training?session_id=${encodeURIComponent(session.session_id)}`;
+
+const buildTrainingRegistrationNotificationTitle = (
+  session: Pick<TrainingRegistrationNotificationSession, "match_name">,
+  kind: TrainingRegistrationNotificationKind = "open",
+) => kind === "deadline_reminder"
+  ? `特訓課報名即將截止：${normalizeDisplayValue(session.match_name)}`
+  : `特訓課開放報名：${normalizeDisplayValue(session.match_name)}`;
+
+const buildTrainingRegistrationNotificationBody = (
+  session: Pick<
+    TrainingRegistrationNotificationSession,
+    | "match_name"
+    | "match_date"
+    | "match_time"
+    | "location"
+    | "registration_end_at"
+    | "point_cost"
+    | "capacity"
+    | "selected_count"
+  >,
+  kind: TrainingRegistrationNotificationKind = "open",
+) => {
+  const lines = [
+    `課程：${normalizeDisplayValue(session.match_name)}`,
+    `日期：${normalizeDisplayValue(session.match_date)}`,
+    `時間：${normalizeDisplayValue(session.match_time)}`,
+    `地點：${normalizeDisplayValue(session.location)}`,
+    `報名截止：${formatDateTimeInTimeZone(session.registration_end_at, TAIPEI_TIME_ZONE)}`,
+    `扣點：${Number(session.point_cost ?? 0)} 點`,
+    `名額：${session.capacity ? `${session.capacity} 人` : "不限"}`,
+  ];
+
+  if (kind === "deadline_reminder") {
+    lines.push(`剩餘名額：${getRemainingSlotsLabel(session)}`);
+  }
+
+  return lines.join("\n");
+};
+
+const fetchTrainingNotificationSecret = async () => {
+  const { data, error } = await supabase
+    .from("system_settings")
+    .select("value")
+    .eq("key", TRAINING_NOTIFICATION_SETTINGS_KEY)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  const config = (data?.value || {}) as TrainingNotificationConfig;
+  const dbSecret = typeof config.sync_secret === "string" ? config.sync_secret.trim() : "";
+
+  return dbSecret || FALLBACK_TRAINING_NOTIFICATION_SECRET;
+};
+
+const assertAuthorized = async (req: Request, payload: any) => {
+  const expectedSecret = await fetchTrainingNotificationSecret();
+
+  if (!expectedSecret) {
+    throw jsonResponse({ error: "training notification secret is not configured" }, 500);
   }
 
   const headerSecret = req.headers.get("x-sync-secret") || "";
   const payloadSecret = typeof payload?.sync_secret === "string" ? payload.sync_secret : "";
 
-  if (headerSecret !== TRAINING_NOTIFICATION_SECRET && payloadSecret !== TRAINING_NOTIFICATION_SECRET) {
+  if (headerSecret !== expectedSecret && payloadSecret !== expectedSecret) {
     throw jsonResponse({ error: "unauthorized training notification request" }, 401);
   }
 };
@@ -283,11 +555,13 @@ const createTrainingNotificationEvent = async (
   title: string,
   body: string,
   url: string,
+  options: { refreshDuplicate?: boolean } = {},
 ) => {
+  const eventKey = buildTrainingRegistrationNotificationEventKey(session, kind);
   const { data, error } = await supabase
     .from("push_dispatch_events")
     .insert({
-      event_key: buildTrainingRegistrationNotificationEventKey(session, kind),
+      event_key: eventKey,
       feature: "training",
       action: "VIEW",
       title,
@@ -300,13 +574,36 @@ const createTrainingNotificationEvent = async (
 
   if (error) {
     if (error.code === "23505") {
-      return { created: false, id: null };
+      if (!options.refreshDuplicate) {
+        return { created: false, refreshed: false, id: null };
+      }
+
+      const { data: updatedData, error: updateError } = await supabase
+        .from("push_dispatch_events")
+        .update({
+          feature: "training",
+          action: "VIEW",
+          title,
+          body,
+          url,
+          match_id: session.match_id,
+          created_at: new Date().toISOString(),
+        })
+        .eq("event_key", eventKey)
+        .select("id")
+        .single();
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      return { created: true, refreshed: true, id: updatedData?.id || null };
     }
 
     throw error;
   }
 
-  return { created: true, id: data?.id || null };
+  return { created: true, refreshed: false, id: data?.id || null };
 };
 
 serve(async (req) => {
@@ -320,7 +617,7 @@ serve(async (req) => {
 
   try {
     const payload = await parsePayload(req);
-    assertAuthorized(req, payload);
+    await assertAuthorized(req, payload);
 
     const now = payload.now ? new Date(String(payload.now)) : new Date();
     if (Number.isNaN(now.getTime())) {
@@ -329,6 +626,7 @@ serve(async (req) => {
 
     const limit = normalizeLimit(payload.limit);
     const dryRun = payload.dry_run === true;
+    const forceResend = payload.force_resend === true;
     const jobs = await fetchDueTrainingNotificationJobs(now, limit);
 
     if (jobs.length === 0) {
@@ -377,7 +675,9 @@ serve(async (req) => {
         continue;
       }
 
-      const event = await createTrainingNotificationEvent(session, kind, title, body, url);
+      const event = await createTrainingNotificationEvent(session, kind, title, body, url, {
+        refreshDuplicate: forceResend,
+      });
       if (!event.created) {
         duplicateCount += 1;
         sessionResults.push({
@@ -391,7 +691,12 @@ serve(async (req) => {
         continue;
       }
 
-      createdCount += 1;
+      if (event.refreshed) {
+        duplicateCount += 1;
+      } else {
+        createdCount += 1;
+      }
+
       const pushSummary = await sendPushToSubscriptions(supabase, subscriptions, {
         title,
         body,
@@ -412,6 +717,7 @@ serve(async (req) => {
         match_id: session.match_id,
         event_id: event.id,
         created: true,
+        refreshed: event.refreshed,
         ...pushSummary,
       });
     }

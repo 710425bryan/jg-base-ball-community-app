@@ -1081,8 +1081,8 @@ const handlePhotoUpload = async (event: Event) => {
 </script>
 
 <template>
-  <el-dialog v-model="visible" :title="mode === 'add' ? '新增比賽紀錄' : '編輯比賽紀錄'" width="100%" class="!rounded-2xl max-w-6xl custom-dialog" destroy-on-close align-center top="5vh">
-    <div class="flex h-[75vh] min-h-0 flex-col -mx-4 -my-6 md:m-0">
+  <el-dialog v-model="visible" :title="mode === 'add' ? '新增比賽紀錄' : '編輯比賽紀錄'" width="100%" class="!rounded-2xl max-w-6xl custom-dialog match-form-dialog" destroy-on-close align-center top="5vh">
+    <div class="match-form-dialog-shell flex h-full min-h-0 flex-col md:h-[75vh]">
       <!-- Top Tabs -->
       <div class="z-10 flex shrink-0 gap-1 overflow-x-auto border-b border-gray-100 bg-gray-50 p-2 md:gap-2 md:p-3 hide-scrollbar">
         <button @click="activeTab = 'basic'" :class="{'bg-white text-primary shadow-sm border border-gray-200': activeTab === 'basic', 'text-gray-500 hover:bg-gray-100 border border-transparent': activeTab !== 'basic'}" class="px-4 py-3 rounded-xl flex items-center justify-center gap-2.5 font-bold transition-all shrink-0 min-w-[120px]">
@@ -1106,7 +1106,7 @@ const handlePhotoUpload = async (event: Event) => {
       </div>
 
       <!-- Main Form Area -->
-      <div class="min-h-0 flex-1 overflow-y-auto bg-white p-4 md:p-8" id="modal-scroll-area">
+      <div class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-white p-4 md:p-8" id="modal-scroll-area">
         
         <!-- === TAB 1: BASIC === -->
         <div v-show="activeTab === 'basic'" class="space-y-6 animate-fade-in pr-2">
@@ -1782,6 +1782,17 @@ const handlePhotoUpload = async (event: Event) => {
 /* Reset Element Plus Dialog body padding to allow edge-to-edge layout */
 .custom-dialog .el-dialog__body {
   padding: 0 !important;
+}
+
+.match-form-dialog .el-dialog__body {
+  overflow: hidden !important;
+}
+
+.match-form-dialog-shell {
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow-x: hidden;
+  width: 100%;
 }
 
 .sync-resizable-workspace {

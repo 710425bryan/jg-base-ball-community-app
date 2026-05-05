@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
-import { Calendar, Location, Refresh, UserFilled } from '@element-plus/icons-vue'
+import { Calendar, Location, Refresh, Tickets, UserFilled } from '@element-plus/icons-vue'
 import type { MyHomeSnapshot, MyHomeTodoItem } from '@/types/myHome'
 import {
   buildMyHomeTodoItems,
@@ -33,6 +33,7 @@ const selectedMember = computed(() => getSelectedMyHomeMember(members.value, pro
 const selectedLeave = computed(() => getMyHomeMemberLeave(props.snapshot, selectedMember.value?.id))
 const todoItems = computed(() => buildMyHomeTodoItems(props.snapshot, selectedMember.value?.id))
 const nextEvent = computed(() => props.snapshot.next_event)
+const isNextTrainingEvent = computed(() => nextEvent.value?.match_level === '特訓課')
 const selectedTrainingLocations = computed(() =>
   props.snapshot.training_locations
     .filter((location) => location.member_id === selectedMember.value?.id)
@@ -45,6 +46,7 @@ const selectedTrainingLocations = computed(() =>
 const paymentSummary = computed(() => props.snapshot.payment_summary)
 const equipmentSummary = computed(() => props.snapshot.equipment_summary)
 const isPointCardFlipped = ref(false)
+const trainingPointLogoSrc = '/training-point-logo.jpg'
 
 const trainingPointCard = computed(() => ({
   balance: selectedMember.value?.point_balance ?? 0,
@@ -212,7 +214,7 @@ watch(() => selectedMember.value?.id, () => {
                 <span class="training-point-card__shine"></span>
                 <span class="training-point-card__front-content">
                   <span class="training-point-card__brand">
-                    <img src="/training-point-logo.jpg" alt="中港熊戰 Logo" class="training-point-card__logo" />
+                    <img :src="trainingPointLogoSrc" alt="中港熊戰 Logo" class="training-point-card__logo" />
                     <span>
                       <span class="training-point-card__label">特訓點數</span>
                       <span class="training-point-card__member">{{ selectedMember.name }}</span>
@@ -277,6 +279,14 @@ watch(() => selectedMember.value?.id, () => {
                 class="inline-flex min-h-11 items-center justify-center rounded-2xl bg-primary px-4 text-sm font-black text-white transition-colors hover:bg-primary-hover"
               >
                 查看詳情
+              </RouterLink>
+              <RouterLink
+                v-if="isNextTrainingEvent"
+                to="/training"
+                class="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-amber-200 bg-white px-4 text-sm font-black text-amber-700 transition-colors hover:border-amber-300 hover:bg-amber-100"
+              >
+                <el-icon><Tickets /></el-icon>
+                特訓報名
               </RouterLink>
               <a
                 v-if="nextEventLocationHref"
