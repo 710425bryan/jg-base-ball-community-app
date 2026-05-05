@@ -1160,188 +1160,243 @@ const queueQuarterlyFeeNotification = (record: any) => {
   quarterlyFeeNotificationBufferTimers.set(bufferKey, nextTimerId);
 };
 
-const startListening = () => {
-  if (realtimeChannel || teamMemberChannel || joinInquiriesChannel) return;
-
-  // 1. 監聽請假表單 (專屬跑道A)
-  realtimeChannel = supabase
-    .channel('leave-requests-channel')
-    .on(
-      'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'leave_requests' },
-      async (payload) => {
-        // 限 ADMIN, MANAGER, HEAD_COACH, COACH 接收:
-        if (!permissionsStore.can('leave_requests', 'VIEW')) return;
-
-        const { data } = await supabase.from('team_members').select('name').eq('id', payload.new.user_id).single();
-        const newNote: NotificationFeedItem = {
-          id: buildNotificationFeedItemId('leave', String(payload.new.id)),
-          source: 'leave',
-          title: `[新增假單] ${data?.name || '未知成員'} 的${payload.new.leave_type || '假單'}`,
-          body: `日期：${payload.new.start_date} ~ ${payload.new.end_date}`,
-          createdAt: payload.new.created_at || new Date().toISOString(),
-          link: `/leave-requests?highlight_leave_id=${payload.new.id}`,
-          highlightMemberId: null
-        };
-        upsertNotification(newNote);
-
-        if (payload.new.user_id === authStore.user?.id) {
-          return;
-        }
-
-        maybeShowBrowserNotification('收到新的系統通知', newNote.title, () => {
-          router.push(`/leave-requests?highlight_leave_id=${payload.new.id}`);
-        });
-      }
-    )
-    .subscribe((status, err) => {
-      console.log('📡 [WebSocket] 請假系統連線狀態：', status);
-    });
-
-  // 2. 監聽新進球員 (專屬跑道B)
-  teamMemberChannel = supabase
-    .channel('team-members-channel')
-    .on(
-      'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'team_members' },
-      (payload) => {
-        // 限 ADMIN, MANAGER 接收:
-        if (!permissionsStore.can('players', 'VIEW')) return;
-
-        console.log('⚡ [Realtime 攔截] 收到 team_members 最新資料！Payload:', payload);
-
-        const newNote: NotificationFeedItem = {
-          id: buildNotificationFeedItemId('member', String(payload.new.id)),
-          source: 'member',
-          title: `[新進通知] 歡迎 ${payload.new.name} 入隊！`,
-          body: `剛從表單收到了 ${payload.new.name} (${payload.new.role}) 的球員資料。`,
-          createdAt: payload.new.created_at || new Date().toISOString(),
-          link: '/players',
-          highlightMemberId: null
-        };
-        upsertNotification(newNote);
-
-        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-          console.log('[推播觸發] Notification.permission 是 granted, 準備彈出橫幅...');
-          maybeShowBrowserNotification('收到新球員名單', newNote.title, () => {
-            router.push('/players');
-          });
-        } else if (typeof Notification !== 'undefined') {
-          console.log('[推播阻擋] 雖然收到了 Socket 更新，但目前權限狀態是：', Notification.permission);
-        }
-
-        void dispatchPushNotification({
-          title: newNote.title,
-          body: newNote.body,
-          url: '/players',
-          feature: 'players',
-          action: 'VIEW',
-          eventKey: buildPushEventKey('team_member', payload.new.id)
-        }).catch((error) => {
-          console.warn('球員通知推播傳送失敗', error)
-        });
-      }
-    )
-    .subscribe((status, err) => {
-      console.log('📡 [WebSocket] 球員名單通道連線狀態：', status);
-      if (status === 'SUBSCRIBED') {
-        console.log('✅ [WebSocket] 球員資料接收器啟動成功！');
-      }
-    });
-
-  // 3. 監聽詢問加入表單 (專屬跑道C)
-  joinInquiriesChannel = supabase
-    .channel('join-inquiries-channel')
-    .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'join_inquiries' },
-        (payload) => {
-          // 只推播給管理員
-          if (!permissionsStore.can('join_inquiries', 'VIEW')) return;
-
-          console.log('⚡ [Realtime 攔截] 收到 join_inquiries 最新資料！Payload:', payload);
-
-          const newNote: NotificationFeedItem = {
-            id: buildNotificationFeedItemId('join', String(payload.new.id)),
-            source: 'join',
-            title: `[入隊詢問] 收到來自 ${payload.new.parent_name} 的聯絡`,
-            body: buildJoinInquiryContactBody(payload.new),
-            createdAt: payload.new.created_at || new Date().toISOString(),
-            link: '/join-inquiries',
-            highlightMemberId: null
-          };
-          upsertNotification(newNote);
-
-          maybeShowBrowserNotification('收到新的入隊詢問', newNote.title, () => {
-            router.push('/join-inquiries');
-          });
-
-          void dispatchPushNotification({
-            title: newNote.title,
-            body: newNote.body,
-            url: '/join-inquiries',
-            feature: 'join_inquiries',
-            action: 'VIEW',
-            eventKey: buildPushEventKey('join_inquiry', payload.new.id)
-          }).catch((error) => {
-            console.warn('入隊詢問推播傳送失敗', error)
-          });
-        }
-    )
-    .subscribe((status) => {
-      console.log('📡 [WebSocket] 入隊詢問表單連線狀態：', status);
-    });
-
-  // 4. 監聽季費表單 (專屬跑道D)
-  quarterlyFeesChannel = supabase
-    .channel('quarterly-fees-channel')
-    .on(
-      'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'quarterly_fees' },
-      (payload) => {
-        // 限 ADMIN, MANAGER 接收
-        if (!permissionsStore.can('fees', 'VIEW')) return;
-        queueQuarterlyFeeNotification(payload.new);
-      }
-    )
-    .subscribe((status) => {
-      console.log('📡 [WebSocket] 季費表單連線狀態：', status);
-    });
-};
-
-const stopListening = () => {
-  clearQuarterlyFeeNotificationBuffer();
+const stopLeaveRequestsListening = () => {
   if (realtimeChannel) {
     supabase.removeChannel(realtimeChannel);
     realtimeChannel = null;
   }
+};
+
+const stopTeamMembersListening = () => {
   if (teamMemberChannel) {
     supabase.removeChannel(teamMemberChannel);
     teamMemberChannel = null;
   }
+};
+
+const stopJoinInquiriesListening = () => {
   if (joinInquiriesChannel) {
     supabase.removeChannel(joinInquiriesChannel);
     joinInquiriesChannel = null;
   }
+};
+
+const stopQuarterlyFeesListening = () => {
+  clearQuarterlyFeeNotificationBuffer();
   if (quarterlyFeesChannel) {
     supabase.removeChannel(quarterlyFeesChannel);
     quarterlyFeesChannel = null;
   }
 };
 
-// 監聽權限變化，確保有權限的角色才會開啟 WebSocket
-watch(() => authStore.profile?.role, (newRole) => {
-  if (!newRole) {
-    clearScheduledNotificationFeedLoad();
-    stopListening();
-    resetNotificationFeed();
-    return;
+const syncRealtimeSubscriptions = () => {
+  if (permissionsStore.can('leave_requests', 'VIEW')) {
+    if (!realtimeChannel) {
+      // 1. 監聽請假表單 (專屬跑道A)
+      realtimeChannel = supabase
+        .channel('leave-requests-channel')
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'leave_requests' },
+          async (payload) => {
+            if (!permissionsStore.can('leave_requests', 'VIEW')) return;
+
+            const { data } = await supabase.from('team_members').select('name').eq('id', payload.new.user_id).single();
+            const newNote: NotificationFeedItem = {
+              id: buildNotificationFeedItemId('leave', String(payload.new.id)),
+              source: 'leave',
+              title: `[新增假單] ${data?.name || '未知成員'} 的${payload.new.leave_type || '假單'}`,
+              body: `日期：${payload.new.start_date} ~ ${payload.new.end_date}`,
+              createdAt: payload.new.created_at || new Date().toISOString(),
+              link: `/leave-requests?highlight_leave_id=${payload.new.id}`,
+              highlightMemberId: null
+            };
+            upsertNotification(newNote);
+
+            if (payload.new.user_id === authStore.user?.id) {
+              return;
+            }
+
+            maybeShowBrowserNotification('收到新的系統通知', newNote.title, () => {
+              router.push(`/leave-requests?highlight_leave_id=${payload.new.id}`);
+            });
+          }
+        )
+        .subscribe((status, err) => {
+          console.log('📡 [WebSocket] 請假系統連線狀態：', status);
+        });
+    }
+  } else {
+    stopLeaveRequestsListening();
   }
 
-  startListening();
-  clearScheduledNotificationFeedLoad();
-  scheduleNotificationFeedLoad();
-}, { immediate: true });
+  if (permissionsStore.can('players', 'VIEW')) {
+    if (!teamMemberChannel) {
+      // 2. 監聽新進球員 (專屬跑道B)
+      teamMemberChannel = supabase
+        .channel('team-members-channel')
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'team_members' },
+          (payload) => {
+            if (!permissionsStore.can('players', 'VIEW')) return;
+
+            console.log('⚡ [Realtime 攔截] 收到 team_members 最新資料！Payload:', payload);
+
+            const newNote: NotificationFeedItem = {
+              id: buildNotificationFeedItemId('member', String(payload.new.id)),
+              source: 'member',
+              title: `[新進通知] 歡迎 ${payload.new.name} 入隊！`,
+              body: `剛從表單收到了 ${payload.new.name} (${payload.new.role}) 的球員資料。`,
+              createdAt: payload.new.created_at || new Date().toISOString(),
+              link: '/players',
+              highlightMemberId: null
+            };
+            upsertNotification(newNote);
+
+            if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+              console.log('[推播觸發] Notification.permission 是 granted, 準備彈出橫幅...');
+              maybeShowBrowserNotification('收到新球員名單', newNote.title, () => {
+                router.push('/players');
+              });
+            } else if (typeof Notification !== 'undefined') {
+              console.log('[推播阻擋] 雖然收到了 Socket 更新，但目前權限狀態是：', Notification.permission);
+            }
+
+            void dispatchPushNotification({
+              title: newNote.title,
+              body: newNote.body,
+              url: '/players',
+              feature: 'players',
+              action: 'VIEW',
+              eventKey: buildPushEventKey('team_member', payload.new.id)
+            }).catch((error) => {
+              console.warn('球員通知推播傳送失敗', error)
+            });
+          }
+        )
+        .subscribe((status, err) => {
+          console.log('📡 [WebSocket] 球員名單通道連線狀態：', status);
+          if (status === 'SUBSCRIBED') {
+            console.log('✅ [WebSocket] 球員資料接收器啟動成功！');
+          }
+        });
+    }
+  } else {
+    stopTeamMembersListening();
+  }
+
+  if (permissionsStore.can('join_inquiries', 'VIEW')) {
+    if (!joinInquiriesChannel) {
+      // 3. 監聽詢問加入表單 (專屬跑道C)
+      joinInquiriesChannel = supabase
+        .channel('join-inquiries-channel')
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'join_inquiries' },
+          (payload) => {
+            if (!permissionsStore.can('join_inquiries', 'VIEW')) return;
+
+            console.log('⚡ [Realtime 攔截] 收到 join_inquiries 最新資料！Payload:', payload);
+
+            const newNote: NotificationFeedItem = {
+              id: buildNotificationFeedItemId('join', String(payload.new.id)),
+              source: 'join',
+              title: `[入隊詢問] 收到來自 ${payload.new.parent_name} 的聯絡`,
+              body: buildJoinInquiryContactBody(payload.new),
+              createdAt: payload.new.created_at || new Date().toISOString(),
+              link: '/join-inquiries',
+              highlightMemberId: null
+            };
+            upsertNotification(newNote);
+
+            maybeShowBrowserNotification('收到新的入隊詢問', newNote.title, () => {
+              router.push('/join-inquiries');
+            });
+
+            void dispatchPushNotification({
+              title: newNote.title,
+              body: newNote.body,
+              url: '/join-inquiries',
+              feature: 'join_inquiries',
+              action: 'VIEW',
+              eventKey: buildPushEventKey('join_inquiry', payload.new.id)
+            }).catch((error) => {
+              console.warn('入隊詢問推播傳送失敗', error)
+            });
+          }
+        )
+        .subscribe((status) => {
+          console.log('📡 [WebSocket] 入隊詢問表單連線狀態：', status);
+        });
+    }
+  } else {
+    stopJoinInquiriesListening();
+  }
+
+  if (permissionsStore.can('fees', 'VIEW')) {
+    if (!quarterlyFeesChannel) {
+      // 4. 監聽季費表單 (專屬跑道D)
+      quarterlyFeesChannel = supabase
+        .channel('quarterly-fees-channel')
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'quarterly_fees' },
+          (payload) => {
+            if (!permissionsStore.can('fees', 'VIEW')) return;
+            queueQuarterlyFeeNotification(payload.new);
+          }
+        )
+        .subscribe((status) => {
+          console.log('📡 [WebSocket] 季費表單連線狀態：', status);
+        });
+    }
+  } else {
+    stopQuarterlyFeesListening();
+  }
+};
+
+const stopListening = () => {
+  stopLeaveRequestsListening();
+  stopTeamMembersListening();
+  stopJoinInquiriesListening();
+  stopQuarterlyFeesListening();
+};
+
+const realtimePermissionSignature = computed(() => (
+  permissionsStore.permissions
+    .map((permission: any) => `${permission.feature}:${permission.action}`)
+    .sort()
+    .join('|')
+));
+
+// 監聽權限 hydration，確保有權限的角色才會開啟 WebSocket
+watch(
+  () => ({
+    role: authStore.profile?.role || '',
+    permissionRole: permissionsStore.currentRole,
+    permissionsLoading: permissionsStore.isLoading,
+    permissionSignature: realtimePermissionSignature.value
+  }),
+  ({ role, permissionRole, permissionsLoading }) => {
+    if (!role) {
+      clearScheduledNotificationFeedLoad();
+      stopListening();
+      resetNotificationFeed();
+      return;
+    }
+
+    if (permissionRole !== role || permissionsLoading) {
+      stopListening();
+      return;
+    }
+
+    syncRealtimeSubscriptions();
+    clearScheduledNotificationFeedLoad();
+    scheduleNotificationFeedLoad();
+  },
+  { immediate: true }
+);
 
 
 onUnmounted(() => {
