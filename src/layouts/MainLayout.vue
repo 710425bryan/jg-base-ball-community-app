@@ -70,7 +70,7 @@
         <div class="shrink-0 flex items-center justify-end md:w-auto gap-2 sm:gap-3">
           
           <!-- Notification Bell -->
-          <el-popover ref="notificationPopover" placement="bottom-end" :width="320" trigger="click" :show-arrow="false" popper-style="padding: 0; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);">
+          <el-popover ref="notificationPopover" placement="bottom-end" :width="320" trigger="click" :show-arrow="false" popper-class="app-notification-popover" popper-style="padding: 0; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);">
             <template #reference>
               <button @click="handleNotificationBellClick" class="relative flex items-center justify-center rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-50 hover:text-primary focus:outline-none sm:p-2">
                 <el-icon class="text-[22px]"><Bell /></el-icon>
@@ -141,6 +141,9 @@
                   <el-dropdown-item v-if="canOpenTraining" @click="router.push('/training')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">特訓報名</el-dropdown-item>
                   <el-dropdown-item @click="router.push('/my-leave-requests')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">我的假單</el-dropdown-item>
                   <el-dropdown-item @click="openPushSettingsFromMenu" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">通知設定</el-dropdown-item>
+                  <el-dropdown-item @click="toggleReadableTextMode" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">
+                    大字模式：{{ isReadableTextMode ? '開' : '關' }}
+                  </el-dropdown-item>
                   <el-dropdown-item @click="handleSignOut" class="!rounded-lg !font-bold !text-red-500 hover:!text-red-600 !py-2.5" divided>登出</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
@@ -163,7 +166,7 @@
          role="button"
          :aria-disabled="isApplyingUpdate"
          @click="!isApplyingUpdate && refreshApp()"
-         class="flex-none h-11 overflow-hidden bg-sky-600 text-white text-xs sm:text-sm font-bold px-3 text-center flex items-center justify-center gap-2 transition-colors shadow-[0_4px_16px_rgba(2,132,199,0.35)] animate-fade-in-down relative z-[45]"
+         class="flex-none h-11 overflow-hidden bg-sky-600 text-white text-sm font-bold px-3 text-center flex items-center justify-center gap-2 transition-colors shadow-[0_4px_16px_rgba(2,132,199,0.35)] animate-fade-in-down relative z-[45]"
          :class="isApplyingUpdate ? 'cursor-wait' : 'cursor-pointer hover:bg-sky-700'"
          :title="isApplyingUpdate ? '正在套用最新版本' : '點擊以重新載入系統獲取最新功能'">
       <svg xmlns="http://www.w3.org/2000/svg" :class="['h-4 w-4 sm:h-5 sm:w-5', isApplyingUpdate ? 'animate-spin' : 'animate-bounce']" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -191,11 +194,29 @@
                </div>
              </div>
              <div class="flex flex-col min-w-0">
-               <span class="text-sm font-extrabold text-gray-800 truncate">{{ currentUserDisplayName }}</span>
-               <span class="text-xs text-primary font-bold mt-0.5">{{ translateRole(authStore.profile?.role) }}</span>
+               <span class="text-base font-extrabold text-gray-800 truncate">{{ currentUserDisplayName }}</span>
+               <span class="text-sm text-primary font-bold mt-0.5">{{ translateRole(authStore.profile?.role) }}</span>
              </div>
            </div>
            <span class="text-[10px] text-gray-500 font-bold bg-white px-2 py-1 rounded-md border border-gray-200 shadow-sm tracking-wide">v{{ appVersion }}</span>
+         </div>
+         <div class="px-3 py-2">
+           <div class="flex min-h-[60px] items-center justify-between gap-3 rounded-2xl border border-primary/15 bg-primary/5 px-4 py-3">
+             <div class="min-w-0">
+               <div class="text-base font-black text-slate-800">大字模式</div>
+               <div class="mt-1 text-sm font-bold leading-relaxed text-slate-500">
+                 放大全站主要文字與按鈕
+               </div>
+             </div>
+             <el-switch
+               v-model="readableTextModeModel"
+               size="large"
+               inline-prompt
+               active-text="開"
+               inactive-text="關"
+               aria-label="大字模式"
+             />
+           </div>
          </div>
          <div class="px-3 py-2 space-y-2">
            <template v-if="isBasicMember">
@@ -205,14 +226,14 @@
                    v-if="item.to"
                    :to="item.to"
                    @click="closeMobileMenu"
-                   class="block border-b border-gray-50 px-5 py-3 text-sm font-bold tracking-wide text-gray-600 transition-colors last:border-b-0 hover:bg-gray-50 hover:text-primary"
+                   class="block border-b border-gray-50 px-5 py-3 text-base font-bold tracking-wide text-gray-600 transition-colors last:border-b-0 hover:bg-gray-50 hover:text-primary"
                  >
                    {{ item.label }}
                  </router-link>
                  <button
                    v-else
                    type="button"
-                   class="block w-full border-b border-gray-50 px-5 py-3 text-left text-sm font-bold tracking-wide text-gray-600 transition-colors last:border-b-0 hover:bg-gray-50 hover:text-primary"
+                   class="block w-full border-b border-gray-50 px-5 py-3 text-left text-base font-bold tracking-wide text-gray-600 transition-colors last:border-b-0 hover:bg-gray-50 hover:text-primary"
                    @click="item.action?.()"
                  >
                    {{ item.label }}
@@ -233,8 +254,8 @@
                @click="toggleMobileMenuGroup(group.key)"
              >
                <div class="min-w-0">
-                 <div class="text-sm font-black text-slate-800">{{ group.label }}</div>
-                 <div class="mt-0.5 text-[11px] font-bold text-gray-400">{{ group.items.length }} 個項目</div>
+                 <div class="text-base font-black text-slate-800">{{ group.label }}</div>
+                 <div class="mt-0.5 text-sm font-bold text-gray-500">{{ group.items.length }} 個項目</div>
                </div>
                <el-icon
                  class="shrink-0 text-gray-400 transition-transform"
@@ -250,14 +271,14 @@
                    v-if="item.to"
                    :to="item.to"
                    @click="closeMobileMenu"
-                   class="block px-5 py-3 text-sm font-bold tracking-wide text-gray-600 transition-colors hover:bg-white hover:text-primary"
+                   class="block px-5 py-3 text-base font-bold tracking-wide text-gray-600 transition-colors hover:bg-white hover:text-primary"
                  >
                    {{ item.label }}
                  </router-link>
                  <button
                    v-else
                    type="button"
-                   class="block w-full px-5 py-3 text-left text-sm font-bold tracking-wide text-gray-600 transition-colors hover:bg-white hover:text-primary"
+                   class="block w-full px-5 py-3 text-left text-base font-bold tracking-wide text-gray-600 transition-colors hover:bg-white hover:text-primary"
                    @click="item.action?.()"
                  >
                    {{ item.label }}
@@ -267,7 +288,7 @@
            </section>
            </template>
          </div>
-         <button @click="handleSignOut" class="text-left px-6 py-5 text-red-500 hover:bg-red-50 font-bold w-full transition-colors flex items-center gap-2 uppercase tracking-widest text-sm">
+         <button @click="handleSignOut" class="text-left px-6 py-5 text-red-500 hover:bg-red-50 font-bold w-full transition-colors flex items-center gap-2 uppercase tracking-wide text-base">
            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
            登出系統
          </button>
@@ -282,27 +303,27 @@
     <PushSettingsDialog v-model="isPushSettingsOpen" />
 
     <!-- Bottom Menu (Mobile Only) -->
-    <nav class="md:hidden flex-none w-full bg-white border-t border-gray-200 z-50 text-xs text-gray-500 pb-[env(safe-area-inset-bottom)] shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+    <nav class="mobile-bottom-nav md:hidden flex-none w-full bg-white border-t border-gray-200 z-50 text-[13px] text-gray-500 pb-[env(safe-area-inset-bottom)] shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
       <div class="grid grid-cols-5 items-center pt-2 h-[4.5rem]">
-      <router-link to="/dashboard" @click="isMobileMenuOpen = false" class="flex flex-col items-center justify-center p-1 hover:text-primary transition-colors shrink-0">
+      <router-link to="/dashboard" @click="isMobileMenuOpen = false" class="mobile-bottom-nav-item flex flex-col items-center justify-center p-1 hover:text-primary transition-colors shrink-0">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
         </svg>
         <span class="font-bold tracking-wide">大廳</span>
       </router-link>
-      <router-link :to="mobileSchedulePath" @click="isMobileMenuOpen = false" class="flex flex-col items-center justify-center p-1 hover:text-primary transition-colors shrink-0">
+      <router-link :to="mobileSchedulePath" @click="isMobileMenuOpen = false" class="mobile-bottom-nav-item flex flex-col items-center justify-center p-1 hover:text-primary transition-colors shrink-0">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
         <span class="font-bold tracking-wide">賽程</span>
       </router-link>
-      <router-link to="/my-leave-requests" @click="isMobileMenuOpen = false" class="flex flex-col items-center justify-center p-1 hover:text-primary transition-colors shrink-0">
+      <router-link to="/my-leave-requests" @click="isMobileMenuOpen = false" class="mobile-bottom-nav-item flex flex-col items-center justify-center p-1 hover:text-primary transition-colors shrink-0">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
         <span class="font-bold tracking-wide">請假</span>
       </router-link>
-      <router-link to="/my-payments" @click="isMobileMenuOpen = false" class="flex flex-col items-center justify-center p-1 hover:text-primary transition-colors shrink-0">
+      <router-link to="/my-payments" @click="isMobileMenuOpen = false" class="mobile-bottom-nav-item flex flex-col items-center justify-center p-1 hover:text-primary transition-colors shrink-0">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-2.21 0-4 .895-4 2s1.79 2 4 2 4 .895 4 2-1.79 2-4 2m0-10c1.742 0 3.224.554 3.775 1.333M12 8V6m0 2v2m0 4v2m0-2c-1.742 0-3.224-.554-3.775-1.333M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
@@ -310,7 +331,7 @@
       </router-link>
       <button
         type="button"
-        class="flex flex-col items-center justify-center p-1 transition-colors shrink-0"
+        class="mobile-bottom-nav-item flex flex-col items-center justify-center p-1 transition-colors shrink-0"
         :class="isMobileMenuOpen ? 'text-primary' : 'hover:text-primary'"
         @click="isMobileMenuOpen = !isMobileMenuOpen"
       >
@@ -334,6 +355,7 @@ import { Bell, ArrowDown } from '@element-plus/icons-vue';
 import PushSettingsDialog from '@/components/PushSettingsDialog.vue';
 import HolidayThemeRibbon from '@/components/layout/HolidayThemeRibbon.vue';
 import { configureNotificationFeedFallbackFetcher, useNotificationFeed } from '@/composables/useNotificationFeed';
+import { useReadableTextMode } from '@/composables/useReadableTextMode';
 import { useVersionCheck } from '@/composables/useVersionCheck';
 import { buildNotificationFeedItemId, type NotificationFeedItem, type NotificationFeedRow, type NotificationSource } from '@/types/dashboard';
 import { buildSiblingGroupMap, normalizeSiblingIds } from '@/utils/siblingGroups'
@@ -359,6 +381,7 @@ const router = useRouter();
 const route = useRoute();
 const authStore = useAuthStore();
 const permissionsStore = usePermissionsStore();
+const { isReadableTextMode, setReadableTextMode, toggleReadableTextMode } = useReadableTextMode();
 const {
   notifications,
   isLoading: isNotificationFeedLoading,
@@ -386,6 +409,10 @@ const notificationSourceLabels: Record<NotificationSource, string> = {
 };
 let autoPushPromptTimer: number | null = null;
 const currentUserDisplayName = computed(() => authStore.profile?.nickname || authStore.profile?.name || '使用者');
+const readableTextModeModel = computed({
+  get: () => isReadableTextMode.value,
+  set: (value: boolean) => setReadableTextMode(value)
+});
 const hasLinkedTeamMembers = computed(() => {
   const linkedIds = authStore.profile?.linked_team_member_ids
   return Array.isArray(linkedIds) && linkedIds.length > 0

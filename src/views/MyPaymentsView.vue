@@ -148,42 +148,81 @@
               目前沒有正式繳費紀錄。
             </div>
 
-            <div v-else class="overflow-x-auto">
-              <table class="w-full min-w-[760px]">
-                <thead>
-                  <tr class="bg-gray-50/80 border-b border-gray-100">
-                    <th class="py-3 px-5 text-left text-sm font-bold text-gray-500 whitespace-nowrap">期別</th>
-                    <th class="py-3 px-5 text-left text-sm font-bold text-gray-500 whitespace-nowrap">金額</th>
-                    <th class="py-3 px-5 text-left text-sm font-bold text-gray-500 whitespace-nowrap">狀態</th>
-                    <th class="py-3 px-5 text-left text-sm font-bold text-gray-500 whitespace-nowrap">匯款資訊</th>
-                    <th class="py-3 px-5 text-left text-sm font-bold text-gray-500 whitespace-nowrap">最後更新</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100">
-                  <tr v-for="record in records" :key="`${record.period_key}-${record.updated_at || 'na'}`" class="hover:bg-gray-50/60 transition-colors">
-                    <td class="py-4 px-5">
-                      <div class="font-black text-slate-800">{{ record.period_label }}</div>
-                      <div class="text-xs text-gray-400 mt-1">{{ record.period_key }}</div>
-                    </td>
-                    <td class="py-4 px-5">
-                      <div class="font-mono font-black text-primary">{{ formatCurrency(record.amount) }}</div>
-                      <div class="mt-1 text-xs font-bold text-gray-400">
-                        {{ buildPaymentBreakdownText(record.amount, record.balance_amount, formatCurrency) }}
-                      </div>
-                    </td>
-                    <td class="py-4 px-5">
-                      <span :class="getStatusPillClass(record.status)" class="inline-flex rounded-full px-3 py-1 text-xs font-bold border">
-                        {{ getStatusLabel(record.status) }}
-                      </span>
-                    </td>
-                    <td class="py-4 px-5 text-sm text-gray-600">
-                      {{ formatPaymentInfo(record.payment_method, record.account_last_5, record.remittance_date) }}
-                    </td>
-                    <td class="py-4 px-5 text-sm text-gray-500">{{ formatDateTime(record.updated_at) }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+            <template v-else>
+              <div class="grid gap-3 p-4 sm:hidden">
+                <article
+                  v-for="record in records"
+                  :key="`mobile-${record.period_key}-${record.updated_at || 'na'}`"
+                  class="rounded-2xl border border-gray-100 bg-gray-50/80 p-4"
+                >
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                      <div class="text-lg font-black text-slate-800">{{ record.period_label }}</div>
+                      <div class="mt-1 text-sm font-bold text-gray-500">{{ record.period_key }}</div>
+                    </div>
+                    <span :class="getStatusPillClass(record.status)" class="shrink-0 rounded-full px-3 py-1 text-sm font-bold border">
+                      {{ getStatusLabel(record.status) }}
+                    </span>
+                  </div>
+
+                  <div class="mt-4 rounded-2xl bg-white px-4 py-3">
+                    <div class="text-sm font-bold text-gray-500">金額</div>
+                    <div class="mt-1 font-mono text-xl font-black text-primary">{{ formatCurrency(record.amount) }}</div>
+                    <div class="mt-1 text-sm font-bold text-gray-500">
+                      {{ buildPaymentBreakdownText(record.amount, record.balance_amount, formatCurrency) }}
+                    </div>
+                  </div>
+
+                  <div class="mt-4 grid gap-3 text-sm font-bold text-gray-600">
+                    <div>
+                      <div class="text-gray-400">匯款資訊</div>
+                      <div class="mt-1">{{ formatPaymentInfo(record.payment_method, record.account_last_5, record.remittance_date) }}</div>
+                    </div>
+                    <div>
+                      <div class="text-gray-400">最後更新</div>
+                      <div class="mt-1">{{ formatDateTime(record.updated_at) }}</div>
+                    </div>
+                  </div>
+                </article>
+              </div>
+
+              <div class="hidden overflow-x-auto sm:block">
+                <table class="w-full min-w-[760px]">
+                  <thead>
+                    <tr class="bg-gray-50/80 border-b border-gray-100">
+                      <th class="py-3 px-5 text-left text-sm font-bold text-gray-500 whitespace-nowrap">期別</th>
+                      <th class="py-3 px-5 text-left text-sm font-bold text-gray-500 whitespace-nowrap">金額</th>
+                      <th class="py-3 px-5 text-left text-sm font-bold text-gray-500 whitespace-nowrap">狀態</th>
+                      <th class="py-3 px-5 text-left text-sm font-bold text-gray-500 whitespace-nowrap">匯款資訊</th>
+                      <th class="py-3 px-5 text-left text-sm font-bold text-gray-500 whitespace-nowrap">最後更新</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-gray-100">
+                    <tr v-for="record in records" :key="`${record.period_key}-${record.updated_at || 'na'}`" class="hover:bg-gray-50/60 transition-colors">
+                      <td class="py-4 px-5">
+                        <div class="font-black text-slate-800">{{ record.period_label }}</div>
+                        <div class="text-xs text-gray-400 mt-1">{{ record.period_key }}</div>
+                      </td>
+                      <td class="py-4 px-5">
+                        <div class="font-mono font-black text-primary">{{ formatCurrency(record.amount) }}</div>
+                        <div class="mt-1 text-xs font-bold text-gray-400">
+                          {{ buildPaymentBreakdownText(record.amount, record.balance_amount, formatCurrency) }}
+                        </div>
+                      </td>
+                      <td class="py-4 px-5">
+                        <span :class="getStatusPillClass(record.status)" class="inline-flex rounded-full px-3 py-1 text-xs font-bold border">
+                          {{ getStatusLabel(record.status) }}
+                        </span>
+                      </td>
+                      <td class="py-4 px-5 text-sm text-gray-600">
+                        {{ formatPaymentInfo(record.payment_method, record.account_last_5, record.remittance_date) }}
+                      </td>
+                      <td class="py-4 px-5 text-sm text-gray-500">{{ formatDateTime(record.updated_at) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </template>
           </section>
 
           <section class="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">

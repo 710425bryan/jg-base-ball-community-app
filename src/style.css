@@ -28,8 +28,12 @@ body {
 
 body {
   margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   overscroll-behavior-y: none; /* Prevent elastic scroll pull-down revealing background */
 }
 
@@ -72,6 +76,225 @@ body {
 
   .app-page-header-actions {
     @apply flex w-full flex-wrap items-center gap-2 md:w-auto md:justify-end;
+  }
+}
+
+/* Readable text mode
+   Browser zoom intentionally stays disabled for this PWA, so the app provides
+   an in-app whole-site text enlargement mode. */
+#app :where(button, [role="button"], .el-button, .el-switch) {
+  touch-action: manipulation;
+}
+
+.app-notification-popover {
+  max-width: calc(100vw - 1rem);
+}
+
+body.app-readable-text-mode,
+#app.app-readable-text-mode {
+  font-size: 17px;
+  line-height: 1.6;
+}
+
+#app.app-readable-text-mode {
+  --app-readable-control-height: 44px;
+}
+
+#app.app-readable-text-mode main {
+  font-size: 1.0625rem;
+  line-height: 1.6;
+}
+
+#app.app-readable-text-mode .app-page-title {
+  font-size: 1.5rem;
+  line-height: 1.2;
+}
+
+#app.app-readable-text-mode .app-page-subtitle {
+  font-size: 1rem;
+  line-height: 1.55;
+  color: #475569;
+}
+
+#app.app-readable-text-mode :where(.text-\[10px\], .text-\[11px\], .text-\[12px\], .text-xs) {
+  font-size: 0.9375rem !important;
+  line-height: 1.5 !important;
+}
+
+#app.app-readable-text-mode :where(.text-sm) {
+  font-size: 1rem !important;
+  line-height: 1.55 !important;
+}
+
+#app.app-readable-text-mode :where(.text-base) {
+  font-size: 1.0625rem !important;
+  line-height: 1.55 !important;
+}
+
+#app.app-readable-text-mode :where([class*="tracking-[0.16em]"], [class*="tracking-[0.18em]"], [class*="tracking-[0.2em]"], .tracking-widest) {
+  letter-spacing: 0.02em !important;
+}
+
+#app.app-readable-text-mode :where(button:not(.el-switch__core), .el-button) {
+  min-height: var(--app-readable-control-height);
+  font-size: 1rem !important;
+  line-height: 1.3;
+}
+
+#app.app-readable-text-mode :where(.el-form-item__label) {
+  font-size: 1rem !important;
+  line-height: 1.45 !important;
+}
+
+#app.app-readable-text-mode :where(.el-input__wrapper, .el-select__wrapper, .el-date-editor.el-input, .el-date-editor.el-input__wrapper) {
+  min-height: var(--app-readable-control-height) !important;
+}
+
+#app.app-readable-text-mode :where(.el-input__inner, .el-select__placeholder, .el-select__selected-item, .el-textarea__inner, .el-input-number .el-input__inner) {
+  font-size: 17px !important;
+  line-height: 1.5 !important;
+}
+
+#app.app-readable-text-mode :where(.el-table) {
+  font-size: 1rem;
+}
+
+#app.app-readable-text-mode :where(.el-table th.el-table__cell, .el-table td.el-table__cell) {
+  padding-bottom: 14px;
+  padding-top: 14px;
+}
+
+#app.app-readable-text-mode .mobile-bottom-nav {
+  font-size: 0.9375rem;
+}
+
+html.app-readable-text-mode :where(.app-notification-popover, .el-dialog, .el-message, .el-popper) {
+  font-size: 1.0625rem;
+  line-height: 1.6;
+}
+
+html.app-readable-text-mode :where(.app-notification-popover, .el-dialog, .el-popper) :where(.text-\[10px\], .text-\[11px\], .text-xs) {
+  font-size: 0.9375rem !important;
+  line-height: 1.5 !important;
+}
+
+html.app-readable-text-mode :where(.el-dialog__title) {
+  font-size: 1.25rem !important;
+  line-height: 1.35 !important;
+}
+
+html.app-readable-text-mode :where(.el-dialog__body) {
+  font-size: 1.0625rem;
+  line-height: 1.6;
+}
+
+html.app-readable-text-mode :where(.el-select-dropdown__item, .el-dropdown-menu__item) {
+  min-height: 48px !important;
+  font-size: 1rem !important;
+  line-height: 1.35 !important;
+}
+
+@media (max-width: 639px) {
+  html,
+  body,
+  #app {
+    font-size: 16px;
+  }
+
+  #app {
+    line-height: 1.5;
+  }
+
+  #app main {
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+
+  #app main :where(button:not(.el-switch__core), .el-button) {
+    min-height: 44px;
+    font-size: 0.9375rem;
+    line-height: 1.25;
+  }
+
+  #app main :where(.text-\[10px\], .text-\[11px\], .text-\[12px\]) {
+    font-size: 0.8125rem !important;
+    line-height: 1.35 !important;
+  }
+
+  #app main :where(.text-xs) {
+    font-size: 0.875rem !important;
+    line-height: 1.45 !important;
+  }
+
+  #app main :where(.text-sm) {
+    font-size: 0.9375rem !important;
+    line-height: 1.5 !important;
+  }
+
+  #app main :where([class*="tracking-[0.16em]"], [class*="tracking-[0.18em]"], [class*="tracking-[0.2em]"], .tracking-widest) {
+    letter-spacing: 0.04em !important;
+  }
+
+  #app .app-page-subtitle {
+    font-size: 0.875rem;
+    line-height: 1.45;
+    color: #475569;
+  }
+
+  #app .el-form-item__label {
+    font-size: 0.9375rem !important;
+    line-height: 1.4 !important;
+  }
+
+  #app :where(.el-input__wrapper, .el-select__wrapper, .el-date-editor.el-input, .el-date-editor.el-input__wrapper) {
+    min-height: 44px !important;
+  }
+
+  #app :where(.el-input__inner, .el-select__placeholder, .el-select__selected-item, .el-textarea__inner, .el-input-number .el-input__inner) {
+    font-size: 16px !important;
+    line-height: 1.45 !important;
+  }
+
+  #app .el-dialog__title,
+  html .el-dialog__title {
+    font-size: 1.125rem !important;
+    line-height: 1.35 !important;
+  }
+
+  #app .el-dialog__body,
+  html .el-dialog__body {
+    font-size: 1rem;
+    line-height: 1.55;
+  }
+
+  #app .mobile-bottom-nav {
+    font-size: 0.8125rem;
+  }
+
+  #app .mobile-bottom-nav-item {
+    min-height: 3.75rem;
+    line-height: 1.2;
+  }
+
+  .app-notification-popover {
+    font-size: 0.9375rem;
+    line-height: 1.45;
+  }
+
+  .app-notification-popover :where(.text-\[10px\], .text-\[11px\], .text-xs) {
+    font-size: 0.8125rem !important;
+    line-height: 1.4 !important;
+  }
+
+  .el-select-dropdown__item,
+  .el-dropdown-menu__item {
+    min-height: 44px !important;
+    font-size: 0.9375rem !important;
+    line-height: 1.35 !important;
+  }
+
+  #app.app-readable-text-mode {
+    --app-readable-control-height: 48px;
   }
 }
 

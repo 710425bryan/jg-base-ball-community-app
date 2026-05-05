@@ -3,10 +3,13 @@ import { onMounted } from 'vue'
 import HolidayThemeSiteEffects from '@/components/layout/HolidayThemeSiteEffects.vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import { useAuthStore } from '@/stores/auth'
+import { useReadableTextMode } from '@/composables/useReadableTextMode'
 
 const authStore = useAuthStore()
+const { initializeReadableTextMode } = useReadableTextMode()
 
 onMounted(async () => {
+  initializeReadableTextMode()
   await authStore.ensureInitialized()
 })
 </script>

@@ -4,7 +4,7 @@
       <div class="max-w-5xl mx-auto">
         <AppPageHeader
           title="個人設定"
-          subtitle="更新大頭照、綽號與常用匯款資訊"
+          subtitle="更新大頭照、綽號、閱讀偏好與常用匯款資訊"
           :icon="Setting"
           as="h2"
         />
@@ -161,10 +161,28 @@
               </button>
             </div>
 
+            <div class="rounded-2xl border border-sky-100 bg-sky-50/80 px-4 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div class="text-sm font-black text-slate-800">大字模式</div>
+                <p class="mt-2 text-sm text-slate-600 leading-relaxed">
+                  適合覺得文字太小的使用者，會放大全站主要文字、表單、按鈕與通知內容。設定會保留在這台裝置。
+                </p>
+              </div>
+
+              <el-switch
+                v-model="readableTextModeModel"
+                size="large"
+                inline-prompt
+                active-text="開"
+                inactive-text="關"
+                aria-label="大字模式"
+              />
+            </div>
+
             <div class="rounded-2xl border border-amber-100 bg-amber-50/80 px-4 py-4">
               <div class="text-sm font-black text-amber-800">這頁目前會更新的內容</div>
               <p class="mt-2 text-sm text-amber-700 leading-relaxed">
-                大頭照、綽號 / 稱呼、常用匯款方式、匯款帳號後五碼。
+                大頭照、綽號 / 稱呼、大字模式、常用匯款方式、匯款帳號後五碼。
                 真實姓名與角色仍維持原本的管理流程。
               </p>
             </div>
@@ -203,6 +221,7 @@ import { Setting } from '@element-plus/icons-vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
 import PushSettingsDialog from '@/components/PushSettingsDialog.vue'
+import { useReadableTextMode } from '@/composables/useReadableTextMode'
 import { supabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/auth'
 import { compressImage } from '@/utils/imageCompressor'
@@ -216,6 +235,7 @@ const MAX_AVATAR_BYTES = 1024 * 1024
 const paymentMethodOptions = PAYMENT_METHOD_OPTIONS
 
 const authStore = useAuthStore()
+const { isReadableTextMode, setReadableTextMode } = useReadableTextMode()
 
 const isLoading = ref(true)
 const isCompressing = ref(false)
@@ -284,6 +304,10 @@ const currentRoleName = computed(() => {
 
 const currentDisplayName = computed(() => form.nickname.trim() || authStore.profile?.name || '球隊夥伴')
 const avatarDisplayUrl = computed(() => avatarPreview.value || form.avatar_url)
+const readableTextModeModel = computed({
+  get: () => isReadableTextMode.value,
+  set: (value: boolean) => setReadableTextMode(value)
+})
 const requiresAccountLast5 = computed(() => {
   return checkRequiresAccountLast5(form.preferred_payment_method)
 })

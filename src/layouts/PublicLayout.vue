@@ -39,6 +39,18 @@
 
       <div class="flex shrink-0 items-center gap-2 sm:gap-4">
         <button
+          type="button"
+          class="hidden min-h-11 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-bold tracking-wider text-white transition-colors touch-manipulation hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary/70 md:flex"
+          :aria-pressed="isReadableTextMode"
+          @click="toggleReadableTextMode"
+        >
+          <span>大字</span>
+          <span class="rounded-full bg-white/10 px-2 py-0.5 text-xs text-secondary">
+            {{ isReadableTextMode ? '開' : '關' }}
+          </span>
+        </button>
+
+        <button
           v-if="authStore.isAuthenticated"
           type="button"
           @click="goToDashboard"
@@ -147,6 +159,14 @@
         >
           IG
         </a>
+        <button
+          type="button"
+          class="col-span-2 flex min-h-12 items-center justify-center rounded-xl border border-secondary/30 bg-secondary/10 px-3 text-sm font-bold tracking-widest text-secondary transition-colors hover:bg-secondary/20"
+          :aria-pressed="isReadableTextMode"
+          @click="toggleReadableTextMode"
+        >
+          大字模式：{{ isReadableTextMode ? '開' : '關' }}
+        </button>
       </div>
     </nav>
 
@@ -187,6 +207,7 @@ import { Close, Menu } from '@element-plus/icons-vue'
 
 import HolidayThemeRibbon from '@/components/layout/HolidayThemeRibbon.vue'
 import LoginModal from '@/components/LoginModal.vue'
+import { useReadableTextMode } from '@/composables/useReadableTextMode'
 import { useVersionCheck } from '@/composables/useVersionCheck'
 import { useAuthStore } from '@/stores/auth'
 
@@ -195,6 +216,7 @@ const router = useRouter()
 const showLogin = ref(false)
 const isMobileMenuOpen = ref(false)
 const { hasUpdateAvailable, isApplyingUpdate, refreshApp } = useVersionCheck()
+const { isReadableTextMode, toggleReadableTextMode } = useReadableTextMode()
 
 const getRoleName = (role?: string) => {
   const dict: Record<string, string> = {
