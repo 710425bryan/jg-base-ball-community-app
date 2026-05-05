@@ -2,7 +2,7 @@
 import { ArrowDown, ArrowRight, Calendar, Cloudy, Goods, Lightning, Location, MoonNight, PartlyCloudy, Pouring, ShoppingCart, Sunny, Tickets, UserFilled, VideoCameraFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
-import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import HomeHolidayHeroOverlay from '@/components/home/HomeHolidayHeroOverlay.vue'
 import MyHomeTodayPanel from '@/components/home/MyHomeTodayPanel.vue'
@@ -12,6 +12,7 @@ import EquipmentPhotoCarousel from '@/components/equipment/EquipmentPhotoCarouse
 import { getDashboardTodayAttendanceStatus } from '@/services/dashboardAttendance'
 import { getMyHomeSnapshot } from '@/services/myHome'
 import { supabase } from '@/services/supabase'
+import { trainingApi } from '@/services/trainingApi'
 import { getMatchWeatherForecast, type WeatherSnapshot } from '@/services/weatherApi'
 import { useAuthStore } from '@/stores/auth'
 import { useEquipmentStore } from '@/stores/equipment'
@@ -21,6 +22,7 @@ import { createEmptyDashboardStats, type DashboardAnnouncement, type DashboardTo
 import type { Equipment } from '@/types/equipment'
 import type { MatchRecord } from '@/types/match'
 import { createEmptyMyHomeSnapshot } from '@/types/myHome'
+import type { TrainingSession } from '@/types/training'
 import {
   getEquipmentRemainingOverallQuantity,
   getEquipmentSizeInventoryList
@@ -34,6 +36,7 @@ import {
   isDashboardMatchInProgress,
   pickDashboardHeroMatch
 } from '@/utils/dashboardHome'
+import { canShowMyHomeTrainingRegistrationAction } from '@/utils/myHomeSnapshot'
 
 type WeatherStatus = 'loading' | 'success' | 'unavailable'
 type WeatherIconName = 'cloudy' | 'lightning' | 'moon-night' | 'partly-cloudy' | 'pouring' | 'sunny'
@@ -116,6 +119,7 @@ const now = ref(dayjs())
 const weatherStatus = ref<WeatherStatus>('loading')
 const myHomeSnapshot = ref(createEmptyMyHomeSnapshot())
 const selectedMyHomeMemberId = ref('')
+const myHomeTrainingSessions = ref<TrainingSession[]>([])
 const isMyHomeLoading = ref(false)
 const myHomeError = ref('')
 const isTodayAttendanceOpen = ref(false)
@@ -125,6 +129,7 @@ const todayAttendanceLeaveNames = ref<string[]>([])
 const todayAttendanceLeaveCount = ref(0)
 
 let clockId: ReturnType<typeof setInterval> | null = null
+let myHomeTrainingSessionsRequestId = 0
 
 const canViewMatches = computed(() => permissionsStore.can('matches', 'VIEW'))
 const canViewAnnouncements = computed(() => permissionsStore.can('announcements', 'VIEW'))
@@ -139,6 +144,15 @@ const shouldShowMyHomePanel = computed(() => {
   const role = authStore.profile?.role
   return role === 'MEMBER' || role === 'PARENT' || hasLinkedTeamMembers.value
 })
+const isMyHomeNextTrainingEvent = computed(() =>
+  myHomeSnapshot.value.next_event?.match_level === '特訓課'
+)
+const showMyHomeTrainingRegistrationAction = computed(() =>
+  canShowMyHomeTrainingRegistrationAction(
+    myHomeSnapshot.value.next_event,
+    myHomeTrainingSessions.value
+  )
+)
 
 const userName = computed(() => authStore.profile?.nickname || authStore.profile?.name || '球隊夥伴')
 const todayLabel = computed(() => now.value.format('YYYY 年 MM 月 DD 日'))
@@ -522,10 +536,32 @@ const fetchEquipmentAddonData = async () => {
   }
 }
 
+const fetchMyHomeTrainingSessions = async (memberId = selectedMyHomeMemberId.value) => {
+  const requestId = ++myHomeTrainingSessionsRequestId
+
+  if (!shouldShowMyHomePanel.value || !isMyHomeNextTrainingEvent.value || !memberId) {
+    myHomeTrainingSessions.value = []
+    return
+  }
+
+  try {
+    const sessions = await trainingApi.listTrainingSessions(memberId)
+    if (requestId === myHomeTrainingSessionsRequestId) {
+      myHomeTrainingSessions.value = sessions
+    }
+  } catch (error) {
+    console.warn('Error fetching my home training registration state:', error)
+    if (requestId === myHomeTrainingSessionsRequestId) {
+      myHomeTrainingSessions.value = []
+    }
+  }
+}
+
 const fetchMyHomeSnapshotData = async () => {
   if (!shouldShowMyHomePanel.value) {
     myHomeSnapshot.value = createEmptyMyHomeSnapshot()
     selectedMyHomeMemberId.value = ''
+    myHomeTrainingSessions.value = []
     return
   }
 
@@ -540,11 +576,14 @@ const fetchMyHomeSnapshotData = async () => {
     if (!hasSelectedMember) {
       selectedMyHomeMemberId.value = snapshot.members[0]?.id || ''
     }
+
+    await fetchMyHomeTrainingSessions(selectedMyHomeMemberId.value)
   } catch (error: any) {
     console.error('Error fetching personal home snapshot:', error)
     myHomeError.value = error?.message || '無法載入個人化首頁資料'
     myHomeSnapshot.value = createEmptyMyHomeSnapshot()
     selectedMyHomeMemberId.value = ''
+    myHomeTrainingSessions.value = []
   } finally {
     isMyHomeLoading.value = false
   }
@@ -612,6 +651,16 @@ onMounted(() => {
     fetchAnnouncementsData(),
     fetchEquipmentAddonData()
   ])
+})
+
+watch(selectedMyHomeMemberId, (next, prev) => {
+  if (next === prev || isMyHomeLoading.value) return
+  if (!next) {
+    myHomeTrainingSessions.value = []
+    return
+  }
+
+  void fetchMyHomeTrainingSessions(next)
 })
 
 onUnmounted(() => {
@@ -964,6 +1013,7 @@ onUnmounted(() => {
       :snapshot="myHomeSnapshot"
       :is-loading="isMyHomeLoading"
       :error-message="myHomeError"
+      :show-training-registration-action="showMyHomeTrainingRegistrationAction"
       :weather="myHomeWeatherCard"
       @refresh="fetchMyHomeSnapshotData"
     />

@@ -15,6 +15,7 @@ const props = defineProps<{
   selectedMemberId: string
   isLoading?: boolean
   errorMessage?: string
+  showTrainingRegistrationAction?: boolean
   weather?: {
     summary: string
     temperature: string
@@ -34,6 +35,9 @@ const selectedLeave = computed(() => getMyHomeMemberLeave(props.snapshot, select
 const todoItems = computed(() => buildMyHomeTodoItems(props.snapshot, selectedMember.value?.id))
 const nextEvent = computed(() => props.snapshot.next_event)
 const isNextTrainingEvent = computed(() => nextEvent.value?.match_level === '特訓課')
+const shouldShowTrainingRegistrationAction = computed(() =>
+  isNextTrainingEvent.value && props.showTrainingRegistrationAction === true
+)
 const selectedTrainingLocations = computed(() =>
   props.snapshot.training_locations
     .filter((location) => location.member_id === selectedMember.value?.id)
@@ -281,7 +285,7 @@ watch(() => selectedMember.value?.id, () => {
                 查看詳情
               </RouterLink>
               <RouterLink
-                v-if="isNextTrainingEvent"
+                v-if="shouldShowTrainingRegistrationAction"
                 to="/training"
                 class="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-amber-200 bg-white px-4 text-sm font-black text-amber-700 transition-colors hover:border-amber-300 hover:bg-amber-100"
               >

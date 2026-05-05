@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { createEmptyMyHomeSnapshot, type MyHomeSnapshot } from '@/types/myHome'
-import { buildMyHomeTodoItems, getSelectedMyHomeMember } from '@/utils/myHomeSnapshot'
+import {
+  buildMyHomeTodoItems,
+  canShowMyHomeTrainingRegistrationAction,
+  getSelectedMyHomeMember
+} from '@/utils/myHomeSnapshot'
 
 const buildSnapshot = (overrides: Partial<MyHomeSnapshot> = {}): MyHomeSnapshot => ({
   ...createEmptyMyHomeSnapshot(),
@@ -70,5 +74,37 @@ describe('myHomeSnapshot utilities', () => {
     }), 'm2')
 
     expect(todos.some((todo) => todo.key === 'today-leave')).toBe(true)
+  })
+
+  it('shows the training registration shortcut only when the next training session is open', () => {
+    const nextEvent = {
+      id: 'match-1',
+      type: 'match',
+      title: '打擊特訓課',
+      date: '2026-05-06',
+      time: '09:00',
+      location: '中港國小',
+      opponent: null,
+      category_group: null,
+      match_level: '特訓課',
+      coaches: null,
+      players: null,
+      route: '/match-records?match_id=match-1'
+    } as const
+
+    expect(canShowMyHomeTrainingRegistrationAction(nextEvent, [
+      { match_id: 'match-1', is_registration_open: true }
+    ])).toBe(true)
+
+    expect(canShowMyHomeTrainingRegistrationAction(nextEvent, [
+      { match_id: 'match-1', is_registration_open: false }
+    ])).toBe(false)
+
+    expect(canShowMyHomeTrainingRegistrationAction({
+      ...nextEvent,
+      match_level: '正式賽'
+    }, [
+      { match_id: 'match-1', is_registration_open: true }
+    ])).toBe(false)
   })
 })

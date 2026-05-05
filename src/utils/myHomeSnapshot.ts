@@ -1,10 +1,12 @@
 import type {
   MyHomeEquipmentSummary,
   MyHomeMember,
+  MyHomeNextEvent,
   MyHomePaymentSummary,
   MyHomeSnapshot,
   MyHomeTodoItem
 } from '@/types/myHome'
+import type { TrainingSession } from '@/types/training'
 
 const safeNumber = (value: unknown) => {
   const parsed = Number(value)
@@ -27,6 +29,17 @@ export const getMyHomeMemberLeave = (
   snapshot: MyHomeSnapshot,
   memberId?: string | null
 ) => snapshot.today_leaves.find((leave) => leave.member_id === memberId) || null
+
+export const canShowMyHomeTrainingRegistrationAction = (
+  nextEvent: MyHomeNextEvent | null,
+  sessions: Array<Pick<TrainingSession, 'match_id' | 'is_registration_open'>>
+) => {
+  if (nextEvent?.match_level !== '特訓課') return false
+
+  return sessions.some((session) =>
+    session.match_id === nextEvent.id && session.is_registration_open
+  )
+}
 
 const buildPaymentTodo = (payment: MyHomePaymentSummary): MyHomeTodoItem | null => {
   if (payment.unpaid_count > 0) {
