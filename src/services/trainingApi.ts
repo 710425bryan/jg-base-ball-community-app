@@ -6,6 +6,7 @@ import type {
   TrainingRegistrationNotificationDiagnostics,
   TrainingRegistrationNotificationInvokeResult,
   TrainingRegistrationStatus,
+  TrainingSelectionNotificationDispatchResult,
   TrainingSession,
   TrainingSessionCreateInput,
   TrainingSessionSettingsInput
@@ -22,6 +23,15 @@ const normalizeTaipeiDateTimeForRpc = (value?: string | null) => {
   if (!normalized) return null
   if (/[zZ]$|[+-]\d{2}:\d{2}$/.test(normalized)) return normalized
   return `${normalized.replace(' ', 'T')}+08:00`
+}
+
+const ensureAuthenticatedSession = async () => {
+  const { data, error } = await supabase.auth.getSession()
+  if (error || !data.session?.access_token) {
+    throw new Error('登入狀態已過期，請重新登入後再試。')
+  }
+
+  return data.session
 }
 
 const normalizeTrainingSession = (row: any): TrainingSession => ({
@@ -191,6 +201,22 @@ export const trainingApi = {
     })
     if (error) throw error
     return data as TrainingRegistrationNotificationInvokeResult
+  },
+
+  async dispatchSelectionNotifications(sessionId: string, options?: { dryRun?: boolean; forceResend?: boolean }) {
+    const session = await ensureAuthenticatedSession()
+    const { data, error } = await supabase.functions.invoke<TrainingSelectionNotificationDispatchResult>('send-training-selection-notifications', {
+      headers: {
+        Authorization: `Bearer ${session.access_token}`
+      },
+      body: {
+        session_id: sessionId,
+        dry_run: options?.dryRun === true,
+        force_resend: options?.forceResend === true
+      }
+    })
+    if (error) throw error
+    return data
   },
 
   async createAttendanceEvent(sessionId: string) {

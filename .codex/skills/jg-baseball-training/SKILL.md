@@ -49,6 +49,7 @@ description: "Training registration and player points workflow for jg-base-ball-
 - 錄取名單公布前，一般使用者不可看到名單；公布後只能看到非敏感欄位。
 - 報名開始時間到達且狀態為 `open` 時，排程 Edge Function 送出特訓課開放報名通知；報名截止前 24 小時內若還有錄取名額，會再送一次截止提醒。通知必須同時進通知中心與 Web Push。
 - 特訓通知 event key 使用 `training_registration_open:<session_id>:<registration_start_at>` 與 `training_registration_deadline:<session_id>:<registration_end_at>`，避免排程每 5 分鐘重複派送。
+- 錄取名單公布後，前端呼叫 `send-training-selection-notifications` 送出「特訓課錄取名單已公布」通知；event key 使用 `training_selection_published:<session_id>:<published_at>`，通知同時進通知中心與 Web Push。
 
 ## 教練管理流程
 
@@ -57,7 +58,7 @@ description: "Training registration and player points workflow for jg-base-ball-
 - 新增特訓課預設上課時間為 `09:00 - 12:00`，地點為 `中港國小`。
 - 上課時間輸入使用 Element Plus 時間範圍元件，送出仍存成 `matches.match_time` 字串。
 - 錄取、候補、未錄取走 `review_training_registration(...)`。
-- 公布名單走 `publish_training_selection(...)`。
+- 公布名單走 `publish_training_selection(...)`，公布成功後再觸發 `send-training-selection-notifications`。
 
 ## 點數管理流程
 

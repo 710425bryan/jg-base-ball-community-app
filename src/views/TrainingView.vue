@@ -542,9 +542,22 @@ const reviewRegistration = async (
 const publishSelection = async () => {
   if (!selectedAdminSession.value?.session_id) return
 
+  const sessionId = selectedAdminSession.value.session_id
   try {
-    await trainingApi.publishSelection(selectedAdminSession.value.session_id)
-    ElMessage.success('已公布特訓錄取名單')
+    await trainingApi.publishSelection(sessionId)
+
+    try {
+      const notificationResult = await trainingApi.dispatchSelectionNotifications(sessionId)
+      if (notificationResult?.skipped && notificationResult.reason === 'duplicate_event') {
+        ElMessage.success('已公布特訓錄取名單，通知先前已送出')
+      } else {
+        ElMessage.success('已公布特訓錄取名單並送出通知')
+      }
+    } catch (notificationError: any) {
+      console.error('Training selection notification failed', notificationError)
+      ElMessage.warning(`名單已公布，但通知送出失敗：${notificationError?.message || '請稍後再試'}`)
+    }
+
     await refreshData()
   } catch (error: any) {
     ElMessage.error(error?.message || '公布名單失敗')

@@ -254,6 +254,7 @@
 | `supabase/functions/notify-holiday-theme/logic.ts` | 節日通知邏輯 |
 | `supabase/functions/send-match-reminders/index.ts` | 賽事提醒 |
 | `supabase/functions/send-training-registration-notifications/index.ts` | 特訓報名開始 / 截止前提醒通知 |
+| `supabase/functions/send-training-selection-notifications/index.ts` | 特訓錄取名單公布通知 |
 | `supabase/functions/send-training-location-notifications/index.ts` | 訓練場地通知 |
 | `supabase/functions/sync-match-calendar/index.ts` | 賽事日曆同步 |
 | `supabase/functions/leave-webhook/index.ts` | 請假 webhook |

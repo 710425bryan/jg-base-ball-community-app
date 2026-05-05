@@ -10,12 +10,13 @@ export type TrainingRegistrationNotificationSession = {
   location?: string | null
   registration_start_at?: string | null
   registration_end_at?: string | null
+  published_at?: string | null
   point_cost?: number | null
   capacity?: number | null
   selected_count?: number | null
 }
 
-export type TrainingRegistrationNotificationKind = 'open' | 'deadline_reminder'
+export type TrainingRegistrationNotificationKind = 'open' | 'deadline_reminder' | 'selection_published'
 
 const normalizeDisplayValue = (value: unknown) => {
   if (value === null || value === undefined) return EMPTY_VALUE
@@ -84,11 +85,15 @@ export const isTrainingRegistrationDeadlineReminderDue = (
 }
 
 export const buildTrainingRegistrationNotificationEventKey = (
-  session: Pick<TrainingRegistrationNotificationSession, 'session_id' | 'registration_start_at' | 'registration_end_at'>,
+  session: Pick<TrainingRegistrationNotificationSession, 'session_id' | 'registration_start_at' | 'registration_end_at' | 'published_at'>,
   kind: TrainingRegistrationNotificationKind = 'open'
 ) => {
   if (kind === 'deadline_reminder') {
     return `training_registration_deadline:${session.session_id}:${session.registration_end_at || 'no-end'}`
+  }
+
+  if (kind === 'selection_published') {
+    return `training_selection_published:${session.session_id}:${session.published_at || 'published'}`
   }
 
   return `training_registration_open:${session.session_id}:${session.registration_start_at || 'no-start'}`
@@ -101,9 +106,17 @@ export const buildTrainingRegistrationNotificationUrl = (
 export const buildTrainingRegistrationNotificationTitle = (
   session: Pick<TrainingRegistrationNotificationSession, 'match_name'>,
   kind: TrainingRegistrationNotificationKind = 'open'
-) => kind === 'deadline_reminder'
-  ? `特訓課報名即將截止：${normalizeDisplayValue(session.match_name)}`
-  : `特訓課開放報名：${normalizeDisplayValue(session.match_name)}`
+) => {
+  if (kind === 'deadline_reminder') {
+    return `特訓課報名即將截止：${normalizeDisplayValue(session.match_name)}`
+  }
+
+  if (kind === 'selection_published') {
+    return `特訓課錄取名單已公布：${normalizeDisplayValue(session.match_name)}`
+  }
+
+  return `特訓課開放報名：${normalizeDisplayValue(session.match_name)}`
+}
 
 export const buildTrainingRegistrationNotificationBody = (
   session: Pick<
@@ -119,6 +132,17 @@ export const buildTrainingRegistrationNotificationBody = (
   >,
   kind: TrainingRegistrationNotificationKind = 'open'
 ) => {
+  if (kind === 'selection_published') {
+    return [
+      `課程：${normalizeDisplayValue(session.match_name)}`,
+      `日期：${normalizeDisplayValue(session.match_date)}`,
+      `時間：${normalizeDisplayValue(session.match_time)}`,
+      `地點：${normalizeDisplayValue(session.location)}`,
+      `錄取人數：${Number(session.selected_count ?? 0)} 人`,
+      '請至特訓報名查看錄取名單與個人狀態。'
+    ].join('\n')
+  }
+
   const lines = [
     `課程：${normalizeDisplayValue(session.match_name)}`,
     `日期：${normalizeDisplayValue(session.match_date)}`,

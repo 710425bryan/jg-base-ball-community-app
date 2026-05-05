@@ -167,6 +167,22 @@ export interface TrainingRegistrationNotificationInvokeResult {
   queued_at: string
 }
 
+export interface TrainingSelectionNotificationDispatchResult {
+  success: boolean
+  dry_run: boolean
+  session_id: string
+  created: boolean
+  refreshed?: boolean
+  skipped?: boolean
+  reason?: string
+  active_user_count: number
+  total_targets: number
+  dispatched_count: number
+  expired_count: number
+  failed_count: number
+  provider_counts: Record<string, number>
+}
+
 export interface TrainingSessionSettingsInput {
   match_id: string
   registration_start_at?: string | null

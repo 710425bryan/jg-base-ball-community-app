@@ -20,6 +20,7 @@ const buildSession = (
   location: '中港國小',
   registration_start_at: '2026-04-30T01:00:00.000Z',
   registration_end_at: '2026-05-01T15:30:00.000Z',
+  published_at: '2026-05-01T12:00:00.000Z',
   point_cost: 1,
   capacity: 20,
   selected_count: 12,
@@ -34,6 +35,8 @@ describe('trainingRegistrationNotification', () => {
       .toBe('training_registration_open:session-1:2026-04-30T01:00:00.000Z')
     expect(buildTrainingRegistrationNotificationEventKey(session, 'deadline_reminder'))
       .toBe('training_registration_deadline:session-1:2026-05-01T15:30:00.000Z')
+    expect(buildTrainingRegistrationNotificationEventKey(session, 'selection_published'))
+      .toBe('training_selection_published:session-1:2026-05-01T12:00:00.000Z')
     expect(buildTrainingRegistrationNotificationUrl(session)).toBe('/training?session_id=session-1')
   })
 
@@ -66,6 +69,21 @@ describe('trainingRegistrationNotification', () => {
       '扣點：1 點',
       '名額：20 人',
       '剩餘名額：8 人'
+    ].join('\n'))
+  })
+
+  it('builds selection published copy', () => {
+    const session = buildSession()
+
+    expect(buildTrainingRegistrationNotificationTitle(session, 'selection_published'))
+      .toBe('特訓課錄取名單已公布：五月特訓課')
+    expect(buildTrainingRegistrationNotificationBody(session, 'selection_published')).toBe([
+      '課程：五月特訓課',
+      '日期：2026-05-02',
+      '時間：09:00 - 11:00',
+      '地點：中港國小',
+      '錄取人數：12 人',
+      '請至特訓報名查看錄取名單與個人狀態。'
     ].join('\n'))
   })
 
