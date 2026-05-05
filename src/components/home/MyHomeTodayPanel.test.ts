@@ -68,6 +68,7 @@ describe('MyHomeTodayPanel', () => {
 
     expect(wrapper.text()).toContain('特訓報名')
     expect(wrapper.findAllComponents(RouterLinkStub).some((link) => link.props('to') === '/training')).toBe(true)
+    expect(wrapper.findAllComponents(RouterLinkStub).some((link) => link.props('to') === '/my-leave-requests')).toBe(false)
   })
 
   it('hides the training registration link for regular matches', () => {
@@ -75,5 +76,6 @@ describe('MyHomeTodayPanel', () => {
 
     expect(wrapper.text()).not.toContain('特訓報名')
     expect(wrapper.findAllComponents(RouterLinkStub).some((link) => link.props('to') === '/training')).toBe(false)
+    expect(wrapper.findAllComponents(RouterLinkStub).some((link) => link.props('to') === '/my-leave-requests')).toBe(true)
   })
 })
