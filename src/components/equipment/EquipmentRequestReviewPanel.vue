@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Refresh } from '@element-plus/icons-vue'
+import { ArrowDown, ArrowRight, Refresh } from '@element-plus/icons-vue'
 import { useRoute } from 'vue-router'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import { useEquipmentStore } from '@/stores/equipment'
@@ -26,6 +26,8 @@ const equipmentStore = useEquipmentStore()
 const requestStore = useEquipmentRequestsStore()
 const permissionsStore = usePermissionsStore()
 const processingIds = ref(new Set<string>())
+const isReviewSectionCollapsed = ref(false)
+const isHistorySectionCollapsed = ref(false)
 const actionDialog = ref<{
   visible: boolean
   mode: 'ready' | 'picked_up'
@@ -260,6 +262,13 @@ const highlightFromRoute = async () => {
   const id = String(route.query.highlight_id || '').trim()
   if (!id) return
 
+  const highlightedRequest = requestStore.reviewRequests.find((request) => request.id === id)
+  if (highlightedRequest && EQUIPMENT_REQUEST_HISTORY_STATUSES.includes(highlightedRequest.status as any)) {
+    isHistorySectionCollapsed.value = false
+  } else {
+    isReviewSectionCollapsed.value = false
+  }
+
   await new Promise((resolve) => window.setTimeout(resolve, 80))
   const target = document.getElementById(`equipment-review-request-${id}`)
   if (!target) return
@@ -293,22 +302,36 @@ watch(() => route.query.highlight_id, () => {
             處理家長送出的加購申請，完成領取後會進入裝備付款流程。
           </p>
         </div>
-        <button
-          type="button"
-          class="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 px-4 py-3 text-sm font-bold text-gray-600 hover:border-primary hover:text-primary transition-colors disabled:opacity-70"
-          :disabled="requestStore.isLoading"
-          @click="refresh"
-        >
-          <el-icon :class="{ 'is-loading': requestStore.isLoading }"><Refresh /></el-icon>
-          重新整理
-        </button>
+        <div class="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            class="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 px-4 py-3 text-sm font-bold text-gray-600 hover:border-primary hover:text-primary transition-colors disabled:opacity-70"
+            :disabled="requestStore.isLoading"
+            @click="refresh"
+          >
+            <el-icon :class="{ 'is-loading': requestStore.isLoading }"><Refresh /></el-icon>
+            重新整理
+          </button>
+          <button
+            type="button"
+            class="inline-flex items-center justify-center gap-1.5 rounded-2xl border border-gray-200 px-4 py-3 text-sm font-bold text-gray-600 hover:border-primary hover:text-primary transition-colors"
+            :aria-expanded="!isReviewSectionCollapsed"
+            @click="isReviewSectionCollapsed = !isReviewSectionCollapsed"
+          >
+            <el-icon>
+              <ArrowRight v-if="isReviewSectionCollapsed" />
+              <ArrowDown v-else />
+            </el-icon>
+            {{ isReviewSectionCollapsed ? '展開' : '收合' }}
+          </button>
+        </div>
       </div>
     </div>
 
     <AppLoadingState v-if="requestStore.isLoading" text="讀取裝備請購中..." min-height="9rem" />
 
     <template v-else>
-      <div class="grid gap-4 xl:grid-cols-2">
+      <div v-show="!isReviewSectionCollapsed" class="grid gap-4 xl:grid-cols-2">
         <section class="rounded-2xl border border-amber-100 bg-amber-50/70 p-4 md:p-5">
           <div class="mb-3 flex items-center justify-between gap-3">
             <h4 class="font-black text-amber-900">待審核</h4>
@@ -452,8 +475,23 @@ watch(() => route.query.highlight_id, () => {
       <section class="rounded-2xl border border-gray-100 bg-white p-4 md:p-5 shadow-sm">
         <div class="mb-3 flex items-center justify-between gap-3">
           <h4 class="font-black text-slate-800">歷史紀錄</h4>
-          <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-black text-gray-600">{{ historyRequests.length }} 筆</span>
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-black text-gray-600">{{ historyRequests.length }} 筆</span>
+            <button
+              type="button"
+              class="inline-flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-black text-gray-600 transition-colors hover:border-primary hover:text-primary"
+              :aria-expanded="!isHistorySectionCollapsed"
+              @click="isHistorySectionCollapsed = !isHistorySectionCollapsed"
+            >
+              <el-icon>
+                <ArrowRight v-if="isHistorySectionCollapsed" />
+                <ArrowDown v-else />
+              </el-icon>
+              {{ isHistorySectionCollapsed ? '展開' : '收合' }}
+            </button>
+          </div>
         </div>
+        <div v-show="!isHistorySectionCollapsed">
         <div v-if="historyRequests.length === 0" class="rounded-2xl bg-gray-50 px-4 py-5 text-sm font-bold text-gray-400">
           尚無歷史請購紀錄。
         </div>
@@ -504,6 +542,7 @@ watch(() => route.query.highlight_id, () => {
               </div>
             </div>
           </article>
+        </div>
         </div>
       </section>
     </template>

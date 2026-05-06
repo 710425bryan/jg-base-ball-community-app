@@ -58,6 +58,22 @@ describe('fee management reminder mapping', () => {
     expect(snapshot.total_amount).toBe(1200)
   })
 
+  it('routes equipment unpaid reminders to the unpaid equipment payment section', () => {
+    expect(normalizeFeeManagementReminderItem({
+      id: 'equipment-unpaid',
+      kind: 'equipmentUnpaid',
+      title: 'Equipment unpaid',
+      body: '20 unpaid equipment payments',
+      count: 20,
+      amount: 4050,
+      severity: 'info',
+      link: '/fees?tab=equipment&highlight_id=request-1'
+    })).toMatchObject({
+      kind: 'equipmentUnpaid',
+      link: '/fees?tab=equipment&section=equipment-unpaid'
+    })
+  })
+
   it('keeps period metadata and falls back to item totals', () => {
     const snapshot = normalizeFeeManagementReminderSnapshot({
       generated_at: '2026-04-29T09:00:00.000Z',

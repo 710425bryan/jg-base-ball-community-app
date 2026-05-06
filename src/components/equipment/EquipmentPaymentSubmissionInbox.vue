@@ -2,7 +2,7 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Loading, Refresh } from '@element-plus/icons-vue'
+import { ArrowDown, ArrowRight, Loading, Refresh } from '@element-plus/icons-vue'
 import { useRoute } from 'vue-router'
 import { useEquipmentPaymentsStore } from '@/stores/equipmentPayments'
 import type { EquipmentPaymentSubmission } from '@/types/equipment'
@@ -17,6 +17,8 @@ const processingIds = ref(new Set<string>())
 const isRefreshing = ref(false)
 const unpaidPaymentError = ref('')
 const reviewSubmissionError = ref('')
+const isUnpaidSectionCollapsed = ref(false)
+const isReviewSectionCollapsed = ref(false)
 
 const pendingSubmissions = computed(() =>
   paymentsStore.reviewSubmissions.filter((submission) => submission.status === 'pending_review')
@@ -151,11 +153,25 @@ const markPaid = async (item: { transaction_id: string; member_name: string; equ
 }
 
 const highlightFromRoute = async () => {
+  const section = String(route.query.section || '').trim()
+  if (section === 'equipment-unpaid') {
+    isUnpaidSectionCollapsed.value = false
+    await nextTick()
+    const target = document.getElementById('equipment-unpaid-section')
+    if (!target) return
+
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    target.classList.add('ring-2', 'ring-primary', 'ring-offset-2')
+    window.setTimeout(() => target.classList.remove('ring-2', 'ring-primary', 'ring-offset-2'), 2600)
+    return
+  }
+
   const id = String(
     route.query.highlight_equipment_submission_id || route.query.highlight_submission_id || ''
   ).trim()
   if (!id) return
 
+  isReviewSectionCollapsed.value = false
   await nextTick()
   const target = document.getElementById(`equipment-payment-submission-${id}`)
   if (!target) return
@@ -201,11 +217,15 @@ watch(() => route.query.highlight_submission_id, () => {
 watch(() => route.query.highlight_equipment_submission_id, () => {
   void highlightFromRoute()
 })
+
+watch(() => route.query.section, () => {
+  void highlightFromRoute()
+})
 </script>
 
 <template>
   <div class="space-y-4">
-  <section class="rounded-2xl border border-sky-100 bg-sky-50/70 p-4 md:p-5 shadow-sm">
+  <section id="equipment-unpaid-section" class="rounded-2xl border border-sky-100 bg-sky-50/70 p-4 md:p-5 shadow-sm transition-all">
     <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <div>
         <h3 class="text-lg font-black text-sky-900">裝備款項 / 尚未付款</h3>
@@ -220,9 +240,22 @@ watch(() => route.query.highlight_equipment_submission_id, () => {
         <span class="rounded-full bg-white/80 border border-sky-200 px-3 py-1 text-xs font-black text-sky-700">
           {{ formatCurrency(unpaidPaymentTotal) }}
         </span>
+        <button
+          type="button"
+          class="inline-flex items-center justify-center gap-1.5 rounded-xl border border-sky-200 bg-white/80 px-3 py-1.5 text-xs font-black text-sky-700 transition-colors hover:bg-white"
+          :aria-expanded="!isUnpaidSectionCollapsed"
+          @click="isUnpaidSectionCollapsed = !isUnpaidSectionCollapsed"
+        >
+          <el-icon>
+            <ArrowRight v-if="isUnpaidSectionCollapsed" />
+            <ArrowDown v-else />
+          </el-icon>
+          {{ isUnpaidSectionCollapsed ? '展開' : '收合' }}
+        </button>
       </div>
     </div>
 
+    <div v-show="!isUnpaidSectionCollapsed">
     <div v-if="isRefreshing" class="mt-4 flex items-center gap-3 text-sm font-bold text-sky-700/70">
       <el-icon class="is-loading text-sky-600"><Loading /></el-icon>
       讀取尚未付款裝備款項中...
@@ -289,6 +322,7 @@ watch(() => route.query.highlight_equipment_submission_id, () => {
         </div>
       </article>
     </div>
+    </div>
   </section>
 
   <section class="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4 md:p-5 shadow-sm">
@@ -312,9 +346,22 @@ watch(() => route.query.highlight_equipment_submission_id, () => {
           <el-icon :class="{ 'is-loading': isRefreshing }"><Refresh /></el-icon>
           重新整理
         </button>
+        <button
+          type="button"
+          class="inline-flex items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-white/80 px-3 py-1.5 text-xs font-black text-emerald-700 transition-colors hover:bg-white"
+          :aria-expanded="!isReviewSectionCollapsed"
+          @click="isReviewSectionCollapsed = !isReviewSectionCollapsed"
+        >
+          <el-icon>
+            <ArrowRight v-if="isReviewSectionCollapsed" />
+            <ArrowDown v-else />
+          </el-icon>
+          {{ isReviewSectionCollapsed ? '展開' : '收合' }}
+        </button>
       </div>
     </div>
 
+    <div v-show="!isReviewSectionCollapsed">
     <div v-if="isRefreshing" class="mt-4 flex items-center gap-3 text-sm font-bold text-emerald-700/70">
       <el-icon class="is-loading text-emerald-600"><Loading /></el-icon>
       讀取裝備付款回報中...
@@ -404,6 +451,7 @@ watch(() => route.query.highlight_equipment_submission_id, () => {
           </div>
         </div>
       </article>
+    </div>
     </div>
   </section>
   </div>
