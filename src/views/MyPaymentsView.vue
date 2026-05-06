@@ -291,9 +291,9 @@
             </div>
           </section>
 
-          <MyMatchFeesPanel :member-id="selectedMemberId" />
-
           <MyEquipmentPaymentsPanel :member-id="selectedMemberId" />
+
+          <MyMatchFeesPanel :member-id="selectedMemberId" />
         </template>
       </div>
     </div>
