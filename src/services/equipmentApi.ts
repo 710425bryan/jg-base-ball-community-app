@@ -2,6 +2,11 @@ import { supabase } from '@/services/supabase'
 import { compressImage } from '@/utils/imageCompressor'
 import { EQUIPMENT_REQUEST_RESERVED_STATUSES } from '@/utils/equipmentRequestStatus'
 import { validateEquipmentPurchaseItemsAvailability } from '@/utils/equipmentInventory'
+import {
+  isSupabaseRpcMissingError,
+  isSupabaseRpcUnavailable,
+  markSupabaseRpcUnavailable
+} from '@/utils/supabaseRpc'
 import type {
   CreateEquipmentPaymentSubmissionPayload,
   CreateEquipmentPurchaseRequestPayload,
@@ -27,6 +32,11 @@ const unwrapRows = <T>(data: T[] | T | null | undefined) => {
 }
 
 const unique = (values: Array<string | null | undefined>) => [...new Set(values.filter(Boolean) as string[])]
+
+const pickSingle = <T>(value: T | T[] | null | undefined): T | null => {
+  if (Array.isArray(value)) return value[0] || null
+  return value || null
+}
 
 const normalizeNumber = (value: unknown, fallback = 0) => {
   const parsed = Number(value)
@@ -836,6 +846,153 @@ export const listMyEquipmentManualPurchaseRecords = async (memberId?: string | n
   return unwrapRows<any>(data).map(normalizeManualPurchaseRecord)
 }
 
+const normalizeEquipmentPaymentItem = (item: any) => ({
+  ...item,
+  quantity: normalizeNumber(item?.quantity),
+  unit_price: normalizeNumber(item?.unit_price),
+  total_amount: normalizeNumber(item?.total_amount)
+})
+
+const LIST_EQUIPMENT_UNPAID_PAYMENT_ITEMS_RPC = 'list_equipment_unpaid_payment_items'
+const MARK_EQUIPMENT_TRANSACTIONS_PAID_RPC = 'mark_equipment_transactions_paid'
+
+const normalizeEquipmentUnpaidPaymentFallbackItem = (row: any) => {
+  const equipment = pickSingle<any>(row?.equipment)
+  const member = pickSingle<any>(row?.member)
+  const requestItem = pickSingle<any>(row?.request_item)
+  const request = pickSingle<any>(requestItem?.request)
+  const unitPrice = normalizeNumber(row?.unit_price ?? equipment?.purchase_price)
+  const quantity = normalizeNumber(row?.quantity, 1)
+
+  return normalizeEquipmentPaymentItem({
+    transaction_id: row?.id,
+    request_id: request?.id ?? null,
+    member_id: row?.member_id ?? '',
+    member_name: member?.name || '(未指定球員)',
+    equipment_id: row?.equipment_id ?? equipment?.id ?? '',
+    equipment_name: equipment?.name || '未命名裝備',
+    size: row?.size ?? null,
+    jersey_number: row?.jersey_number ?? null,
+    quantity,
+    unit_price: unitPrice,
+    total_amount: unitPrice * quantity,
+    payment_status: row?.payment_status || 'unpaid',
+    payment_submission_id: row?.payment_submission_id ?? null,
+    transaction_date: row?.transaction_date,
+    request_status: request?.status ?? null,
+    picked_up_at: request?.picked_up_at ?? null
+  })
+}
+
+const isPayableUnpaidEquipmentTransaction = (row: any) => {
+  if (!row?.request_item_id) return true
+  const requestItem = pickSingle<any>(row?.request_item)
+  const request = pickSingle<any>(requestItem?.request)
+  return request?.status === 'picked_up'
+}
+
+const listEquipmentUnpaidPaymentItemsFromTables = async () => {
+  const { data, error } = await supabase
+    .from('equipment_transactions')
+    .select(`
+      id,
+      equipment_id,
+      member_id,
+      request_item_id,
+      size,
+      jersey_number,
+      quantity,
+      unit_price,
+      payment_status,
+      payment_submission_id,
+      transaction_date,
+      created_at,
+      equipment:equipment_id (
+        id,
+        name,
+        purchase_price
+      ),
+      member:member_id (
+        id,
+        name
+      ),
+      request_item:request_item_id (
+        id,
+        request:request_id (
+          id,
+          status,
+          picked_up_at
+        )
+      )
+    `)
+    .eq('transaction_type', 'purchase')
+    .or('payment_status.is.null,payment_status.eq.unpaid')
+    .order('created_at', { ascending: false })
+
+  if (error) throw error
+
+  return unwrapRows<any>(data)
+    .filter(isPayableUnpaidEquipmentTransaction)
+    .map(normalizeEquipmentUnpaidPaymentFallbackItem)
+}
+
+const markEquipmentTransactionsPaidFromTables = async (transactionIds: string[]) => {
+  const scopedTransactionIds = unique(transactionIds)
+
+  if (scopedTransactionIds.length === 0) {
+    throw new Error('no equipment transactions selected')
+  }
+
+  const { data: rows, error: fetchError } = await supabase
+    .from('equipment_transactions')
+    .select(`
+      id,
+      request_item_id,
+      payment_status,
+      transaction_type,
+      request_item:request_item_id (
+        id,
+        request:request_id (
+          id,
+          status
+        )
+      )
+    `)
+    .in('id', scopedTransactionIds)
+
+  if (fetchError) throw fetchError
+
+  const payableTransactionIds = unwrapRows<any>(rows)
+    .filter((row) =>
+      row?.transaction_type === 'purchase'
+      && (row?.payment_status || 'unpaid') === 'unpaid'
+      && isPayableUnpaidEquipmentTransaction(row)
+    )
+    .map((row) => row.id)
+
+  if (payableTransactionIds.length === 0) {
+    throw new Error('no unpaid equipment transactions were updated')
+  }
+
+  const { data: authData } = await supabase.auth.getUser()
+  const now = new Date().toISOString()
+  const { data, error } = await supabase
+    .from('equipment_transactions')
+    .update({
+      payment_status: 'paid',
+      paid_at: now,
+      paid_by: authData.user?.id || null,
+      payment_submission_id: null,
+      updated_at: now
+    })
+    .in('id', payableTransactionIds)
+    .select('id')
+
+  if (error) throw error
+
+  return unwrapRows<any>(data).length
+}
+
 export const fetchEquipmentRequestById = async (requestId: string) => {
   const { data, error } = await supabase
     .from('equipment_purchase_requests')
@@ -931,19 +1088,26 @@ export const markEquipmentRequestPickedUp = async (
   requestId: string,
   userId: string,
   note?: string | null,
-  imageFiles: File[] = []
+  imageFiles: File[] = [],
+  markPaid = false
 ) => {
   const imageUrls = await uploadEquipmentImages(
     imageFiles,
     'equipment_request_actions/pickup'
   )
 
-  const { error } = await supabase.rpc('mark_equipment_request_picked_up', {
+  const payload: Record<string, unknown> = {
     p_request_id: requestId,
     p_user_id: userId,
     p_note: note || null,
     p_image_urls: imageUrls
-  })
+  }
+
+  if (markPaid) {
+    payload.p_mark_paid = true
+  }
+
+  const { error } = await supabase.rpc('mark_equipment_request_picked_up', payload)
 
   if (error) throw error
   return fetchEquipmentRequestById(requestId)
@@ -1005,12 +1169,25 @@ export const listMyEquipmentPaymentItems = async (memberId?: string | null) => {
   })
 
   if (error) throw error
-  return unwrapRows<any>(data).map((item) => ({
-    ...item,
-    quantity: normalizeNumber(item?.quantity),
-    unit_price: normalizeNumber(item?.unit_price),
-    total_amount: normalizeNumber(item?.total_amount)
-  }))
+  return unwrapRows<any>(data).map(normalizeEquipmentPaymentItem)
+}
+
+export const listEquipmentUnpaidPaymentItems = async () => {
+  if (!isSupabaseRpcUnavailable(LIST_EQUIPMENT_UNPAID_PAYMENT_ITEMS_RPC)) {
+    const { data, error } = await supabase.rpc(LIST_EQUIPMENT_UNPAID_PAYMENT_ITEMS_RPC)
+
+    if (!error) {
+      return unwrapRows<any>(data).map(normalizeEquipmentPaymentItem)
+    }
+
+    if (!isSupabaseRpcMissingError(error, LIST_EQUIPMENT_UNPAID_PAYMENT_ITEMS_RPC)) {
+      throw error
+    }
+
+    markSupabaseRpcUnavailable(LIST_EQUIPMENT_UNPAID_PAYMENT_ITEMS_RPC)
+  }
+
+  return listEquipmentUnpaidPaymentItemsFromTables()
 }
 
 export const listMyEquipmentPendingRequestPaymentItems = async (memberId?: string | null) => {
@@ -1057,4 +1234,24 @@ export const reviewEquipmentPaymentSubmission = async (
 
   if (error) throw error
   return normalizePaymentSubmission(unwrapRows<any>(data)[0])
+}
+
+export const markEquipmentTransactionsPaid = async (transactionIds: string[]) => {
+  if (!isSupabaseRpcUnavailable(MARK_EQUIPMENT_TRANSACTIONS_PAID_RPC)) {
+    const { data, error } = await supabase.rpc(MARK_EQUIPMENT_TRANSACTIONS_PAID_RPC, {
+      p_transaction_ids: transactionIds
+    })
+
+    if (!error) {
+      return Number(data) || 0
+    }
+
+    if (!isSupabaseRpcMissingError(error, MARK_EQUIPMENT_TRANSACTIONS_PAID_RPC)) {
+      throw error
+    }
+
+    markSupabaseRpcUnavailable(MARK_EQUIPMENT_TRANSACTIONS_PAID_RPC)
+  }
+
+  return markEquipmentTransactionsPaidFromTables(transactionIds)
 }

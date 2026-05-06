@@ -140,7 +140,7 @@ const openActionDialog = (mode: 'ready' | 'picked_up', request: EquipmentPurchas
   }
 }
 
-const submitActionDialog = async (payload: { note: string; imageFiles: File[] }) => {
+const submitActionDialog = async (payload: { note: string; imageFiles: File[]; markPaid?: boolean }) => {
   const target = actionDialog.value.request
   if (!target) return
 
@@ -148,7 +148,7 @@ const submitActionDialog = async (payload: { note: string; imageFiles: File[] })
   try {
     const updated = actionDialog.value.mode === 'ready'
       ? await requestStore.markReady(target.id, payload.note, payload.imageFiles)
-      : await requestStore.markPickedUp(target.id, payload.note, payload.imageFiles)
+      : await requestStore.markPickedUp(target.id, payload.note, payload.imageFiles, Boolean(payload.markPaid))
 
     actionDialog.value.visible = false
     ElMessage.success(actionDialog.value.mode === 'ready' ? '已標記可領取' : '已完成領取')
@@ -160,6 +160,14 @@ const submitActionDialog = async (payload: { note: string; imageFiles: File[] })
         `${updated.member?.name || '成員'} 的裝備加購已備貨完成。`,
         `/equipment-addons?tab=requests&highlight_id=${updated.id}`,
         'equipment-request-ready'
+      )
+    } else if (updated && payload.markPaid) {
+      await notifyRequester(
+        updated,
+        '裝備已領取，付款已登錄',
+        `${updated.member?.name || '成員'} 的裝備加購已完成領取，付款已登錄。`,
+        `/equipment-addons?tab=requests&highlight_id=${updated.id}`,
+        'equipment-request-picked-up-paid'
       )
     } else if (updated) {
       await notifyRequester(
@@ -505,6 +513,7 @@ watch(() => route.query.highlight_id, () => {
       :title="actionDialogTitle"
       :confirm-text="actionDialogConfirmText"
       :allow-image="true"
+      :allow-payment-received="actionDialog.mode === 'picked_up'"
       :is-submitting="actionDialog.request ? processingIds.has(actionDialog.request.id) : false"
       @confirm="submitActionDialog"
     />

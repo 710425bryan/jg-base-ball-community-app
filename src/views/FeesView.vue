@@ -199,13 +199,15 @@ const matchFeeManagementPanelRef = ref<InstanceType<typeof MatchFeeManagementPan
 const SUMMARY_COLLAPSE_SCROLL_TOP = 32
 const SUMMARY_EXPAND_SCROLL_TOP = 8
 
-watch(() => route.query.tab, (newTab) => {
-  if (newTab === 'monthly' || newTab === 'quarterly' || newTab === 'match-fees' || newTab === 'equipment' || newTab === 'balances' || newTab === 'settings') {
+watch(() => [route.query.tab, route.query.highlight_equipment_submission_id, route.query.highlight_match_submission_id], ([newTab, equipmentSubmissionId, matchSubmissionId]) => {
+  if (equipmentSubmissionId) {
+    activeTab.value = 'equipment'
+  } else if (matchSubmissionId) {
+    activeTab.value = 'match-fees'
+  } else if (newTab === 'monthly' || newTab === 'quarterly' || newTab === 'match-fees' || newTab === 'equipment' || newTab === 'balances' || newTab === 'settings') {
     activeTab.value = newTab as string
   } else if (route.query.highlight_submission_id && activeTab.value === 'equipment') {
     activeTab.value = 'monthly'
-  } else if (route.query.highlight_match_submission_id) {
-    activeTab.value = 'match-fees'
   }
 }, { immediate: true })
 

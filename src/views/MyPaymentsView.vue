@@ -24,7 +24,7 @@
               :disabled="!canCreateSubmissionForSelectedMember || isRefreshing"
               @click="openCreateDialog"
             >
-              新增繳費
+              新增月費 / 季費
             </button>
           </template>
         </AppPageHeader>
@@ -237,7 +237,7 @@
                 :disabled="!canCreateSubmissionForSelectedMember"
                 @click="openCreateDialog"
               >
-                新增繳費
+                新增月費 / 季費
               </button>
             </div>
 
@@ -300,7 +300,7 @@
 
     <el-dialog
       v-model="isCreateDialogOpen"
-      title="新增繳費"
+      title="新增月費 / 季費"
       width="90%"
       style="max-width: 560px; border-radius: 16px;"
       destroy-on-close
@@ -1057,7 +1057,7 @@ const submitPaymentSubmission = async () => {
       submissions.value = [createdSubmission, ...submissions.value]
 
       void dispatchPushNotification({
-        title: `[新增繳費] ${createdSubmission.member_name} 提交了付款回報`,
+        title: `[月費 / 季費] ${createdSubmission.member_name} 提交了付款回報`,
         body: `${createdSubmission.period_label} / ${formatCurrency(createdSubmission.amount)}，請前往收費管理確認。`,
         url: `/fees?highlight_submission_id=${createdSubmission.id}`,
         feature: 'fees',

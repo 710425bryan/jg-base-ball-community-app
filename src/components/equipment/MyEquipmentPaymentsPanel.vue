@@ -223,41 +223,50 @@ const submit = async () => {
 
   form.balance_amount = clampBalanceDeduction(form.balance_amount, selectedTotal.value, currentBalance.value)
 
-  await formRef.value.validate(async (valid: boolean) => {
-    if (!valid) return
+  try {
+    await formRef.value.validate()
+  } catch {
+    return
+  }
 
-    try {
-      const submission = await paymentsStore.submitPayment({
-        transaction_ids: selectedTransactionIds.value,
+  const transactionIds = [...selectedTransactionIds.value]
+
+  try {
+    const submission = await paymentsStore.submitPayment(
+      {
+        transaction_ids: transactionIds,
         payment_method: isExternalPaymentRequired.value ? form.payment_method : BALANCE_PAYMENT_METHOD,
         account_last_5: requiresLast5.value ? form.account_last_5 : null,
         remittance_date: isExternalPaymentRequired.value ? form.remittance_date : dayjs().format('YYYY-MM-DD'),
         note: form.note || null,
         balance_amount: form.balance_amount
-      })
+      },
+      props.memberId || null
+    )
 
-      await dispatchPushNotification({
-        title: '收到裝備付款回報',
-        body: `${submission.member_name} 回報裝備付款 ${formatCurrency(submission.amount)}，請協助確認。`,
-        url: `/fees?tab=equipment&highlight_submission_id=${submission.id}`,
-        feature: 'fees',
-        action: 'EDIT',
-        eventKey: buildGroupedPushEventKey('equipment-payment-submitted', selectedTransactionIds.value)
-      })
+    await dispatchPushNotification({
+      title: '收到裝備付款回報',
+      body: `${submission.member_name} 回報裝備付款 ${formatCurrency(submission.amount)}，請協助確認。`,
+      url: `/fees?tab=equipment&highlight_equipment_submission_id=${submission.id}`,
+      feature: 'fees',
+      action: 'EDIT',
+      eventKey: buildGroupedPushEventKey('equipment-payment-submitted', transactionIds)
+    })
 
-      selectedTransactionIds.value = []
-      isDialogOpen.value = false
-      ElMessage.success('已送出裝備付款回報')
-      await loadItems()
-    } catch (error: any) {
-      ElMessage.error(error?.message || '送出裝備付款回報失敗')
-    }
-  })
+    selectedTransactionIds.value = []
+    isDialogOpen.value = false
+    ElMessage.success('已送出裝備付款回報')
+    await loadItems()
+  } catch (error: any) {
+    ElMessage.error(error?.message || '送出裝備付款回報失敗')
+  }
 }
 
 const highlightFromRoute = async () => {
   const requestId = String(route.query.highlight_id || '').trim()
-  const submissionId = String(route.query.highlight_submission_id || '').trim()
+  const submissionId = String(
+    route.query.highlight_equipment_submission_id || route.query.highlight_submission_id || ''
+  ).trim()
   const transactionId = String(route.query.highlight_transaction_id || '').trim()
   if (!requestId && !submissionId && !transactionId) return
 
@@ -289,6 +298,10 @@ watch(() => route.query.highlight_id, () => {
 })
 
 watch(() => route.query.highlight_submission_id, () => {
+  void highlightFromRoute()
+})
+
+watch(() => route.query.highlight_equipment_submission_id, () => {
   void highlightFromRoute()
 })
 

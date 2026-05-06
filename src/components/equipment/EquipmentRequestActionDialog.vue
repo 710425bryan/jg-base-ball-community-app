@@ -10,15 +10,17 @@ const props = defineProps<{
   noteLabel?: string
   notePlaceholder?: string
   allowImage?: boolean
+  allowPaymentReceived?: boolean
   isSubmitting?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void
-  (e: 'confirm', payload: { note: string; imageFiles: File[] }): void
+  (e: 'confirm', payload: { note: string; imageFiles: File[]; markPaid: boolean }): void
 }>()
 
 const note = ref('')
+const markPaid = ref(false)
 const imageFiles = ref<File[]>([])
 const imagePreviews = ref<string[]>([])
 const uploadRef = ref()
@@ -52,13 +54,15 @@ const resetImages = () => {
 const submit = () => {
   emit('confirm', {
     note: note.value.trim(),
-    imageFiles: imageFiles.value
+    imageFiles: imageFiles.value,
+    markPaid: props.allowPaymentReceived && markPaid.value
   })
 }
 
 watch(() => props.modelValue, (value) => {
   if (value) {
     note.value = ''
+    markPaid.value = false
   }
   resetImages()
 })
@@ -87,6 +91,12 @@ onBeforeUnmount(() => {
             show-word-limit
             :placeholder="notePlaceholder || '可補充這次處理狀況'"
           />
+        </el-form-item>
+
+        <el-form-item v-if="allowPaymentReceived" label="付款狀態" class="font-bold">
+          <el-checkbox v-model="markPaid" size="large">
+            領取時已收款，直接標記為已付款
+          </el-checkbox>
         </el-form-item>
 
         <el-form-item v-if="allowImage" label="照片" class="font-bold">

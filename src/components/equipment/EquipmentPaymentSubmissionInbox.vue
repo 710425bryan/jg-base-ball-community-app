@@ -14,12 +14,20 @@ import { buildPushEventKey, dispatchPushNotification } from '@/utils/pushNotific
 const route = useRoute()
 const paymentsStore = useEquipmentPaymentsStore()
 const processingIds = ref(new Set<string>())
+const isRefreshing = ref(false)
+const unpaidPaymentError = ref('')
+const reviewSubmissionError = ref('')
 
 const pendingSubmissions = computed(() =>
   paymentsStore.reviewSubmissions.filter((submission) => submission.status === 'pending_review')
 )
 
+const unpaidPaymentItems = computed(() => paymentsStore.adminUnpaidItems)
+const unpaidPaymentTotal = computed(() =>
+  unpaidPaymentItems.value.reduce((total, item) => total + Number(item.total_amount || 0), 0)
+)
 const visibleSubmissions = computed(() => pendingSubmissions.value.slice(0, 8))
+const visibleUnpaidPaymentItems = computed(() => unpaidPaymentItems.value)
 
 const formatCurrency = (amount: number) => new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -49,6 +57,15 @@ const formatBreakdown = (submission: EquipmentPaymentSubmission) =>
 const getVariantLabel = (item: { size?: string | null; jersey_number?: number | string | null }) =>
   formatEquipmentVariantLabel(item, '')
 
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = String((error as { message?: unknown }).message || '').trim()
+    if (message) return message
+  }
+
+  return fallback
+}
+
 const setProcessing = (id: string, value: boolean) => {
   const next = new Set(processingIds.value)
   if (value) next.add(id)
@@ -63,7 +80,7 @@ const notifySubmitter = async (submission: EquipmentPaymentSubmission, status: '
       body: status === 'approved'
         ? `${submission.member_name} 的裝備付款已確認。`
         : `${submission.member_name} 的裝備付款回報已退回，請至繳費資訊查看。`,
-      url: `/my-payments?view=equipment&highlight_submission_id=${submission.id}`,
+      url: `/my-payments?view=equipment&highlight_equipment_submission_id=${submission.id}`,
       feature: 'equipment',
       action: 'VIEW',
       targetUserIds: [submission.profile_id],
@@ -108,8 +125,35 @@ const review = async (submission: EquipmentPaymentSubmission, status: 'approved'
   }
 }
 
+const markPaid = async (item: { transaction_id: string; member_name: string; equipment_name: string; total_amount: number }) => {
+  try {
+    await ElMessageBox.confirm(
+      `確認 ${item.member_name} 的 ${item.equipment_name} 已收款 ${formatCurrency(item.total_amount)}？`,
+      '標記裝備已付款',
+      {
+        confirmButtonText: '標記已付款',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
+    setProcessing(item.transaction_id, true)
+    await paymentsStore.markPaid([item.transaction_id])
+    ElMessage.success('已標記裝備款項為已付款')
+    await refresh()
+  } catch (error: any) {
+    if (error !== 'cancel' && error !== 'close') {
+      ElMessage.error(error?.message || '標記裝備付款失敗')
+    }
+  } finally {
+    setProcessing(item.transaction_id, false)
+  }
+}
+
 const highlightFromRoute = async () => {
-  const id = String(route.query.highlight_submission_id || '').trim()
+  const id = String(
+    route.query.highlight_equipment_submission_id || route.query.highlight_submission_id || ''
+  ).trim()
   if (!id) return
 
   await nextTick()
@@ -122,8 +166,28 @@ const highlightFromRoute = async () => {
 }
 
 const refresh = async () => {
-  await paymentsStore.loadReviewSubmissions()
-  await highlightFromRoute()
+  isRefreshing.value = true
+  unpaidPaymentError.value = ''
+  reviewSubmissionError.value = ''
+
+  try {
+    const [reviewResult, unpaidResult] = await Promise.allSettled([
+      paymentsStore.loadReviewSubmissions(),
+      paymentsStore.loadAdminUnpaidItems()
+    ])
+
+    if (reviewResult.status === 'rejected') {
+      reviewSubmissionError.value = getErrorMessage(reviewResult.reason, '無法載入待確認裝備付款')
+    }
+
+    if (unpaidResult.status === 'rejected') {
+      unpaidPaymentError.value = getErrorMessage(unpaidResult.reason, '無法載入尚未付款裝備款項')
+    }
+
+    await highlightFromRoute()
+  } finally {
+    isRefreshing.value = false
+  }
 }
 
 onMounted(() => {
@@ -133,9 +197,100 @@ onMounted(() => {
 watch(() => route.query.highlight_submission_id, () => {
   void highlightFromRoute()
 })
+
+watch(() => route.query.highlight_equipment_submission_id, () => {
+  void highlightFromRoute()
+})
 </script>
 
 <template>
+  <div class="space-y-4">
+  <section class="rounded-2xl border border-sky-100 bg-sky-50/70 p-4 md:p-5 shadow-sm">
+    <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div>
+        <h3 class="text-lg font-black text-sky-900">裝備款項 / 尚未付款</h3>
+        <p class="mt-1 text-xs md:text-sm text-sky-700/80">
+          列出已領取或管理員新增、目前仍標記為尚未付款的裝備交易；若已收款可直接標記為已付款。
+        </p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="rounded-full bg-white/80 border border-sky-200 px-3 py-1 text-xs font-black text-sky-700">
+          尚未付款 {{ unpaidPaymentItems.length }} 筆
+        </span>
+        <span class="rounded-full bg-white/80 border border-sky-200 px-3 py-1 text-xs font-black text-sky-700">
+          {{ formatCurrency(unpaidPaymentTotal) }}
+        </span>
+      </div>
+    </div>
+
+    <div v-if="isRefreshing" class="mt-4 flex items-center gap-3 text-sm font-bold text-sky-700/70">
+      <el-icon class="is-loading text-sky-600"><Loading /></el-icon>
+      讀取尚未付款裝備款項中...
+    </div>
+
+    <div v-else-if="unpaidPaymentError" class="mt-4 rounded-2xl bg-red-50/80 border border-red-100 px-4 py-5 text-sm text-red-600 font-bold">
+      {{ unpaidPaymentError }}
+    </div>
+
+    <div v-else-if="unpaidPaymentItems.length === 0" class="mt-4 rounded-2xl bg-white/70 border border-white px-4 py-5 text-sm text-sky-700/70 font-bold">
+      目前沒有尚未付款的裝備款項。
+    </div>
+
+    <div v-else class="mt-4 grid gap-3">
+      <article
+        v-for="item in visibleUnpaidPaymentItems"
+        :key="item.transaction_id"
+        class="rounded-2xl border border-white bg-white/90 p-4 shadow-sm transition-all"
+      >
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <div class="text-base md:text-lg font-black text-slate-800">{{ item.member_name }}</div>
+              <span class="rounded-full bg-sky-50 border border-sky-100 px-2.5 py-1 text-[11px] font-bold text-sky-700">
+                {{ item.equipment_name }}
+              </span>
+              <span
+                v-if="item.request_status"
+                class="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-[11px] font-bold text-gray-500"
+              >
+                {{ getEquipmentRequestStatusLabel(item.request_status) }}
+              </span>
+            </div>
+            <div class="mt-3 grid gap-2 text-sm text-gray-600 md:grid-cols-4">
+              <div>
+                <div class="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">項目</div>
+                <div class="mt-1 font-bold text-slate-700">
+                  {{ item.equipment_name }} <span class="text-gray-400">{{ getVariantLabel(item) }}</span>
+                </div>
+              </div>
+              <div>
+                <div class="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">數量</div>
+                <div class="mt-1 font-black text-primary">{{ item.quantity }} 件</div>
+              </div>
+              <div>
+                <div class="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">金額</div>
+                <div class="mt-1 font-black text-primary">{{ formatCurrency(item.total_amount) }}</div>
+              </div>
+              <div>
+                <div class="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">日期</div>
+                <div class="mt-1 font-medium text-slate-700">{{ formatDate(item.picked_up_at || item.transaction_date) }}</div>
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            class="shrink-0 rounded-xl bg-sky-700 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-sky-800 disabled:opacity-70"
+            :disabled="processingIds.has(item.transaction_id)"
+            @click="markPaid(item)"
+          >
+            標記已收款
+          </button>
+        </div>
+      </article>
+    </div>
+  </section>
+
   <section class="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4 md:p-5 shadow-sm">
     <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <div>
@@ -151,18 +306,22 @@ watch(() => route.query.highlight_submission_id, () => {
         <button
           type="button"
           class="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-white/80 px-4 py-2 text-sm font-bold text-emerald-700 hover:bg-white transition-colors disabled:opacity-70"
-          :disabled="paymentsStore.isLoading"
+          :disabled="isRefreshing"
           @click="refresh"
         >
-          <el-icon :class="{ 'is-loading': paymentsStore.isLoading }"><Refresh /></el-icon>
+          <el-icon :class="{ 'is-loading': isRefreshing }"><Refresh /></el-icon>
           重新整理
         </button>
       </div>
     </div>
 
-    <div v-if="paymentsStore.isLoading" class="mt-4 flex items-center gap-3 text-sm font-bold text-emerald-700/70">
+    <div v-if="isRefreshing" class="mt-4 flex items-center gap-3 text-sm font-bold text-emerald-700/70">
       <el-icon class="is-loading text-emerald-600"><Loading /></el-icon>
       讀取裝備付款回報中...
+    </div>
+
+    <div v-else-if="reviewSubmissionError" class="mt-4 rounded-2xl bg-red-50/80 border border-red-100 px-4 py-5 text-sm text-red-600 font-bold">
+      {{ reviewSubmissionError }}
     </div>
 
     <div v-else-if="pendingSubmissions.length === 0" class="mt-4 rounded-2xl bg-white/70 border border-white px-4 py-5 text-sm text-emerald-700/70 font-bold">
@@ -247,4 +406,5 @@ watch(() => route.query.highlight_submission_id, () => {
       </article>
     </div>
   </section>
+  </div>
 </template>

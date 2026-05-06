@@ -140,10 +140,15 @@ export const useEquipmentRequestsStore = defineStore('equipmentRequests', () => 
     return request
   }
 
-  const markPickedUp = async (requestId: string, note?: string | null, imageFiles: File[] = []) => {
+  const markPickedUp = async (
+    requestId: string,
+    note?: string | null,
+    imageFiles: File[] = [],
+    markPaid = false
+  ) => {
     const userId = authStore.user?.id
     if (!userId) throw new Error('尚未登入')
-    const request = await markEquipmentRequestPickedUp(requestId, userId, note, imageFiles)
+    const request = await markEquipmentRequestPickedUp(requestId, userId, note, imageFiles, markPaid)
     upsertLocalRequest(request)
     return request
   }
