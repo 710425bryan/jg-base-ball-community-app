@@ -2,6 +2,7 @@
 import type { MatchRecord } from '@/types/match'
 import { Delete, Operation, DocumentCopy, Bell, VideoCamera } from '@element-plus/icons-vue'
 import { normalizeExternalUrl } from '@/utils/externalUrl'
+import { formatMatchRecordForGoogleCalendar } from '@/utils/matchCalendarCopy'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 
@@ -28,18 +29,10 @@ const getResultTag = (m: MatchRecord) => {
 }
 
 const copyMatchInfo = (m: MatchRecord) => {
-  const videoUrl = normalizeExternalUrl(m.video_url)
-  const text = `
-🏆 賽事：${m.match_name}
-📅 日期：${m.match_date} ${m.match_time}
-📍 地點：${m.location || '未定'}
-🆚 對戰：中港熊戰 vs ${m.opponent}
-📋 組別：${m.category_group || '-'} / ${m.match_level || '-'}
-${videoUrl ? `🎥 影片：${videoUrl}` : ''}
-  `.trim()
+  const text = formatMatchRecordForGoogleCalendar(m)
   
   navigator.clipboard.writeText(text).then(() => {
-    ElMessage.success('已複製賽事資訊')
+    ElMessage.success('已複製 Google 行事曆格式')
   }).catch(() => {
     ElMessage.error('複製失敗，請手動複製')
   })
@@ -124,7 +117,7 @@ const openVideo = (url?: string | null) => {
                  <el-icon><Bell /></el-icon>
                </el-button>
              </el-tooltip>
-             <el-tooltip content="複製賽程" placement="top">
+             <el-tooltip content="複製 Google 行事曆格式" placement="top">
                <el-button @click.stop="copyMatchInfo(row)" circle size="small" class="!border-none hover:!bg-green-50 hover:!text-green-600 text-gray-400">
                  <el-icon><DocumentCopy /></el-icon>
                </el-button>

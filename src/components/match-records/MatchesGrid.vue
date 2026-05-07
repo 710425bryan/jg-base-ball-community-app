@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { MatchRecord } from '@/types/match'
-import { Calendar, Delete, Location, Operation, Trophy, VideoCamera } from '@element-plus/icons-vue'
+import { Calendar, Delete, DocumentCopy, Location, Operation, Trophy, VideoCamera } from '@element-plus/icons-vue'
 import { normalizeExternalUrl } from '@/utils/externalUrl'
+import { formatMatchRecordForGoogleCalendar } from '@/utils/matchCalendarCopy'
 import dayjs from 'dayjs'
+import { ElMessage } from 'element-plus'
 
 const UNKNOWN_MONTH_KEY = '__unknown__'
 
@@ -108,6 +110,16 @@ const formatMatchDate = (date?: string) => {
   if (!date) return '未設定日期'
   return dayjs(date).format('YYYY/MM/DD')
 }
+
+const copyMatchInfo = (match: MatchRecord) => {
+  const text = formatMatchRecordForGoogleCalendar(match)
+
+  navigator.clipboard.writeText(text).then(() => {
+    ElMessage.success('已複製 Google 行事曆格式')
+  }).catch(() => {
+    ElMessage.error('複製失敗，請手動複製')
+  })
+}
 </script>
 
 <template>
@@ -154,7 +166,12 @@ const formatMatchDate = (date?: string) => {
                 </h3>
               </div>
 
-              <div v-if="props.canEdit || props.canDelete" class="flex shrink-0 items-center gap-1" @click.stop>
+              <div class="flex shrink-0 items-center gap-1" @click.stop>
+                <el-tooltip content="複製 Google 行事曆格式" placement="top">
+                  <el-button circle size="small" class="!border-slate-200 !bg-white/80 !text-slate-500 hover:!border-emerald-200 hover:!text-emerald-600" @click.stop="copyMatchInfo(match)">
+                    <el-icon><DocumentCopy /></el-icon>
+                  </el-button>
+                </el-tooltip>
                 <el-tooltip v-if="props.canEdit" content="編輯" placement="top">
                   <el-button circle size="small" class="!border-slate-200 !bg-white/80 !text-slate-500 hover:!border-primary/40 hover:!text-primary" @click.stop="emit('edit', match.id)">
                     <el-icon><Operation /></el-icon>

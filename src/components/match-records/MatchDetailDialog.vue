@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
-import { Trophy, Location, Calendar, Position, Avatar, WarnTriangleFilled, ArrowLeft, ArrowRight, Delete, Edit, Document, Timer, DataAnalysis, VideoCamera, Money } from '@element-plus/icons-vue'
+import { Trophy, Location, Calendar, Position, Avatar, WarnTriangleFilled, ArrowLeft, ArrowRight, Delete, Edit, Document, Timer, DataAnalysis, VideoCamera, Money, DocumentCopy } from '@element-plus/icons-vue'
 import { useMatchesStore } from '@/stores/matches'
 import type { MatchRecord } from '@/types/match'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import VisualField from '@/components/match-records/VisualField.vue'
 import { normalizeExternalUrl } from '@/utils/externalUrl'
+import { formatMatchRecordForGoogleCalendar } from '@/utils/matchCalendarCopy'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -91,6 +92,17 @@ const handleDelete = async () => {
   }
 }
 
+const handleCopyMatchInfo = () => {
+  if (!matchData.value) return
+
+  const text = formatMatchRecordForGoogleCalendar(matchData.value)
+  navigator.clipboard.writeText(text).then(() => {
+    ElMessage.success('已複製 Google 行事曆格式')
+  }).catch(() => {
+    ElMessage.error('複製失敗，請手動複製')
+  })
+}
+
 // Calculate team stats
 const teamStats = computed(() => {
   if (!matchData.value?.batting_stats) return null
@@ -172,11 +184,14 @@ const pitchingTeamStats = computed(() => {
            <el-icon class="text-xl"><ArrowLeft /></el-icon>
          </button>
          <!-- Right Actions -->
-         <div v-if="!props.readonly" class="flex items-center gap-2 pointer-events-auto">
-            <button @click="emit('edit')" class="bg-primary hover:bg-primary/90 rounded-full w-11 h-11 flex items-center justify-center text-white shadow shadow-primary/30 transition-colors tooltip" title="編輯紀錄">
+         <div class="flex items-center gap-2 pointer-events-auto">
+            <button @click="handleCopyMatchInfo" class="bg-emerald-500/80 hover:bg-emerald-500 rounded-full w-11 h-11 flex items-center justify-center text-white shadow transition-colors tooltip" title="複製 Google 行事曆格式">
+              <el-icon class="text-xl"><DocumentCopy /></el-icon>
+            </button>
+            <button v-if="!props.readonly" @click="emit('edit')" class="bg-primary hover:bg-primary/90 rounded-full w-11 h-11 flex items-center justify-center text-white shadow shadow-primary/30 transition-colors tooltip" title="編輯紀錄">
               <el-icon class="text-xl"><Edit /></el-icon>
             </button>
-            <button @click="handleDelete" class="bg-red-500/80 hover:bg-red-500 rounded-full w-11 h-11 flex items-center justify-center text-white shadow transition-colors tooltip" title="刪除紀錄">
+            <button v-if="!props.readonly" @click="handleDelete" class="bg-red-500/80 hover:bg-red-500 rounded-full w-11 h-11 flex items-center justify-center text-white shadow transition-colors tooltip" title="刪除紀錄">
               <el-icon class="text-xl"><Delete /></el-icon>
             </button>
          </div>
