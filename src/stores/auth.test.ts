@@ -17,6 +17,11 @@ const onAuthStateChangeMock = vi.fn()
 const signOutMock = vi.fn()
 const signInWithOtpMock = vi.fn()
 const verifyOtpMock = vi.fn()
+const signInWithPasskeyMock = vi.fn()
+const registerPasskeyMock = vi.fn()
+const passkeyListMock = vi.fn()
+const passkeyUpdateMock = vi.fn()
+const passkeyDeleteMock = vi.fn()
 const rpcMock = vi.fn()
 const profileSingleMock = vi.fn()
 const profileEqMock = vi.fn(() => ({
@@ -53,7 +58,14 @@ vi.mock('@/services/supabase', () => ({
       onAuthStateChange: onAuthStateChangeMock,
       signOut: signOutMock,
       signInWithOtp: signInWithOtpMock,
-      verifyOtp: verifyOtpMock
+      verifyOtp: verifyOtpMock,
+      signInWithPasskey: signInWithPasskeyMock,
+      registerPasskey: registerPasskeyMock,
+      passkey: {
+        list: passkeyListMock,
+        update: passkeyUpdateMock,
+        delete: passkeyDeleteMock
+      }
     },
     from: fromMock,
     rpc: rpcMock
@@ -270,5 +282,179 @@ describe('auth store initialization', () => {
     expect(authStore.user).toBeNull()
     expect(authStore.profile).toBeNull()
     expect(authStore.isAuthenticated).toBe(false)
+  })
+
+  it('hydrates profile and permissions after passkey login succeeds', async () => {
+    const session = {
+      access_token: 'passkey-session-token',
+      user: { id: 'user-passkey' }
+    } as any
+
+    signInWithPasskeyMock.mockResolvedValue({
+      data: {
+        session,
+        user: session.user
+      },
+      error: null
+    })
+
+    profileSingleMock.mockResolvedValue({
+      data: {
+        id: 'user-passkey',
+        role: 'COACH',
+        name: 'Passkey User',
+        is_active: true
+      },
+      error: null
+    })
+
+    permissionsEqMock.mockResolvedValue({
+      data: [
+        { feature: 'dashboard', action: 'VIEW' },
+        { feature: 'players', action: 'VIEW' }
+      ],
+      error: null
+    })
+
+    const [{ useAuthStore }, { usePermissionsStore }] = await Promise.all([
+      import('@/stores/auth'),
+      import('@/stores/permissions')
+    ])
+
+    const authStore = useAuthStore()
+    const permissionsStore = usePermissionsStore()
+
+    await authStore.signInWithPasskey()
+
+    expect(signInWithPasskeyMock).toHaveBeenCalledTimes(1)
+    expect(profileSingleMock).toHaveBeenCalledTimes(1)
+    expect(authStore.user?.id).toBe('user-passkey')
+    expect(authStore.profile?.name).toBe('Passkey User')
+    expect(permissionsStore.currentRole).toBe('COACH')
+    expect(rpcMock).toHaveBeenCalledWith('touch_profile_last_seen')
+  })
+
+  it('rejects passkey login when the hydrated profile is outside the access window', async () => {
+    const session = {
+      access_token: 'passkey-session-token',
+      user: { id: 'user-passkey' }
+    } as any
+
+    signInWithPasskeyMock.mockResolvedValue({
+      data: {
+        session,
+        user: session.user
+      },
+      error: null
+    })
+
+    profileSingleMock.mockResolvedValue({
+      data: {
+        id: 'user-passkey',
+        role: 'MANAGER',
+        name: 'Expired Passkey User',
+        is_active: true,
+        access_end: '2000-01-01T00:00:00.000Z'
+      },
+      error: null
+    })
+
+    const { useAuthStore } = await import('@/stores/auth')
+    const authStore = useAuthStore()
+
+    await expect(authStore.signInWithPasskey())
+      .rejects
+      .toThrow('此帳號的可登入時間已結束。')
+
+    expect(signOutMock).toHaveBeenCalledTimes(1)
+    expect(authStore.user).toBeNull()
+    expect(authStore.profile).toBeNull()
+    expect(authStore.isAuthenticated).toBe(false)
+  })
+
+  it('throws a clear error when the loaded Supabase client has no passkey namespace', async () => {
+    const { supabase } = await import('@/services/supabase')
+    const originalPasskey = (supabase.auth as any).passkey
+    ;(supabase.auth as any).passkey = undefined
+
+    const { useAuthStore } = await import('@/stores/auth')
+    const authStore = useAuthStore()
+
+    expect(authStore.isPasskeyApiAvailable).toBe(false)
+    await expect(authStore.listPasskeys())
+      .rejects
+      .toThrow('目前前端載入的 Supabase SDK 尚未提供 Passkey API')
+
+    ;(supabase.auth as any).passkey = originalPasskey
+  })
+
+  it('wraps passkey registration and management api calls', async () => {
+    registerPasskeyMock.mockResolvedValue({
+      data: {
+        id: 'registration-1'
+      },
+      error: null
+    })
+    passkeyListMock.mockResolvedValue({
+      data: [
+        {
+          id: 'passkey-1',
+          friendly_name: 'iPhone',
+          created_at: '2026-05-01T00:00:00.000Z',
+          last_used_at: '2026-05-02T00:00:00.000Z'
+        }
+      ],
+      error: null
+    })
+    passkeyUpdateMock.mockResolvedValue({
+      data: {
+        id: 'passkey-1',
+        friendly_name: 'Bryan iPhone',
+        created_at: '2026-05-01T00:00:00.000Z',
+        last_used_at: '2026-05-02T00:00:00.000Z'
+      },
+      error: null
+    })
+    passkeyDeleteMock.mockResolvedValue({
+      data: null,
+      error: null
+    })
+
+    const { useAuthStore } = await import('@/stores/auth')
+    const authStore = useAuthStore()
+
+    await expect(authStore.registerPasskey()).resolves.toEqual({
+      id: 'registration-1'
+    })
+
+    await expect(authStore.listPasskeys()).resolves.toEqual([
+      {
+        id: 'passkey-1',
+        friendly_name: 'iPhone',
+        created_at: '2026-05-01T00:00:00.000Z',
+        last_used_at: '2026-05-02T00:00:00.000Z'
+      }
+    ])
+
+    await expect(authStore.renamePasskey('passkey-1', ' Bryan iPhone ')).resolves.toEqual({
+      id: 'passkey-1',
+      friendly_name: 'Bryan iPhone',
+      created_at: '2026-05-01T00:00:00.000Z',
+      last_used_at: '2026-05-02T00:00:00.000Z'
+    })
+
+    await expect(authStore.renamePasskey('passkey-1', ' ')).rejects.toThrow('請輸入 Passkey 名稱。')
+
+    await authStore.deletePasskey('passkey-1')
+
+    expect(registerPasskeyMock).toHaveBeenCalledTimes(1)
+    expect(passkeyListMock).toHaveBeenCalledTimes(1)
+    expect(passkeyUpdateMock).toHaveBeenCalledWith({
+      passkeyId: 'passkey-1',
+      friendlyName: 'Bryan iPhone'
+    })
+    expect(passkeyDeleteMock).toHaveBeenCalledWith({
+      passkeyId: 'passkey-1'
+    })
   })
 })

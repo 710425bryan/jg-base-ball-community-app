@@ -2,12 +2,12 @@
   <div class="h-full flex flex-col relative animate-fade-in bg-gray-50 text-text overflow-hidden">
     <div class="bg-white px-4 md:px-6 py-4 border-b border-gray-200 shadow-sm shrink-0">
       <div class="max-w-5xl mx-auto">
-        <AppPageHeader
-          title="個人設定"
-          subtitle="更新大頭照、綽號、閱讀偏好與常用匯款資訊"
-          :icon="Setting"
-          as="h2"
-        />
+          <AppPageHeader
+            title="個人設定"
+            subtitle="更新大頭照、綽號、閱讀偏好、快速登入與常用匯款資訊"
+            :icon="Setting"
+            as="h2"
+          />
       </div>
     </div>
 
@@ -161,6 +161,95 @@
               </button>
             </div>
 
+            <div class="rounded-2xl border border-emerald-100 bg-emerald-50/70 px-4 py-4">
+              <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div class="text-sm font-black text-slate-800">Passkey 快速登入</div>
+                  <p class="mt-2 text-sm text-slate-600 leading-relaxed">
+                    綁定後可用這台裝置的生物辨識或裝置解鎖快速登入，email 驗證碼仍會保留。
+                  </p>
+                </div>
+
+                <button
+                  v-if="isPasskeyAvailable"
+                  type="button"
+                  class="shrink-0 inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-3 transition-colors disabled:opacity-70"
+                  :disabled="isRegisteringPasskey || isLoadingPasskeys"
+                  @click="handleRegisterPasskey"
+                >
+                  <Loading v-if="isRegisteringPasskey" class="h-4 w-4 animate-spin" />
+                  <Plus v-else class="h-4 w-4" />
+                  <span>{{ isRegisteringPasskey ? '新增中...' : '新增 Passkey' }}</span>
+                </button>
+              </div>
+
+              <div
+                v-if="!isPasskeyAvailable"
+                class="mt-4 rounded-xl border border-white/70 bg-white/80 px-4 py-3 text-sm font-medium text-slate-500"
+              >
+                這台裝置、瀏覽器或目前載入的登入 SDK 暫不支援 Passkey，仍可使用 email 驗證碼登入。
+              </div>
+
+              <div v-else class="mt-4">
+                <div
+                  v-if="isLoadingPasskeys"
+                  class="flex items-center gap-2 rounded-xl border border-white/70 bg-white/80 px-4 py-3 text-sm font-bold text-slate-500"
+                >
+                  <Loading class="h-4 w-4 animate-spin" />
+                  <span>讀取 Passkey 中...</span>
+                </div>
+
+                <div
+                  v-else-if="passkeys.length === 0"
+                  class="rounded-xl border border-dashed border-emerald-200 bg-white/70 px-4 py-4 text-center text-sm font-bold text-slate-500"
+                >
+                  尚未綁定 Passkey
+                </div>
+
+                <div v-else class="space-y-3">
+                  <div
+                    v-for="passkey in passkeys"
+                    :key="passkey.id"
+                    class="flex flex-col gap-3 rounded-xl border border-white/70 bg-white/90 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div class="min-w-0">
+                      <div class="truncate text-sm font-black text-slate-800">
+                        {{ getPasskeyDisplayName(passkey) }}
+                      </div>
+                      <div class="mt-1 text-xs font-medium text-slate-500">
+                        建立 {{ formatPasskeyDate(passkey.created_at) }}
+                      </div>
+                      <div class="mt-0.5 text-xs font-medium text-slate-400">
+                        最近使用 {{ formatPasskeyDate(passkey.last_used_at) }}
+                      </div>
+                    </div>
+
+                    <div class="flex shrink-0 items-center gap-2">
+                      <button
+                        type="button"
+                        class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
+                        :aria-label="`重新命名 ${getPasskeyDisplayName(passkey)}`"
+                        :disabled="passkeyActionId === passkey.id"
+                        @click="handleRenamePasskey(passkey)"
+                      >
+                        <EditPen class="h-4 w-4" />
+                      </button>
+
+                      <button
+                        type="button"
+                        class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-red-100 text-red-500 transition-colors hover:border-red-200 hover:bg-red-50 disabled:opacity-50"
+                        :aria-label="`刪除 ${getPasskeyDisplayName(passkey)}`"
+                        :disabled="passkeyActionId === passkey.id"
+                        @click="handleDeletePasskey(passkey)"
+                      >
+                        <Delete class="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div class="rounded-2xl border border-sky-100 bg-sky-50/80 px-4 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <div class="text-sm font-black text-slate-800">大字模式</div>
@@ -183,6 +272,7 @@
               <div class="text-sm font-black text-amber-800">這頁目前會更新的內容</div>
               <p class="mt-2 text-sm text-amber-700 leading-relaxed">
                 大頭照、綽號 / 稱呼、大字模式、常用匯款方式、匯款帳號後五碼。
+                Passkey 快速登入會在操作後即時更新。
                 真實姓名與角色仍維持原本的管理流程。
               </p>
             </div>
@@ -216,20 +306,21 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Setting } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Delete, EditPen, Loading, Plus, Setting } from '@element-plus/icons-vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
 import PushSettingsDialog from '@/components/PushSettingsDialog.vue'
 import { useReadableTextMode } from '@/composables/useReadableTextMode'
 import { supabase } from '@/services/supabase'
-import { useAuthStore } from '@/stores/auth'
+import { useAuthStore, type AuthPasskey } from '@/stores/auth'
 import { compressImage } from '@/utils/imageCompressor'
 import {
   normalizeAccountLast5,
   PAYMENT_METHOD_OPTIONS,
   requiresAccountLast5 as checkRequiresAccountLast5
 } from '@/utils/paymentMethods'
+import { getPasskeyAuthErrorMessage, isPasskeySupported as detectPasskeySupport } from '@/utils/passkeySupport'
 
 const MAX_AVATAR_BYTES = 1024 * 1024
 const paymentMethodOptions = PAYMENT_METHOD_OPTIONS
@@ -241,6 +332,11 @@ const isLoading = ref(true)
 const isCompressing = ref(false)
 const isSubmitting = ref(false)
 const isPushSettingsOpen = ref(false)
+const isPasskeyAvailable = ref(false)
+const isLoadingPasskeys = ref(false)
+const isRegisteringPasskey = ref(false)
+const passkeyActionId = ref('')
+const passkeys = ref<AuthPasskey[]>([])
 const formRef = ref()
 const fileInput = ref<HTMLInputElement | null>(null)
 const avatarFile = ref<File | null>(null)
@@ -312,6 +408,11 @@ const requiresAccountLast5 = computed(() => {
   return checkRequiresAccountLast5(form.preferred_payment_method)
 })
 
+const passkeyDateFormatter = new Intl.DateTimeFormat('zh-TW', {
+  dateStyle: 'medium',
+  timeStyle: 'short'
+})
+
 const revokeAvatarPreview = () => {
   if (avatarPreview.value.startsWith('blob:')) {
     URL.revokeObjectURL(avatarPreview.value)
@@ -351,6 +452,119 @@ const handlePaymentMethodChange = (value: string | undefined) => {
 
 const handleAccountLast5Input = (value: string) => {
   form.preferred_account_last_5 = normalizeAccountLast5(value)
+}
+
+const formatPasskeyDate = (value?: string | null) => {
+  if (!value) {
+    return '尚未使用'
+  }
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return '未知時間'
+  }
+
+  return passkeyDateFormatter.format(date)
+}
+
+const getPasskeyDisplayName = (passkey: AuthPasskey) => {
+  return passkey.friendly_name?.trim() || '未命名 Passkey'
+}
+
+const loadPasskeys = async () => {
+  if (!isPasskeyAvailable.value) {
+    passkeys.value = []
+    return
+  }
+
+  isLoadingPasskeys.value = true
+
+  try {
+    passkeys.value = await authStore.listPasskeys()
+  } catch (error: any) {
+    console.error('Passkey 清單讀取失敗:', error)
+    ElMessage.error(error?.message || 'Passkey 清單讀取失敗，請稍後再試')
+  } finally {
+    isLoadingPasskeys.value = false
+  }
+}
+
+const refreshPasskeyAvailability = () => {
+  isPasskeyAvailable.value = detectPasskeySupport() && authStore.isPasskeyApiAvailable
+}
+
+const handleRegisterPasskey = async () => {
+  if (!isPasskeyAvailable.value) {
+    return
+  }
+
+  isRegisteringPasskey.value = true
+
+  try {
+    await authStore.registerPasskey()
+    await loadPasskeys()
+    ElMessage.success('Passkey 已新增')
+  } catch (error: any) {
+    console.error('Passkey 新增失敗:', error)
+    ElMessage.error(getPasskeyAuthErrorMessage(error, '新增 Passkey 失敗，請稍後再試'))
+  } finally {
+    isRegisteringPasskey.value = false
+  }
+}
+
+const handleRenamePasskey = async (passkey: AuthPasskey) => {
+  try {
+    const { value } = await ElMessageBox.prompt('請輸入新的 Passkey 名稱', '重新命名 Passkey', {
+      inputValue: getPasskeyDisplayName(passkey),
+      inputPattern: /\S/,
+      inputErrorMessage: '請輸入 Passkey 名稱',
+      confirmButtonText: '儲存',
+      cancelButtonText: '取消'
+    })
+
+    passkeyActionId.value = passkey.id
+    await authStore.renamePasskey(passkey.id, String(value))
+    await loadPasskeys()
+    ElMessage.success('Passkey 名稱已更新')
+  } catch (error: any) {
+    if (error === 'cancel' || error === 'close') {
+      return
+    }
+
+    console.error('Passkey 改名失敗:', error)
+    ElMessage.error(error?.message || 'Passkey 改名失敗，請稍後再試')
+  } finally {
+    if (passkeyActionId.value === passkey.id) {
+      passkeyActionId.value = ''
+    }
+  }
+}
+
+const handleDeletePasskey = async (passkey: AuthPasskey) => {
+  try {
+    await ElMessageBox.confirm('刪除後，這把 Passkey 將無法再用來登入。', '刪除 Passkey', {
+      type: 'warning',
+      confirmButtonText: '刪除',
+      cancelButtonText: '取消',
+      confirmButtonClass: 'el-button--danger'
+    })
+
+    passkeyActionId.value = passkey.id
+    await authStore.deletePasskey(passkey.id)
+    await loadPasskeys()
+    ElMessage.success('Passkey 已刪除')
+  } catch (error: any) {
+    if (error === 'cancel' || error === 'close') {
+      return
+    }
+
+    console.error('Passkey 刪除失敗:', error)
+    ElMessage.error(error?.message || 'Passkey 刪除失敗，請稍後再試')
+  } finally {
+    if (passkeyActionId.value === passkey.id) {
+      passkeyActionId.value = ''
+    }
+  }
 }
 
 const handleAvatarSelect = async (event: Event) => {
@@ -482,6 +696,8 @@ onMounted(async () => {
   try {
     await authStore.ensureInitialized()
     syncFormFromProfile()
+    refreshPasskeyAvailability()
+    await loadPasskeys()
   } finally {
     isLoading.value = false
   }

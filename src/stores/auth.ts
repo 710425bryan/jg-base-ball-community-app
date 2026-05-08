@@ -4,9 +4,31 @@ import { supabase } from '@/services/supabase'
 import type { User, Session } from '@supabase/supabase-js'
 import { usePermissionsStore } from './permissions'
 import { getProfileAccessState } from '@/utils/profileAccess'
+import { isSupabasePasskeyApiAvailable } from '@/utils/passkeySupport'
 
 const LAST_SEEN_SYNC_INTERVAL_MS = 5 * 60 * 1000
+const PASSKEY_API_UNAVAILABLE_MESSAGE =
+  '目前前端載入的 Supabase SDK 尚未提供 Passkey API，請重新啟動前端服務或確認 @supabase/supabase-js 已升級到 2.105.4 以上。'
 const lastSeenSyncCache = new Map<string, number>()
+
+export type AuthPasskey = {
+  id: string
+  friendly_name?: string | null
+  created_at: string
+  last_used_at?: string | null
+}
+
+const toAuthPasskey = (passkey: {
+  id: string
+  friendly_name?: string | null
+  created_at: string
+  last_used_at?: string | null
+}): AuthPasskey => ({
+  id: passkey.id,
+  friendly_name: passkey.friendly_name ?? null,
+  created_at: passkey.created_at,
+  last_used_at: passkey.last_used_at ?? null
+})
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
@@ -15,6 +37,7 @@ export const useAuthStore = defineStore('auth', () => {
   const isInitializing = ref(true)
 
   const isAuthenticated = computed(() => !!user.value)
+  const isPasskeyApiAvailable = computed(() => isSupabasePasskeyApiAvailable(supabase.auth))
   const permissionsStore = usePermissionsStore()
 
   let initializationPromise: Promise<void> | null = null
@@ -184,6 +207,70 @@ export const useAuthStore = defineStore('auth', () => {
     return data
   }
 
+  const assertPasskeyApiAvailable = () => {
+    if (!isPasskeyApiAvailable.value) {
+      throw new Error(PASSKEY_API_UNAVAILABLE_MESSAGE)
+    }
+  }
+
+  const signInWithPasskey = async () => {
+    assertPasskeyApiAvailable()
+
+    const { data, error } = await supabase.auth.signInWithPasskey()
+    if (error) throw error
+
+    if (!data.session) {
+      throw new Error('Passkey 登入沒有取得有效 session，請改用 email 驗證碼登入。')
+    }
+
+    await syncAuthContext(data.session, { forceProfileReload: true })
+
+    return data
+  }
+
+  const registerPasskey = async () => {
+    assertPasskeyApiAvailable()
+
+    const { data, error } = await supabase.auth.registerPasskey()
+    if (error) throw error
+
+    return data
+  }
+
+  const listPasskeys = async (): Promise<AuthPasskey[]> => {
+    assertPasskeyApiAvailable()
+
+    const { data, error } = await supabase.auth.passkey.list()
+    if (error) throw error
+
+    return (data || []).map(toAuthPasskey)
+  }
+
+  const renamePasskey = async (passkeyId: string, friendlyName: string): Promise<AuthPasskey | null> => {
+    assertPasskeyApiAvailable()
+
+    const nextFriendlyName = friendlyName.trim()
+
+    if (!nextFriendlyName) {
+      throw new Error('請輸入 Passkey 名稱。')
+    }
+
+    const { data, error } = await supabase.auth.passkey.update({
+      passkeyId,
+      friendlyName: nextFriendlyName
+    })
+    if (error) throw error
+
+    return data ? toAuthPasskey(data) : null
+  }
+
+  const deletePasskey = async (passkeyId: string) => {
+    assertPasskeyApiAvailable()
+
+    const { error } = await supabase.auth.passkey.delete({ passkeyId })
+    if (error) throw error
+  }
+
   const signOut = async () => {
     await supabase.auth.signOut()
     await clearLocalAuthContext()
@@ -195,10 +282,16 @@ export const useAuthStore = defineStore('auth', () => {
     profile,
     isInitializing,
     isAuthenticated,
+    isPasskeyApiAvailable,
     initializeAuth,
     ensureInitialized,
     sendMagicLink,
     verifyOtpCode,
+    signInWithPasskey,
+    registerPasskey,
+    listPasskeys,
+    renamePasskey,
+    deletePasskey,
     signOut
   }
 })

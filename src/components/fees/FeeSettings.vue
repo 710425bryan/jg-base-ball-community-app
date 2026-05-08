@@ -203,17 +203,21 @@ const updateFeeSetting = async (memberId: string, kind: FeeSettingKind) => {
   isSaving.value[memberId] = true
 
   try {
-    const payload = kind === 'per_session'
-      ? {
-          member_id: memberId,
-          per_session_fee: Number(perSessionFeeMap.value[memberId] ?? DEFAULT_PER_SESSION_FEE),
-          updated_at: new Date().toISOString()
-        }
-      : {
-          member_id: memberId,
-          monthly_fixed_fee: normalizeFixedMonthlyFee(fixedMonthlyFeeMap.value[memberId]),
-          updated_at: new Date().toISOString()
-        }
+    const payload: {
+      member_id: string
+      per_session_fee?: number
+      monthly_fixed_fee?: number
+      updated_at: string
+    } = {
+      member_id: memberId,
+      updated_at: new Date().toISOString()
+    }
+
+    if (kind === 'per_session') {
+      payload.per_session_fee = Number(perSessionFeeMap.value[memberId] ?? DEFAULT_PER_SESSION_FEE)
+    } else {
+      payload.monthly_fixed_fee = normalizeFixedMonthlyFee(fixedMonthlyFeeMap.value[memberId])
+    }
 
     const { error } = await supabase
       .from('fee_settings')

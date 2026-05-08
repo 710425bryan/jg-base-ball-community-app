@@ -26,6 +26,27 @@
             </div>
 
             <form v-if="!isEmailSent" class="w-full space-y-4" @submit.prevent="handleLogin">
+              <button
+                v-if="isPasskeyAvailable"
+                data-testid="passkey-login-button"
+                type="button"
+                :disabled="isPasskeyLoading || isLoading"
+                class="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-3.5 font-bold text-slate-800 shadow-sm transition-all hover:border-primary hover:text-primary active:scale-[0.98] disabled:opacity-70 disabled:active:scale-100"
+                @click="handlePasskeyLogin"
+              >
+                <Lock class="h-5 w-5" />
+                <span>{{ isPasskeyLoading ? '驗證中...' : '使用 Passkey 登入' }}</span>
+              </button>
+
+              <div
+                v-if="isPasskeyAvailable"
+                class="flex items-center gap-3 text-[11px] font-bold uppercase tracking-[0.18em] text-gray-300"
+              >
+                <span class="h-px flex-1 bg-gray-100"></span>
+                <span>或</span>
+                <span class="h-px flex-1 bg-gray-100"></span>
+              </div>
+
               <div>
                 <input
                   v-model="email"
@@ -38,7 +59,7 @@
 
               <button
                 type="submit"
-                :disabled="isLoading"
+                :disabled="isLoading || isPasskeyLoading"
                 class="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3.5 font-bold tracking-wider text-white shadow-[0_8px_20px_rgba(216,143,34,0.3)] transition-all hover:bg-primary-hover active:scale-[0.98] disabled:opacity-70 disabled:active:scale-100"
               >
                 <span v-if="isLoading">送出中...</span>
@@ -104,9 +125,11 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Lock } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/stores/auth'
+import { getPasskeyAuthErrorMessage, isPasskeySupported } from '@/utils/passkeySupport'
 
 const props = defineProps<{ modelValue: boolean }>()
 const emit = defineEmits(['update:modelValue'])
@@ -118,6 +141,9 @@ const otpCode = ref('')
 const isLoading = ref(false)
 const isEmailSent = ref(false)
 const isVerifying = ref(false)
+const canUsePasskey = () => isPasskeySupported() && authStore.isPasskeyApiAvailable
+const isPasskeyAvailable = ref(canUsePasskey())
+const isPasskeyLoading = ref(false)
 
 watch(
   () => props.modelValue,
@@ -126,6 +152,8 @@ watch(
     email.value = ''
     otpCode.value = ''
     isEmailSent.value = false
+    isPasskeyLoading.value = false
+    isPasskeyAvailable.value = canUsePasskey()
   }
 )
 
@@ -142,6 +170,22 @@ const handleLogin = async () => {
     ElMessage.error(error?.message || '寄送驗證碼失敗，請稍後再試')
   } finally {
     isLoading.value = false
+  }
+}
+
+const handlePasskeyLogin = async () => {
+  isPasskeyLoading.value = true
+
+  try {
+    await authStore.signInWithPasskey()
+    ElMessage.success('登入成功，正在前往後台')
+    emit('update:modelValue', false)
+    void router.push('/dashboard')
+  } catch (error: any) {
+    console.error('Passkey 登入失敗:', error)
+    ElMessage.error(getPasskeyAuthErrorMessage(error))
+  } finally {
+    isPasskeyLoading.value = false
   }
 }
 
