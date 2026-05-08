@@ -320,7 +320,11 @@ import {
   PAYMENT_METHOD_OPTIONS,
   requiresAccountLast5 as checkRequiresAccountLast5
 } from '@/utils/paymentMethods'
-import { getPasskeyAuthErrorMessage, isPasskeySupported as detectPasskeySupport } from '@/utils/passkeySupport'
+import {
+  getPasskeyAuthErrorMessage,
+  isPasskeySupported as detectPasskeySupport,
+  isSupabasePasskeyServerEnabled
+} from '@/utils/passkeySupport'
 
 const MAX_AVATAR_BYTES = 1024 * 1024
 const paymentMethodOptions = PAYMENT_METHOD_OPTIONS
@@ -489,8 +493,11 @@ const loadPasskeys = async () => {
   }
 }
 
-const refreshPasskeyAvailability = () => {
-  isPasskeyAvailable.value = detectPasskeySupport() && authStore.isPasskeyApiAvailable
+const refreshPasskeyAvailability = async () => {
+  isPasskeyAvailable.value =
+    detectPasskeySupport() &&
+    authStore.isPasskeyApiAvailable &&
+    await isSupabasePasskeyServerEnabled()
 }
 
 const handleRegisterPasskey = async () => {
@@ -696,7 +703,7 @@ onMounted(async () => {
   try {
     await authStore.ensureInitialized()
     syncFormFromProfile()
-    refreshPasskeyAvailability()
+    await refreshPasskeyAvailability()
     await loadPasskeys()
   } finally {
     isLoading.value = false

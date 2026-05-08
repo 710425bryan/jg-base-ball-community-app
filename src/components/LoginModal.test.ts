@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import LoginModal from './LoginModal.vue'
 
@@ -27,6 +27,7 @@ vi.mock('@/stores/auth', () => ({
 
 vi.mock('@/utils/passkeySupport', () => ({
   isPasskeySupported: () => passkeySupportState.value,
+  isSupabasePasskeyServerEnabled: () => Promise.resolve(passkeySupportState.value),
   getPasskeyAuthErrorMessage: (_error: unknown, fallback?: string) =>
     fallback || 'Passkey 驗證失敗，請改用 email 驗證碼登入。'
 }))
@@ -106,6 +107,7 @@ describe('LoginModal passkey entry', () => {
         }
       }
     })
+    await flushPromises()
 
     const passkeyButton = wrapper.find('[data-testid="passkey-login-button"]')
     expect(passkeyButton.exists()).toBe(true)

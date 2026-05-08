@@ -129,7 +129,11 @@ import { Lock } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/stores/auth'
-import { getPasskeyAuthErrorMessage, isPasskeySupported } from '@/utils/passkeySupport'
+import {
+  getPasskeyAuthErrorMessage,
+  isPasskeySupported,
+  isSupabasePasskeyServerEnabled
+} from '@/utils/passkeySupport'
 
 const props = defineProps<{ modelValue: boolean }>()
 const emit = defineEmits(['update:modelValue'])
@@ -141,9 +145,23 @@ const otpCode = ref('')
 const isLoading = ref(false)
 const isEmailSent = ref(false)
 const isVerifying = ref(false)
-const canUsePasskey = () => isPasskeySupported() && authStore.isPasskeyApiAvailable
-const isPasskeyAvailable = ref(canUsePasskey())
+const isPasskeyAvailable = ref(false)
 const isPasskeyLoading = ref(false)
+let passkeyAvailabilityRequestId = 0
+
+const refreshPasskeyAvailability = async () => {
+  const requestId = ++passkeyAvailabilityRequestId
+  const isAvailable =
+    isPasskeySupported() &&
+    authStore.isPasskeyApiAvailable &&
+    await isSupabasePasskeyServerEnabled()
+
+  if (requestId === passkeyAvailabilityRequestId) {
+    isPasskeyAvailable.value = isAvailable
+  }
+}
+
+void refreshPasskeyAvailability()
 
 watch(
   () => props.modelValue,
@@ -153,7 +171,8 @@ watch(
     otpCode.value = ''
     isEmailSent.value = false
     isPasskeyLoading.value = false
-    isPasskeyAvailable.value = canUsePasskey()
+    isPasskeyAvailable.value = false
+    void refreshPasskeyAvailability()
   }
 )
 
