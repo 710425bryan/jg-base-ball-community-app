@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full flex flex-col relative animate-fade-in p-2 md:p-6 pb-0 md:pb-6 overflow-y-auto custom-scrollbar">
+  <div class="min-h-full md:h-full flex flex-col relative animate-fade-in p-2 pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:p-6 md:pb-6 md:overflow-y-auto custom-scrollbar">
     <!-- 頂部標題區 -->
     <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4 shrink-0">
       <AppPageHeader
@@ -23,17 +23,17 @@
     </div>
 
     <!-- 頁籤與內容區塊 -->
-    <div class="flex-1 flex flex-col min-h-[600px] custom-tabs-container">
-      <el-tabs v-model="activeTab" class="w-full h-full flex flex-col min-h-0">
+    <div class="flex flex-col min-h-0 md:flex-1 md:min-h-[600px] custom-tabs-container">
+      <el-tabs v-model="activeTab" class="w-full min-h-0 md:flex md:h-full md:flex-col">
         <!-- 1. 詳細列表 -->
-        <el-tab-pane label="詳細列表" name="list" class="h-full">
+        <el-tab-pane label="詳細列表" name="list">
           <div
-            class="bg-white sm:rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] sm:border border-gray-100/80 flex flex-col -mx-2 sm:mx-0"
-            :style="{ minHeight: `${leaveListTableCardMinHeight}px` }"
+            class="leave-list-table-card flex flex-col -mx-2 sm:mx-0 md:bg-white md:rounded-2xl md:shadow-[0_8px_30px_rgb(0,0,0,0.04)] md:border md:border-gray-100/80"
+            :style="{ '--leave-list-table-card-min-height': `${leaveListTableCardMinHeight}px` }"
           >
              
             <!-- 篩選列 -->
-            <div class="p-4 border-b border-gray-100 flex flex-col gap-4">
+            <div class="p-4 border-b border-gray-100 bg-white md:bg-transparent flex flex-col gap-4">
               <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <el-date-picker
                   v-model="selectedSearchMonth"
@@ -48,6 +48,11 @@
                   <span class="text-sm font-bold text-orange-700">總計請假次數</span>
                   <span class="text-xl font-black text-primary">{{ leaveRequests.length }}</span>
                 </div>
+              </div>
+
+              <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <span class="text-sm font-bold text-slate-500">檢視方式</span>
+                <ViewModeSwitch v-model="leaveListViewMode" grid-label="卡片" table-label="表格" />
               </div>
 
               <!-- 日期篩選按鈕區 -->
@@ -93,71 +98,125 @@
             <!-- 列表 -->
             <AppLoadingState v-if="isLoading" text="讀取請假紀錄中..." min-height="30rem" />
 
-            <el-table
-              v-else
-              :data="filteredLeaveRequests"
-              style="width: 100%"
-              :height="leaveListTableHeight"
-              empty-text="目前沒有請假紀錄"
-              :row-class-name="tableRowClassName"
-            >
-              <el-table-column label="日期" min-width="120">
-                <template #default="{ row }">
-                  <span class="font-bold text-gray-700">{{ row.start_date === row.end_date ? row.start_date : `${row.start_date.slice(5)} ~ ${row.end_date.slice(5)}` }}</span>
-                </template>
-              </el-table-column>
-              
-              <el-table-column label="球員" min-width="160">
-                <template #default="{ row }">
-                  <div class="flex items-center gap-3 py-1">
-                    <div class="w-8 h-8 rounded-full overflow-hidden bg-gray-100 shrink-0">
-                      <img v-if="row.team_members?.avatar_url" :src="row.team_members.avatar_url" class="w-full h-full object-cover" />
-                      <div v-else class="w-full h-full flex items-center justify-center text-gray-400 font-bold text-sm">
+            <template v-else>
+              <div v-if="leaveListViewMode === 'grid'" class="grid gap-3 p-3">
+                <div v-if="filteredLeaveRequests.length === 0" class="flex min-h-48 flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white p-6 text-center text-sm font-bold text-slate-400">
+                  目前沒有請假紀錄
+                </div>
+
+                <article
+                  v-for="row in filteredLeaveRequests"
+                  :key="row.id"
+                  :class="[tableRowClassName({ row }), 'leave-mobile-card rounded-xl border border-slate-100 bg-white p-4 shadow-sm']"
+                >
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                      <div class="text-xs font-bold text-slate-400">請假日期</div>
+                      <div class="mt-1 break-words text-base font-black leading-snug text-slate-800">
+                        {{ formatLeaveDate(row) }}
+                      </div>
+                    </div>
+                    <span class="shrink-0 rounded-lg border border-orange-100 bg-orange-50 px-3 py-1 text-sm font-black text-primary">
+                      {{ row.leave_type }}
+                    </span>
+                  </div>
+
+                  <div class="mt-4 flex items-center gap-3">
+                    <div class="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-slate-100">
+                      <img v-if="row.team_members?.avatar_url" :src="row.team_members.avatar_url" class="h-full w-full object-cover" alt="" />
+                      <div v-else class="flex h-full w-full items-center justify-center text-sm font-black text-slate-400">
                         {{ row.team_members?.name?.charAt(0) || '?' }}
                       </div>
                     </div>
-                    <div class="flex flex-col">
-                      <span class="font-bold text-gray-800">{{ row.team_members?.name || '未知人員' }}</span>
+                    <div class="min-w-0">
+                      <div class="text-xs font-bold text-slate-400">球員</div>
+                      <div class="truncate text-base font-black text-slate-800">{{ row.team_members?.name || '未知人員' }}</div>
                     </div>
                   </div>
-                </template>
-              </el-table-column>
 
-              <el-table-column label="假別" width="80">
-                <template #default="{ row }">
-                  <span class="bg-orange-50 text-primary px-2.5 py-1 rounded-md text-sm font-bold border border-orange-100">
-                    {{ row.leave_type }}
-                  </span>
-                </template>
-              </el-table-column>
+                  <div class="mt-4 rounded-lg bg-slate-50 p-3">
+                    <div class="text-xs font-bold text-slate-400">原因</div>
+                    <p class="mt-1 break-words text-sm font-bold leading-relaxed text-slate-600">{{ row.reason || '無說明' }}</p>
+                  </div>
 
-              <el-table-column prop="reason" label="原因" min-width="180">
-                <template #default="{ row }">
-                  <span class="text-gray-500 text-sm truncate block">{{ row.reason || '無說明' }}</span>
-                </template>
-              </el-table-column>
-
-              <el-table-column label="操作" width="60" align="right" fixed="right">
-                <template #default="{ row }">
-                  <!-- 只有自己或是管理員可以刪除 -->
-                   <button v-if="canDeleteLeaveRecord(row.user_id)" @click="confirmDelete(row)" class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all" title="刪除紀錄">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  <button
+                    v-if="canDeleteLeaveRecord(row.user_id)"
+                    @click="confirmDelete(row)"
+                    class="mt-4 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-red-100 bg-white px-4 py-2.5 text-sm font-black text-red-500 transition-colors hover:bg-red-50"
+                    title="刪除紀錄"
+                  >
+                    <el-icon><Delete /></el-icon>
+                    刪除紀錄
                   </button>
-                </template>
-              </el-table-column>
-            </el-table>
+                </article>
+              </div>
+
+              <el-table
+                v-else
+                :data="filteredLeaveRequests"
+                style="width: 100%"
+                :height="leaveListTableEffectiveHeight"
+                empty-text="目前沒有請假紀錄"
+                :row-class-name="tableRowClassName"
+              >
+                <el-table-column label="日期" min-width="120">
+                  <template #default="{ row }">
+                    <span class="font-bold text-gray-700">{{ formatLeaveDate(row) }}</span>
+                  </template>
+                </el-table-column>
+
+                <el-table-column label="球員" min-width="160">
+                  <template #default="{ row }">
+                    <div class="flex items-center gap-3 py-1">
+                      <div class="w-8 h-8 rounded-full overflow-hidden bg-gray-100 shrink-0">
+                        <img v-if="row.team_members?.avatar_url" :src="row.team_members.avatar_url" class="w-full h-full object-cover" />
+                        <div v-else class="w-full h-full flex items-center justify-center text-gray-400 font-bold text-sm">
+                          {{ row.team_members?.name?.charAt(0) || '?' }}
+                        </div>
+                      </div>
+                      <div class="flex flex-col">
+                        <span class="font-bold text-gray-800">{{ row.team_members?.name || '未知人員' }}</span>
+                      </div>
+                    </div>
+                  </template>
+                </el-table-column>
+
+                <el-table-column label="假別" width="80">
+                  <template #default="{ row }">
+                    <span class="bg-orange-50 text-primary px-2.5 py-1 rounded-md text-sm font-bold border border-orange-100">
+                      {{ row.leave_type }}
+                    </span>
+                  </template>
+                </el-table-column>
+
+                <el-table-column prop="reason" label="原因" min-width="180">
+                  <template #default="{ row }">
+                    <span class="text-gray-500 text-sm truncate block">{{ row.reason || '無說明' }}</span>
+                  </template>
+                </el-table-column>
+
+                <el-table-column label="操作" width="60" align="right" fixed="right">
+                  <template #default="{ row }">
+                    <!-- 只有自己或是管理員可以刪除 -->
+                    <button v-if="canDeleteLeaveRecord(row.user_id)" @click="confirmDelete(row)" class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all" title="刪除紀錄">
+                      <el-icon><Delete /></el-icon>
+                    </button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </template>
           </div>
         </el-tab-pane>
 
-        <el-tab-pane label="統計報表" name="stats" class="h-full">
+        <el-tab-pane label="統計報表" name="stats">
           <div class="space-y-4 pb-4">
             <div class="bg-white sm:rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] sm:border border-gray-100/80 p-4 -mx-2 sm:mx-0">
               <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                   <h3 class="text-base font-black text-gray-800">球員請假次數統計</h3>
-                  <p class="mt-1 text-sm font-medium text-gray-500">依年月區間與組別篩選球員請假次數。</p>
+                  <p class="mt-1 text-sm font-medium text-gray-500">含請假單與點名請假，同一球員同一天重疊時歸類為點名。</p>
                 </div>
-                <div class="flex w-full flex-col gap-3 sm:flex-row lg:w-auto">
+                <div class="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:w-auto">
                   <el-date-picker
                     v-model="statsMonthRange"
                     type="monthrange"
@@ -184,14 +243,23 @@
                       :value="group"
                     />
                   </el-select>
+                  <ViewModeSwitch v-model="statsViewMode" grid-label="卡片" table-label="表格" />
                 </div>
               </div>
             </div>
 
-            <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
               <div class="rounded-xl border border-orange-100 bg-orange-50 p-4">
                 <span class="text-sm font-bold text-orange-700">區間請假總次數</span>
                 <div class="mt-2 text-3xl font-black text-primary">{{ statsTotalLeaveCount }}</div>
+              </div>
+              <div class="rounded-xl border border-blue-100 bg-blue-50 p-4">
+                <span class="text-sm font-bold text-blue-700">點名請假</span>
+                <div class="mt-2 text-3xl font-black text-blue-700">{{ statsTotalAttendanceCount }}</div>
+              </div>
+              <div class="rounded-xl border border-emerald-100 bg-emerald-50 p-4">
+                <span class="text-sm font-bold text-emerald-700">請假單</span>
+                <div class="mt-2 text-3xl font-black text-emerald-700">{{ statsTotalRequestCount }}</div>
               </div>
               <div class="rounded-xl border border-slate-200 bg-white p-4">
                 <span class="text-sm font-bold text-slate-500">請假球員數</span>
@@ -203,12 +271,69 @@
               </div>
             </div>
 
-            <div class="bg-white sm:rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] sm:border border-gray-100/80 overflow-hidden -mx-2 sm:mx-0">
+            <div class="-mx-2 overflow-visible sm:mx-0 md:overflow-hidden md:bg-white md:rounded-2xl md:shadow-[0_8px_30px_rgb(0,0,0,0.04)] md:border md:border-gray-100/80">
+              <div v-if="statsViewMode === 'grid'" class="grid gap-3 p-3">
+                <AppLoadingState v-if="isStatsLoading" text="讀取統計資料中..." min-height="16rem" />
+                <div v-else-if="filteredPlayerStatsRows.length === 0" class="flex min-h-48 flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white p-6 text-center text-sm font-bold text-slate-400">
+                  此區間沒有請假統計資料
+                </div>
+
+                <template v-else>
+                  <article
+                    v-for="row in filteredPlayerStatsRows"
+                    :key="row.memberId"
+                    class="rounded-xl border border-slate-100 bg-white p-4 shadow-sm"
+                  >
+                    <div class="flex items-start justify-between gap-3">
+                      <div class="min-w-0">
+                        <h4 class="truncate text-base font-black text-slate-800">{{ row.name }}</h4>
+                        <p class="mt-1 truncate text-xs font-bold text-slate-400">{{ row.group }}</p>
+                      </div>
+                      <div class="shrink-0 rounded-xl border border-orange-100 bg-orange-50 px-4 py-2 text-center">
+                        <div class="text-xs font-bold text-orange-700">總次數</div>
+                        <div class="text-2xl font-black leading-none text-primary">{{ row.total }}</div>
+                      </div>
+                    </div>
+
+                    <div class="mt-4 grid grid-cols-2 gap-2">
+                      <div class="rounded-lg bg-blue-50 p-2 text-center">
+                        <div class="text-xs font-bold text-blue-600">點名</div>
+                        <div class="mt-1 text-lg font-black text-blue-800">{{ row.attendance }}</div>
+                      </div>
+                      <div class="rounded-lg bg-emerald-50 p-2 text-center">
+                        <div class="text-xs font-bold text-emerald-600">請假單</div>
+                        <div class="mt-1 text-lg font-black text-emerald-800">{{ row.request }}</div>
+                      </div>
+                    </div>
+
+                    <div class="mt-2 grid grid-cols-4 gap-2">
+                      <div class="rounded-lg bg-slate-50 p-2 text-center">
+                        <div class="text-xs font-bold text-slate-400">事假</div>
+                        <div class="mt-1 text-lg font-black text-slate-800">{{ row.personal }}</div>
+                      </div>
+                      <div class="rounded-lg bg-slate-50 p-2 text-center">
+                        <div class="text-xs font-bold text-slate-400">病假</div>
+                        <div class="mt-1 text-lg font-black text-slate-800">{{ row.sick }}</div>
+                      </div>
+                      <div class="rounded-lg bg-slate-50 p-2 text-center">
+                        <div class="text-xs font-bold text-slate-400">公假</div>
+                        <div class="mt-1 text-lg font-black text-slate-800">{{ row.official }}</div>
+                      </div>
+                      <div class="rounded-lg bg-slate-50 p-2 text-center">
+                        <div class="text-xs font-bold text-slate-400">其他</div>
+                        <div class="mt-1 text-lg font-black text-slate-800">{{ row.other }}</div>
+                      </div>
+                    </div>
+                  </article>
+                </template>
+              </div>
+
               <el-table
+                v-else
                 v-loading="isStatsLoading"
                 :data="filteredPlayerStatsRows"
                 style="width: 100%"
-                :height="statsTableHeight"
+                :height="statsTableEffectiveHeight"
                 empty-text="此區間沒有請假統計資料"
                 stripe
               >
@@ -221,6 +346,16 @@
                 <el-table-column prop="total" label="請假總次數" width="130" align="center" sortable>
                   <template #default="{ row }">
                     <span class="text-lg font-black text-primary">{{ row.total }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="attendance" label="點名" width="100" align="center" sortable>
+                  <template #default="{ row }">
+                    <span class="font-black text-blue-700">{{ row.attendance }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="request" label="請假單" width="110" align="center" sortable>
+                  <template #default="{ row }">
+                    <span class="font-black text-emerald-700">{{ row.request }}</span>
                   </template>
                 </el-table-column>
                 <el-table-column prop="personal" label="事假" width="90" align="center" sortable />
@@ -402,15 +537,20 @@ import { usePermissionsStore } from '@/stores/permissions'
 import { useTeamGroupsStore } from '@/stores/teamGroups'
 import { getUniqueTeamGroupOptions, normalizeTeamGroup } from '@/utils/teamGroups'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Loading, Memo, Plus, Setting } from '@element-plus/icons-vue'
+import { Delete, Loading, Memo, Plus, Setting } from '@element-plus/icons-vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
+import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
 import dayjs from 'dayjs'
+
+type ViewMode = 'grid' | 'table'
 
 const authStore = useAuthStore()
 const permissionsStore = usePermissionsStore()
 const teamGroupsStore = useTeamGroupsStore()
 const activeTab = ref('list')
+const leaveListViewMode = ref<ViewMode>('table')
+const statsViewMode = ref<ViewMode>('table')
 const isModalOpen = ref(false)
 const isSettingsOpen = ref(false)
 const route = useRoute()
@@ -418,6 +558,9 @@ const tableRowsVisibleByDefault = 30
 const leaveListTableHeight = 48 + (56 * tableRowsVisibleByDefault)
 const leaveListTableCardMinHeight = leaveListTableHeight + 204
 const statsTableHeight = 48 + (56 * 12)
+const isDesktopViewport = ref(false)
+const leaveListTableEffectiveHeight = computed(() => isDesktopViewport.value ? leaveListTableHeight : undefined)
+const statsTableEffectiveHeight = computed(() => isDesktopViewport.value ? statsTableHeight : undefined)
 
 // --- 資料狀態 ---
 const leaveRequests = ref<any[]>([])
@@ -441,10 +584,37 @@ type PlayerStatsRow = {
   name: string
   group: string
   total: number
+  attendance: number
+  request: number
   personal: number
   sick: number
   official: number
   other: number
+}
+
+type StatsMember = {
+  id?: string | null
+  name?: string | null
+  team_group?: string | null
+}
+
+type StatsLeaveRequestRecord = {
+  id: string | number
+  user_id: string | null
+  leave_type: string | null
+  start_date: string | null
+  end_date: string | null
+  team_members?: StatsMember | StatsMember[] | null
+}
+
+type StatsAttendanceRecord = {
+  member_id: string | null
+  status: string | null
+}
+
+type StatsAttendanceEvent = {
+  date: string | null
+  attendance_records: StatsAttendanceRecord[] | null
 }
 
 // --- 表單狀態 ---
@@ -477,6 +647,13 @@ const defaultSelfMemberId = computed(() => {
 
 const canDeleteLeaveRecord = (memberId: string) => {
   return isAdminOrManager.value || linkedMemberIds.value.includes(memberId)
+}
+
+const formatLeaveDate = (row: any) => {
+  if (!row?.start_date || !row?.end_date) return '未設定日期'
+  return row.start_date === row.end_date
+    ? row.start_date
+    : `${String(row.start_date).slice(5)} ~ ${String(row.end_date).slice(5)}`
 }
 
 const getLeavesForDate = (dateStr: string) => {
@@ -553,6 +730,15 @@ const filteredLeaveRequests = computed(() => {
 })
 
 type LeaveTypeBucket = 'personal' | 'sick' | 'official' | 'other'
+type LeaveStatsSource = 'attendance' | 'request'
+
+type CountedStatsOccurrence = {
+  memberId: string
+  member: StatsMember | null
+  bucket: LeaveTypeBucket
+  source: LeaveStatsSource
+  aliases: string[]
+}
 
 const statsGroupOptions = computed(() =>
   getUniqueTeamGroupOptions(
@@ -570,6 +756,14 @@ const statsTotalLeaveCount = computed(() =>
   filteredPlayerStatsRows.value.reduce((sum, row) => sum + row.total, 0)
 )
 
+const statsTotalAttendanceCount = computed(() =>
+  filteredPlayerStatsRows.value.reduce((sum, row) => sum + row.attendance, 0)
+)
+
+const statsTotalRequestCount = computed(() =>
+  filteredPlayerStatsRows.value.reduce((sum, row) => sum + row.request, 0)
+)
+
 const statsTotalPlayerCount = computed(() => filteredPlayerStatsRows.value.length)
 
 const selectedStatsGroupLabel = computed(() => selectedStatsGroup.value || '全部組別')
@@ -579,6 +773,188 @@ const getLeaveTypeBucket = (leaveType: string): LeaveTypeBucket => {
   if (leaveType === '病假') return 'sick'
   if (leaveType === '公假') return 'official'
   return 'other'
+}
+
+const UNKNOWN_PLAYER_LABEL = '未知球員'
+const UNGROUPED_STATS_LABEL = '未分組'
+
+const normalizeStatsMember = (member: StatsMember | StatsMember[] | null | undefined): StatsMember | null => {
+  return Array.isArray(member) ? member[0] || null : member || null
+}
+
+const getStatsMemberDisplayName = (member?: StatsMember | null) => {
+  const name = typeof member?.name === 'string' ? member.name.trim() : ''
+  return name || UNKNOWN_PLAYER_LABEL
+}
+
+const getStatsMemberGroup = (member?: StatsMember | null) => {
+  const group = normalizeTeamGroup(member?.team_group)
+  return group || UNGROUPED_STATS_LABEL
+}
+
+const ensurePlayerStatsRow = (
+  grouped: Map<string, PlayerStatsRow>,
+  memberId: string,
+  member?: StatsMember | null
+) => {
+  const existing = grouped.get(memberId)
+
+  if (existing) {
+    if (existing.name === UNKNOWN_PLAYER_LABEL) {
+      existing.name = getStatsMemberDisplayName(member)
+    }
+    if (existing.group === UNGROUPED_STATS_LABEL) {
+      existing.group = getStatsMemberGroup(member)
+    }
+    return existing
+  }
+
+  const row: PlayerStatsRow = {
+    memberId,
+    name: getStatsMemberDisplayName(member),
+    group: getStatsMemberGroup(member),
+    total: 0,
+    attendance: 0,
+    request: 0,
+    personal: 0,
+    sick: 0,
+    official: 0,
+    other: 0
+  }
+
+  grouped.set(memberId, row)
+  return row
+}
+
+const normalizeStatsDate = (date?: string | null) => {
+  const parsed = dayjs(date)
+  return parsed.isValid() ? parsed.format('YYYY-MM-DD') : ''
+}
+
+const getOverlappingStatsDateRange = (
+  rawStart: string | null | undefined,
+  rawEnd: string | null | undefined,
+  startDate: string,
+  endDate: string
+): [string, string] | null => {
+  const normalizedStart = normalizeStatsDate(rawStart)
+  const normalizedEnd = normalizeStatsDate(rawEnd || rawStart)
+
+  if (!normalizedStart || !normalizedEnd) return null
+
+  const leaveStart = normalizedStart <= normalizedEnd ? normalizedStart : normalizedEnd
+  const leaveEnd = normalizedStart <= normalizedEnd ? normalizedEnd : normalizedStart
+  const rangeStart = leaveStart > startDate ? leaveStart : startDate
+  const rangeEnd = leaveEnd < endDate ? leaveEnd : endDate
+
+  return rangeStart <= rangeEnd ? [rangeStart, rangeEnd] : null
+}
+
+const forEachStatsDate = (
+  startDate: string,
+  endDate: string,
+  callback: (date: string) => void
+) => {
+  let cursor = dayjs(startDate)
+  const end = dayjs(endDate)
+
+  while (cursor.isValid() && end.isValid() && !cursor.isAfter(end, 'day')) {
+    callback(cursor.format('YYYY-MM-DD'))
+    cursor = cursor.add(1, 'day')
+  }
+}
+
+const isAttendanceLeaveStatus = (status: string | null | undefined) => {
+  const normalized = String(status || '').trim().toLowerCase()
+  return normalized === '請假' || normalized === 'leave'
+}
+
+const normalizeStatsAliasValue = (value?: string | null) => {
+  return String(value || '').trim().toLowerCase()
+}
+
+const getStatsOccurrenceAliases = (
+  memberId: string,
+  member: StatsMember | null | undefined,
+  date: string
+) => {
+  const aliases = new Set<string>()
+  const normalizedMemberId = normalizeStatsAliasValue(memberId)
+  const normalizedRelatedMemberId = normalizeStatsAliasValue(member?.id)
+  const normalizedName = normalizeStatsAliasValue(member?.name)
+  const normalizedGroup = normalizeStatsAliasValue(getStatsMemberGroup(member))
+  const normalizedUnknownName = normalizeStatsAliasValue(UNKNOWN_PLAYER_LABEL)
+
+  if (normalizedMemberId) aliases.add(`id:${normalizedMemberId}:${date}`)
+  if (normalizedRelatedMemberId) aliases.add(`id:${normalizedRelatedMemberId}:${date}`)
+  if (normalizedName && normalizedName !== normalizedUnknownName) {
+    aliases.add(`name:${normalizedGroup}:${normalizedName}:${date}`)
+  }
+
+  return Array.from(aliases)
+}
+
+const findCountedStatsOccurrence = (
+  countedOccurrences: Map<string, CountedStatsOccurrence>,
+  aliases: string[]
+) => {
+  for (const alias of aliases) {
+    const occurrence = countedOccurrences.get(alias)
+    if (occurrence) return occurrence
+  }
+  return null
+}
+
+const addStatsOccurrence = (
+  grouped: Map<string, PlayerStatsRow>,
+  countedOccurrences: Map<string, CountedStatsOccurrence>,
+  memberId: string,
+  member: StatsMember | null | undefined,
+  date: string,
+  bucket: LeaveTypeBucket,
+  source: LeaveStatsSource
+) => {
+  if (!memberId || !date) return
+
+  const aliases = getStatsOccurrenceAliases(memberId, member, date)
+  const existing = findCountedStatsOccurrence(countedOccurrences, aliases)
+  if (existing) {
+    existing.aliases = Array.from(new Set([...existing.aliases, ...aliases]))
+    existing.aliases.forEach((alias) => countedOccurrences.set(alias, existing))
+    if (!existing.member && member) existing.member = member
+
+    const row = ensurePlayerStatsRow(grouped, existing.memberId, existing.member || member)
+
+    if (existing.source === 'request' && source === 'attendance') {
+      row.request = Math.max(0, row.request - 1)
+      row.attendance += 1
+      existing.source = 'attendance'
+    }
+
+    if (existing.bucket === 'other' && bucket !== 'other') {
+      row.other = Math.max(0, row.other - 1)
+      row[bucket] += 1
+      existing.bucket = bucket
+    }
+    return
+  }
+
+  const row = ensurePlayerStatsRow(grouped, memberId, member)
+  const occurrence: CountedStatsOccurrence = {
+    memberId,
+    member: member || null,
+    bucket,
+    source,
+    aliases
+  }
+  aliases.forEach((alias) => countedOccurrences.set(alias, occurrence))
+  row.total += 1
+  if (source === 'attendance') {
+    row.attendance += 1
+  } else {
+    row.request += 1
+  }
+  row[bucket] += 1
 }
 
 const normalizeStatsMonthRange = (): [string, string] => {
@@ -598,45 +974,89 @@ const fetchStatsData = async () => {
     const startDate = dayjs(startMonth).startOf('month').format('YYYY-MM-DD')
     const endDate = dayjs(endMonth).endOf('month').format('YYYY-MM-DD')
 
-    const { data, error } = await supabase
-      .from('leave_requests')
-      .select(`
-        id, user_id, leave_type, start_date, end_date,
-        team_members ( id, name, team_group )
-      `)
-      .lte('start_date', endDate)
-      .gte('end_date', startDate)
+    const [leaveRequestsRes, attendanceEventsRes] = await Promise.all([
+      supabase
+        .from('leave_requests')
+        .select(`
+          id, user_id, leave_type, start_date, end_date,
+          team_members ( id, name, team_group )
+        `)
+        .lte('start_date', endDate)
+        .gte('end_date', startDate),
+      supabase
+        .from('attendance_events')
+        .select('date, attendance_records(member_id, status)')
+        .gte('date', startDate)
+        .lte('date', endDate)
+    ])
 
-    if (error) throw error
+    if (leaveRequestsRes.error) throw leaveRequestsRes.error
+    if (attendanceEventsRes.error) throw attendanceEventsRes.error
+
+    const leaveRequestsData = Array.isArray(leaveRequestsRes.data)
+      ? (leaveRequestsRes.data as StatsLeaveRequestRecord[])
+      : []
+    const attendanceEvents = Array.isArray(attendanceEventsRes.data)
+      ? (attendanceEventsRes.data as StatsAttendanceEvent[])
+      : []
+    const attendanceLeaveMemberIds = new Set<string>()
+
+    attendanceEvents.forEach((event) => {
+      event.attendance_records?.forEach((record) => {
+        if (record.member_id && isAttendanceLeaveStatus(record.status)) {
+          attendanceLeaveMemberIds.add(String(record.member_id))
+        }
+      })
+    })
+
+    const attendanceMemberMap = new Map<string, StatsMember>()
+    if (attendanceLeaveMemberIds.size > 0) {
+      const { data: memberData, error: memberError } = await supabase
+        .from('team_members')
+        .select('id, name, team_group')
+        .in('id', Array.from(attendanceLeaveMemberIds))
+
+      if (memberError) throw memberError
+
+      ;(memberData || []).forEach((member: StatsMember) => {
+        if (member.id) attendanceMemberMap.set(String(member.id), member)
+      })
+    }
 
     const grouped = new Map<string, PlayerStatsRow>()
+    const countedOccurrences = new Map<string, CountedStatsOccurrence>()
 
-    ;(data || []).forEach((record: any) => {
-      const member = Array.isArray(record.team_members) ? record.team_members[0] : record.team_members
+    leaveRequestsData.forEach((record) => {
+      const member = normalizeStatsMember(record.team_members)
       const memberId = String(record.user_id || member?.id || record.id)
-      const name = typeof member?.name === 'string' && member.name.trim()
-        ? member.name.trim()
-        : '未知球員'
-      const teamGroup = normalizeTeamGroup(member?.team_group)
-      const group = teamGroup || '未分組'
+      const bucket = getLeaveTypeBucket(record.leave_type || '')
+      const leaveRange = getOverlappingStatsDateRange(record.start_date, record.end_date, startDate, endDate)
 
-      if (!grouped.has(memberId)) {
-        grouped.set(memberId, {
+      if (!leaveRange) return
+
+      forEachStatsDate(leaveRange[0], leaveRange[1], (date) => {
+        addStatsOccurrence(grouped, countedOccurrences, memberId, member, date, bucket, 'request')
+      })
+    })
+
+    attendanceEvents.forEach((event) => {
+      const attendanceDate = normalizeStatsDate(event.date)
+      if (!attendanceDate || attendanceDate < startDate || attendanceDate > endDate) return
+
+      event.attendance_records?.forEach((record) => {
+        if (!record.member_id || !isAttendanceLeaveStatus(record.status)) return
+
+        const memberId = String(record.member_id)
+        addStatsOccurrence(
+          grouped,
+          countedOccurrences,
           memberId,
-          name,
-          group,
-          total: 0,
-          personal: 0,
-          sick: 0,
-          official: 0,
-          other: 0
-        })
-      }
-
-      const row = grouped.get(memberId)!
-      const bucket = getLeaveTypeBucket(record.leave_type)
-      row.total += 1
-      row[bucket] += 1
+          attendanceMemberMap.get(memberId) || null,
+          attendanceDate,
+          'other',
+          'attendance'
+        )
+      })
     })
 
     const sortedRows = Array.from(grouped.values())
@@ -811,8 +1231,19 @@ const confirmDelete = async (row: any) => {
 // --- Supabase Realtime 訂閱 ---
 let realtimeChannel: any
 
+const updateViewportMode = () => {
+  isDesktopViewport.value = typeof window !== 'undefined'
+    ? window.matchMedia('(min-width: 768px)').matches
+    : false
+}
+
 // --- 初始掛載 ---
 onMounted(() => {
+  updateViewportMode()
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', updateViewportMode)
+  }
+
   void teamGroupsStore.loadGroups().catch((error: any) => {
     console.warn('Failed to load team group settings:', error)
   })
@@ -820,15 +1251,25 @@ onMounted(() => {
   fetchStatsData()
 
   // 監聽 leave_requests 資料表變更
-  realtimeChannel = supabase.channel('leave-requests-changes')
+  realtimeChannel = supabase.channel('leave-requests-stats-changes')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'leave_requests' }, () => {
       fetchData()
+      fetchStatsData()
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_events' }, () => {
+      fetchStatsData()
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_records' }, () => {
       fetchStatsData()
     })
     .subscribe()
 })
 
 onUnmounted(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', updateViewportMode)
+  }
+
   if (realtimeChannel) {
     supabase.removeChannel(realtimeChannel)
   }
@@ -859,15 +1300,53 @@ onUnmounted(() => {
 }
 /* 讓 Tab 內容區塊自動延伸填滿，並具備 Flex 行為 */
 .custom-tabs-container .el-tabs__content {
-  flex-grow: 1;
   padding: 16px 0 0 0;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
 }
-/* 讓分頁具備高度約束，使子元素 overflow 可正常觸發 */
-.custom-tabs-container .el-tab-pane {
-  height: 100%;
+
+@media (min-width: 768px) {
+  .leave-list-table-card {
+    min-height: var(--leave-list-table-card-min-height);
+  }
+
+  .custom-tabs-container .el-tabs__content {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    min-height: 0;
+  }
+
+  /* 讓桌機分頁具備高度約束，使 Element Plus table overflow 可正常觸發 */
+  .custom-tabs-container .el-tab-pane {
+    height: 100%;
+  }
+}
+
+@media (max-width: 767px) {
+  .custom-tabs-container,
+  .custom-tabs-container .el-tabs,
+  .leave-list-table-card {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  .custom-tabs-container .el-tabs {
+    display: block !important;
+  }
+
+  .custom-tabs-container .el-tabs__content {
+    display: block;
+    flex: none !important;
+    flex-grow: 0 !important;
+    height: auto !important;
+    min-height: auto;
+    overflow: visible !important;
+  }
+
+  .custom-tabs-container .el-tab-pane {
+    height: auto;
+    overflow: visible;
+  }
 }
 /* 客製化 Dialog 圓角與標題 */
 .custom-dialog .el-dialog__header {
@@ -939,9 +1418,19 @@ onUnmounted(() => {
   animation: bg-pulse-el 3s ease-in-out forwards !important;
 }
 
+.leave-mobile-card.highlight-row {
+  animation: bg-pulse-card 3s ease-in-out forwards !important;
+}
+
 @keyframes bg-pulse-el {
   0% { background-color: #fef08a; }
   50% { background-color: #fef9c3; }
   100% { background-color: transparent; }
+}
+
+@keyframes bg-pulse-card {
+  0% { background-color: #fef08a; }
+  50% { background-color: #fef9c3; }
+  100% { background-color: #fff; }
 }
 </style>

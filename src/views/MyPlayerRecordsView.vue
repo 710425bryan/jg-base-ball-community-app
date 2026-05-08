@@ -93,10 +93,10 @@
             </div>
           </section>
 
-          <section class="rounded-3xl border border-gray-100 bg-white p-2 shadow-sm">
+          <section class="min-w-0 overflow-hidden rounded-3xl border border-gray-100 bg-white p-2 shadow-sm">
             <el-tabs v-model="activeTab" class="my-records-tabs">
               <el-tab-pane label="比賽紀錄" name="matches">
-                <div class="p-3 md:p-4">
+                <div class="p-2 sm:p-3 md:p-4">
                   <MatchGroups
                     :groups="groupedPastMatches"
                     empty-text="目前尚無歷史比賽紀錄。"
@@ -107,7 +107,7 @@
               </el-tab-pane>
 
               <el-tab-pane label="未來賽程" name="future_matches">
-                <div class="p-3 md:p-4">
+                <div class="p-2 sm:p-3 md:p-4">
                   <MatchGroups
                     :groups="groupedFutureMatches"
                     empty-text="目前尚無未來賽程。"
@@ -519,47 +519,47 @@ const MatchGroups = defineComponent({
         return h('div', { class: 'flex min-h-64 items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-8 text-center text-sm font-bold text-gray-400' }, props.emptyText)
       }
 
-      return h('div', { class: 'space-y-8' }, props.groups.map((group) =>
-        h('section', { key: group.month, class: 'space-y-3' }, [
+      return h('div', { class: 'min-w-0 space-y-8' }, props.groups.map((group) =>
+        h('section', { key: group.month, class: 'min-w-0 space-y-3' }, [
           h('div', { class: 'inline-flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-sm font-black text-slate-700' }, [
             h(Trophy, { class: props.tone === 'past' ? 'h-4 w-4 text-primary' : 'h-4 w-4 text-blue-500' }),
             group.month
           ]),
-          h('div', { class: 'grid gap-3 md:grid-cols-2 xl:grid-cols-3' }, group.matches.map((match) => {
+          h('div', { class: 'grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3' }, group.matches.map((match) => {
             const result = getMatchResultMeta(match)
             const mapsHref = getMapsHref(match.location)
 
             return h('article', {
               key: match.id,
               'data-test': `match-card-${match.id}`,
-              class: 'rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition hover:border-primary/30 hover:shadow-md',
+              class: 'min-w-0 overflow-hidden rounded-2xl border border-gray-100 bg-white p-3 shadow-sm transition hover:border-primary/30 hover:shadow-md sm:p-4',
               style: getMatchCardStyle(props.tone)
             }, [
               h('button', {
                 type: 'button',
-                class: 'block w-full text-left',
+                class: 'block w-full min-w-0 text-left',
                 onClick: () => emit('open-match', match.id)
               }, [
-                h('div', { class: 'flex items-start justify-between gap-3' }, [
-                  h('div', { class: 'min-w-0' }, [
-                    h('div', { class: props.tone === 'past' ? 'text-xs font-black text-primary' : 'text-xs font-black text-blue-500' }, `${formatMatchDate(match)}｜${formatMatchTime(match)}`),
-                    h('h3', { class: 'mt-2 line-clamp-2 text-lg font-black leading-tight text-slate-900' }, formatMatchTitle(match))
+                h('div', { class: 'flex min-w-0 items-start justify-between gap-3' }, [
+                  h('div', { class: 'min-w-0 flex-1' }, [
+                    h('div', { class: props.tone === 'past' ? 'break-words text-xs font-black text-primary' : 'break-words text-xs font-black text-blue-500' }, `${formatMatchDate(match)}｜${formatMatchTime(match)}`),
+                    h('h3', { class: 'mt-2 line-clamp-2 break-words text-base font-black leading-tight text-slate-900 sm:text-lg' }, formatMatchTitle(match))
                   ]),
                   props.tone === 'past'
                     ? h('span', { class: `shrink-0 rounded-full border px-3 py-1 text-xs font-black ${result.className}` }, result.label)
                     : h('span', { class: 'shrink-0 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-black text-blue-600' }, '未來')
                 ]),
-                h('div', { class: 'mt-4 flex flex-wrap gap-2' }, [
-                  match.category_group ? h('span', { class: 'rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500' }, match.category_group) : null,
-                  match.match_level ? h('span', { class: 'rounded-full bg-primary/5 px-3 py-1 text-xs font-bold text-primary' }, match.match_level) : null,
-                  match.tournament_name ? h('span', { class: 'rounded-full bg-gray-100 px-3 py-1 text-xs font-bold text-gray-500' }, match.tournament_name) : null
+                h('div', { class: 'mt-4 flex min-w-0 flex-wrap gap-2' }, [
+                  match.category_group ? h('span', { class: 'max-w-full rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500' }, match.category_group) : null,
+                  match.match_level ? h('span', { class: 'max-w-full rounded-full bg-primary/5 px-3 py-1 text-xs font-bold text-primary' }, match.match_level) : null,
+                  match.tournament_name ? h('span', { class: 'max-w-full truncate rounded-full bg-gray-100 px-3 py-1 text-xs font-bold text-gray-500' }, match.tournament_name) : null
                 ]),
                 props.tone === 'past'
                   ? h('div', { class: 'mt-4 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-center font-mono text-2xl font-black text-slate-800' }, `${match.home_score ?? 0} : ${match.opponent_score ?? 0}`)
                   : null,
-                h('div', { class: 'mt-4 flex items-center gap-2 text-sm font-bold text-gray-500' }, [
+                h('div', { class: 'mt-4 flex min-w-0 items-center gap-2 text-sm font-bold text-gray-500' }, [
                   h(Location, { class: 'h-4 w-4 shrink-0' }),
-                  h('span', { class: 'truncate' }, match.location || '地點待確認')
+                  h('span', { class: 'min-w-0 truncate' }, match.location || '地點待確認')
                 ])
               ]),
               props.tone === 'future' && mapsHref
@@ -851,13 +851,48 @@ onMounted(() => {
   padding: 0.5rem 0.75rem 0;
 }
 
+.my-records-tabs :deep(.el-tabs__nav-wrap) {
+  min-width: 0;
+}
+
 .my-records-tabs :deep(.el-tabs__nav-wrap::after) {
   height: 1px;
   background-color: rgb(243 244 246);
 }
 
+.my-records-tabs :deep(.el-tabs__nav-scroll) {
+  min-width: 0;
+}
+
 .my-records-tabs :deep(.el-tabs__item) {
   font-weight: 900;
+  white-space: nowrap;
+}
+
+.my-records-tabs :deep(.el-tabs__content),
+.my-records-tabs :deep(.el-tab-pane) {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+@media (max-width: 480px) {
+  .my-records-tabs :deep(.el-tabs__header) {
+    padding-inline: 0.375rem;
+  }
+
+  .my-records-tabs :deep(.el-tabs__nav) {
+    display: flex;
+    min-width: 100%;
+  }
+
+  .my-records-tabs :deep(.el-tabs__item) {
+    flex: 1 1 0;
+    min-width: 0;
+    justify-content: center;
+    padding: 0 0.25rem;
+    font-size: 0.75rem;
+  }
 }
 
 .my-record-summary-card {
