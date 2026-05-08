@@ -5,6 +5,7 @@ import { ElMessage } from 'element-plus'
 import { useRoute } from 'vue-router'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import PaymentAccountInfoCard from '@/components/payments/PaymentAccountInfoCard.vue'
+import PaymentSubmissionSummary from '@/components/payments/PaymentSubmissionSummary.vue'
 import { useAuthStore } from '@/stores/auth'
 import { getPlayerBalance } from '@/services/playerBalances'
 import { createMatchPaymentSubmission, listMyMatchFeeItems } from '@/services/matchFees'
@@ -16,14 +17,37 @@ import {
   requiresAccountLast5
 } from '@/utils/paymentMethods'
 import {
-  buildPaymentBreakdownText,
   clampBalanceDeduction,
   getExternalPaymentAmount
 } from '@/utils/playerBalance'
 import { buildGroupedPushEventKey, dispatchPushNotification } from '@/utils/pushNotifications'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   memberId?: string | null
+  selectedItemIds?: string[]
+  unifiedMode?: boolean
+}>(), {
+  unifiedMode: false
+})
+
+type PaymentPanelSummary = {
+  unpaidCount: number
+  unpaidTotal: number
+  pendingCount: number
+  pendingTotal: number
+  firstUnpaidItemId: string | null
+}
+
+type MatchFeeItemsPayload = {
+  memberId: string | null
+  items: MatchFeeItem[]
+  currentBalance: number
+}
+
+const emit = defineEmits<{
+  (event: 'summary', payload: PaymentPanelSummary): void
+  (event: 'items', payload: MatchFeeItemsPayload): void
+  (event: 'update:selectedItemIds', payload: string[]): void
 }>()
 
 const route = useRoute()
@@ -33,9 +57,21 @@ const isLoading = ref(false)
 const isSaving = ref(false)
 const isDialogOpen = ref(false)
 const items = ref<MatchFeeItem[]>([])
-const selectedItemIds = ref<string[]>([])
+const localSelectedItemIds = ref<string[]>([])
 const currentBalance = ref(0)
 const loadError = ref('')
+
+const selectedItemIds = computed({
+  get: () => props.selectedItemIds ?? localSelectedItemIds.value,
+  set: (value: string[]) => {
+    if (props.selectedItemIds !== undefined) {
+      emit('update:selectedItemIds', value)
+      return
+    }
+
+    localSelectedItemIds.value = value
+  }
+})
 
 const form = reactive({
   balance_amount: 0,
@@ -53,6 +89,14 @@ const paidItems = computed(() => items.value.filter((item) => item.payment_statu
 const cancelledItems = computed(() => items.value.filter((item) => item.payment_status === 'cancelled'))
 const hasAnyItems = computed(() => items.value.length > 0)
 
+const summary = computed<PaymentPanelSummary>(() => ({
+  unpaidCount: unpaidItems.value.length,
+  unpaidTotal: unpaidItems.value.reduce((total, item) => total + Number(item.amount || 0), 0),
+  pendingCount: pendingItems.value.length,
+  pendingTotal: pendingItems.value.reduce((total, item) => total + Number(item.amount || 0), 0),
+  firstUnpaidItemId: unpaidItems.value[0]?.id || null
+}))
+
 const selectedItems = computed(() =>
   items.value.filter((item) => selectedItemIds.value.includes(item.id))
 )
@@ -61,13 +105,20 @@ const selectedTotal = computed(() =>
   selectedItems.value.reduce((total, item) => total + Number(item.amount || 0), 0)
 )
 
+const selectedPaymentLineItems = computed(() =>
+  selectedItems.value.map((item) => ({
+    id: item.id,
+    typeLabel: '比賽費用',
+    title: item.match_name,
+    periodLabel: item.fee_month,
+    meta: getMatchSubtitle(item),
+    amount: Number(item.amount || 0)
+  }))
+)
+
 const externalPaymentAmount = computed(() => getExternalPaymentAmount(selectedTotal.value, form.balance_amount))
 const isExternalPaymentRequired = computed(() => externalPaymentAmount.value > 0)
 const requiresLast5 = computed(() => isExternalPaymentRequired.value && requiresAccountLast5(form.payment_method))
-const paymentBreakdownText = computed(() =>
-  buildPaymentBreakdownText(selectedTotal.value, form.balance_amount, formatCurrency)
-)
-
 const rules = {
   balance_amount: [
     {
@@ -291,10 +342,30 @@ watch(() => route.query.highlight_match_submission_id, () => {
 watch(() => route.query.highlight_match_fee_item_id, () => {
   void highlightFromRoute()
 })
+
+watch(summary, (nextSummary) => {
+  emit('summary', nextSummary)
+}, { immediate: true })
+
+watch(
+  [items, currentBalance],
+  () => {
+    emit('items', {
+      memberId: props.memberId || null,
+      items: items.value,
+      currentBalance: currentBalance.value
+    })
+  },
+  { deep: true, immediate: true }
+)
+
+defineExpose({
+  loadItems
+})
 </script>
 
 <template>
-  <section class="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+  <section id="match-fees-section" class="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
     <div class="px-5 md:px-6 py-4 border-b border-gray-100 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <div>
         <h3 class="text-lg font-black text-slate-800">比賽費用</h3>
@@ -310,6 +381,7 @@ watch(() => route.query.highlight_match_fee_item_id, () => {
           {{ isLoading ? '更新中...' : '重新整理' }}
         </button>
         <button
+          v-if="!unifiedMode"
           type="button"
           class="rounded-2xl bg-primary px-4 py-2 font-bold text-white hover:bg-primary-hover transition-colors disabled:opacity-70"
           :disabled="selectedItemIds.length === 0 || isSaving"
@@ -317,6 +389,12 @@ watch(() => route.query.highlight_match_fee_item_id, () => {
         >
           回報付款
         </button>
+        <span
+          v-else
+          class="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600"
+        >
+          已選 {{ selectedItemIds.length }} 筆
+        </span>
       </div>
     </div>
 
@@ -414,41 +492,26 @@ watch(() => route.query.highlight_match_fee_item_id, () => {
     </div>
 
     <el-dialog
+      v-if="!unifiedMode"
       v-model="isDialogOpen"
       title="比賽費用付款回報"
       width="90%"
       style="max-width: 560px; border-radius: 16px;"
       destroy-on-close
     >
-      <div class="mb-4 rounded-2xl border border-primary/10 bg-primary/5 px-4 py-3">
-        <div class="text-xs font-bold uppercase tracking-[0.16em] text-primary/70">回報金額</div>
-        <div class="mt-2 text-2xl font-black text-primary">{{ formatCurrency(selectedTotal) }}</div>
-        <div class="mt-1 text-xs font-bold text-primary/70">{{ paymentBreakdownText }}</div>
-      </div>
-
-      <div class="mb-4 grid gap-4 sm:grid-cols-2">
-        <div class="rounded-2xl border border-emerald-100 bg-emerald-50/80 px-4 py-3">
-          <div class="text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-600">目前餘額</div>
-          <div class="mt-2 text-xl font-black text-emerald-700">{{ formatCurrency(currentBalance) }}</div>
-          <p class="mt-1 text-xs font-bold text-emerald-600/80">確認付款時才會正式扣款。</p>
-        </div>
-        <div class="flex flex-col gap-1.5 font-bold">
-          <label class="text-sm text-gray-700">使用餘額扣抵</label>
-          <el-input-number
-            v-model="form.balance_amount"
-            class="!w-full"
-            :min="0"
-            :max="Math.min(currentBalance, selectedTotal)"
-            :step="100"
-            size="large"
-          />
-        </div>
-      </div>
-
-      <PaymentAccountInfoCard compact class="mb-4" />
-
-      <el-form ref="formRef" :model="form" :rules="rules" label-position="top" class="space-y-4">
+      <el-form ref="formRef" :model="form" :rules="rules" label-position="top" class="space-y-5">
         <div class="grid gap-4 sm:grid-cols-2">
+          <el-form-item label="匯款日期" prop="remittance_date" class="font-bold">
+            <el-date-picker
+              v-model="form.remittance_date"
+              type="date"
+              value-format="YYYY-MM-DD"
+              class="!w-full"
+              size="large"
+              :disabled="!isExternalPaymentRequired"
+            />
+          </el-form-item>
+
           <el-form-item label="匯款方式" prop="payment_method" class="font-bold">
             <el-select
               v-model="form.payment_method"
@@ -474,18 +537,21 @@ watch(() => route.query.highlight_match_fee_item_id, () => {
           </el-form-item>
         </div>
 
-        <el-form-item label="匯款日期" prop="remittance_date" class="font-bold">
-          <el-date-picker
-            v-model="form.remittance_date"
-            type="date"
-            value-format="YYYY-MM-DD"
-            class="!w-full"
-            size="large"
-            :disabled="!isExternalPaymentRequired"
-          />
-        </el-form-item>
+        <PaymentAccountInfoCard compact />
 
-        <el-form-item label="備註" prop="note" class="font-bold">
+        <PaymentSubmissionSummary
+          v-model:balance-amount="form.balance_amount"
+          :member-name="selectedItems[0]?.member_name || ''"
+          :total-amount="selectedTotal"
+          :available-balance="currentBalance"
+          :external-amount="externalPaymentAmount"
+          :line-items="selectedPaymentLineItems"
+          line-items-title="比賽費用清單"
+          empty-items-text="請先勾選要回報付款的比賽費用。"
+          :format-currency="formatCurrency"
+        />
+
+        <el-form-item label="備註說明（選填）" prop="note" class="font-bold">
           <el-input v-model="form.note" type="textarea" :rows="3" maxlength="120" show-word-limit />
         </el-form-item>
       </el-form>

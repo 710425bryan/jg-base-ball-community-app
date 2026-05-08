@@ -1,11 +1,13 @@
 export const FEE_MANAGEMENT_REMINDER_KINDS = [
   'profilePaymentPending',
   'equipmentPaymentPending',
+  'matchPaymentPending',
   'equipmentRequestPending',
   'equipmentRequestInProgress',
   'monthlyUnpaid',
   'quarterlyUnpaid',
-  'equipmentUnpaid'
+  'equipmentUnpaid',
+  'matchFeesUnpaid'
 ] as const
 
 export type FeeManagementReminderKind = typeof FEE_MANAGEMENT_REMINDER_KINDS[number]

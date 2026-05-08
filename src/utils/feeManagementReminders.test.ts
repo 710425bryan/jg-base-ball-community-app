@@ -74,6 +74,24 @@ describe('fee management reminder mapping', () => {
     })
   })
 
+  it('normalizes match fee reminders and routes unpaid items to the match fee tab', () => {
+    expect(normalizeFeeManagementReminderItem({
+      id: 'match-fees-unpaid',
+      kind: 'matchFeesUnpaid',
+      title: '比賽費用待追蹤',
+      body: '3 筆比賽費用尚未付款。',
+      count: 3,
+      amount: 1800,
+      severity: 'info',
+      link: '/fees'
+    })).toMatchObject({
+      kind: 'matchFeesUnpaid',
+      count: 3,
+      amount: 1800,
+      link: '/fees?tab=match-fees'
+    })
+  })
+
   it('keeps period metadata and falls back to item totals', () => {
     const snapshot = normalizeFeeManagementReminderSnapshot({
       generated_at: '2026-04-29T09:00:00.000Z',

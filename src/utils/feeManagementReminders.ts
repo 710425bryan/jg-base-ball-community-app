@@ -82,7 +82,9 @@ export const normalizeFeeManagementReminderItem = (
     severity: normalizeSeverity(row.severity),
     link: kind === 'equipmentUnpaid'
       ? '/fees?tab=equipment&section=equipment-unpaid'
-      : normalizeText(row.link, '/fees'),
+      : kind === 'matchFeesUnpaid'
+        ? '/fees?tab=match-fees'
+        : normalizeText(row.link, '/fees'),
     created_at: normalizeText(row.created_at, FALLBACK_CREATED_AT)
   }
 }

@@ -89,6 +89,12 @@ export type MyHomeEquipmentSummary = {
   latest_request: MyHomeEquipmentRequest | null
 }
 
+export type MyHomeMatchFeeSummary = {
+  unpaid_count: number
+  pending_review_count: number
+  unpaid_amount: number
+}
+
 export type MyHomeSnapshot = {
   members: MyHomeMember[]
   next_event: MyHomeNextEvent | null
@@ -96,6 +102,7 @@ export type MyHomeSnapshot = {
   training_locations: MyHomeTrainingLocation[]
   payment_summary: MyHomePaymentSummary
   equipment_summary: MyHomeEquipmentSummary
+  match_fee_summary: MyHomeMatchFeeSummary
   recent_notifications: NotificationFeedRow[]
   generated_at: string | null
 }
@@ -129,6 +136,11 @@ export const createEmptyMyHomeSnapshot = (): MyHomeSnapshot => ({
     pending_payment_count: 0,
     unpaid_amount: 0,
     latest_request: null
+  },
+  match_fee_summary: {
+    unpaid_count: 0,
+    pending_review_count: 0,
+    unpaid_amount: 0
   },
   recent_notifications: [],
   generated_at: null

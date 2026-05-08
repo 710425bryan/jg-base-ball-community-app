@@ -1,4 +1,5 @@
 import { supabase } from '@/services/supabase'
+import { listMyMatchFeeItems } from '@/services/matchFees'
 import {
   createEmptyMyHomeSnapshot,
   type MyHomeEquipmentRequest,
@@ -135,6 +136,41 @@ const enrichSnapshotWithTrainingLocations = async (
   }
 }
 
+const enrichSnapshotWithMatchFees = async (snapshot: MyHomeSnapshot): Promise<MyHomeSnapshot> => {
+  if (snapshot.members.length === 0) {
+    return snapshot
+  }
+
+  try {
+    const itemGroups = await Promise.all(
+      snapshot.members.map(async (member) => {
+        try {
+          return await listMyMatchFeeItems(member.id)
+        } catch (error) {
+          console.warn(`讀取 ${member.name} 的比賽費用摘要失敗`, error)
+          return []
+        }
+      })
+    )
+
+    const items = itemGroups.flat()
+    const unpaidItems = items.filter((item) => item.payment_status === 'unpaid')
+    const pendingItems = items.filter((item) => item.payment_status === 'pending_review')
+
+    return {
+      ...snapshot,
+      match_fee_summary: {
+        unpaid_count: unpaidItems.length,
+        pending_review_count: pendingItems.length,
+        unpaid_amount: unpaidItems.reduce((total, item) => total + normalizeNumber(item.amount), 0)
+      }
+    }
+  } catch (error) {
+    console.warn('首頁比賽費用摘要補齊失敗，暫以 RPC 回傳資料顯示。', error)
+    return snapshot
+  }
+}
+
 const normalizeSnapshot = (payload: Partial<MyHomeSnapshot> | null | undefined): MyHomeSnapshot => {
   const fallback = createEmptyMyHomeSnapshot()
 
@@ -156,6 +192,11 @@ const normalizeSnapshot = (payload: Partial<MyHomeSnapshot> | null | undefined):
       pending_payment_count: normalizeNumber(payload?.equipment_summary?.pending_payment_count),
       unpaid_amount: normalizeNumber(payload?.equipment_summary?.unpaid_amount),
       latest_request: (payload?.equipment_summary?.latest_request ?? null) as MyHomeEquipmentRequest | null
+    },
+    match_fee_summary: {
+      unpaid_count: normalizeNumber(payload?.match_fee_summary?.unpaid_count),
+      pending_review_count: normalizeNumber(payload?.match_fee_summary?.pending_review_count),
+      unpaid_amount: normalizeNumber(payload?.match_fee_summary?.unpaid_amount)
     },
     recent_notifications: ensureArray(payload?.recent_notifications),
     generated_at: payload?.generated_at ?? null
@@ -189,5 +230,7 @@ export const getMyHomeSnapshot = async (today?: string | null) => {
     today
   )
 
-  return enrichMembersWithTrainingPoints(snapshot, rawMembers)
+  const withTrainingPoints = await enrichMembersWithTrainingPoints(snapshot, rawMembers)
+
+  return enrichSnapshotWithMatchFees(withTrainingPoints)
 }

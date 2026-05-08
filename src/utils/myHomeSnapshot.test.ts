@@ -54,6 +54,24 @@ describe('myHomeSnapshot utilities', () => {
     expect(todos.map((todo) => todo.key)).toContain('equipment-ready')
   })
 
+  it('builds match fee todos that route to the unified payment page', () => {
+    const todos = buildMyHomeTodoItems(buildSnapshot({
+      members: [
+        { id: 'm1', name: '小安', role: '球員', team_group: null, status: '在隊', jersey_number: null, avatar_url: null }
+      ],
+      match_fee_summary: {
+        unpaid_count: 2,
+        pending_review_count: 0,
+        unpaid_amount: 1600
+      }
+    }), 'm1')
+
+    expect(todos).toContainEqual(expect.objectContaining({
+      key: 'match-fee-payment',
+      route: '/my-payments'
+    }))
+  })
+
   it('shows today leave state for the selected member only', () => {
     const todos = buildMyHomeTodoItems(buildSnapshot({
       members: [

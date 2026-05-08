@@ -1,5 +1,6 @@
 import type {
   MyHomeEquipmentSummary,
+  MyHomeMatchFeeSummary,
   MyHomeMember,
   MyHomeNextEvent,
   MyHomePaymentSummary,
@@ -119,6 +120,36 @@ const buildEquipmentTodo = (equipment: MyHomeEquipmentSummary): MyHomeTodoItem |
   return null
 }
 
+const buildMatchFeeTodo = (matchFees: MyHomeMatchFeeSummary): MyHomeTodoItem | null => {
+  if (matchFees.unpaid_count > 0) {
+    const amountLabel = matchFees.unpaid_amount > 0
+      ? `，合計 ${formatMyHomeCurrency(matchFees.unpaid_amount)}`
+      : ''
+
+    return {
+      key: 'match-fee-payment',
+      title: '比賽費用待回報',
+      body: `${matchFees.unpaid_count} 筆比賽費用尚未完成付款${amountLabel}。`,
+      severity: 'warning',
+      actionLabel: '前往繳費',
+      route: '/my-payments'
+    }
+  }
+
+  if (matchFees.pending_review_count > 0) {
+    return {
+      key: 'match-fee-review',
+      title: '比賽費用審核中',
+      body: `${matchFees.pending_review_count} 筆比賽費用付款正在等待確認。`,
+      severity: 'info',
+      actionLabel: '查看繳費',
+      route: '/my-payments'
+    }
+  }
+
+  return null
+}
+
 export const buildMyHomeTodoItems = (
   snapshot: MyHomeSnapshot,
   selectedMemberId?: string | null
@@ -175,6 +206,9 @@ export const buildMyHomeTodoItems = (
 
   const equipmentTodo = buildEquipmentTodo(snapshot.equipment_summary)
   if (equipmentTodo) items.push(equipmentTodo)
+
+  const matchFeeTodo = buildMatchFeeTodo(snapshot.match_fee_summary)
+  if (matchFeeTodo) items.push(matchFeeTodo)
 
   return items
 }

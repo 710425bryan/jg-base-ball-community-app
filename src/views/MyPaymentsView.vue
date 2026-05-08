@@ -22,9 +22,9 @@
               type="button"
               class="flex-1 sm:flex-none rounded-2xl bg-primary hover:bg-primary-hover text-white font-bold px-5 py-3 transition-colors disabled:opacity-70"
               :disabled="!canCreateSubmissionForSelectedMember || isRefreshing"
-              @click="openCreateDialog"
+              @click="openCreateDialog()"
             >
-              新增月費 / 季費
+              新增付款回報
             </button>
           </template>
         </AppPageHeader>
@@ -87,56 +87,66 @@
 
           <PaymentAccountInfoCard />
 
-          <div v-if="selectedMember" class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <section class="bg-white rounded-3xl border border-gray-100 shadow-sm p-5">
-              <div class="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">當前成員</div>
-              <div class="mt-3 text-xl font-black text-slate-800">{{ selectedMember.name }}</div>
-              <p class="mt-2 text-sm font-bold text-primary">
-                {{ selectedMember.role }}｜{{ getPaymentMemberBillingLabel(selectedMember) }}
-              </p>
-            </section>
-
-            <section class="bg-white rounded-3xl border border-gray-100 shadow-sm p-5">
-              <div class="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">最近一期狀態</div>
-              <div v-if="latestOfficialRecord" class="mt-3">
-                <div class="text-xl font-black text-slate-800">{{ latestOfficialRecord.period_label }}</div>
-                <span :class="getStatusPillClass(latestOfficialRecord.status)" class="inline-flex mt-3 rounded-full px-3 py-1 text-xs font-bold border">
-                  {{ getStatusLabel(latestOfficialRecord.status) }}
-                </span>
-              </div>
-              <p v-else class="mt-3 text-sm text-gray-400 leading-relaxed">目前還沒有正式的繳費資料。</p>
-            </section>
-
-            <section class="bg-white rounded-3xl border border-gray-100 shadow-sm p-5">
-              <div class="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">我的常用回報資訊</div>
-              <div class="mt-3 text-xl font-black text-slate-800">
-                {{ authStore.profile?.preferred_payment_method || '尚未設定' }}
-              </div>
-              <p class="mt-2 text-sm text-gray-500">
-                帳號後五碼：{{ authStore.profile?.preferred_account_last_5 || '未設定' }}
-              </p>
-            </section>
-
-            <section class="bg-white rounded-3xl border border-gray-100 shadow-sm p-5">
-              <div class="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">最近送出回報</div>
-              <div v-if="latestSubmission" class="mt-3">
-                <div class="text-xl font-black text-slate-800">{{ latestSubmission.period_label }}</div>
-                <span :class="getStatusPillClass(latestSubmission.status)" class="inline-flex mt-3 rounded-full px-3 py-1 text-xs font-bold border">
-                  {{ getStatusLabel(latestSubmission.status) }}
-                </span>
-              </div>
-              <p v-else class="mt-3 text-sm text-gray-400 leading-relaxed">你目前還沒有送出新的付款回報。</p>
-            </section>
-          </div>
-
-          <section class="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-            <div class="px-5 md:px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-3">
+          <section
+            v-if="paymentReminderCards.length > 0"
+            id="payment-reminders-section"
+            class="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm"
+          >
+            <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
-                <h3 class="text-lg font-black text-slate-800">正式繳費紀錄</h3>
-                <p class="text-xs text-gray-400 mt-1">資料來自現有月費 / 季費正式結算紀錄</p>
+                <h3 class="text-lg font-black text-slate-800">待處理付款</h3>
+                <p class="mt-1 text-xs font-bold text-slate-400">月費 / 季費、裝備與比賽費用已整合在下方繳費紀錄。</p>
               </div>
-              <div v-if="selectedMember" class="text-sm font-bold text-gray-500">
-                {{ getPaymentMemberBillingLabel(selectedMember) }}
+              <button
+                type="button"
+                class="rounded-2xl bg-slate-900 px-4 py-2 text-sm font-black text-white transition-colors hover:bg-black disabled:opacity-60"
+                :disabled="!canCreateSubmissionForSelectedMember"
+                @click="openCreateDialog()"
+              >
+                新增付款回報
+              </button>
+            </div>
+
+            <div class="mt-4 rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
+              <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div class="min-w-0">
+                  <div class="text-xs font-black uppercase tracking-[0.14em] text-slate-400">目前需要處理</div>
+                  <div class="mt-2 flex flex-wrap items-center gap-2 text-sm font-black text-slate-700">
+                    <span class="rounded-full bg-white px-3 py-1 text-red-600">待付款 {{ unifiedPaymentCounts.unpaid }} 筆</span>
+                    <span class="rounded-full bg-white px-3 py-1 text-amber-600">待確認 {{ unifiedPaymentCounts.pending }} 筆</span>
+                  </div>
+                </div>
+                <div class="rounded-2xl bg-white px-4 py-3 text-right shadow-sm">
+                  <div class="text-xs font-black text-slate-400">待付款合計</div>
+                  <div class="mt-1 font-mono text-xl font-black text-slate-900">
+                    {{ formatCurrency(unifiedUnpaidTotalAmount) }}
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-3 flex flex-wrap gap-2">
+                <span
+                  v-for="card in paymentReminderCards"
+                  :key="card.key"
+                  class="rounded-full border px-3 py-1.5 text-xs font-black"
+                  :class="card.statusClass"
+                >
+                  {{ card.eyebrow }} · {{ card.statusLabel }} · {{ card.amountLabel }}
+                </span>
+              </div>
+            </div>
+          </section>
+
+          <section id="profile-payment-records-section" class="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+            <div class="px-5 md:px-6 py-4 border-b border-gray-100 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h3 class="text-lg font-black text-slate-800">繳費紀錄</h3>
+                <p class="text-xs text-gray-400 mt-1">月費 / 季費、裝備與比賽費用統一在這裡查看與勾選付款</p>
+              </div>
+              <div v-if="selectedMember" class="flex flex-wrap items-center gap-2 text-xs font-black text-slate-500">
+                <span class="rounded-full bg-slate-100 px-3 py-1">{{ getPaymentMemberBillingLabel(selectedMember) }}</span>
+                <span class="rounded-full bg-red-50 px-3 py-1 text-red-600">待付款 {{ unifiedPaymentCounts.unpaid }}</span>
+                <span class="rounded-full bg-amber-50 px-3 py-1 text-amber-600">待確認 {{ unifiedPaymentCounts.pending }}</span>
               </div>
             </div>
 
@@ -144,259 +154,124 @@
               讀取最新繳費紀錄中...
             </div>
 
-            <div v-else-if="records.length === 0" class="p-6 text-sm text-gray-400 font-bold">
-              目前沒有正式繳費紀錄。
+            <div v-else-if="unifiedPaymentRecordGroups.length === 0" class="p-6 text-sm text-gray-400 font-bold">
+              目前沒有繳費紀錄。
             </div>
 
-            <template v-else>
-              <div class="grid gap-3 p-4 sm:hidden">
-                <article
-                  v-for="record in records"
-                  :key="`mobile-${record.period_key}-${record.updated_at || 'na'}`"
-                  class="rounded-2xl border border-gray-100 bg-gray-50/80 p-4"
-                >
-                  <div class="flex items-start justify-between gap-3">
-                    <div class="min-w-0">
-                      <div class="text-lg font-black text-slate-800">{{ record.period_label }}</div>
-                      <div class="mt-1 text-sm font-bold text-gray-500">{{ record.period_key }}</div>
-                    </div>
-                    <span :class="getStatusPillClass(record.status)" class="shrink-0 rounded-full px-3 py-1 text-sm font-bold border">
-                      {{ getStatusLabel(record.status) }}
-                    </span>
-                  </div>
-
-                  <div class="mt-4 rounded-2xl bg-white px-4 py-3">
-                    <div class="text-sm font-bold text-gray-500">金額</div>
-                    <div class="mt-1 font-mono text-xl font-black text-primary">{{ formatCurrency(record.amount) }}</div>
-                    <div class="mt-1 text-sm font-bold text-gray-500">
-                      {{ buildPaymentBreakdownText(record.amount, record.balance_amount, formatCurrency) }}
-                    </div>
-                  </div>
-
-                  <div class="mt-4 grid gap-3 text-sm font-bold text-gray-600">
-                    <div>
-                      <div class="text-gray-400">匯款資訊</div>
-                      <div class="mt-1">{{ formatPaymentInfo(record.payment_method, record.account_last_5, record.remittance_date) }}</div>
-                    </div>
-                    <div>
-                      <div class="text-gray-400">最後更新</div>
-                      <div class="mt-1">{{ formatDateTime(record.updated_at) }}</div>
-                    </div>
-                  </div>
-                </article>
-              </div>
-
-              <div class="hidden overflow-x-auto sm:block">
-                <table class="w-full min-w-[760px]">
-                  <thead>
-                    <tr class="bg-gray-50/80 border-b border-gray-100">
-                      <th class="py-3 px-5 text-left text-sm font-bold text-gray-500 whitespace-nowrap">期別</th>
-                      <th class="py-3 px-5 text-left text-sm font-bold text-gray-500 whitespace-nowrap">金額</th>
-                      <th class="py-3 px-5 text-left text-sm font-bold text-gray-500 whitespace-nowrap">狀態</th>
-                      <th class="py-3 px-5 text-left text-sm font-bold text-gray-500 whitespace-nowrap">匯款資訊</th>
-                      <th class="py-3 px-5 text-left text-sm font-bold text-gray-500 whitespace-nowrap">最後更新</th>
-                    </tr>
-                  </thead>
-                  <tbody class="divide-y divide-gray-100">
-                    <tr v-for="record in records" :key="`${record.period_key}-${record.updated_at || 'na'}`" class="hover:bg-gray-50/60 transition-colors">
-                      <td class="py-4 px-5">
-                        <div class="font-black text-slate-800">{{ record.period_label }}</div>
-                        <div class="text-xs text-gray-400 mt-1">{{ record.period_key }}</div>
-                      </td>
-                      <td class="py-4 px-5">
-                        <div class="font-mono font-black text-primary">{{ formatCurrency(record.amount) }}</div>
-                        <div class="mt-1 text-xs font-bold text-gray-400">
-                          {{ buildPaymentBreakdownText(record.amount, record.balance_amount, formatCurrency) }}
-                        </div>
-                      </td>
-                      <td class="py-4 px-5">
-                        <span :class="getStatusPillClass(record.status)" class="inline-flex rounded-full px-3 py-1 text-xs font-bold border">
-                          {{ getStatusLabel(record.status) }}
-                        </span>
-                      </td>
-                      <td class="py-4 px-5 text-sm text-gray-600">
-                        {{ formatPaymentInfo(record.payment_method, record.account_last_5, record.remittance_date) }}
-                      </td>
-                      <td class="py-4 px-5 text-sm text-gray-500">{{ formatDateTime(record.updated_at) }}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </template>
-          </section>
-
-          <section class="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-            <div class="px-5 md:px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-3">
-              <div>
-                <h3 class="text-lg font-black text-slate-800">{{ submissionsSectionTitle }}</h3>
-                <p class="text-xs text-gray-400 mt-1">{{ submissionsSectionDescription }}</p>
-              </div>
-              <button
-                type="button"
-                class="rounded-2xl bg-gray-900 hover:bg-black text-white font-bold px-4 py-2 transition-colors disabled:opacity-70"
-                :disabled="!canCreateSubmissionForSelectedMember"
-                @click="openCreateDialog"
+            <div v-else class="space-y-5 p-4 md:p-5">
+              <section
+                v-for="group in unifiedPaymentRecordGroups"
+                :key="group.key"
+                class="rounded-2xl border p-4"
+                :class="group.className"
               >
-                新增月費 / 季費
-              </button>
-            </div>
-
-            <div v-if="isRefreshing" class="p-6 text-sm text-gray-400 font-bold">
-              讀取付款回報中...
-            </div>
-
-            <div v-else-if="submissions.length === 0" class="p-6 text-sm text-gray-400 font-bold">
-              目前還沒有自助付款回報。
-            </div>
-
-            <div v-else class="p-4 md:p-5 grid gap-3 md:grid-cols-2">
-              <article
-                v-for="submission in submissions"
-                :key="submission.id"
-                class="rounded-2xl border border-gray-100 bg-gray-50/70 p-4 shadow-sm"
-              >
-                <div class="flex items-start justify-between gap-3">
-                  <div>
-                    <div class="text-lg font-black text-slate-800">{{ submission.period_label }}</div>
-                    <div class="text-xs text-gray-400 mt-1">{{ submission.member_name }}</div>
-                  </div>
-                  <span :class="getStatusPillClass(submission.status)" class="inline-flex rounded-full px-3 py-1 text-xs font-bold border whitespace-nowrap">
-                    {{ getStatusLabel(submission.status) }}
+                <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+                  <div class="font-black" :class="group.titleClass">{{ group.title }}</div>
+                  <span class="rounded-full bg-white/80 px-3 py-1 text-xs font-black text-slate-500">
+                    {{ group.items.length }} 筆
                   </span>
                 </div>
 
-                <div class="mt-4 grid gap-2 text-sm text-gray-600">
-                  <div class="flex items-center justify-between gap-3">
-                    <span class="text-gray-400">金額</span>
-                    <span class="font-black text-primary">{{ formatCurrency(submission.amount) }}</span>
-                  </div>
-                  <div class="flex items-center justify-between gap-3">
-                    <span class="text-gray-400">扣款拆分</span>
-                    <span class="font-bold text-right">{{ buildPaymentBreakdownText(submission.amount, submission.balance_amount, formatCurrency) }}</span>
-                  </div>
-                  <div class="flex items-center justify-between gap-3">
-                    <span class="text-gray-400">匯款資訊</span>
-                    <span class="font-bold text-right">{{ formatPaymentInfo(submission.payment_method, submission.account_last_5, submission.remittance_date) }}</span>
-                  </div>
-                  <div class="flex items-center justify-between gap-3">
-                    <span class="text-gray-400">送出時間</span>
-                    <span class="font-medium text-right">{{ formatDateTime(submission.created_at) }}</span>
-                  </div>
+                <div class="grid gap-3 md:grid-cols-2">
+                  <article
+                    v-for="item in group.items"
+                    :key="item.id"
+                    :data-profile-period-key="item.kind === 'membership' ? item.periodKey : undefined"
+                    :data-profile-submission-id="item.kind === 'membership-submission' ? item.sourceId : undefined"
+                    :data-equipment-transaction-id="item.kind === 'equipment' ? item.sourceId : undefined"
+                    :data-equipment-request-id="item.kind === 'equipment-request' ? item.sourceId : undefined"
+                    :data-match-fee-item-id="item.kind === 'match-fee' ? item.sourceId : undefined"
+                    class="rounded-2xl border border-white bg-white/90 p-4 shadow-sm"
+                  >
+                    <div class="flex items-start gap-3">
+                      <input
+                        v-if="item.selectable"
+                        type="checkbox"
+                        class="mt-1 h-5 w-5 rounded border-gray-300 text-primary"
+                        :checked="isUnifiedRecordSelected(item)"
+                        @change="toggleUnifiedRecordSelection(item, ($event.target as HTMLInputElement).checked)"
+                      />
+                      <div class="min-w-0 flex-1">
+                        <div class="flex items-start justify-between gap-3">
+                          <div class="min-w-0">
+                            <div class="flex flex-wrap items-center gap-2">
+                              <span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-600">
+                                {{ item.typeLabel }}
+                              </span>
+                              <span :class="getStatusPillClass(item.status)" class="rounded-full border px-2.5 py-1 text-xs font-bold">
+                                {{ item.statusLabel }}
+                              </span>
+                            </div>
+                            <div class="mt-2 font-black text-slate-800">{{ item.title }}</div>
+                            <p class="mt-1 text-xs font-bold leading-relaxed text-slate-400">{{ item.meta }}</p>
+                          </div>
+                          <div class="shrink-0 text-right">
+                            <div class="font-mono text-lg font-black" :class="item.amountClass">
+                              {{ item.amount > 0 ? formatCurrency(item.amount) : '金額待確認' }}
+                            </div>
+                            <div v-if="item.breakdown" class="mt-1 text-xs font-bold text-slate-400">
+                              {{ item.breakdown }}
+                            </div>
+                          </div>
+                        </div>
+                        <p v-if="item.note" class="mt-3 border-t border-slate-100 pt-3 text-sm font-semibold leading-relaxed text-slate-500">
+                          {{ item.note }}
+                        </p>
+                      </div>
+                    </div>
+                  </article>
                 </div>
-
-                <p v-if="submission.note" class="mt-3 text-sm text-gray-500 leading-relaxed border-t border-gray-200 pt-3">
-                  {{ submission.note }}
-                </p>
-              </article>
+              </section>
             </div>
           </section>
 
-          <MyEquipmentPaymentsPanel :member-id="selectedMemberId" />
-
-          <MyMatchFeesPanel :member-id="selectedMemberId" />
+          <div class="hidden">
+            <div
+              v-for="item in equipmentPendingRequestItems"
+              :key="`equipment-request-anchor-${item.request_id}`"
+              :data-equipment-request-id="item.request_id"
+            ></div>
+            <div
+              v-for="item in matchFeeItems"
+              :key="`match-fee-anchor-${item.id}`"
+              :data-match-fee-item-id="item.id"
+            ></div>
+          </div>
         </template>
-      </div>
-    </div>
+     </div>
+   </div>
 
     <el-dialog
       v-model="isCreateDialogOpen"
-      title="新增月費 / 季費"
+      title="新增付款回報"
       width="90%"
       style="max-width: 560px; border-radius: 16px;"
       destroy-on-close
     >
-      <el-form ref="formRef" :model="submissionForm" :rules="submissionRules" label-position="top" class="space-y-4">
-        <el-form-item label="成員" prop="member_id" class="font-bold">
-          <el-select v-model="submissionForm.member_id" class="w-full" size="large" :disabled="linkedMembers.length === 1">
-            <el-option
-              v-for="member in linkedMembers"
-              :key="member.member_id"
-              :label="buildMemberOptionLabel(member)"
-              :value="member.member_id"
-            />
-          </el-select>
-        </el-form-item>
-
+      <el-form ref="formRef" :model="submissionForm" :rules="submissionRules" label-position="top" class="space-y-5">
         <div class="grid gap-4 sm:grid-cols-2">
-          <div class="rounded-2xl border border-gray-100 bg-gray-50/80 px-4 py-3">
-            <div class="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">繳費類型</div>
-            <div class="mt-2 text-base font-black text-slate-800">{{ createDialogBillingModeLabel }}</div>
-          </div>
-
-          <div class="rounded-2xl border border-gray-100 bg-gray-50/80 px-4 py-3">
-            <div class="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">期別格式</div>
-            <div class="mt-2 text-base font-black text-slate-800">{{ createDialogPeriodHint }}</div>
-          </div>
-        </div>
-
-        <div class="grid gap-4 sm:grid-cols-2">
-          <el-form-item label="期別" prop="period_key" class="font-bold">
-            <el-date-picker
-              v-if="createDialogMember?.billing_mode === 'monthly'"
-              v-model="selectedMonthlyPeriod"
-              type="month"
-              value-format="YYYY-MM"
-              class="!w-full"
-              size="large"
-              placeholder="請選擇月份"
-            />
-            <el-select
-              v-else
-              v-model="submissionForm.period_key"
-              class="w-full"
-              size="large"
-              placeholder="請選擇季度"
-            >
+          <el-form-item label="繳費成員" prop="member_id" class="font-bold">
+            <el-select v-model="submissionForm.member_id" class="w-full" size="large" disabled>
               <el-option
-                v-for="option in quarterPeriodOptions"
-                :key="option.value"
-                :label="option.label"
-                :value="option.value"
+                v-for="member in linkedMembers"
+                :key="member.member_id"
+                :label="buildMemberOptionLabel(member)"
+                :value="member.member_id"
               />
             </el-select>
           </el-form-item>
 
-          <el-form-item label="金額" prop="amount" class="font-bold">
-            <el-input-number
-              v-model="submissionForm.amount"
+          <el-form-item label="匯款日期" prop="remittance_date" class="font-bold">
+            <el-date-picker
+              v-model="submissionForm.remittance_date"
+              type="date"
+              value-format="YYYY-MM-DD"
               class="!w-full"
-              :min="0"
-              :step="100"
               size="large"
+              :disabled="!isExternalPaymentRequired"
             />
-            <p class="mt-1 text-xs text-gray-400">
-              {{ isEstimatingAmount ? '依期別重新計算中...' : createDialogEstimateHelperText }}
-            </p>
-            <p v-if="createDialogMonthlyStatsText" class="mt-1 text-xs font-bold text-amber-600">
-              {{ createDialogMonthlyStatsText }}
-            </p>
-            <p v-if="createDialogMonthlyFormulaText" class="mt-1 text-xs text-gray-500">
-              {{ createDialogMonthlyFormulaText }}
-            </p>
           </el-form-item>
         </div>
-
-        <div class="grid gap-4 sm:grid-cols-2">
-          <div class="rounded-2xl border border-emerald-100 bg-emerald-50/80 px-4 py-3">
-            <div class="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-600">目前餘額</div>
-            <div class="mt-2 text-xl font-black text-emerald-700">{{ formatCurrency(createDialogAvailableBalance) }}</div>
-            <p class="mt-1 text-xs font-bold text-emerald-600/80">送出後待管理員確認，確認時才會正式扣款。</p>
-          </div>
-
-          <el-form-item label="使用餘額扣抵" prop="balance_amount" class="font-bold">
-            <el-input-number
-              v-model="submissionForm.balance_amount"
-              class="!w-full"
-              :min="0"
-              :max="Math.min(createDialogAvailableBalance, Number(submissionForm.amount) || 0)"
-              :step="100"
-              size="large"
-            />
-            <p class="mt-1 text-xs text-gray-500">{{ createDialogPaymentBreakdownText }}</p>
-          </el-form-item>
-        </div>
-
-        <PaymentAccountInfoCard compact class="mb-4" />
 
         <div class="grid gap-4 sm:grid-cols-2">
           <el-form-item label="匯款方式" prop="payment_method" class="font-bold">
@@ -429,24 +304,164 @@
           </el-form-item>
         </div>
 
-        <div class="grid gap-4 sm:grid-cols-2">
-          <el-form-item label="匯款日期" prop="remittance_date" class="font-bold">
-            <el-date-picker
-              v-model="submissionForm.remittance_date"
-              type="date"
-              value-format="YYYY-MM-DD"
-              class="!w-full"
-              size="large"
-              :disabled="!isExternalPaymentRequired"
-            />
-          </el-form-item>
+        <PaymentAccountInfoCard compact />
 
-          <div class="rounded-2xl border border-amber-100 bg-amber-50/80 px-4 py-3 text-sm text-amber-700 leading-relaxed">
-            送出後會先進入待確認狀態；若使用餘額，管理員確認時才會正式扣款。
+        <section class="space-y-4 rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <h4 class="text-sm font-black text-slate-700">本次回報項目</h4>
+              <p class="mt-1 text-xs font-bold text-slate-400">可一次勾選月費 / 季費、裝備與比賽費用</p>
+            </div>
+            <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
+              已選 {{ selectedUnifiedLineItems.length }} 筆
+            </span>
           </div>
-        </div>
 
-        <el-form-item label="備註" prop="note" class="font-bold">
+          <article class="rounded-2xl border border-white bg-white p-4 shadow-sm">
+            <label class="flex cursor-pointer items-start gap-3">
+              <input
+                v-model="includeMembershipFee"
+                type="checkbox"
+                class="mt-1 h-5 w-5 rounded border-gray-300 text-primary"
+                :disabled="!canSelectMembershipFee"
+              />
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <div class="font-black text-slate-800">{{ createDialogPaymentItemLabel }}</div>
+                  <span :class="getStatusPillClass(currentFeeDueStatus)" class="rounded-full border px-2.5 py-1 text-xs font-bold">
+                    {{ getStatusLabel(currentFeeDueStatus) }}
+                  </span>
+                </div>
+                <p class="mt-1 text-xs font-bold text-slate-400">
+                  {{ createDialogMember?.name || '尚未選擇成員' }}｜{{ createDialogBillingModeLabel }}
+                </p>
+              </div>
+            </label>
+
+            <div v-if="includeMembershipFee" class="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem] sm:items-start">
+              <el-form-item label="期別" prop="period_key" class="!mb-0 font-bold">
+                <el-date-picker
+                  v-if="createDialogMember?.billing_mode === 'monthly'"
+                  v-model="selectedMonthlyPeriod"
+                  type="month"
+                  value-format="YYYY-MM"
+                  class="!w-full"
+                  size="large"
+                  placeholder="請選擇月份"
+                />
+                <el-select
+                  v-else
+                  v-model="submissionForm.period_key"
+                  class="w-full"
+                  size="large"
+                  placeholder="請選擇季度"
+                >
+                  <el-option
+                    v-for="option in quarterPeriodOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </el-select>
+              </el-form-item>
+
+              <el-form-item label="金額" prop="amount" class="!mb-0 font-bold">
+                <el-input-number
+                  v-model="submissionForm.amount"
+                  class="!w-full"
+                  :min="0"
+                  :step="100"
+                  size="large"
+                />
+              </el-form-item>
+            </div>
+
+            <div v-if="includeMembershipFee" class="mt-3 grid gap-1 text-xs leading-relaxed">
+              <p class="font-bold text-slate-400">
+                {{ isEstimatingAmount ? '依期別重新計算中...' : createDialogEstimateHelperText }}
+              </p>
+              <p v-if="createDialogMonthlyStatsText" class="font-bold text-amber-600">
+                {{ createDialogMonthlyStatsText }}
+              </p>
+              <p v-if="createDialogMonthlyFormulaText" class="font-bold text-slate-500">
+                {{ createDialogMonthlyFormulaText }}
+              </p>
+              <p class="font-bold text-slate-400">期別格式：{{ createDialogPeriodHint }}</p>
+            </div>
+          </article>
+
+          <label
+            v-for="item in equipmentUnpaidItems"
+            :key="`dialog-equipment-${item.transaction_id}`"
+            class="flex cursor-pointer gap-3 rounded-2xl border border-white bg-white p-4 shadow-sm"
+          >
+            <input
+              v-model="selectedEquipmentTransactionIds"
+              type="checkbox"
+              :value="item.transaction_id"
+              class="mt-1 h-5 w-5 rounded border-gray-300 text-primary"
+            />
+            <div class="min-w-0 flex-1">
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <span class="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-black text-sky-700">裝備</span>
+                  <div class="mt-2 font-black text-slate-800">{{ item.equipment_name }}</div>
+                </div>
+                <div class="font-mono font-black text-sky-700">{{ formatCurrency(item.total_amount) }}</div>
+              </div>
+              <p class="mt-1 text-xs font-bold text-slate-400">
+                {{ item.member_name }}｜{{ getEquipmentVariantLabel(item) }}｜{{ item.quantity }} 件｜{{ formatDate(item.transaction_date) }}
+              </p>
+            </div>
+          </label>
+
+          <label
+            v-for="item in matchFeeUnpaidItems"
+            :key="`dialog-match-${item.id}`"
+            class="flex cursor-pointer gap-3 rounded-2xl border border-white bg-white p-4 shadow-sm"
+          >
+            <input
+              v-model="selectedMatchFeeItemIds"
+              type="checkbox"
+              :value="item.id"
+              class="mt-1 h-5 w-5 rounded border-gray-300 text-primary"
+            />
+            <div class="min-w-0 flex-1">
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <span class="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-black text-violet-700">比賽費用</span>
+                  <div class="mt-2 font-black text-slate-800">{{ item.match_name }}</div>
+                </div>
+                <div class="font-mono font-black text-violet-700">{{ formatCurrency(item.amount) }}</div>
+              </div>
+              <p class="mt-1 text-xs font-bold text-slate-400">
+                {{ getMatchFeeSubtitle(item) }}
+              </p>
+            </div>
+          </label>
+
+          <p
+            v-if="!canSelectMembershipFee && equipmentUnpaidItems.length === 0 && matchFeeUnpaidItems.length === 0"
+            class="rounded-2xl border border-dashed border-slate-200 bg-white/70 px-4 py-3 text-sm font-bold text-slate-400"
+          >
+            目前沒有可新增回報的待付款項目。
+          </p>
+        </section>
+
+        <PaymentSubmissionSummary
+          v-model:balance-amount="submissionBalanceAmount"
+          :member-name="createDialogMember?.name || ''"
+          :total-amount="selectedUnifiedTotalAmount"
+          :available-balance="createDialogAvailableBalance"
+          :external-amount="createDialogExternalPaymentAmount"
+          :line-items="selectedUnifiedLineItems"
+          line-items-title="本次送出的項目"
+          empty-items-text="請先勾選本次要回報的付款項目。"
+          :disabled="isEstimatingAmount"
+          :format-currency="formatCurrency"
+        />
+
+        <el-form-item label="備註說明（選填）" prop="note" class="font-bold">
           <el-input
             v-model="submissionForm.note"
             type="textarea"
@@ -471,7 +486,7 @@
           <button
             type="button"
             class="rounded-2xl bg-primary hover:bg-primary-hover text-white font-bold px-6 py-3 transition-colors disabled:opacity-70"
-            :disabled="isSubmitting"
+            :disabled="isSubmitting || selectedUnifiedTotalAmount <= 0"
             @click="submitPaymentSubmission"
           >
             {{ isSubmitting ? '送出中...' : '送出付款回報' }}
@@ -489,9 +504,8 @@ import { ElMessage } from 'element-plus'
 import { Wallet } from '@element-plus/icons-vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
-import MyEquipmentPaymentsPanel from '@/components/equipment/MyEquipmentPaymentsPanel.vue'
-import MyMatchFeesPanel from '@/components/fees/MyMatchFeesPanel.vue'
 import PaymentAccountInfoCard from '@/components/payments/PaymentAccountInfoCard.vue'
+import PaymentSubmissionSummary from '@/components/payments/PaymentSubmissionSummary.vue'
 import {
   createMyPaymentSubmission,
   getMyPaymentRecords,
@@ -499,7 +513,10 @@ import {
   listMyPaymentSubmissions,
   getMyPaymentSubmissionEstimate
 } from '@/services/myPayments'
+import { getPlayerBalance } from '@/services/playerBalances'
+import { createMatchPaymentSubmission, listMyMatchFeeItems } from '@/services/matchFees'
 import { useAuthStore } from '@/stores/auth'
+import { useEquipmentPaymentsStore } from '@/stores/equipmentPayments'
 import type {
   CreateMyPaymentSubmissionPayload,
   MyPaymentMember,
@@ -507,6 +524,15 @@ import type {
   MyPaymentSubmissionEstimate,
   MyPaymentSubmission
 } from '@/types/payments'
+import type {
+  EquipmentPaymentItem,
+  EquipmentPendingRequestPaymentItem,
+  EquipmentPaymentSubmission
+} from '@/types/equipment'
+import type {
+  MatchFeeItem,
+  MatchPaymentSubmission
+} from '@/types/matchFees'
 import {
   BALANCE_PAYMENT_METHOD,
   normalizeAccountLast5,
@@ -519,9 +545,66 @@ import {
   getExternalPaymentAmount
 } from '@/utils/playerBalance'
 import { getMemberBillingLabel } from '@/utils/memberBilling'
-import { buildPushEventKey, dispatchPushNotification } from '@/utils/pushNotifications'
+import { formatEquipmentVariantLabel } from '@/utils/equipmentPricing'
+import { buildGroupedPushEventKey, buildPushEventKey, dispatchPushNotification } from '@/utils/pushNotifications'
+
+type PaymentPanelSummary = {
+  unpaidCount: number
+  unpaidTotal: number
+  pendingCount: number
+  pendingTotal: number
+  firstUnpaidItemId: string | null
+}
+
+type PaymentReminderKind = 'membership-fee' | 'equipment' | 'match-fees'
+
+type PaymentReminderCard = {
+  key: string
+  kind: PaymentReminderKind
+  eyebrow: string
+  title: string
+  statusLabel: string
+  description: string
+  amountLabel: string
+  actionLabel: string
+  targetSelector?: string
+  fallbackSelector?: string
+  cardClass: string
+  eyebrowClass: string
+  statusClass: string
+  amountClass: string
+}
+
+type UnifiedPaymentRecordKind =
+  | 'membership'
+  | 'membership-submission'
+  | 'equipment'
+  | 'equipment-request'
+  | 'match-fee'
+
+type UnifiedPaymentRecordGroupKey = 'unpaid' | 'pending' | 'confirmed' | 'closed'
+
+type UnifiedPaymentRecord = {
+  id: string
+  sourceId: string
+  kind: UnifiedPaymentRecordKind
+  groupKey: UnifiedPaymentRecordGroupKey
+  typeLabel: string
+  title: string
+  meta: string
+  status: string
+  statusLabel: string
+  amount: number
+  amountClass: string
+  dateKey: string
+  selectable: boolean
+  periodKey?: string
+  breakdown?: string
+  note?: string | null
+}
 
 const authStore = useAuthStore()
+const equipmentPaymentsStore = useEquipmentPaymentsStore()
 
 const members = ref<MyPaymentMember[]>([])
 const records = ref<MyPaymentRecord[]>([])
@@ -533,9 +616,28 @@ const isCreateDialogOpen = ref(false)
 const isSubmitting = ref(false)
 const isEstimatingAmount = ref(false)
 const currentSubmissionEstimate = ref<MyPaymentSubmissionEstimate | null>(null)
+const currentDueEstimate = ref<MyPaymentSubmissionEstimate | null>(null)
 const formRef = ref()
+const includeMembershipFee = ref(false)
+const selectedEquipmentTransactionIds = ref<string[]>([])
+const selectedMatchFeeItemIds = ref<string[]>([])
+const equipmentPaymentItems = ref<EquipmentPaymentItem[]>([])
+const equipmentPendingRequestItems = ref<EquipmentPendingRequestPaymentItem[]>([])
+const matchFeeItems = ref<MatchFeeItem[]>([])
+const createDialogBalanceOverride = ref<number | null>(null)
 
 const paymentMethodOptions = PAYMENT_METHOD_OPTIONS
+
+const createEmptyPaymentPanelSummary = (): PaymentPanelSummary => ({
+  unpaidCount: 0,
+  unpaidTotal: 0,
+  pendingCount: 0,
+  pendingTotal: 0,
+  firstUnpaidItemId: null
+})
+
+const equipmentPaymentSummary = ref<PaymentPanelSummary>(createEmptyPaymentPanelSummary())
+const matchFeeSummary = ref<PaymentPanelSummary>(createEmptyPaymentPanelSummary())
 
 const submissionForm = reactive<CreateMyPaymentSubmissionPayload>({
   member_id: '',
@@ -561,10 +663,17 @@ const createDialogMember = computed(() => {
 })
 
 const latestOfficialRecord = computed(() => records.value[0] || null)
-const latestSubmission = computed(() => submissions.value[0] || null)
-const createDialogAvailableBalance = computed(() => Number(createDialogMember.value?.balance_amount || 0))
+const createDialogAvailableBalance = computed(() =>
+  Number(createDialogBalanceOverride.value ?? createDialogMember.value?.balance_amount ?? 0)
+)
+const submissionBalanceAmount = computed({
+  get: () => Number(submissionForm.balance_amount || 0),
+  set: (value: number) => {
+    submissionForm.balance_amount = value
+  }
+})
 const createDialogExternalPaymentAmount = computed(() =>
-  getExternalPaymentAmount(submissionForm.amount, submissionForm.balance_amount)
+  getExternalPaymentAmount(selectedUnifiedTotalAmount.value, submissionForm.balance_amount)
 )
 const isExternalPaymentRequired = computed(() => createDialogExternalPaymentAmount.value > 0)
 const submissionRequiresAccountLast5 = computed(() =>
@@ -584,6 +693,10 @@ const selectedMonthlyPeriod = computed({
 const createDialogBillingModeLabel = computed(() => {
   return createDialogMember.value ? getPaymentMemberBillingLabel(createDialogMember.value) : '尚未選擇'
 })
+
+const createDialogPaymentItemLabel = computed(() =>
+  createDialogMember.value?.billing_mode === 'quarterly' ? '季費' : '月費'
+)
 
 const createDialogPeriodHint = computed(() => {
   return createDialogMember.value?.billing_mode === 'quarterly' ? '例如 2026-Q2' : '例如 2026-04'
@@ -670,19 +783,475 @@ const createDialogMonthlyFormulaText = computed(() => {
   return `單堂 ${formatCurrency(estimate.per_session_fee)}，扣減 ${formatCurrency(estimate.deduction_amount)}`
 })
 
-const createDialogPaymentBreakdownText = computed(() =>
-  buildPaymentBreakdownText(submissionForm.amount, submissionForm.balance_amount, formatCurrency)
+const currentFeePeriodKey = computed(() => {
+  if (!selectedMember.value) {
+    return ''
+  }
+
+  return selectedMember.value.billing_mode === 'quarterly'
+    ? getCurrentQuarterKey()
+    : getCurrentMonthlyFeePeriodKey()
+})
+
+const currentFeeBillingName = computed(() =>
+  selectedMember.value?.billing_mode === 'quarterly' ? '季費' : '月費'
 )
 
-const submissionsSectionTitle = computed(() => {
-  return isViewingUnlinkedMember.value ? '球員付款回報' : '我的付款回報'
+const currentFeeOfficialRecord = computed(() =>
+  records.value.find((record) => record.period_key === currentFeePeriodKey.value) || null
+)
+
+const currentFeeSubmissions = computed(() =>
+  submissions.value.filter((submission) => submission.period_key === currentFeePeriodKey.value)
+)
+
+const currentFeePaidSubmission = computed(() =>
+  currentFeeSubmissions.value.find((submission) => isPaidStatus(submission.status)) || null
+)
+
+const currentFeePendingSubmission = computed(() =>
+  currentFeeSubmissions.value.find((submission) => isPendingStatus(submission.status)) || null
+)
+
+const currentFeeDueStatus = computed<'paid' | 'pending' | 'unpaid'>(() => {
+  if (
+    isPaidStatus(currentFeeOfficialRecord.value?.status)
+    || currentFeePaidSubmission.value
+  ) {
+    return 'paid'
+  }
+
+  if (
+    isPendingStatus(currentFeeOfficialRecord.value?.status)
+    || currentFeePendingSubmission.value
+  ) {
+    return 'pending'
+  }
+
+  return 'unpaid'
 })
 
-const submissionsSectionDescription = computed(() => {
-  return isViewingUnlinkedMember.value
-    ? '你目前正以管理員身分檢視該球員送出的自助回報。'
-    : '這裡會顯示你從個人頁面送出的自助回報'
+const currentFeeDueAmount = computed(() => {
+  const amount = currentFeeOfficialRecord.value?.amount
+    ?? currentFeePaidSubmission.value?.amount
+    ?? currentFeePendingSubmission.value?.amount
+    ?? currentDueEstimate.value?.amount
+    ?? 0
+
+  return Math.max(0, Number(amount) || 0)
 })
+
+const currentFeeReminderCard = computed<PaymentReminderCard | null>(() => {
+  const member = selectedMember.value
+  const periodKey = currentFeePeriodKey.value
+
+  if (!member || !periodKey) {
+    return null
+  }
+
+  const billingName = currentFeeBillingName.value
+  const status = currentFeeDueStatus.value
+  const amountLabel = currentFeeDueAmount.value > 0 ? formatCurrency(currentFeeDueAmount.value) : '金額待確認'
+
+  if (status === 'paid') {
+    const targetSelector = currentFeeOfficialRecord.value
+      ? `[data-profile-period-key="${periodKey}"]`
+      : currentFeePaidSubmission.value
+        ? `[data-profile-submission-id="${currentFeePaidSubmission.value.id}"]`
+        : '#profile-payment-records-section'
+
+    return {
+      key: `membership-${periodKey}`,
+      kind: 'membership-fee',
+      eyebrow: `${billingName} ${periodKey}`,
+      title: '本期繳費完成',
+      statusLabel: '繳費完成',
+      description: `${member.name} 的 ${periodKey} ${billingName}已完成繳費。`,
+      amountLabel,
+      actionLabel: '查看紀錄',
+      targetSelector,
+      fallbackSelector: '#profile-payment-records-section',
+      cardClass: 'border-emerald-100 bg-emerald-50/60',
+      eyebrowClass: 'text-emerald-600',
+      statusClass: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+      amountClass: 'text-emerald-700'
+    }
+  }
+
+  if (status === 'pending') {
+    return {
+      key: `membership-${periodKey}`,
+      kind: 'membership-fee',
+      eyebrow: `${billingName} ${periodKey}`,
+      title: '本期付款待確認',
+      statusLabel: '待確認',
+      description: `${member.name} 的 ${periodKey} ${billingName}已送出付款回報，等待管理員確認。`,
+      amountLabel,
+      actionLabel: '查看回報',
+      targetSelector: currentFeePendingSubmission.value
+        ? `[data-profile-submission-id="${currentFeePendingSubmission.value.id}"]`
+        : '#profile-payment-submissions-section',
+      fallbackSelector: '#profile-payment-submissions-section',
+      cardClass: 'border-amber-100 bg-amber-50/70',
+      eyebrowClass: 'text-amber-600',
+      statusClass: 'border-amber-200 bg-amber-50 text-amber-700',
+      amountClass: 'text-amber-700'
+    }
+  }
+
+  return {
+    key: `membership-${periodKey}`,
+    kind: 'membership-fee',
+    eyebrow: `${billingName} ${periodKey}`,
+    title: `本期${billingName}待付款`,
+    statusLabel: '待付款',
+    description: `${member.name} 的 ${periodKey} ${billingName}繳費時間已到，完成付款後請送出回報。`,
+    amountLabel,
+    actionLabel: canCreateSubmissionForSelectedMember.value ? '新增回報' : '',
+    cardClass: 'border-red-100 bg-red-50/60',
+    eyebrowClass: 'text-red-600',
+    statusClass: 'border-red-200 bg-red-50 text-red-700',
+    amountClass: 'text-red-700'
+  }
+})
+
+const equipmentReminderCard = computed<PaymentReminderCard | null>(() => {
+  const summary = equipmentPaymentSummary.value
+
+  if (summary.unpaidCount <= 0) {
+    return null
+  }
+
+  return {
+    key: 'equipment-unpaid',
+    kind: 'equipment',
+    eyebrow: '裝備待付款',
+    title: '有裝備款項待付款',
+    statusLabel: '待付款',
+    description: `${summary.unpaidCount} 筆裝備款項尚未回報付款，可直接帶入付款回報。`,
+    amountLabel: formatCurrency(summary.unpaidTotal),
+    actionLabel: '新增回報',
+    targetSelector: summary.firstUnpaidItemId
+      ? `[data-equipment-transaction-id="${summary.firstUnpaidItemId}"]`
+      : '#equipment-payment-section',
+    fallbackSelector: '#equipment-payment-section',
+    cardClass: 'border-sky-100 bg-sky-50/70',
+    eyebrowClass: 'text-sky-600',
+    statusClass: 'border-sky-200 bg-sky-50 text-sky-700',
+    amountClass: 'text-sky-700'
+  }
+})
+
+const matchFeeReminderCard = computed<PaymentReminderCard | null>(() => {
+  const summary = matchFeeSummary.value
+
+  if (summary.unpaidCount <= 0) {
+    return null
+  }
+
+  return {
+    key: 'match-fees-unpaid',
+    kind: 'match-fees',
+    eyebrow: '比賽費用',
+    title: '有比賽費用待付款',
+    statusLabel: '待付款',
+    description: `${summary.unpaidCount} 筆比賽費用尚未回報付款，可直接帶入付款回報。`,
+    amountLabel: formatCurrency(summary.unpaidTotal),
+    actionLabel: '新增回報',
+    targetSelector: summary.firstUnpaidItemId
+      ? `[data-match-fee-item-id="${summary.firstUnpaidItemId}"]`
+      : '#match-fees-section',
+    fallbackSelector: '#match-fees-section',
+    cardClass: 'border-violet-100 bg-violet-50/70',
+    eyebrowClass: 'text-violet-600',
+    statusClass: 'border-violet-200 bg-violet-50 text-violet-700',
+    amountClass: 'text-violet-700'
+  }
+})
+
+const paymentReminderCards = computed(() =>
+  [
+    currentFeeReminderCard.value,
+    equipmentReminderCard.value,
+    matchFeeReminderCard.value
+  ].filter((card): card is PaymentReminderCard => Boolean(card))
+)
+
+const canSelectMembershipFee = computed(() =>
+  canCreateSubmissionForSelectedMember.value && currentFeeDueStatus.value === 'unpaid'
+)
+
+const equipmentUnpaidItems = computed(() =>
+  equipmentPaymentItems.value.filter((item) => item.payment_status === 'unpaid')
+)
+
+const matchFeeUnpaidItems = computed(() =>
+  matchFeeItems.value.filter((item) => item.payment_status === 'unpaid')
+)
+
+const selectedEquipmentPaymentItems = computed(() => {
+  const selectedIds = new Set(selectedEquipmentTransactionIds.value)
+  return equipmentUnpaidItems.value.filter((item) => selectedIds.has(item.transaction_id))
+})
+
+const selectedMatchFeePaymentItems = computed(() => {
+  const selectedIds = new Set(selectedMatchFeeItemIds.value)
+  return matchFeeUnpaidItems.value.filter((item) => selectedIds.has(item.id))
+})
+
+const selectedUnifiedLineItems = computed(() => {
+  const lineItems: Array<{
+    id: string
+    typeLabel: string
+    title?: string | null
+    meta?: string | null
+    periodLabel?: string | null
+    amount: number
+  }> = []
+
+  if (includeMembershipFee.value) {
+    lineItems.push({
+      id: `membership-${submissionForm.period_key || 'new'}`,
+      typeLabel: createDialogPaymentItemLabel.value,
+      title: createDialogMember.value?.name || createDialogPaymentItemLabel.value,
+      periodLabel: submissionForm.period_key,
+      meta: createDialogBillingModeLabel.value,
+      amount: Number(submissionForm.amount) || 0
+    })
+  }
+
+  selectedEquipmentPaymentItems.value.forEach((item) => {
+    lineItems.push({
+      id: `equipment-${item.transaction_id}`,
+      typeLabel: '裝備',
+      title: item.equipment_name,
+      periodLabel: formatDate(item.transaction_date),
+      meta: `${item.member_name}｜${getEquipmentVariantLabel(item)}｜${item.quantity} 件`,
+      amount: Number(item.total_amount) || 0
+    })
+  })
+
+  selectedMatchFeePaymentItems.value.forEach((item) => {
+    lineItems.push({
+      id: `match-fee-${item.id}`,
+      typeLabel: '比賽費用',
+      title: item.match_name,
+      periodLabel: item.fee_month,
+      meta: getMatchFeeSubtitle(item),
+      amount: Number(item.amount) || 0
+    })
+  })
+
+  return lineItems
+})
+
+const selectedUnifiedTotalAmount = computed(() =>
+  selectedUnifiedLineItems.value.reduce((total, item) => total + Number(item.amount || 0), 0)
+)
+
+const getUnifiedGroupKey = (status?: string | null): UnifiedPaymentRecordGroupKey => {
+  if (status === 'unpaid') return 'unpaid'
+  if (status === 'pending_review' || status === 'pending' || status === 'approved_request' || status === 'ready_for_pickup') return 'pending'
+  if (status === 'paid' || status === 'approved') return 'confirmed'
+  return 'closed'
+}
+
+const getUnifiedAmountClass = (status?: string | null) => {
+  if (status === 'unpaid') return 'text-red-600'
+  if (status === 'pending_review' || status === 'pending' || status === 'approved_request' || status === 'ready_for_pickup') return 'text-amber-700'
+  if (status === 'paid' || status === 'approved') return 'text-emerald-700'
+  return 'text-slate-500'
+}
+
+const getEquipmentRequestRecordStatus = (status?: string | null) => {
+  if (status === 'ready_for_pickup') return 'ready_for_pickup'
+  if (status === 'approved') return 'approved_request'
+  return 'pending'
+}
+
+const getUnifiedStatusLabel = (
+  status?: string | null,
+  kind?: UnifiedPaymentRecordKind
+) => {
+  if (kind === 'equipment-request') {
+    if (status === 'ready_for_pickup') return '可領取'
+    if (status === 'approved_request') return '已核准'
+    return '處理中'
+  }
+
+  if (status === 'unpaid') return '待付款'
+  if (status === 'cancelled') return '已取消'
+  return getStatusLabel(status)
+}
+
+const unifiedPaymentRecords = computed<UnifiedPaymentRecord[]>(() => {
+  const rows: UnifiedPaymentRecord[] = []
+  const selectedMemberName = selectedMember.value?.name || ''
+  const currentPeriodKey = currentFeePeriodKey.value
+  const currentPeriodAlreadyListed = records.value.some((record) => record.period_key === currentPeriodKey)
+    || submissions.value.some((submission) => submission.period_key === currentPeriodKey)
+
+  if (
+    selectedMember.value
+    && currentPeriodKey
+    && !currentPeriodAlreadyListed
+    && currentFeeDueStatus.value !== 'paid'
+  ) {
+    const status = currentFeeDueStatus.value
+    rows.push({
+      id: `membership-due-${currentPeriodKey}`,
+      sourceId: currentPeriodKey,
+      kind: 'membership',
+      groupKey: getUnifiedGroupKey(status),
+      typeLabel: currentFeeBillingName.value,
+      title: `${currentPeriodKey} ${currentFeeBillingName.value}`,
+      meta: `${selectedMemberName}｜${getPaymentMemberBillingLabel(selectedMember.value)}`,
+      status,
+      statusLabel: getUnifiedStatusLabel(status, 'membership'),
+      amount: currentFeeDueAmount.value,
+      amountClass: getUnifiedAmountClass(status),
+      dateKey: currentPeriodKey,
+      selectable: status === 'unpaid' && canCreateSubmissionForSelectedMember.value,
+      periodKey: currentPeriodKey
+    })
+  }
+
+  records.value.forEach((record) => {
+    const status = record.status || 'unpaid'
+    rows.push({
+      id: `membership-record-${record.period_key}-${record.updated_at || 'na'}`,
+      sourceId: record.period_key,
+      kind: 'membership',
+      groupKey: getUnifiedGroupKey(status),
+      typeLabel: record.billing_mode === 'quarterly' ? '季費' : '月費',
+      title: record.period_label,
+      meta: `${record.member_name}｜${record.period_key}｜${formatPaymentInfo(record.payment_method, record.account_last_5, record.remittance_date)}`,
+      status,
+      statusLabel: getUnifiedStatusLabel(status, 'membership'),
+      amount: Number(record.amount) || 0,
+      amountClass: getUnifiedAmountClass(status),
+      dateKey: record.updated_at || record.period_key,
+      selectable: status === 'unpaid' && canCreateSubmissionForSelectedMember.value,
+      periodKey: record.period_key,
+      breakdown: buildPaymentBreakdownText(record.amount, record.balance_amount, formatCurrency)
+    })
+  })
+
+  submissions.value.forEach((submission) => {
+    const status = submission.status || 'pending_review'
+    rows.push({
+      id: `membership-submission-${submission.id}`,
+      sourceId: submission.id,
+      kind: 'membership-submission',
+      groupKey: getUnifiedGroupKey(status),
+      typeLabel: submission.billing_mode === 'quarterly' ? '季費回報' : '月費回報',
+      title: submission.period_label,
+      meta: `${submission.member_name}｜${formatPaymentInfo(submission.payment_method, submission.account_last_5, submission.remittance_date)}｜${formatDateTime(submission.created_at)}`,
+      status,
+      statusLabel: getUnifiedStatusLabel(status, 'membership-submission'),
+      amount: Number(submission.amount) || 0,
+      amountClass: getUnifiedAmountClass(status),
+      dateKey: submission.updated_at || submission.created_at,
+      selectable: false,
+      periodKey: submission.period_key,
+      breakdown: buildPaymentBreakdownText(submission.amount, submission.balance_amount, formatCurrency),
+      note: submission.note
+    })
+  })
+
+  equipmentPaymentItems.value.forEach((item) => {
+    const status = item.payment_status || 'unpaid'
+    rows.push({
+      id: `equipment-${item.transaction_id}`,
+      sourceId: item.transaction_id,
+      kind: 'equipment',
+      groupKey: getUnifiedGroupKey(status),
+      typeLabel: '裝備',
+      title: item.equipment_name,
+      meta: `${item.member_name}｜${getEquipmentVariantLabel(item)}｜${item.quantity} 件｜${formatDate(item.transaction_date)}`,
+      status,
+      statusLabel: getUnifiedStatusLabel(status, 'equipment'),
+      amount: Number(item.total_amount) || 0,
+      amountClass: getUnifiedAmountClass(status),
+      dateKey: item.picked_up_at || item.transaction_date,
+      selectable: status === 'unpaid',
+      note: item.request_status ? `申請狀態：${item.request_status}` : null
+    })
+  })
+
+  equipmentPendingRequestItems.value.forEach((item) => {
+    const status = getEquipmentRequestRecordStatus(item.request_status)
+    rows.push({
+      id: `equipment-request-${item.request_item_id}`,
+      sourceId: item.request_id,
+      kind: 'equipment-request',
+      groupKey: getUnifiedGroupKey(status),
+      typeLabel: '裝備',
+      title: item.equipment_name,
+      meta: `${item.member_name}｜${getEquipmentVariantLabel(item)}｜${item.quantity} 件`,
+      status,
+      statusLabel: getUnifiedStatusLabel(status, 'equipment-request'),
+      amount: Number(item.total_amount) || 0,
+      amountClass: getUnifiedAmountClass(status),
+      dateKey: item.ready_at || item.approved_at || item.requested_at,
+      selectable: false
+    })
+  })
+
+  matchFeeItems.value.forEach((item) => {
+    const status = item.payment_status || 'unpaid'
+    rows.push({
+      id: `match-fee-${item.id}`,
+      sourceId: item.id,
+      kind: 'match-fee',
+      groupKey: getUnifiedGroupKey(status),
+      typeLabel: '比賽費用',
+      title: item.match_name,
+      meta: `${item.member_name}｜${getMatchFeeSubtitle(item)}`,
+      status,
+      statusLabel: getUnifiedStatusLabel(status, 'match-fee'),
+      amount: Number(item.amount) || 0,
+      amountClass: getUnifiedAmountClass(status),
+      dateKey: item.updated_at || item.match_date,
+      selectable: status === 'unpaid',
+      note: item.cancelled_reason || null
+    })
+  })
+
+  return rows.sort((left, right) => right.dateKey.localeCompare(left.dateKey))
+})
+
+const unifiedPaymentRecordGroups = computed(() => {
+  const groupMeta: Array<{
+    key: UnifiedPaymentRecordGroupKey
+    title: string
+    className: string
+    titleClass: string
+  }> = [
+    { key: 'unpaid', title: '待付款', className: 'border-red-100 bg-red-50/40', titleClass: 'text-red-700' },
+    { key: 'pending', title: '待確認 / 處理中', className: 'border-amber-100 bg-amber-50/50', titleClass: 'text-amber-700' },
+    { key: 'confirmed', title: '已確認', className: 'border-emerald-100 bg-emerald-50/50', titleClass: 'text-emerald-700' },
+    { key: 'closed', title: '已退回 / 已取消', className: 'border-slate-100 bg-slate-50/70', titleClass: 'text-slate-600' }
+  ]
+
+  return groupMeta
+    .map((group) => ({
+      ...group,
+      items: unifiedPaymentRecords.value.filter((item) => item.groupKey === group.key)
+    }))
+    .filter((group) => group.items.length > 0)
+})
+
+const unifiedPaymentCounts = computed(() => ({
+  unpaid: unifiedPaymentRecords.value.filter((item) => item.groupKey === 'unpaid').length,
+  pending: unifiedPaymentRecords.value.filter((item) => item.groupKey === 'pending').length
+}))
+
+const unifiedUnpaidTotalAmount = computed(() =>
+  unifiedPaymentRecords.value
+    .filter((item) => item.groupKey === 'unpaid')
+    .reduce((total, item) => total + Number(item.amount || 0), 0)
+)
 
 const quarterPeriodOptions = computed(() => {
   const quarterKeys = new Set<string>()
@@ -744,6 +1313,11 @@ const submissionRules = {
   amount: [
     {
       validator: (_rule: unknown, value: number, callback: (error?: Error) => void) => {
+        if (!includeMembershipFee.value) {
+          callback()
+          return
+        }
+
         if (!Number.isFinite(Number(value)) || Number(value) <= 0) {
           callback(new Error('請輸入大於 0 的金額'))
           return
@@ -762,7 +1336,7 @@ const submissionRules = {
           callback(new Error('餘額扣抵不能小於 0'))
           return
         }
-        if (normalized > Number(submissionForm.amount || 0)) {
+        if (normalized > selectedUnifiedTotalAmount.value) {
           callback(new Error('餘額扣抵不能超過本次金額'))
           return
         }
@@ -832,6 +1406,9 @@ const getCurrentQuarterKey = (date = dayjs()) => {
   return `${date.year()}-Q${quarter}`
 }
 
+const getCurrentMonthlyFeePeriodKey = (date = dayjs()) =>
+  date.date() >= 25 ? date.format('YYYY-MM') : date.subtract(1, 'month').format('YYYY-MM')
+
 const getDefaultMonthlyPeriodKey = () => dayjs().subtract(1, 'month').format('YYYY-MM')
 
 const buildMemberOptionLabel = (member: MyPaymentMember) => {
@@ -859,7 +1436,7 @@ const getStatusPillClass = (status?: string | null) => {
     return 'bg-emerald-50 border-emerald-200 text-emerald-700'
   }
 
-  if (status === 'pending_review') {
+  if (status === 'pending_review' || status === 'pending' || status === 'approved_request' || status === 'ready_for_pickup') {
     return 'bg-amber-50 border-amber-200 text-amber-700'
   }
 
@@ -867,8 +1444,20 @@ const getStatusPillClass = (status?: string | null) => {
     return 'bg-red-50 border-red-200 text-red-700'
   }
 
+  if (status === 'unpaid') {
+    return 'bg-red-50 border-red-100 text-red-600'
+  }
+
+  if (status === 'cancelled') {
+    return 'bg-slate-100 border-slate-200 text-slate-500'
+  }
+
   return 'bg-gray-50 border-gray-200 text-gray-600'
 }
+
+const isPaidStatus = (status?: string | null) => status === 'paid' || status === 'approved'
+
+const isPendingStatus = (status?: string | null) => status === 'pending_review'
 
 const formatCurrency = (amount: number) => {
   const normalizedAmount = Number(amount) || 0
@@ -884,6 +1473,22 @@ const formatDateTime = (value?: string | null) => {
   const parsed = dayjs(value)
   return parsed.isValid() ? parsed.format('YYYY-MM-DD HH:mm') : '尚無資料'
 }
+
+const formatDate = (value?: string | null) => {
+  if (!value) return '尚無資料'
+  const parsed = dayjs(value)
+  return parsed.isValid() ? parsed.format('YYYY-MM-DD') : '尚無資料'
+}
+
+const getEquipmentVariantLabel = (item: { size?: string | null; jersey_number?: number | string | null }) =>
+  formatEquipmentVariantLabel(item)
+
+const getMatchFeeSubtitle = (item: MatchFeeItem) => [
+  item.tournament_name || null,
+  item.category_group || null,
+  formatDate(item.match_date),
+  item.match_time || null
+].filter(Boolean).join('｜')
 
 const formatPaymentInfo = (
   paymentMethod?: string | null,
@@ -916,7 +1521,7 @@ const resolveQuarterlyAmount = (periodKey: string) => {
 const syncBalanceDeductionLimit = () => {
   submissionForm.balance_amount = clampBalanceDeduction(
     submissionForm.balance_amount,
-    submissionForm.amount,
+    selectedUnifiedTotalAmount.value,
     createDialogAvailableBalance.value
   )
 }
@@ -960,7 +1565,24 @@ const refreshSubmissionEstimate = async () => {
   }
 }
 
-const hydrateSubmissionDefaults = () => {
+const refreshCurrentDueEstimate = async () => {
+  if (!selectedMember.value || !currentFeePeriodKey.value) {
+    currentDueEstimate.value = null
+    return
+  }
+
+  try {
+    currentDueEstimate.value = await getMyPaymentSubmissionEstimate(
+      selectedMember.value.member_id,
+      currentFeePeriodKey.value
+    )
+  } catch (error) {
+    currentDueEstimate.value = null
+    console.warn('讀取本期繳費估算失敗', error)
+  }
+}
+
+const hydrateSubmissionDefaults = (periodKeyOverride?: string, shouldIncludeMembership = canSelectMembershipFee.value) => {
   const preferredLinkedMember = linkedMembers.value.find((member) => member.member_id === selectedMember.value?.member_id)
     || linkedMembers.value[0]
     || null
@@ -968,28 +1590,97 @@ const hydrateSubmissionDefaults = () => {
   const fallbackPeriodKey = targetMember?.billing_mode === 'quarterly'
     ? getCurrentQuarterKey()
     : getDefaultMonthlyPeriodKey()
+  const normalizedPeriodKeyOverride = periodKeyOverride?.trim().toUpperCase() || ''
 
   submissionForm.member_id = targetMember?.member_id || ''
-  submissionForm.period_key = latestOfficialRecord.value?.period_key || fallbackPeriodKey
+  submissionForm.period_key = normalizedPeriodKeyOverride || latestOfficialRecord.value?.period_key || fallbackPeriodKey
   submissionForm.amount = targetMember?.billing_mode === 'quarterly'
     ? resolveQuarterlyAmount(submissionForm.period_key)
     : 0
   submissionForm.balance_amount = 0
   currentSubmissionEstimate.value = null
+  createDialogBalanceOverride.value = null
+  includeMembershipFee.value = shouldIncludeMembership
   submissionForm.payment_method = authStore.profile?.preferred_payment_method || paymentMethodOptions[0]
   submissionForm.account_last_5 = authStore.profile?.preferred_account_last_5 || ''
   submissionForm.remittance_date = dayjs().format('YYYY-MM-DD')
   submissionForm.note = ''
 }
 
+const refreshUnifiedPaymentSources = async () => {
+  const memberId = selectedMemberId.value
+
+  if (!memberId) {
+    selectedEquipmentTransactionIds.value = []
+    selectedMatchFeeItemIds.value = []
+    equipmentPaymentItems.value = []
+    equipmentPendingRequestItems.value = []
+    matchFeeItems.value = []
+    equipmentPaymentSummary.value = createEmptyPaymentPanelSummary()
+    matchFeeSummary.value = createEmptyPaymentPanelSummary()
+    createDialogBalanceOverride.value = null
+    return
+  }
+
+  const [equipmentResult, matchFeesResult, balanceResult] = await Promise.allSettled([
+    equipmentPaymentsStore.loadMyItems(memberId),
+    listMyMatchFeeItems(memberId),
+    getPlayerBalance(memberId)
+  ])
+
+  if (equipmentResult.status === 'fulfilled') {
+    equipmentPaymentItems.value = equipmentPaymentsStore.myItems
+    equipmentPendingRequestItems.value = equipmentPaymentsStore.myPendingRequestItems
+    equipmentPaymentSummary.value = {
+      unpaidCount: equipmentPaymentItems.value.filter((item) => item.payment_status === 'unpaid').length,
+      unpaidTotal: equipmentPaymentItems.value
+        .filter((item) => item.payment_status === 'unpaid')
+        .reduce((total, item) => total + Number(item.total_amount || 0), 0),
+      pendingCount: equipmentPaymentItems.value.filter((item) => item.payment_status === 'pending_review').length,
+      pendingTotal: equipmentPaymentItems.value
+        .filter((item) => item.payment_status === 'pending_review')
+        .reduce((total, item) => total + Number(item.total_amount || 0), 0),
+      firstUnpaidItemId: equipmentPaymentItems.value.find((item) => item.payment_status === 'unpaid')?.transaction_id || null
+    }
+  } else {
+    console.warn('讀取裝備付款資料失敗', equipmentResult.reason)
+  }
+
+  if (matchFeesResult.status === 'fulfilled') {
+    matchFeeItems.value = matchFeesResult.value
+    matchFeeSummary.value = {
+      unpaidCount: matchFeeItems.value.filter((item) => item.payment_status === 'unpaid').length,
+      unpaidTotal: matchFeeItems.value
+        .filter((item) => item.payment_status === 'unpaid')
+        .reduce((total, item) => total + Number(item.amount || 0), 0),
+      pendingCount: matchFeeItems.value.filter((item) => item.payment_status === 'pending_review').length,
+      pendingTotal: matchFeeItems.value
+        .filter((item) => item.payment_status === 'pending_review')
+        .reduce((total, item) => total + Number(item.amount || 0), 0),
+      firstUnpaidItemId: matchFeeItems.value.find((item) => item.payment_status === 'unpaid')?.id || null
+    }
+  } else {
+    console.warn('讀取比賽費用資料失敗', matchFeesResult.reason)
+  }
+
+  if (balanceResult.status === 'fulfilled') {
+    createDialogBalanceOverride.value = balanceResult.value
+    syncBalanceDeductionLimit()
+  } else {
+    console.warn('讀取球員餘額失敗，改用成員摘要餘額。', balanceResult.reason)
+  }
+}
+
 const refreshCurrentMemberData = async () => {
   if (!selectedMemberId.value) {
     records.value = []
     submissions.value = []
+    currentDueEstimate.value = null
     return
   }
 
   isRefreshing.value = true
+  currentDueEstimate.value = null
 
   try {
     const [nextRecords, nextSubmissions] = await Promise.all([
@@ -999,6 +1690,8 @@ const refreshCurrentMemberData = async () => {
 
     records.value = nextRecords
     submissions.value = nextSubmissions
+    await refreshCurrentDueEstimate()
+    await refreshUnifiedPaymentSources()
   } catch (error: any) {
     ElMessage.error(error?.message || '讀取繳費資訊失敗')
   } finally {
@@ -1006,13 +1699,40 @@ const refreshCurrentMemberData = async () => {
   }
 }
 
-const openCreateDialog = async () => {
+const openCreateDialog = async (
+  options: {
+    periodKey?: string
+    preset?: 'membership-fee' | 'equipment' | 'match-fees'
+  } = {}
+) => {
   if (!canCreateSubmissionForSelectedMember.value) {
     return
   }
 
-  hydrateSubmissionDefaults()
+  const preset = options.preset
+  const preservedMembershipPeriodKey = includeMembershipFee.value
+    ? submissionForm.period_key
+    : options.periodKey
+  hydrateSubmissionDefaults(
+    preservedMembershipPeriodKey,
+    preset ? preset === 'membership-fee' : includeMembershipFee.value || canSelectMembershipFee.value
+  )
+  await refreshUnifiedPaymentSources()
+
+  if (preset === 'equipment') {
+    includeMembershipFee.value = false
+    selectedEquipmentTransactionIds.value = equipmentUnpaidItems.value.map((item) => item.transaction_id)
+    selectedMatchFeeItemIds.value = []
+  } else if (preset === 'match-fees') {
+    includeMembershipFee.value = false
+    selectedEquipmentTransactionIds.value = []
+    selectedMatchFeeItemIds.value = matchFeeUnpaidItems.value.map((item) => item.id)
+  } else if (preset === 'membership-fee') {
+    includeMembershipFee.value = true
+  }
+
   await refreshSubmissionEstimate()
+  syncBalanceDeductionLimit()
   isCreateDialogOpen.value = true
   await nextTick()
   formRef.value?.clearValidate?.()
@@ -1028,10 +1748,54 @@ const handleSubmissionAccountLast5Input = (value: string) => {
   submissionForm.account_last_5 = normalizeAccountLast5(value)
 }
 
+const allocateBalanceDeduction = (
+  requestedAmount: number,
+  buckets: Array<{ key: 'membership' | 'equipment' | 'matchFees'; amount: number }>
+) => {
+  let remaining = clampBalanceDeduction(
+    requestedAmount,
+    selectedUnifiedTotalAmount.value,
+    createDialogAvailableBalance.value
+  )
+
+  return buckets.reduce((result, bucket) => {
+    const deduction = Math.min(Math.max(0, bucket.amount), remaining)
+    remaining -= deduction
+    return {
+      ...result,
+      [bucket.key]: deduction
+    }
+  }, {
+    membership: 0,
+    equipment: 0,
+    matchFees: 0
+  })
+}
+
+const buildSharedSubmissionPayload = (amount: number, balanceAmount: number) => {
+  const externalAmount = getExternalPaymentAmount(amount, balanceAmount)
+
+  return {
+    payment_method: externalAmount > 0 ? submissionForm.payment_method : BALANCE_PAYMENT_METHOD,
+    account_last_5: externalAmount > 0 && requiresAccountLast5(submissionForm.payment_method)
+      ? normalizeAccountLast5(submissionForm.account_last_5)
+      : null,
+    remittance_date: externalAmount > 0 ? submissionForm.remittance_date : dayjs().format('YYYY-MM-DD'),
+    note: submissionForm.note?.trim() || null,
+    balance_amount: balanceAmount
+  }
+}
+
 const submitPaymentSubmission = async () => {
   if (!formRef.value) {
     return
   }
+
+  submissionForm.balance_amount = clampBalanceDeduction(
+    submissionForm.balance_amount,
+    selectedUnifiedTotalAmount.value,
+    createDialogAvailableBalance.value
+  )
 
   try {
     await formRef.value.validate()
@@ -1039,41 +1803,200 @@ const submitPaymentSubmission = async () => {
     return
   }
 
+  const membershipAmount = includeMembershipFee.value ? Number(submissionForm.amount) || 0 : 0
+  const equipmentItemsToSubmit = selectedEquipmentPaymentItems.value
+  const matchFeeItemsToSubmit = selectedMatchFeePaymentItems.value
+  const equipmentAmount = equipmentItemsToSubmit.reduce((total, item) => total + Number(item.total_amount || 0), 0)
+  const matchFeeAmount = matchFeeItemsToSubmit.reduce((total, item) => total + Number(item.amount || 0), 0)
+
+  if (membershipAmount + equipmentAmount + matchFeeAmount <= 0) {
+    ElMessage.warning('請先勾選本次要回報的付款項目')
+    return
+  }
+
+  if (includeMembershipFee.value && membershipAmount <= 0) {
+    ElMessage.warning('請確認月費 / 季費金額大於 0')
+    return
+  }
+
+  const balanceAllocations = allocateBalanceDeduction(
+    Number(submissionForm.balance_amount) || 0,
+    [
+      { key: 'membership', amount: membershipAmount },
+      { key: 'equipment', amount: equipmentAmount },
+      { key: 'matchFees', amount: matchFeeAmount }
+    ]
+  )
+
   isSubmitting.value = true
 
+  const successLabels: string[] = []
+  const failureLabels: string[] = []
+
   try {
-    const createdSubmission = await createMyPaymentSubmission({
-      member_id: submissionForm.member_id,
-      period_key: submissionForm.period_key.trim().toUpperCase(),
-      amount: Number(submissionForm.amount) || 0,
-      balance_amount: Number(submissionForm.balance_amount) || 0,
-      payment_method: isExternalPaymentRequired.value ? submissionForm.payment_method : BALANCE_PAYMENT_METHOD,
-      account_last_5: submissionRequiresAccountLast5.value ? normalizeAccountLast5(submissionForm.account_last_5) : null,
-      remittance_date: isExternalPaymentRequired.value ? submissionForm.remittance_date : dayjs().format('YYYY-MM-DD'),
-      note: submissionForm.note?.trim() || null
-    })
+    if (includeMembershipFee.value && membershipAmount > 0) {
+      try {
+        const createdSubmission = await createMyPaymentSubmission({
+          member_id: submissionForm.member_id,
+          period_key: submissionForm.period_key.trim().toUpperCase(),
+          amount: membershipAmount,
+          ...buildSharedSubmissionPayload(membershipAmount, balanceAllocations.membership)
+        })
 
-    if (createdSubmission) {
-      submissions.value = [createdSubmission, ...submissions.value]
+        if (createdSubmission) {
+          submissions.value = [createdSubmission, ...submissions.value]
+          includeMembershipFee.value = false
+          successLabels.push('月費 / 季費')
 
-      void dispatchPushNotification({
-        title: `[月費 / 季費] ${createdSubmission.member_name} 提交了付款回報`,
-        body: `${createdSubmission.period_label} / ${formatCurrency(createdSubmission.amount)}，請前往收費管理確認。`,
-        url: `/fees?highlight_submission_id=${createdSubmission.id}`,
-        feature: 'fees',
-        action: 'VIEW',
-        eventKey: buildPushEventKey('profile_payment_submission', createdSubmission.id)
-      }).catch((pushError) => {
-        console.warn('個人繳費回報通知發送失敗', pushError)
-      })
+          void dispatchPushNotification({
+            title: `[月費 / 季費] ${createdSubmission.member_name} 提交了付款回報`,
+            body: `${createdSubmission.period_label} / ${formatCurrency(createdSubmission.amount)}，請前往收費管理確認。`,
+            url: `/fees?highlight_submission_id=${createdSubmission.id}`,
+            feature: 'fees',
+            action: 'VIEW',
+            eventKey: buildPushEventKey('profile_payment_submission', createdSubmission.id)
+          }).catch((pushError) => {
+            console.warn('個人繳費回報通知發送失敗', pushError)
+          })
+        }
+      } catch (error: any) {
+        failureLabels.push(`月費 / 季費：${error?.message || '送出失敗'}`)
+      }
     }
 
-    isCreateDialogOpen.value = false
-    ElMessage.success('付款回報已送出，等待管理員確認')
-  } catch (error: any) {
-    ElMessage.error(error?.message || '送出付款回報失敗')
+    if (equipmentItemsToSubmit.length > 0) {
+      const transactionIds = equipmentItemsToSubmit.map((item) => item.transaction_id)
+
+      try {
+        const equipmentSubmission: EquipmentPaymentSubmission = await equipmentPaymentsStore.submitPayment(
+          {
+            transaction_ids: transactionIds,
+            ...buildSharedSubmissionPayload(equipmentAmount, balanceAllocations.equipment)
+          },
+          selectedMemberId.value || null
+        )
+
+        selectedEquipmentTransactionIds.value = selectedEquipmentTransactionIds.value.filter((id) => !transactionIds.includes(id))
+        successLabels.push('裝備')
+
+        void dispatchPushNotification({
+          title: '收到裝備付款回報',
+          body: `${equipmentSubmission.member_name} 回報裝備付款 ${formatCurrency(equipmentSubmission.amount)}，請協助確認。`,
+          url: `/fees?tab=equipment&highlight_equipment_submission_id=${equipmentSubmission.id}`,
+          feature: 'fees',
+          action: 'EDIT',
+          eventKey: buildGroupedPushEventKey('equipment-payment-submitted', transactionIds)
+        }).catch((pushError) => {
+          console.warn('裝備付款回報通知發送失敗', pushError)
+        })
+      } catch (error: any) {
+        failureLabels.push(`裝備：${error?.message || '送出失敗'}`)
+      }
+    }
+
+    if (matchFeeItemsToSubmit.length > 0) {
+      const matchFeeItemIds = matchFeeItemsToSubmit.map((item) => item.id)
+
+      try {
+        const matchSubmission: MatchPaymentSubmission = await createMatchPaymentSubmission({
+          match_fee_item_ids: matchFeeItemIds,
+          ...buildSharedSubmissionPayload(matchFeeAmount, balanceAllocations.matchFees)
+        })
+
+        selectedMatchFeeItemIds.value = selectedMatchFeeItemIds.value.filter((id) => !matchFeeItemIds.includes(id))
+        successLabels.push('比賽費用')
+
+        void dispatchPushNotification({
+          title: '收到比賽費用付款回報',
+          body: `${matchSubmission.member_name} 回報比賽費用 ${formatCurrency(matchSubmission.amount)}，請協助確認。`,
+          url: `/fees?tab=match-fees&highlight_match_submission_id=${matchSubmission.id}`,
+          feature: 'fees',
+          action: 'EDIT',
+          eventKey: buildGroupedPushEventKey('match-fee-payment-submitted', matchFeeItemIds)
+        }).catch((pushError) => {
+          console.warn('比賽費用付款回報通知發送失敗', pushError)
+        })
+      } catch (error: any) {
+        failureLabels.push(`比賽費用：${error?.message || '送出失敗'}`)
+      }
+    }
+
+    if (successLabels.length > 0) {
+      await refreshCurrentMemberData()
+    }
+
+    if (failureLabels.length === 0) {
+      isCreateDialogOpen.value = false
+      ElMessage.success(`${successLabels.join('、')}付款回報已送出，等待管理員確認`)
+    } else if (successLabels.length > 0) {
+      ElMessage.warning(`部分付款回報已送出：${successLabels.join('、')}；失敗：${failureLabels.join('；')}`)
+    } else {
+      ElMessage.error(failureLabels.join('；') || '送出付款回報失敗')
+    }
   } finally {
     isSubmitting.value = false
+  }
+}
+
+const isUnifiedRecordSelected = (item: UnifiedPaymentRecord) => {
+  if (item.kind === 'membership') {
+    return includeMembershipFee.value && submissionForm.period_key === item.periodKey
+  }
+
+  if (item.kind === 'equipment') {
+    return selectedEquipmentTransactionIds.value.includes(item.sourceId)
+  }
+
+  if (item.kind === 'match-fee') {
+    return selectedMatchFeeItemIds.value.includes(item.sourceId)
+  }
+
+  return false
+}
+
+const setArraySelection = (values: string[], value: string, selected: boolean) => {
+  if (selected) {
+    return values.includes(value) ? values : [...values, value]
+  }
+
+  return values.filter((item) => item !== value)
+}
+
+const toggleUnifiedRecordSelection = (item: UnifiedPaymentRecord, selected: boolean) => {
+  if (item.kind === 'membership') {
+    if (!item.periodKey) return
+
+    includeMembershipFee.value = selected
+
+    if (selected) {
+      const targetMember = linkedMembers.value.find((member) => member.member_id === selectedMemberId.value)
+        || linkedMembers.value[0]
+        || null
+
+      submissionForm.member_id = targetMember?.member_id || ''
+      submissionForm.period_key = item.periodKey
+      submissionForm.amount = Number(item.amount) || 0
+      void refreshSubmissionEstimate()
+    }
+
+    return
+  }
+
+  if (item.kind === 'equipment') {
+    selectedEquipmentTransactionIds.value = setArraySelection(
+      selectedEquipmentTransactionIds.value,
+      item.sourceId,
+      selected
+    )
+    return
+  }
+
+  if (item.kind === 'match-fee') {
+    selectedMatchFeeItemIds.value = setArraySelection(
+      selectedMatchFeeItemIds.value,
+      item.sourceId,
+      selected
+    )
   }
 }
 
@@ -1082,13 +2005,21 @@ watch(selectedMemberId, async (nextMemberId, previousMemberId) => {
     return
   }
 
+  equipmentPaymentSummary.value = createEmptyPaymentPanelSummary()
+  matchFeeSummary.value = createEmptyPaymentPanelSummary()
+  selectedEquipmentTransactionIds.value = []
+  selectedMatchFeeItemIds.value = []
+  equipmentPaymentItems.value = []
+  equipmentPendingRequestItems.value = []
+  matchFeeItems.value = []
+  createDialogBalanceOverride.value = null
   await refreshCurrentMemberData()
 })
 
 watch(
   () => submissionForm.member_id,
   async (nextMemberId, previousMemberId) => {
-    if (!nextMemberId || nextMemberId === previousMemberId) {
+    if (!isCreateDialogOpen.value || !nextMemberId || nextMemberId === previousMemberId) {
       return
     }
 
@@ -1119,6 +2050,31 @@ watch(
     syncBalanceDeductionLimit()
   }
 )
+
+watch(
+  selectedUnifiedTotalAmount,
+  () => {
+    syncBalanceDeductionLimit()
+  }
+)
+
+watch(includeMembershipFee, (enabled) => {
+  if (!enabled) {
+    formRef.value?.clearValidate?.(['period_key', 'amount'])
+  }
+
+  syncBalanceDeductionLimit()
+})
+
+watch(equipmentUnpaidItems, (items) => {
+  const unpaidIds = new Set(items.map((item) => item.transaction_id))
+  selectedEquipmentTransactionIds.value = selectedEquipmentTransactionIds.value.filter((id) => unpaidIds.has(id))
+}, { deep: true })
+
+watch(matchFeeUnpaidItems, (items) => {
+  const unpaidIds = new Set(items.map((item) => item.id))
+  selectedMatchFeeItemIds.value = selectedMatchFeeItemIds.value.filter((id) => unpaidIds.has(id))
+}, { deep: true })
 
 onMounted(async () => {
   try {
