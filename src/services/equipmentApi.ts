@@ -14,6 +14,7 @@ import type {
   EquipmentFormPayload,
   EquipmentInventoryAdjustment,
   EquipmentInventoryAdjustmentPayload,
+  EquipmentInventorySnapshotItem,
   EquipmentJerseyNumberAvailability,
   EquipmentManualPurchaseRecord,
   EquipmentMemberSummary,
@@ -37,6 +38,9 @@ const pickSingle = <T>(value: T | T[] | null | undefined): T | null => {
   if (Array.isArray(value)) return value[0] || null
   return value || null
 }
+
+const hasOwn = (value: unknown, key: string) =>
+  value !== null && value !== undefined && Object.prototype.hasOwnProperty.call(value, key)
 
 const normalizeNumber = (value: unknown, fallback = 0) => {
   const parsed = Number(value)
@@ -76,6 +80,30 @@ const normalizeNumberList = (value: unknown) => {
 
   return [...new Set(numbers)].sort((a, b) => a - b)
 }
+
+const normalizeInventorySnapshotItems = (value: unknown): EquipmentInventorySnapshotItem[] => {
+  let rows: unknown[] = []
+
+  if (Array.isArray(value)) {
+    rows = value
+  } else if (typeof value === 'string' && value.trim()) {
+    try {
+      const parsed = JSON.parse(value)
+      rows = Array.isArray(parsed) ? parsed : []
+    } catch {
+      rows = []
+    }
+  }
+
+  return rows.map((item: any) => ({
+    equipment_id: String(item?.equipment_id || ''),
+    size: String(item?.size || '').trim() || null,
+    used_quantity: normalizeNumber(item?.used_quantity),
+    reserved_quantity: normalizeNumber(item?.reserved_quantity)
+  })).filter((item) => item.equipment_id)
+}
+
+const LIST_EQUIPMENTS_WITH_INVENTORY_SNAPSHOT_RPC = 'list_equipments_with_inventory_snapshot'
 
 const EQUIPMENT_SELECT = `
   id,
@@ -137,7 +165,10 @@ const normalizeEquipment = (row: any): Equipment => ({
       quantity: normalizeNumber(item?.quantity),
       unit_price_snapshot: item?.unit_price_snapshot == null ? null : normalizeNumber(item.unit_price_snapshot)
     }))
-    : []
+    : [],
+  ...(hasOwn(row, 'inventory_snapshot')
+    ? { inventory_snapshot: normalizeInventorySnapshotItems(row?.inventory_snapshot) }
+    : {})
 })
 
 const normalizeTransaction = (row: any): EquipmentTransaction => ({
@@ -299,18 +330,49 @@ const fetchEquipmentInventoryTransactions = async (equipmentIds: string[] = []) 
   return data || []
 }
 
-export const fetchEquipments = async () => {
-  const { data, error } = await supabase
+const fetchEquipmentsFromInventorySnapshotRpc = async (equipmentIds: string[] = []) => {
+  if (isSupabaseRpcUnavailable(LIST_EQUIPMENTS_WITH_INVENTORY_SNAPSHOT_RPC)) {
+    return null
+  }
+
+  const scopedEquipmentIds = unique(equipmentIds)
+  const { data, error } = await supabase.rpc(LIST_EQUIPMENTS_WITH_INVENTORY_SNAPSHOT_RPC, {
+    p_equipment_ids: scopedEquipmentIds.length > 0 ? scopedEquipmentIds : null
+  })
+
+  if (error) {
+    if (
+      isSupabaseRpcMissingError(error, LIST_EQUIPMENTS_WITH_INVENTORY_SNAPSHOT_RPC)
+      || isSupabaseRpcMissingError(error)
+    ) {
+      markSupabaseRpcUnavailable(LIST_EQUIPMENTS_WITH_INVENTORY_SNAPSHOT_RPC)
+      return null
+    }
+
+    throw error
+  }
+
+  return unwrapRows<any>(data).map(normalizeEquipment)
+}
+
+const fetchEquipmentsWithRlsAvailability = async (equipmentIds: string[] = []) => {
+  const scopedEquipmentIds = unique(equipmentIds)
+  let query = supabase
     .from('equipment')
     .select(EQUIPMENT_SELECT)
     .order('created_at', { ascending: false })
 
+  if (scopedEquipmentIds.length > 0) {
+    query = query.in('id', scopedEquipmentIds)
+  }
+
+  const { data, error } = await query
   if (error) throw error
 
-  const equipmentIds = (data || []).map((row: any) => row.id)
+  const loadedEquipmentIds = (data || []).map((row: any) => row.id)
   const [reservedItems, inventoryTransactions] = await Promise.all([
-    fetchReservedRequestItems(equipmentIds),
-    fetchEquipmentInventoryTransactions(equipmentIds)
+    fetchReservedRequestItems(loadedEquipmentIds),
+    fetchEquipmentInventoryTransactions(loadedEquipmentIds)
   ])
   const reservedByEquipmentId = groupRowsByEquipmentId(reservedItems)
   const transactionsByEquipmentId = groupRowsByEquipmentId(inventoryTransactions)
@@ -320,6 +382,13 @@ export const fetchEquipments = async () => {
     equipment_transactions: transactionsByEquipmentId.get(String(row.id)) || [],
     reserved_request_items: reservedByEquipmentId.get(String(row.id)) || []
   }))
+}
+
+export const fetchEquipments = async () => {
+  const snapshotEquipments = await fetchEquipmentsFromInventorySnapshotRpc()
+  if (snapshotEquipments) return snapshotEquipments
+
+  return fetchEquipmentsWithRlsAvailability()
 }
 
 export const fetchEquipmentJerseyNumberAvailability = async (equipmentId: string) => {
@@ -693,27 +762,15 @@ const fetchEquipmentsWithAvailabilityMap = async (equipmentIds: string[]) => {
   const ids = unique(equipmentIds)
   if (ids.length === 0) return new Map<string, Equipment>()
 
-  const { data, error } = await supabase
-    .from('equipment')
-    .select(EQUIPMENT_SELECT)
-    .in('id', ids)
+  const snapshotEquipments = await fetchEquipmentsFromInventorySnapshotRpc(ids)
+  if (snapshotEquipments) {
+    return new Map(snapshotEquipments.map((equipment) => [String(equipment.id), equipment]))
+  }
 
-  if (error) throw error
-
-  const [reservedItems, inventoryTransactions] = await Promise.all([
-    fetchReservedRequestItems(ids),
-    fetchEquipmentInventoryTransactions(ids)
-  ])
-  const reservedByEquipmentId = groupRowsByEquipmentId(reservedItems)
-  const transactionsByEquipmentId = groupRowsByEquipmentId(inventoryTransactions)
-
-  return new Map((data || []).map((equipment: any) => [
+  const equipments = await fetchEquipmentsWithRlsAvailability(ids)
+  return new Map(equipments.map((equipment: any) => [
     String(equipment.id),
-    normalizeEquipment({
-      ...equipment,
-      equipment_transactions: transactionsByEquipmentId.get(String(equipment.id)) || [],
-      reserved_request_items: reservedByEquipmentId.get(String(equipment.id)) || []
-    })
+    equipment
   ]))
 }
 

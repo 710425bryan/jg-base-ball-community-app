@@ -29,6 +29,13 @@ export type EquipmentReservedRequestItem = {
   unit_price_snapshot: number | null
 }
 
+export type EquipmentInventorySnapshotItem = {
+  equipment_id: string
+  size: string | null
+  used_quantity: number
+  reserved_quantity: number
+}
+
 export type EquipmentJerseyNumberAvailability = {
   jersey_number: number
   is_available: boolean
@@ -111,6 +118,7 @@ export type Equipment = {
   equipment_transactions?: EquipmentTransaction[]
   inventory_adjustments?: EquipmentInventoryAdjustment[]
   reserved_request_items?: EquipmentReservedRequestItem[]
+  inventory_snapshot?: EquipmentInventorySnapshotItem[]
 }
 
 export type EquipmentFormPayload = {

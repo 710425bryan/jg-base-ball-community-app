@@ -159,13 +159,7 @@
                 empty-text="目前沒有請假紀錄"
                 :row-class-name="tableRowClassName"
               >
-                <el-table-column label="日期" min-width="120">
-                  <template #default="{ row }">
-                    <span class="font-bold text-gray-700">{{ formatLeaveDate(row) }}</span>
-                  </template>
-                </el-table-column>
-
-                <el-table-column label="球員" min-width="160">
+                <el-table-column label="球員姓名" width="170" fixed>
                   <template #default="{ row }">
                     <div class="flex items-center gap-3 py-1">
                       <div class="w-8 h-8 rounded-full overflow-hidden bg-gray-100 shrink-0">
@@ -178,6 +172,12 @@
                         <span class="font-bold text-gray-800">{{ row.team_members?.name || '未知人員' }}</span>
                       </div>
                     </div>
+                  </template>
+                </el-table-column>
+
+                <el-table-column label="日期" min-width="120">
+                  <template #default="{ row }">
+                    <span class="font-bold text-gray-700">{{ formatLeaveDate(row) }}</span>
                   </template>
                 </el-table-column>
 
@@ -195,7 +195,7 @@
                   </template>
                 </el-table-column>
 
-                <el-table-column label="操作" width="60" align="right" fixed="right">
+                <el-table-column label="操作" width="60" align="right">
                   <template #default="{ row }">
                     <!-- 只有自己或是管理員可以刪除 -->
                     <button v-if="canDeleteLeaveRecord(row.user_id)" @click="confirmDelete(row)" class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all" title="刪除紀錄">
@@ -337,7 +337,7 @@
                 empty-text="此區間沒有請假統計資料"
                 stripe
               >
-                <el-table-column prop="name" label="球員" min-width="150">
+                <el-table-column prop="name" label="球員" width="150" fixed>
                   <template #default="{ row }">
                     <span class="font-black text-slate-800">{{ row.name }}</span>
                   </template>
@@ -554,7 +554,7 @@ const statsViewMode = ref<ViewMode>('table')
 const isModalOpen = ref(false)
 const isSettingsOpen = ref(false)
 const route = useRoute()
-const tableRowsVisibleByDefault = 30
+const tableRowsVisibleByDefault = 12
 const leaveListTableHeight = 48 + (56 * tableRowsVisibleByDefault)
 const leaveListTableCardMinHeight = leaveListTableHeight + 204
 const statsTableHeight = 48 + (56 * 12)
@@ -1313,11 +1313,13 @@ onUnmounted(() => {
     flex-direction: column;
     flex-grow: 1;
     min-height: 0;
+    overflow: visible;
   }
 
-  /* 讓桌機分頁具備高度約束，使 Element Plus table overflow 可正常觸發 */
+  /* 讓桌機分頁內容可撐開頁面捲動；表格本身再負責資料列捲動 */
   .custom-tabs-container .el-tab-pane {
-    height: 100%;
+    height: auto;
+    overflow: visible;
   }
 }
 

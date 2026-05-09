@@ -136,6 +136,24 @@ describe('equipmentInventory', () => {
     expect(isEquipmentSerialNumberAvailable(equipment, 'L')).toBe(true)
   })
 
+  it('uses aggregate inventory snapshot when raw rows are unavailable', () => {
+    const equipment = createEquipment({
+      equipment_transactions: [],
+      reserved_request_items: [],
+      inventory_snapshot: [
+        { equipment_id: 'equipment-1', size: 'M', used_quantity: 1, reserved_quantity: 2 },
+        { equipment_id: 'equipment-1', size: 'L', used_quantity: 0, reserved_quantity: 4 }
+      ]
+    })
+
+    const sizeInventory = getEquipmentSizeInventoryList(equipment)
+
+    expect(getEquipmentRemainingOverallQuantity(equipment)).toBe(3)
+    expect(sizeInventory.find((item) => item.size === 'M')?.remaining).toBe(2)
+    expect(sizeInventory.find((item) => item.size === 'L')?.remaining).toBe(1)
+    expect(getEquipmentPurchaseAvailability(equipment, { size: 'L', quantity: 2 }).isPurchasable).toBe(false)
+  })
+
   it('blocks purchase when stock is exhausted for equipment without sizes', () => {
     const equipment = createEquipment({
       sizes_stock: [],

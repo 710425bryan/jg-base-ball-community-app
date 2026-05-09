@@ -69,7 +69,12 @@ export const useEquipmentStore = defineStore('equipment', () => {
           ...saved,
           equipment_transactions: next[index].equipment_transactions || saved.equipment_transactions || [],
           inventory_adjustments: next[index].inventory_adjustments || saved.inventory_adjustments || [],
-          reserved_request_items: next[index].reserved_request_items || saved.reserved_request_items || []
+          reserved_request_items: next[index].reserved_request_items || saved.reserved_request_items || [],
+          ...(
+            Array.isArray(next[index].inventory_snapshot) || Array.isArray(saved.inventory_snapshot)
+              ? { inventory_snapshot: next[index].inventory_snapshot || saved.inventory_snapshot || [] }
+              : {}
+          )
         }
         equipments.value = next
       }

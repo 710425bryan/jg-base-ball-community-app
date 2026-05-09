@@ -1,6 +1,6 @@
 import type { LineupEntry, MatchRecord } from '@/types/match'
 
-const GOOGLE_CALENDAR_TEAM_NAME = '中港國小'
+const GOOGLE_CALENDAR_TEAM_NAME = '中港熊戰'
 
 const collapseWhitespace = (value: string) => value.replace(/\s+/g, ' ').trim()
 

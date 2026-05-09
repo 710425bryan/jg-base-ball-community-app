@@ -1,5 +1,6 @@
 import type {
   Equipment,
+  EquipmentInventorySnapshotItem,
   EquipmentReservedRequestItem,
   EquipmentTransaction
 } from '@/types/equipment'
@@ -107,9 +108,37 @@ const getReservedRequestQuantity = (
   }, 0)
 }
 
+const hasEquipmentInventorySnapshot = (equipment: Partial<Equipment> | null | undefined) =>
+  Array.isArray(equipment?.inventory_snapshot)
+
+const getEquipmentInventorySnapshot = (
+  equipment: Partial<Equipment> | null | undefined
+): EquipmentInventorySnapshotItem[] => (
+  Array.isArray(equipment?.inventory_snapshot) ? equipment.inventory_snapshot || [] : []
+)
+
+const getInventorySnapshotQuantity = (
+  equipment: Partial<Equipment> | null | undefined,
+  key: 'used_quantity' | 'reserved_quantity',
+  filters: { size?: string | null } = {}
+) => {
+  const targetSize = normalizeSize(filters.size)
+
+  return getEquipmentInventorySnapshot(equipment).reduce((total, item) => {
+    if (!item) return total
+    if (targetSize && normalizeSize(item.size) !== targetSize) return total
+    return total + normalizeNumber(item[key])
+  }, 0)
+}
+
 const getEquipmentTotalAllocatedQuantity = (
   equipment: Partial<Equipment> | null | undefined
 ) => {
+  if (hasEquipmentInventorySnapshot(equipment)) {
+    return getInventorySnapshotQuantity(equipment, 'used_quantity')
+      + getInventorySnapshotQuantity(equipment, 'reserved_quantity')
+  }
+
   const transactions = Array.isArray(equipment?.equipment_transactions)
     ? equipment?.equipment_transactions || []
     : []
@@ -124,6 +153,14 @@ const getSizeAllocatedQuantity = (
   equipment: Partial<Equipment> | null | undefined,
   size: string
 ) => {
+  if (hasEquipmentInventorySnapshot(equipment)) {
+    return Math.max(
+      0,
+      getInventorySnapshotQuantity(equipment, 'used_quantity', { size })
+        + getInventorySnapshotQuantity(equipment, 'reserved_quantity', { size })
+    )
+  }
+
   const transactions = Array.isArray(equipment?.equipment_transactions)
     ? equipment?.equipment_transactions || []
     : []
@@ -196,8 +233,12 @@ const getEquipmentUnrepresentedAllocatedQuantity = (
 
 export const getEquipmentRemainingOverallQuantity = (equipment: Partial<Equipment> | null | undefined) => {
   const totalQuantity = Math.max(0, normalizeNumber(equipment?.total_quantity))
-  const allocatedQuantity = getEquipmentNetAllocatedQuantity(equipment?.equipment_transactions || [])
-  const reservedQuantity = getReservedRequestQuantity(equipment?.reserved_request_items || [])
+  const allocatedQuantity = hasEquipmentInventorySnapshot(equipment)
+    ? getInventorySnapshotQuantity(equipment, 'used_quantity')
+    : getEquipmentNetAllocatedQuantity(equipment?.equipment_transactions || [])
+  const reservedQuantity = hasEquipmentInventorySnapshot(equipment)
+    ? getInventorySnapshotQuantity(equipment, 'reserved_quantity')
+    : getReservedRequestQuantity(equipment?.reserved_request_items || [])
   return clamp(totalQuantity - allocatedQuantity - reservedQuantity, 0, totalQuantity)
 }
 
@@ -213,13 +254,18 @@ export const getEquipmentSizeInventoryList = (
   const reservedRequestItems = Array.isArray(equipment?.reserved_request_items)
     ? equipment?.reserved_request_items || []
     : []
+  const usesInventorySnapshot = hasEquipmentInventorySnapshot(equipment)
   let unrepresentedAllocatedQuantity = getEquipmentUnrepresentedAllocatedQuantity(equipment)
 
   return sizes.map((sizeObj) => {
     const sizeKey = sizeObj?.size || ''
     const total = Math.max(0, normalizeNumber(sizeObj?.quantity))
-    const used = getEquipmentNetAllocatedQuantity(transactions, { size: sizeKey })
-    const reserved = getReservedRequestQuantity(reservedRequestItems, { size: sizeKey })
+    const used = usesInventorySnapshot
+      ? getInventorySnapshotQuantity(equipment, 'used_quantity', { size: sizeKey })
+      : getEquipmentNetAllocatedQuantity(transactions, { size: sizeKey })
+    const reserved = usesInventorySnapshot
+      ? getInventorySnapshotQuantity(equipment, 'reserved_quantity', { size: sizeKey })
+      : getReservedRequestQuantity(reservedRequestItems, { size: sizeKey })
     const memberUsed = memberId
       ? getEquipmentNetAllocatedQuantity(transactions, { size: sizeKey, memberId })
       : 0

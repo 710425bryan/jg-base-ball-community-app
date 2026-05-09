@@ -34,13 +34,13 @@ const makeMatch = (overrides: Partial<MatchRecord> = {}): MatchRecord => ({
 describe('matchCalendarCopy', () => {
   it('formats the summary like the Google Calendar match title', () => {
     expect(formatMatchRecordGoogleCalendarSummary(makeMatch())).toBe(
-      '就是棒春季聯賽 中港國小 V.S 華興小學 08:00-09:30'
+      '就是棒春季聯賽 中港熊戰 V.S 華興小學 08:00-09:30'
     )
   })
 
   it('copies match data with Google Calendar description labels', () => {
     expect(formatMatchRecordForGoogleCalendar(makeMatch())).toBe([
-      '就是棒春季聯賽 中港國小 V.S 華興小學 08:00-09:30',
+      '就是棒春季聯賽 中港熊戰 V.S 華興小學 08:00-09:30',
       '日期：2026-03-28',
       '時間：08:00 - 09:30',
       '地點：迪化壘球場, 103台灣臺北市大同區延平北路四段179號',
