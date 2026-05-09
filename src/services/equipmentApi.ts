@@ -1,7 +1,11 @@
 import { supabase } from '@/services/supabase'
 import { compressImage } from '@/utils/imageCompressor'
 import { EQUIPMENT_REQUEST_RESERVED_STATUSES } from '@/utils/equipmentRequestStatus'
-import { validateEquipmentPurchaseItemsAvailability } from '@/utils/equipmentInventory'
+import {
+  getEquipmentAvailablePurchaseQuantity,
+  isOutgoingEquipmentTransactionType,
+  validateEquipmentPurchaseItemsAvailability
+} from '@/utils/equipmentInventory'
 import {
   isSupabaseRpcMissingError,
   isSupabaseRpcUnavailable,
@@ -609,6 +613,43 @@ export const createEquipmentTransaction = async (payload: EquipmentTransactionPa
     throw new Error('請選擇付款歸屬成員')
   }
 
+  const normalizedSize = String(payload.size || '').trim() || null
+  const parsedQuantity = Number(payload.quantity)
+  if (!Number.isFinite(parsedQuantity) || parsedQuantity <= 0) {
+    throw new Error('數量需大於 0')
+  }
+  const requestedQuantity = Math.floor(parsedQuantity)
+  if (requestedQuantity <= 0) {
+    throw new Error('數量需大於 0')
+  }
+
+  if (isOutgoingEquipmentTransactionType(payload.transaction_type)) {
+    const equipmentMap = await fetchEquipmentsWithAvailabilityMap([payload.equipment_id])
+    const equipment = equipmentMap.get(String(payload.equipment_id))
+
+    if (!equipment) {
+      throw new Error('找不到裝備資料')
+    }
+
+    const hasSizeOptions = Array.isArray(equipment.sizes_stock)
+      && equipment.sizes_stock.some((item: { size?: string | null }) => String(item?.size || '').trim())
+
+    if (hasSizeOptions && !normalizedSize) {
+      throw new Error(`${equipment.name} 請選擇尺寸或序號`)
+    }
+
+    if (payload.transaction_type === 'purchase' && equipment.requires_jersey_number && requestedQuantity !== 1) {
+      throw new Error(`${equipment.name} 每件球衣需分別選擇一個號碼`)
+    }
+
+    const availableQuantity = getEquipmentAvailablePurchaseQuantity(equipment, normalizedSize)
+    if (requestedQuantity > availableQuantity) {
+      throw new Error(
+        `裝備庫存不足：${equipment.name}${normalizedSize ? ` ${normalizedSize}` : ''} 剩 ${availableQuantity} 件，申請 ${requestedQuantity} 件`
+      )
+    }
+  }
+
   const { data, error } = await supabase
     .from('equipment_transactions')
     .insert({
@@ -617,9 +658,9 @@ export const createEquipmentTransaction = async (payload: EquipmentTransactionPa
       transaction_date: payload.transaction_date,
       member_id: payload.member_id || null,
       handled_by: payload.handled_by || null,
-      size: payload.size || null,
+      size: normalizedSize,
       jersey_number: payload.jersey_number ?? null,
-      quantity: payload.quantity,
+      quantity: requestedQuantity,
       notes: payload.notes || null,
       unit_price: payload.unit_price ?? null
     })

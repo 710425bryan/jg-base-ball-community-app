@@ -5,6 +5,12 @@ import { ElMessage } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
 import { useEquipmentStore } from '@/stores/equipment'
 import type { Equipment, EquipmentTransactionPayload, EquipmentTransactionType } from '@/types/equipment'
+import {
+  getEquipmentAvailablePurchaseQuantity,
+  getEquipmentRemainingOverallQuantity,
+  getEquipmentSizeInventoryList,
+  isOutgoingEquipmentTransactionType
+} from '@/utils/equipmentInventory'
 
 const props = defineProps<{
   modelValue: boolean
@@ -47,7 +53,7 @@ const typeOptions: Array<{ value: EquipmentTransactionType; label: string; helpe
 ]
 
 const currentType = computed(() => typeOptions.find((option) => option.value === form.transaction_type))
-const sizeOptions = computed(() => props.equipment?.sizes_stock?.filter((item) => item.size) || [])
+const sizeOptions = computed(() => props.equipment ? getEquipmentSizeInventoryList(props.equipment) : [])
 const jerseyNumberOptions = computed(() =>
   Array.isArray(props.equipment?.jersey_number_options)
     ? props.equipment.jersey_number_options
@@ -61,6 +67,53 @@ const requiresJerseyNumber = computed(() =>
   Boolean(props.equipment?.requires_jersey_number) && form.transaction_type === 'purchase'
 )
 const normalizeSize = (value?: string | null) => String(value || '').trim()
+const isOutgoingTransaction = computed(() => isOutgoingEquipmentTransactionType(form.transaction_type))
+const selectedSize = computed(() => (requiresSize.value ? normalizeSize(form.size) : null))
+const availableQuantity = computed(() => {
+  if (!props.equipment || !isOutgoingTransaction.value) return null
+  return getEquipmentAvailablePurchaseQuantity(props.equipment, selectedSize.value)
+})
+const quantityInputMax = computed(() => {
+  if (!isOutgoingTransaction.value) return undefined
+  const available = Number(availableQuantity.value ?? 0)
+  if (available <= 0) return 1
+  return requiresJerseyNumber.value ? 1 : available
+})
+const isQuantityInputDisabled = computed(() =>
+  requiresJerseyNumber.value
+  || (isOutgoingTransaction.value && Number(availableQuantity.value ?? 0) <= 0)
+)
+const overallRemainingLabel = computed(() =>
+  props.equipment ? getEquipmentRemainingOverallQuantity(props.equipment) : 0
+)
+const getSizeOptionLabel = (item: ReturnType<typeof getEquipmentSizeInventoryList>[number]) =>
+  isOutgoingTransaction.value
+    ? `${item.size}｜可用 ${item.remaining}/${item.total}`
+    : `${item.size}｜${item.total}`
+const getSelectedStockLabel = () => {
+  if (!isOutgoingTransaction.value) return ''
+  if (requiresSize.value && !selectedSize.value) return '請先選擇尺寸或序號'
+  const available = Number(availableQuantity.value ?? 0)
+  if (requiresSize.value && selectedSize.value) return `此尺寸可用 ${available} 件`
+  return `目前可用 ${available} 件`
+}
+
+const syncQuantityWithAvailability = () => {
+  if (requiresJerseyNumber.value) {
+    form.quantity = 1
+    return
+  }
+
+  if (!Number.isFinite(Number(form.quantity)) || Number(form.quantity) < 1) {
+    form.quantity = 1
+  }
+
+  if (!isOutgoingTransaction.value) return
+  const available = Number(availableQuantity.value ?? 0)
+  if (available > 0 && Number(form.quantity) > available) {
+    form.quantity = available
+  }
+}
 
 const rules = {
   transaction_type: [{ required: true, message: '請選擇交易類型', trigger: 'change' }],
@@ -95,6 +148,21 @@ const rules = {
         if (!Number.isFinite(Number(value)) || Number(value) <= 0) {
           callback(new Error('數量需大於 0'))
           return
+        }
+        if (requiresJerseyNumber.value && Number(value) !== 1) {
+          callback(new Error('球衣每筆交易固定 1 件'))
+          return
+        }
+        if (isOutgoingTransaction.value) {
+          const available = Number(availableQuantity.value ?? 0)
+          if (available <= 0) {
+            callback(new Error(requiresSize.value ? '此尺寸目前沒有可用庫存' : '此裝備目前沒有可用庫存'))
+            return
+          }
+          if (Number(value) > available) {
+            callback(new Error(`可用庫存剩 ${available} 件`))
+            return
+          }
         }
         callback()
       },
@@ -139,11 +207,15 @@ const resetForm = async () => {
   form.transaction_date = dayjs().format('YYYY-MM-DD')
   form.member_id = null
   form.handled_by = ''
-  form.size = sizeOptions.value.length === 1 ? sizeOptions.value[0].size : null
+  const autoSizeOptions = isOutgoingEquipmentTransactionType(nextType)
+    ? sizeOptions.value.filter((item) => item.remaining > 0)
+    : sizeOptions.value
+  form.size = autoSizeOptions.length === 1 ? autoSizeOptions[0].size : null
   form.jersey_number = null
   form.quantity = 1
   form.notes = ''
   form.unit_price = nextType === 'purchase' ? Number(props.equipment?.purchase_price || 0) : null
+  syncQuantityWithAvailability()
   formRef.value?.clearValidate?.()
 
   if (equipmentStore.members.length === 0) {
@@ -193,6 +265,12 @@ watch(() => form.transaction_type, (type) => {
     form.unit_price = null
   }
   formRef.value?.clearValidate?.(['member_id', 'jersey_number'])
+  syncQuantityWithAvailability()
+})
+
+watch([() => form.size, availableQuantity, requiresJerseyNumber], () => {
+  syncQuantityWithAvailability()
+  formRef.value?.clearValidate?.(['quantity'])
 })
 </script>
 
@@ -206,7 +284,9 @@ watch(() => form.transaction_type, (type) => {
   >
     <div v-if="equipment" class="mb-4 rounded-2xl border border-primary/10 bg-primary/5 px-4 py-3">
       <div class="text-lg font-black text-slate-800">{{ equipment.name }}</div>
-      <p class="mt-1 text-xs text-primary font-bold">{{ equipment.category }}｜總數量 {{ equipment.total_quantity }}</p>
+      <p class="mt-1 text-xs text-primary font-bold">
+        {{ equipment.category }}｜總數量 {{ equipment.total_quantity }}｜可用 {{ overallRemainingLabel }}
+      </p>
     </div>
 
     <el-form ref="formRef" :model="form" :rules="rules" label-position="top" class="space-y-4">
@@ -269,8 +349,9 @@ watch(() => form.transaction_type, (type) => {
             <el-option
               v-for="item in sizeOptions"
               :key="item.size"
-              :label="`${item.size}｜${item.quantity}`"
+              :label="getSizeOptionLabel(item)"
               :value="item.size"
+              :disabled="isOutgoingTransaction && item.remaining <= 0"
             />
           </el-select>
           <el-input v-else v-model="form.size" size="large" placeholder="可留空" />
@@ -304,7 +385,18 @@ watch(() => form.transaction_type, (type) => {
         </el-form-item>
 
         <el-form-item label="數量" prop="quantity" class="font-bold">
-          <el-input-number v-model="form.quantity" class="!w-full" :min="1" size="large" />
+          <el-input-number
+            v-model="form.quantity"
+            class="!w-full"
+            :min="1"
+            :max="quantityInputMax"
+            :precision="0"
+            size="large"
+            :disabled="isQuantityInputDisabled"
+          />
+          <p v-if="getSelectedStockLabel()" class="mt-2 text-xs text-gray-400">
+            {{ getSelectedStockLabel() }}
+          </p>
         </el-form-item>
 
         <el-form-item v-if="form.transaction_type === 'purchase'" label="單價" prop="unit_price" class="font-bold">
