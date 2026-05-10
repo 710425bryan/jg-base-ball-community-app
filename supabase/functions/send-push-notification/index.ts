@@ -65,6 +65,50 @@ const canSendExplicitUserPush = async (req: Request) => {
   return (permissionRows || []).length > 0;
 };
 
+const canSendAnnouncementPush = async (req: Request) => {
+  const authHeader = req.headers.get("Authorization") || "";
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+
+  if (!token) return false;
+
+  const { data: userData, error: userError } = await supabase.auth.getUser(token);
+  const userId = userData?.user?.id;
+
+  if (userError || !userId) {
+    console.warn("Announcement push denied: missing caller user", userError);
+    return false;
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", userId)
+    .single();
+
+  if (profileError || !profile?.role) {
+    console.warn("Announcement push denied: missing caller profile", profileError);
+    return false;
+  }
+
+  if (profile.role === "ADMIN") {
+    return true;
+  }
+
+  const { data: permissionRows, error: permissionError } = await supabase
+    .from("app_role_permissions")
+    .select("action")
+    .eq("role_key", profile.role)
+    .eq("feature", "announcements")
+    .in("action", ["CREATE", "EDIT"]);
+
+  if (permissionError) {
+    console.warn("Announcement push denied: permission lookup failed", permissionError);
+    return false;
+  }
+
+  return (permissionRows || []).length > 0;
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -81,6 +125,16 @@ serve(async (req) => {
     const feature = typeof payload.feature === "string" ? payload.feature : null;
     const action = typeof payload.action === "string" ? payload.action : null;
     const eventKey = typeof payload.event_key === "string" ? payload.event_key.trim() : "";
+
+    if (feature === "announcements") {
+      const canSendAnnouncements = await canSendAnnouncementPush(req);
+      if (!canSendAnnouncements) {
+        return new Response(JSON.stringify({ error: "announcement push is not allowed" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 403,
+        });
+      }
+    }
 
     if (targetUserIds.length > 0) {
       const canTargetUsers = await canSendExplicitUserPush(req);

@@ -546,6 +546,7 @@ import {
 } from '@/utils/playerBalance'
 import { getMemberBillingLabel } from '@/utils/memberBilling'
 import { formatEquipmentVariantLabel } from '@/utils/equipmentPricing'
+import { getEquipmentRequestStatusLabel } from '@/utils/equipmentRequestStatus'
 import { buildGroupedPushEventKey, buildPushEventKey, dispatchPushNotification } from '@/utils/pushNotifications'
 
 type PaymentPanelSummary = {
@@ -982,7 +983,9 @@ const canSelectMembershipFee = computed(() =>
 )
 
 const equipmentUnpaidItems = computed(() =>
-  equipmentPaymentItems.value.filter((item) => item.payment_status === 'unpaid')
+  equipmentPaymentItems.value.filter((item) =>
+    item.payment_status === 'unpaid' && isEquipmentPaymentItemPayable(item)
+  )
 )
 
 const matchFeeUnpaidItems = computed(() =>
@@ -1069,11 +1072,27 @@ const getEquipmentRequestRecordStatus = (status?: string | null) => {
   return 'pending'
 }
 
+const isEquipmentPaymentItemPayable = (item: EquipmentPaymentItem) =>
+  !item.request_status || item.request_status === 'picked_up'
+
+const getEquipmentPaymentItemStatus = (item: EquipmentPaymentItem) => {
+  const paymentStatus = item.payment_status || 'unpaid'
+
+  if (paymentStatus === 'unpaid' && !isEquipmentPaymentItemPayable(item)) {
+    return getEquipmentRequestRecordStatus(item.request_status)
+  }
+
+  return paymentStatus
+}
+
 const getUnifiedStatusLabel = (
   status?: string | null,
   kind?: UnifiedPaymentRecordKind
 ) => {
-  if (kind === 'equipment-request') {
+  if (
+    (kind === 'equipment-request' || kind === 'equipment')
+    && (status === 'ready_for_pickup' || status === 'approved_request' || status === 'pending')
+  ) {
     if (status === 'ready_for_pickup') return '可領取'
     if (status === 'approved_request') return '已核准'
     return '處理中'
@@ -1160,7 +1179,7 @@ const unifiedPaymentRecords = computed<UnifiedPaymentRecord[]>(() => {
   })
 
   equipmentPaymentItems.value.forEach((item) => {
-    const status = item.payment_status || 'unpaid'
+    const status = getEquipmentPaymentItemStatus(item)
     rows.push({
       id: `equipment-${item.transaction_id}`,
       sourceId: item.transaction_id,
@@ -1174,8 +1193,8 @@ const unifiedPaymentRecords = computed<UnifiedPaymentRecord[]>(() => {
       amount: Number(item.total_amount) || 0,
       amountClass: getUnifiedAmountClass(status),
       dateKey: item.picked_up_at || item.transaction_date,
-      selectable: status === 'unpaid',
-      note: item.request_status ? `申請狀態：${item.request_status}` : null
+      selectable: status === 'unpaid' && isEquipmentPaymentItemPayable(item),
+      note: item.request_status ? `申請狀態：${getEquipmentRequestStatusLabel(item.request_status)}` : null
     })
   })
 
@@ -1631,16 +1650,18 @@ const refreshUnifiedPaymentSources = async () => {
   if (equipmentResult.status === 'fulfilled') {
     equipmentPaymentItems.value = equipmentPaymentsStore.myItems
     equipmentPendingRequestItems.value = equipmentPaymentsStore.myPendingRequestItems
+    const payableUnpaidEquipmentItems = equipmentPaymentItems.value.filter((item) =>
+      item.payment_status === 'unpaid' && isEquipmentPaymentItemPayable(item)
+    )
     equipmentPaymentSummary.value = {
-      unpaidCount: equipmentPaymentItems.value.filter((item) => item.payment_status === 'unpaid').length,
-      unpaidTotal: equipmentPaymentItems.value
-        .filter((item) => item.payment_status === 'unpaid')
+      unpaidCount: payableUnpaidEquipmentItems.length,
+      unpaidTotal: payableUnpaidEquipmentItems
         .reduce((total, item) => total + Number(item.total_amount || 0), 0),
       pendingCount: equipmentPaymentItems.value.filter((item) => item.payment_status === 'pending_review').length,
       pendingTotal: equipmentPaymentItems.value
         .filter((item) => item.payment_status === 'pending_review')
         .reduce((total, item) => total + Number(item.total_amount || 0), 0),
-      firstUnpaidItemId: equipmentPaymentItems.value.find((item) => item.payment_status === 'unpaid')?.transaction_id || null
+      firstUnpaidItemId: payableUnpaidEquipmentItems[0]?.transaction_id || null
     }
   } else {
     console.warn('讀取裝備付款資料失敗', equipmentResult.reason)

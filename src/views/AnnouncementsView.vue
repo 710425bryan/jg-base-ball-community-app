@@ -67,16 +67,21 @@
               v-for="item in announcements"
               :id="getAnnouncementElementId(item.id)"
               :key="item.id"
-              class="announcement-card group flex min-h-[420px] flex-col overflow-hidden rounded-3xl border bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+              class="announcement-card group flex min-h-[420px] cursor-pointer flex-col overflow-hidden rounded-3xl border bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/30"
               :class="getAnnouncementSurfaceClass(item.id)"
+              role="button"
+              tabindex="0"
+              @click="openAnnouncementDetail(item)"
+              @keydown.enter.prevent="openAnnouncementDetail(item)"
+              @keydown.space.prevent="openAnnouncementDetail(item)"
             >
               <div class="relative aspect-[16/9] overflow-hidden bg-gray-100">
-                <PreviewableImage
+                <img
                   v-if="item.image_url"
                   :src="item.image_url"
                   :alt="`${item.title} 封面圖片`"
-                  class="h-full w-full"
-                />
+                  class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                >
                 <div v-else class="flex h-full w-full items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 text-gray-300">
                   <el-icon :size="42"><Picture /></el-icon>
                 </div>
@@ -108,12 +113,21 @@
 
                   <div class="flex items-center gap-2">
                     <button
+                      type="button"
+                      class="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-3 text-sm font-bold text-gray-600 transition-colors hover:border-primary/30 hover:bg-primary/5 hover:text-primary"
+                      title="查看內容"
+                      @click.stop="openAnnouncementDetail(item)"
+                    >
+                      <el-icon><View /></el-icon>
+                      查看
+                    </button>
+                    <button
                       v-if="canSendAnnouncementNotifications"
                       type="button"
                       class="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-3 text-sm font-bold text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
                       :disabled="isSendingAnnouncementNotification(item.id)"
                       title="發送通知"
-                      @click="confirmSendNotification(item)"
+                      @click.stop="confirmSendNotification(item)"
                     >
                       <el-icon :class="{ 'is-loading': isSendingAnnouncementNotification(item.id) }">
                         <Loading v-if="isSendingAnnouncementNotification(item.id)" />
@@ -126,7 +140,7 @@
                       type="button"
                       class="inline-flex h-10 w-10 items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-primary/10 hover:text-primary"
                       title="編輯"
-                      @click="openEditDialog(item)"
+                      @click.stop="openEditDialog(item)"
                     >
                       <el-icon><EditPen /></el-icon>
                     </button>
@@ -135,7 +149,7 @@
                       type="button"
                       class="inline-flex h-10 w-10 items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
                       title="刪除"
-                      @click="confirmDelete(item.id)"
+                      @click.stop="confirmDelete(item.id)"
                     >
                       <el-icon><Delete /></el-icon>
                     </button>
@@ -155,7 +169,7 @@
                     <th class="min-w-[220px] p-4 text-xs font-black uppercase tracking-widest text-gray-400">標題</th>
                     <th class="p-4 text-xs font-black uppercase tracking-widest text-gray-400">內文預覽</th>
                     <th class="w-24 p-4 text-center text-xs font-black uppercase tracking-widest text-gray-400">置頂</th>
-                    <th class="w-44 p-4 text-center text-xs font-black uppercase tracking-widest text-gray-400">操作</th>
+                    <th class="w-56 p-4 text-center text-xs font-black uppercase tracking-widest text-gray-400">操作</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100 bg-white">
@@ -163,8 +177,13 @@
                     v-for="item in announcements"
                     :id="getAnnouncementElementId(item.id)"
                     :key="item.id"
-                    class="transition-colors hover:bg-primary/5"
+                    class="cursor-pointer transition-colors hover:bg-primary/5 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary/30"
                     :class="getAnnouncementSurfaceClass(item.id)"
+                    role="button"
+                    tabindex="0"
+                    @click="openAnnouncementDetail(item)"
+                    @keydown.enter.prevent="openAnnouncementDetail(item)"
+                    @keydown.space.prevent="openAnnouncementDetail(item)"
                   >
                     <td class="p-4">
                       <div class="text-sm font-black text-slate-800">{{ formatDate(item.created_at) }}</div>
@@ -172,11 +191,11 @@
                     </td>
                     <td class="p-4">
                       <div v-if="item.image_url" class="h-12 w-20 overflow-hidden rounded-xl border border-gray-100 shadow-sm">
-                        <PreviewableImage
+                        <img
                           :src="item.image_url"
                           :alt="`${item.title} 封面圖片`"
-                          class="h-full w-full"
-                        />
+                          class="h-full w-full object-cover"
+                        >
                       </div>
                       <div v-else class="flex h-12 w-20 items-center justify-center rounded-xl border border-gray-100 bg-gray-50 text-gray-300">
                         <el-icon><Picture /></el-icon>
@@ -201,12 +220,20 @@
                     <td class="p-4">
                       <div class="flex items-center justify-center gap-2">
                         <button
+                          type="button"
+                          class="inline-flex h-10 w-10 items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-primary/10 hover:text-primary"
+                          title="查看內容"
+                          @click.stop="openAnnouncementDetail(item)"
+                        >
+                          <el-icon><View /></el-icon>
+                        </button>
+                        <button
                           v-if="canSendAnnouncementNotifications"
                           type="button"
                           class="inline-flex h-10 w-10 items-center justify-center rounded-xl text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
                           :disabled="isSendingAnnouncementNotification(item.id)"
                           title="發送通知"
-                          @click="confirmSendNotification(item)"
+                          @click.stop="confirmSendNotification(item)"
                         >
                           <el-icon :class="{ 'is-loading': isSendingAnnouncementNotification(item.id) }">
                             <Loading v-if="isSendingAnnouncementNotification(item.id)" />
@@ -218,7 +245,7 @@
                           type="button"
                           class="inline-flex h-10 w-10 items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-primary/10 hover:text-primary"
                           title="編輯"
-                          @click="openEditDialog(item)"
+                          @click.stop="openEditDialog(item)"
                         >
                           <el-icon><EditPen /></el-icon>
                         </button>
@@ -227,7 +254,7 @@
                           type="button"
                           class="inline-flex h-10 w-10 items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
                           title="刪除"
-                          @click="confirmDelete(item.id)"
+                          @click.stop="confirmDelete(item.id)"
                         >
                           <el-icon><Delete /></el-icon>
                         </button>
@@ -352,6 +379,61 @@
         </div>
       </template>
     </el-dialog>
+
+    <el-dialog
+      v-model="detailDialogVisible"
+      :title="selectedAnnouncement?.is_pinned ? '置頂公告' : '系統公告'"
+      width="90%"
+      style="max-width: 680px; border-radius: 16px;"
+      destroy-on-close
+      class="custom-dialog announcement-detail-dialog"
+      @closed="selectedAnnouncement = null"
+    >
+      <div v-if="selectedAnnouncement" class="-mt-1 pb-2">
+        <div class="mb-4 flex flex-wrap items-center gap-2">
+          <span class="inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-xs font-black text-gray-500">
+            {{ dayjs(selectedAnnouncement.created_at).format('YYYY年 MM月 DD日 HH:mm') }}
+          </span>
+          <span
+            v-if="selectedAnnouncement.is_pinned"
+            class="inline-flex items-center gap-1 rounded-full bg-red-500 px-3 py-1 text-xs font-black text-white shadow-sm"
+          >
+            <el-icon><StarFilled /></el-icon>
+            置頂
+          </span>
+        </div>
+
+        <h3 class="mb-5 text-2xl font-black leading-tight text-slate-800">{{ selectedAnnouncement.title }}</h3>
+
+        <div
+          v-if="selectedAnnouncement.image_url"
+          class="mb-6 flex max-h-[360px] items-center justify-center overflow-hidden rounded-2xl border border-gray-100 bg-gray-50 shadow-sm"
+        >
+          <PreviewableImage
+            :src="selectedAnnouncement.image_url"
+            :alt="`${selectedAnnouncement.title} 封面圖片`"
+            fit="contain"
+            class="h-full w-full"
+          />
+        </div>
+
+        <div class="max-h-[42dvh] overflow-y-auto whitespace-pre-line pr-2 text-[15px] font-medium leading-7 text-gray-700 custom-scrollbar">
+          {{ selectedAnnouncement.content || '尚未填寫內文' }}
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="flex justify-end border-t border-gray-100 pt-4">
+          <button
+            type="button"
+            class="rounded-2xl bg-primary px-6 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-primary-hover active:scale-95"
+            @click="closeAnnouncementDetail"
+          >
+            關閉視窗
+          </button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -371,7 +453,8 @@ import {
   Picture,
   Plus,
   StarFilled,
-  UploadFilled
+  UploadFilled,
+  View
 } from '@element-plus/icons-vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
@@ -406,9 +489,11 @@ const isLoading = ref(true)
 const isSubmitting = ref(false)
 const announcements = ref<Announcement[]>([])
 const dialogVisible = ref(false)
+const detailDialogVisible = ref(false)
 const isEditing = ref(false)
 const viewMode = ref<ViewMode>('card')
 const sendingNotificationIds = ref<string[]>([])
+const selectedAnnouncement = ref<Announcement | null>(null)
 
 const selectedFile = ref<File | null>(null)
 const imagePreview = ref('')
@@ -424,8 +509,9 @@ const form = reactive({
 const canCreateAnnouncements = computed(() => permissionsStore.can('announcements', 'CREATE'))
 const canEditAnnouncements = computed(() => permissionsStore.can('announcements', 'EDIT'))
 const canDeleteAnnouncements = computed(() => permissionsStore.can('announcements', 'DELETE'))
+const canViewAnnouncements = computed(() => permissionsStore.can('announcements', 'VIEW'))
 const canSendAnnouncementNotifications = computed(() =>
-  canCreateAnnouncements.value || canEditAnnouncements.value
+  canViewAnnouncements.value && (canCreateAnnouncements.value || canEditAnnouncements.value)
 )
 const highlightedAnnouncementId = computed(() =>
   typeof route.query.highlight_announcement_id === 'string'
@@ -497,6 +583,12 @@ const buildAnnouncementNotification = (item: Announcement) => ({
 })
 
 const fetchAnnouncements = async () => {
+  if (!canViewAnnouncements.value) {
+    announcements.value = []
+    isLoading.value = false
+    return
+  }
+
   isLoading.value = true
   try {
     const { data, error } = await supabase
@@ -541,6 +633,21 @@ const openEditDialog = (item: Announcement) => {
   form.is_pinned = item.is_pinned
   form.image_url = item.image_url
   dialogVisible.value = true
+}
+
+const openAnnouncementDetail = (item: Announcement) => {
+  if (!canViewAnnouncements.value) {
+    ElMessage.error('沒有查看公告權限')
+    return
+  }
+
+  selectedAnnouncement.value = item
+  detailDialogVisible.value = true
+}
+
+const closeAnnouncementDetail = () => {
+  detailDialogVisible.value = false
+  selectedAnnouncement.value = null
 }
 
 const handleFileSelect = (event: Event) => {
