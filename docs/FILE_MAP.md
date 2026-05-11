@@ -27,10 +27,13 @@
 | --- | --- |
 | `AGENT.md` | AI / Codex 必讀入口規則 |
 | `AGENTS.md` | 指向 `AGENT.md` 的相容入口 |
+| `.geminirules` | Gemini / Antigravity 相容入口，指向 `AGENT.md` |
 | `AI_SKILLS.md` | repo 內 Codex skills 索引 |
 | `.codex/skills/*/SKILL.md` | 任務型 workflow |
 | `docs/PROJECT_LOGIC.md` | 功能邏輯與資料流 |
 | `docs/FILE_MAP.md` | 重要檔案地圖 |
+| `docs/MIGRATIONS.md` | migration、hotfix、repair 索引 |
+| `docs/EDGE_FUNCTIONS.md` | Edge Functions、外部服務與環境變數索引 |
 
 規則：新增 route-level 頁面時，要同步更新本檔 Views、Services / Types / Utils 對照、`docs/PROJECT_LOGIC.md` 功能邏輯，以及對應 `.codex/skills/<feature>/SKILL.md`；若沒有對應 skill，需建立或說明併入既有 skill 的理由。
 
@@ -56,6 +59,7 @@
 | `src/stores/auth.ts` | Session、profile、登入登出、last seen | `src/services/supabase.ts`、`src/stores/permissions.ts` |
 | `src/stores/permissions.ts` | 角色權限讀取與 `can()` | `app_role_permissions` |
 | `src/stores/playerRoster.ts` | 球員名單 session 內快取與版本檢查 | `src/services/playerRosterApi.ts`、`get_team_members_cache_meta()` |
+| `src/stores/teamGroups.ts` | team group 設定、排序與共用選項 | `src/services/teamGroupsApi.ts`、`src/utils/teamGroups.ts` |
 | `src/stores/matches.ts` | 賽事資料狀態 | `src/services/matchesApi.ts` |
 | `src/stores/equipment.ts` | 裝備主檔、交易、庫存狀態 | `src/services/equipmentApi.ts` |
 | `src/stores/equipmentRequests.ts` | 裝備加購申請 / 審核狀態 | `src/services/equipmentApi.ts` |
@@ -74,11 +78,16 @@
 | `src/services/playerBalances.ts` | 球員餘額 RPC | `player_balance_transactions`、餘額查詢 / 調整 |
 | `src/services/myPlayerRecords.ts` | 我的成績 RPC | `list_my_player_record_members()`、`get_my_player_match_records()` |
 | `src/services/playerRosterApi.ts` | 球員名單查詢與 cache meta RPC | `team_members` / `team_members_safe` / `get_team_members_cache_meta()` |
+| `src/services/teamGroupsApi.ts` | team group 設定 RPC | `team_group_settings` 相關 RPC |
 | `src/services/matchesApi.ts` | 賽事 CRUD | `matches` |
+| `src/services/matchAudioApi.ts` | 比賽語音轉紀錄 Edge Function 呼叫 | `transcribe-match-audio` |
+| `src/services/matchFees.ts` | 比賽費付款與審核 RPC | `match_fee_items` / `match_payment_submissions` |
+| `src/services/weatherApi.ts` | 賽事 / 首頁天氣預報與地點解析 | `resolve-location`、Open-Meteo |
 | `src/services/trainingApi.ts` | 特訓報名、點數、特訓點名 RPC | `training_*` / `player_point_transactions` / `attendance_events.training_session_id` |
 | `src/services/trainingLocationsApi.ts` | 場地與人員配置 RPC | `training_location_*` / `training_venues` |
 | `src/services/equipmentApi.ts` | 裝備、加購、付款、庫存 API | 裝備 tables / RPC / `equipments` bucket |
 | `src/services/performanceApi.ts` | 棒球能力 / 體測 API | performance tables / RPC |
+| `src/services/feeManagementReminders.ts` | 費用管理提醒 RPC | `get_fee_management_reminders()` |
 | `src/services/supabase.ts` | Supabase client | env vars |
 
 ## 6. Composables
@@ -100,6 +109,13 @@
 | `src/utils/trainingRegistrationNotification.ts` | 特訓報名開始 / 截止前提醒文案、URL、event key |
 | `src/utils/trainingLocationNotification.ts` | 場地通知文案、URL、event key、收件分組 |
 | `src/utils/googleCalendarParser.ts` | Google Calendar / iCal parser 與同步規劃 |
+| `src/utils/matchCalendarCopy.ts` | Google Calendar / 賽事複製文字 |
+| `src/utils/matchReminderNotification.ts` | 賽事提醒文案、URL、event key |
+| `src/utils/matchFieldEditor.ts` | 陣容守位 normalize、拖曳與隱藏名單 |
+| `src/utils/lineupPhotoParser.ts` | 陣容照片壓縮 / data URL 前處理 |
+| `src/utils/liveMatchScoreboard.ts` | 即時比賽記分板狀態 |
+| `src/utils/matchAudioTranscription.ts` | 語音轉比賽紀錄 normalize / unresolved players |
+| `src/utils/matchAudioDraftStore.ts` | 語音草稿 IndexedDB 儲存 |
 | `src/utils/equipmentInventory.ts` | 裝備庫存計算 |
 | `src/utils/equipmentPricing.ts` | 裝備價格計算 |
 | `src/utils/equipmentRequestStatus.ts` | 裝備申請狀態規則 |
@@ -107,16 +123,22 @@
 | `src/utils/monthlyFeeSettlement.ts` | 月費結算 |
 | `src/utils/quarterlyFeeFamilies.ts` | 季費家庭分組與金額 |
 | `src/utils/playerBalance.ts` | 球員餘額扣抵金額與顯示文字 |
+| `src/utils/paymentMethods.ts` | 付款方式與顯示文字 |
+| `src/utils/feeManagementReminders.ts` | 費用提醒摘要純邏輯 |
 | `src/utils/siblingGroups.ts` | 手足 / 家庭分組 |
+| `src/utils/teamGroups.ts` | team group normalize、排序與樣式 |
 | `src/utils/performanceConfig.ts` | 能力 / 體測欄位與圖表設定 |
 | `src/utils/holidayMotionLayout.ts` | 節日動畫版位 |
 | `src/utils/profileAccess.ts` | profile 可登入狀態判斷 |
 | `src/utils/supabaseRpc.ts` | RPC missing fallback helper |
 | `src/utils/csvExport.ts` | CSV 匯出 |
 | `src/utils/imageCompressor.ts` | 圖片壓縮 |
+| `src/utils/externalUrl.ts` | 外部連結正規化 |
+| `src/utils/passkeySupport.ts` | passkey 支援度檢查 |
 | `src/utils/leaveRequests.ts` | 假單工具邏輯 |
 | `src/utils/training.ts` | 特訓狀態 label、報名可送出 / 禁用原因、錄取名單 normalize |
 | `src/utils/dashboardHome.ts` | 後台首頁摘要與 hero match 邏輯 |
+| `src/utils/myHomeSnapshot.ts` | 個人首頁 snapshot todo / 今日摘要組裝 |
 
 ## 8. Views
 
@@ -174,6 +196,17 @@
 | `src/components/fees/QuarterlyFees.vue` | 季費管理，排除固定月繳球員 |
 | `src/components/fees/ProfilePaymentSubmissionInbox.vue` | 個人付款回報審核 |
 | `src/components/fees/PlayerBalanceManager.vue` | 球員餘額管理與流水帳 |
+| `src/components/fees/MatchFeeManagementPanel.vue` | 比賽費項目管理與付款狀態 |
+| `src/components/fees/MatchPaymentSubmissionInbox.vue` | 比賽費付款回報審核 |
+| `src/components/fees/MyMatchFeesPanel.vue` | 個人比賽費付款面板 |
+| `src/components/fees/FeeManagementReminderPanel.vue` | 費用管理提醒 |
+
+### Payments
+
+| 檔案 | 用途 |
+| --- | --- |
+| `src/components/payments/PaymentAccountInfoCard.vue` | 付款帳戶資訊卡 |
+| `src/components/payments/PaymentSubmissionSummary.vue` | 付款回報金額 / 餘額扣抵摘要 |
 
 ### Match Records
 
@@ -183,9 +216,11 @@
 | `src/components/match-records/MatchDetailDialog.vue` | 比賽詳情 |
 | `src/components/match-records/SyncCalendarDialog.vue` | Google Calendar / iCal 同步 |
 | `src/components/match-records/MatchLineupTab.vue` | 陣容 |
+| `src/components/match-records/MatchFieldEditor.vue` | 視覺化守位編輯 |
 | `src/components/match-records/MatchAttendanceStatsTab.vue` | 出席統計 |
 | `src/components/match-records/MatchTournamentStatsTab.vue` | 盃賽統計 |
 | `src/components/match-records/MatchLiveController.vue` | 即時比賽控制 |
+| `src/components/match-records/MatchAudioRecorder.vue` | 比賽語音錄製與轉紀錄 |
 | `src/components/match-records/VisualField.vue` | 視覺化球場 |
 | `src/components/match-records/MatchesGrid.vue` | 賽事卡片列表 |
 | `src/components/match-records/MatchesTable.vue` | 賽事表格 |
@@ -209,6 +244,12 @@
 | `src/components/layout/HolidayThemeSiteEffects.vue` | 全站節日動畫 |
 | `src/components/settings/HolidayThemePreviewStage.vue` | 後台節日預覽 |
 
+### Players
+
+| 檔案 | 用途 |
+| --- | --- |
+| `src/components/players/TeamGroupSettingsDialog.vue` | team group 新增、改名、排序與刪除轉移 |
+
 ## 10. Types
 
 | 檔案 | 用途 |
@@ -217,12 +258,16 @@
 | `src/types/equipment.ts` | 裝備管理型別 |
 | `src/types/leaveRequests.ts` | 我的假單型別 |
 | `src/types/match.ts` | 賽事型別 |
+| `src/types/matchFees.ts` | 比賽費與付款回報型別 |
 | `src/types/myHome.ts` | 個人首頁 snapshot 型別 |
 | `src/types/payments.ts` | 個人付款型別 |
 | `src/types/playerBalances.ts` | 球員餘額型別 |
 | `src/types/performance.ts` | 能力 / 體測型別 |
 | `src/types/publicLanding.ts` | 公開首頁 snapshot 型別 |
+| `src/types/teamGroup.ts` | team group 設定型別 |
 | `src/types/training.ts` | 特訓報名、點數、管理審核型別 |
+| `src/types/trainingLocation.ts` | 場地與人員配置型別 |
+| `src/types/feeManagementReminders.ts` | 費用提醒型別 |
 
 ## 11. Supabase Migrations
 
@@ -233,7 +278,7 @@
 | 公開首頁 / Dashboard | `supabase_dashboard_snapshot_migration.sql`、`supabase_my_home_snapshot_migration.sql`、`supabase_zz_my_home_training_points_migration.sql` |
 | 假單 | `supabase_my_leave_requests_migration.sql` |
 | 個人成績 | `supabase_my_player_records_migration.sql` |
-| 收費 / 付款 | `supabase_fees_migration.sql`、`supabase_quarterly_fees_migration.sql`、`supabase_profile_payment_submissions_migration.sql`、`supabase_player_balance_transactions_migration.sql`、`supabase_fixed_monthly_billing_migration.sql` |
+| 收費 / 付款 | `supabase_fees_migration.sql`、`supabase_quarterly_fees_migration.sql`、`supabase_profile_payment_submissions_migration.sql`、`supabase_player_balance_transactions_migration.sql`、`supabase_fixed_monthly_billing_migration.sql`、`supabase_match_fees_migration.sql`、`supabase_fee_management_reminders_migration.sql` |
 | 裝備 | `supabase_equipment_management_migration.sql`、`supabase_equipment_inventory_adjustments_migration.sql`、`supabase_equipment_manual_purchase_records_migration.sql`、`supabase_equipment_multiple_photos_migration.sql`、`supabase_zzzzzz_equipment_inventory_snapshot_rpc_migration.sql` |
 | 能力 / 體測 | `supabase_performance_data_migration.sql`、`supabase_performance_view_scope_migration.sql` |
 | 特訓 / 點數 | `supabase_training_points_migration.sql`、`supabase_zz_training_point_transaction_delete_migration.sql`、`supabase_zz_training_registration_notifications_migration.sql` |
@@ -242,7 +287,7 @@
 | 推播 | `supabase_web_push_subscriptions_migration.sql`、`supabase_push_dispatch_events_migration.sql`、`supabase_match_reminder_notifications_migration.sql` |
 | 節日主題 | `supabase_holiday_theme_migration.sql` |
 
-注意：同一 function / policy 可能在後續 migration 被覆寫。修改 DB 規則前要用 `rg` 查所有同名 function / policy。
+完整 migration / hotfix / repair 索引請讀 `docs/MIGRATIONS.md`。注意：同一 function / policy 可能在後續 migration 被覆寫。修改 DB 規則前要用 `rg` 查所有同名 function / policy。
 
 ## 12. Supabase Edge Functions
 
@@ -260,6 +305,11 @@
 | `supabase/functions/leave-webhook/index.ts` | 請假 webhook |
 | `supabase/functions/record-fee-remittance/index.ts` | 繳費匯款紀錄 |
 | `supabase/functions/parse-lineup/index.ts` | 陣容解析 |
+| `supabase/functions/transcribe-match-audio/index.ts` | 比賽語音轉文字與結構化紀錄 |
+| `supabase/functions/resolve-location/index.ts` | 地點 geocoding |
+| `supabase/functions/resolve-location/logic.ts` | 地點解析純邏輯 |
+
+完整 Edge Function / env 索引請讀 `docs/EDGE_FUNCTIONS.md`。
 
 ## 13. Scripts
 
@@ -278,16 +328,30 @@
 
 - `src/stores/auth.test.ts`
 - `src/services/matchesApi.test.ts`
+- `src/services/weatherApi.test.ts`
 - `src/services/publicLanding.test.ts`
 - `src/utils/playerSync.test.ts`
+- `src/stores/playerRoster.test.ts`
+- `src/stores/teamGroups.test.ts`
 - `src/utils/pushNotifications.test.ts`
 - `src/utils/googleCalendarParser.test.ts`
+- `src/utils/matchFieldEditor.test.ts`
+- `src/utils/liveMatchScoreboard.test.ts`
+- `src/utils/matchAudioTranscription.test.ts`
+- `src/utils/lineupPhotoParser.test.ts`
+- `src/utils/leaveRequests.test.ts`
+- `src/utils/memberBilling.test.ts`
+- `src/utils/monthlyFeeSettlement.test.ts`
+- `src/utils/quarterlyFeeFamilies.test.ts`
+- `src/utils/playerBalance.test.ts`
+- `src/utils/feeManagementReminders.test.ts`
 - `src/utils/equipmentInventory.test.ts`
 - `src/utils/equipmentPricing.test.ts`
 - `src/utils/equipmentRequestStatus.test.ts`
 - `src/composables/useHolidayTheme.test.ts`
 - `src/views/HolidayThemeSettingsView.test.ts`
 - `supabase/functions/notify-holiday-theme/logic.test.ts`
+- `supabase/functions/resolve-location/logic.test.ts`
 
 驗證指令以 `AGENT.md` 的驗證矩陣為準。
 
@@ -298,7 +362,8 @@
 - 改跨頁狀態：看 `src/stores/*`。
 - 改純邏輯或同步規則：看 `src/utils/*` 與同名 test。
 - 改權限：看 `src/router/index.ts`、`src/stores/permissions.ts`、`RolePermissionsManager.vue`、migration。
-- 改 DB 安全：先 `rg` function / policy 名稱，確認後續 migration 沒有覆寫。
+- 改 DB 安全：先讀 `docs/MIGRATIONS.md`，再 `rg` function / policy 名稱，確認後續 migration 沒有覆寫。
+- 改 Edge Function：先讀 `docs/EDGE_FUNCTIONS.md`，確認 env、auth 與對應 skill。
 - 改推播：看 `src/utils/pushNotifications.ts`、`send-push-notification`、`_shared/push.ts`。
 - 改排程通知：看對應 Edge Function、`push_dispatch_events` event key、`get_notification_feed()` 是否同步顯示。
 - 改公開頁資料：優先找 public RPC，不要直接查 raw table。

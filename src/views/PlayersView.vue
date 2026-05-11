@@ -34,7 +34,7 @@
         <div class="players-search-field w-full sm:w-auto flex-1 min-w-[180px] max-w-md transition-all duration-300">
           <el-input
             v-model="searchQuery"
-            placeholder="搜尋姓名..."
+            placeholder="搜尋姓名或學校..."
             :prefix-icon="Search"
             clearable
           />
@@ -133,6 +133,12 @@
           <el-table-column prop="joined_date" label="加入時間" width="115" sortable>
             <template #default="{ row }">
               <span v-if="row.joined_date" class="font-bold text-gray-800 text-[13px] md:text-sm">{{ row.joined_date }}</span>
+              <span v-else class="text-gray-300">-</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="school_name" label="就讀學校" min-width="130" sortable>
+            <template #default="{ row }">
+              <span v-if="row.school_name" class="font-bold text-slate-700 text-[13px] md:text-sm">{{ row.school_name }}</span>
               <span v-else class="text-gray-300">-</span>
             </template>
           </el-table-column>
@@ -270,6 +276,13 @@
                   <span v-else class="text-gray-300">-</span>
                 </div>
                 <div class="min-w-0">
+                  <span class="block text-[10px] font-bold text-slate-400 mb-0.5">就讀學校</span>
+                  <span v-if="member.school_name" class="block font-bold text-slate-800 truncate">
+                    {{ member.school_name }}
+                  </span>
+                  <span v-else class="text-gray-300">-</span>
+                </div>
+                <div class="min-w-0">
                   <span class="block text-[10px] font-bold text-slate-400 mb-0.5">球衣名字</span>
                   <span v-if="member.jersey_name" class="block font-bold text-slate-800 truncate">
                     {{ member.jersey_name }}
@@ -386,6 +399,19 @@
             </el-form-item>
             <el-form-item label="加入時間" prop="joined_date" class="font-bold mb-0">
               <el-date-picker v-model="form.joined_date" type="date" placeholder="選擇加入時間" format="YYYY-MM-DD" value-format="YYYY-MM-DD" class="!w-full" />
+            </el-form-item>
+            <el-form-item label="就讀學校" prop="school_name" class="font-bold mb-0" v-if="form.role === '球員' || form.role === '校隊'">
+              <el-select
+                v-model="form.school_name"
+                class="w-full"
+                filterable
+                allow-create
+                clearable
+                default-first-option
+                placeholder="選擇或輸入學校"
+              >
+                <el-option v-for="schoolName in schoolNameOptions" :key="schoolName" :label="schoolName" :value="schoolName" />
+              </el-select>
             </el-form-item>
             <el-form-item v-if="canEditPlayers" label="身分證字號" prop="national_id" class="font-bold mb-0">
               <el-input v-model="form.national_id" placeholder="身分證字號" />
@@ -976,6 +1002,7 @@ const playerExportColumns = computed<PlayerExportColumn[]>(() => [
   { key: 'birth_date', label: '生日(西元)', basic: true, sourceKeys: ['birth_date'], getValue: (member) => member.birth_date },
   { key: 'roc_birth_date', label: '生日(民國)', basic: true, getValue: (member) => getROCDate(member.birth_date) },
   { key: 'joined_date', label: '加入時間', basic: true, sourceKeys: ['joined_date'], getValue: (member) => member.joined_date },
+  { key: 'school_name', label: '就讀學校', basic: true, sourceKeys: ['school_name'], getValue: (member) => member.school_name },
   { key: 'national_id', label: '身分證字號', sensitive: true, sourceKeys: ['national_id'], getValue: (member) => member.national_id },
   { key: 'throwing_hand', label: '投球習慣', basic: true, sourceKeys: ['throwing_hand'], getValue: (member) => member.throwing_hand },
   { key: 'batting_hand', label: '打擊習慣', basic: true, sourceKeys: ['batting_hand'], getValue: (member) => member.batting_hand },
@@ -1145,7 +1172,11 @@ const filteredMembers = computed(() => {
   
   if (searchQuery.value) {
     const q = searchQuery.value.toLowerCase().trim()
-    result = result.filter(m => m.name && m.name.toLowerCase().includes(q))
+    result = result.filter((m) => {
+      const name = String(m.name || '').toLowerCase()
+      const schoolName = String(m.school_name || '').toLowerCase()
+      return name.includes(q) || schoolName.includes(q)
+    })
   }
   
   // 預設排序：將陣列由高 U-level 至低 U-level 排序
@@ -1207,6 +1238,7 @@ const createInitialForm = () => ({
   jersey_size: '',
   birth_date: '',
   joined_date: getTodayDateInputValue(),
+  school_name: '',
   is_early_enrollment: false,
   is_inactive_or_graduated: false,
   is_primary_payer: false,
@@ -1227,6 +1259,18 @@ const createInitialForm = () => ({
 })
 
 const form = reactive(createInitialForm())
+
+const normalizeSchoolName = (value: unknown) => String(value || '').trim()
+
+const schoolNameOptions = computed(() =>
+  Array.from(
+    new Set(
+      members.value
+        .map((member) => normalizeSchoolName(member.school_name))
+        .filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b, 'zh-TW'))
+)
 
 const rules = computed(() => ({
   name: [{ required: true, message: '請填寫姓名', trigger: 'blur' }],
@@ -1866,6 +1910,10 @@ const submitForm = async () => {
     } else {
       payload.team_group = null
     }
+
+    payload.school_name = isTeamGroupEligibleRole(payload.role)
+      ? normalizeSchoolName(payload.school_name) || null
+      : null
 
     payload.fee_billing_mode = payload.role === '球員'
       ? normalizeMemberFeeBillingMode(payload.fee_billing_mode)

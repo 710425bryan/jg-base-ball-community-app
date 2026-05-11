@@ -35,6 +35,12 @@
 - 用途：球員同步、Google Form / Sheet 匯入、去重與收費旗標保護。
 - 典型情境：調整 roster sync、修改 `team_members` 匯入邏輯、保留 `is_primary_payer` / `is_half_price` / `fee_billing_mode`。
 
+### `jg-baseball-roster-users-team-groups`
+
+- 路徑：`.codex/skills/jg-baseball-roster-users-team-groups/SKILL.md`
+- 用途：球員名單日常管理、使用者 profile、綁定球員、team group、名單快取與敏感欄位。
+- 典型情境：修改 `PlayersView`、`UsersView`、`TeamGroupSettingsDialog`、`playerRoster`、`teamGroups`、`linked_team_member_ids`、`team_members_safe`、`joined_date`、`team_group`、或完整個資欄位。
+
 ### `jg-baseball-push-notifications`
 
 - 路徑：`.codex/skills/jg-baseball-push-notifications/SKILL.md`
@@ -47,6 +53,18 @@
 - 用途：Google Calendar / iCal 賽事同步與 parser 規則。
 - 典型情境：調整 `google_calendar_event_id` fallback、修改比賽匯入、更新 sync UI。
 
+### `jg-baseball-match-records-media`
+
+- 路徑：`.codex/skills/jg-baseball-match-records-media/SKILL.md`
+- 用途：賽程詳情、比賽紀錄、陣容、照片、即時比賽、語音轉紀錄、天氣與賽事提醒。
+- 典型情境：修改 `/calendar`、`/match-records`、`src/components/match-records/*`、`matchesApi`、`MatchAudioRecorder`、`parse-lineup`、`transcribe-match-audio`、`resolve-location`、`weatherApi`、或 `matches-photos`。
+
+### `jg-baseball-leave-attendance`
+
+- 路徑：`.codex/skills/jg-baseball-leave-attendance/SKILL.md`
+- 用途：我的請假、後台請假、點名列表、單場點名、今日點名摘要與請假 webhook。
+- 典型情境：修改 `/my-leave-requests`、`/leave-requests`、`/attendance`、`/attendance/:id`、`leave_requests`、`attendance_events`、`attendance_records`、`leave-webhook`、或 `get_dashboard_today_attendance_status()`。
+
 ### `jg-baseball-training`
 
 - 路徑：`.codex/skills/jg-baseball-training/SKILL.md`
@@ -58,6 +76,12 @@
 - 路徑：`.codex/skills/jg-baseball-training-locations/SKILL.md`
 - 用途：訓練場地與人員配置、分組快速帶入、個人首頁本週場地、場地通知。
 - 典型情境：修改 `/training-locations`、`training_venues`、`training_location_sessions`、`training_location_assignments`、`send-training-location-notifications`、或 `training_locations` 權限。
+
+### `jg-baseball-finance-payments`
+
+- 路徑：`.codex/skills/jg-baseball-finance-payments/SKILL.md`
+- 用途：收費、付款回報、球員餘額、比賽費、匯款表單匯入與費用提醒。
+- 典型情境：修改 `/fees`、`/my-payments`、`src/components/fees/*`、`myPayments`、`playerBalances`、`matchFees`、`feeManagementReminders`、`record-fee-remittance`、或 Google Form 匯款 Apps Script。
 
 ### `jg-baseball-equipment-management`
 

@@ -7,7 +7,8 @@
 1. 先讀 `AGENT.md`。
 2. 要理解整體功能資料流時讀本檔。
 3. 要定位檔案時讀 `docs/FILE_MAP.md`。
-4. 真正修改前再讀對應 `.codex/skills/*/SKILL.md` 與任務相關程式碼。
+4. 涉及 DB 時讀 `docs/MIGRATIONS.md`；涉及 Edge Function / env 時讀 `docs/EDGE_FUNCTIONS.md`。
+5. 真正修改前再讀對應 `.codex/skills/*/SKILL.md` 與任務相關程式碼。
 
 ## 1. 系統總覽
 
@@ -162,9 +163,13 @@ UI 約定：
 - `src/views/UsersView.vue`
 - `src/components/RolePermissionsManager.vue`
 - `src/stores/playerRoster.ts`
+- `src/stores/teamGroups.ts`
 - `src/services/playerRosterApi.ts`
+- `src/services/teamGroupsApi.ts`
 - `src/utils/playerSync.ts`
 - `src/utils/profileAccess.ts`
+- `src/utils/teamGroups.ts`
+- `src/components/players/TeamGroupSettingsDialog.vue`
 
 主要資料：
 
@@ -173,6 +178,7 @@ UI 約定：
 - `profiles`
 - `app_roles`
 - `app_role_permissions`
+- `team_group_settings`
 
 資料流：
 
@@ -183,6 +189,8 @@ UI 約定：
 - 使用者新增 / 更新 / 刪除走 admin RPC，例如 `admin_insert_profile()`、`admin_update_profile()`、`admin_delete_user()`。
 - 角色權限 UI 讀寫 `app_roles`、`app_role_permissions`。
 - `team_members.joined_date` 記錄球員加入時間；既有名單無歷史資料時回填 `2026-02-01`，新建資料預設為台灣當天日期。
+- team group 設定使用 `teamGroups` store 與 `teamGroupsApi`；新增、改名、排序、刪除轉移都要同步影響 `PlayersView`、`TrainingView`、`TrainingLocationsView`、`LeaveRequestsView`、`RollCallView` 的組別選項。
+- 非 eligible role 不應保留 team group；刪除組別時要有轉移或清理策略。
 
 同步規則：
 
@@ -199,7 +207,10 @@ UI 約定：
 - `src/views/LeaveRequestsView.vue`
 - `src/views/AttendanceListView.vue`
 - `src/views/RollCallView.vue`
+- `src/services/myLeaveRequests.ts`
+- `src/services/dashboardAttendance.ts`
 - `src/utils/leaveRequests.ts`
+- `supabase/functions/leave-webhook/index.ts`
 
 主要資料：
 
@@ -214,6 +225,8 @@ UI 約定：
 - 點名事件使用 `attendance_events`。
 - 單場點名紀錄使用 `attendance_records`。
 - 點名頁會參照球員名單與當日請假資料。
+- 外部請假 webhook 會處理 member match、建立假單與通知，必須檢查 secret、payload normalize 與推播 target。
+- 今日訓練點名摘要走 `get_dashboard_today_attendance_status()`，只顯示給 `leave_requests:VIEW`。
 
 重要規則：
 
@@ -228,16 +241,30 @@ UI 約定：
 - `src/views/CalendarView.vue`
 - `src/views/MatchRecordsView.vue`
 - `src/services/matchesApi.ts`
+- `src/services/matchAudioApi.ts`
+- `src/services/weatherApi.ts`
 - `src/stores/matches.ts`
 - `src/types/match.ts`
 - `src/utils/googleCalendarParser.ts`
+- `src/utils/matchRecordStats.ts`
+- `src/utils/matchFieldEditor.ts`
+- `src/utils/liveMatchScoreboard.ts`
+- `src/utils/lineupPhotoParser.ts`
+- `src/utils/matchAudioTranscription.ts`
+- `src/utils/matchAudioDraftStore.ts`
+- `src/utils/matchReminderNotification.ts`
 - `src/components/match-records/*`
+- `supabase/functions/parse-lineup/index.ts`
+- `supabase/functions/transcribe-match-audio/index.ts`
+- `supabase/functions/resolve-location/*`
+- `supabase/functions/send-match-reminders/index.ts`
 
 主要資料：
 
 - `matches`
 - `attendance_records`
 - `team_members_safe`
+- `location_geocoding_cache`
 - Storage bucket：`matches-photos`
 
 資料流：
@@ -246,11 +273,17 @@ UI 約定：
 - Google Calendar / iCal parser 負責把外部日曆轉成 match payload。
 - 同步規劃維持 `create`、`update`、`skip` 三種結果。
 - 比賽紀錄元件處理陣容、照片、出席統計、賽事細節與 live controller。
+- `/calendar?match_id=...` 會開啟 `MatchDetailDialog`；推播與通知的比賽詳情 URL 統一導向這條路徑。
+- 陣容照片解析會先在前端壓縮 / 轉 data URL，再呼叫 `parse-lineup`，AI 結果需要 normalize 與 unresolved flow。
+- 比賽語音轉紀錄使用 IndexedDB 保存草稿與音檔 chunks，再呼叫 `transcribe-match-audio` 產生結構化事件。
+- 天氣預報優先透過 `resolve-location` 解析場地座標，外部 API 失敗時回到前端 fallback。
 
 重要規則：
 
 - 保留 `google_calendar_event_id` 欄位缺失時的 fallback。
 - 同步比對先用 `google_calendar_event_id`，再用日期 + 時間 + 標題 fallback。
+- `parse-lineup` 與 `transcribe-match-audio` 使用 service role 時，必須先驗證 bearer user，再用 user scoped client 檢查 `matches:CREATE` 或 `matches:EDIT`。
+- AI 不可把沒有在照片 / 語音中明確出現的球員硬塞進陣容或紀錄。
 
 ## 10. 特訓報名與球員點數
 
@@ -335,13 +368,21 @@ UI 約定：
 - `src/components/fees/QuarterlyFees.vue`
 - `src/components/fees/ProfilePaymentSubmissionInbox.vue`
 - `src/components/fees/PlayerBalanceManager.vue`
+- `src/components/fees/MatchFeeManagementPanel.vue`
+- `src/components/fees/MatchPaymentSubmissionInbox.vue`
+- `src/components/fees/MyMatchFeesPanel.vue`
+- `src/components/fees/FeeManagementReminderPanel.vue`
 - `src/services/myPayments.ts`
 - `src/services/playerBalances.ts`
+- `src/services/matchFees.ts`
+- `src/services/feeManagementReminders.ts`
 - `src/utils/memberBilling.ts`
 - `src/utils/monthlyFeeSettlement.ts`
 - `src/utils/quarterlyFeeFamilies.ts`
 - `src/utils/playerBalance.ts`
 - `src/utils/siblingGroups.ts`
+- `supabase/functions/record-fee-remittance/index.ts`
+- `scripts/google-form-remittance-apps-script.js`
 
 主要資料：
 
@@ -350,6 +391,9 @@ UI 約定：
 - `quarterly_fees`
 - `profile_payment_submissions`
 - `player_balance_transactions`
+- `match_fee_items`
+- `match_payment_submissions`
+- `match_payment_submission_items`
 
 資料流：
 
@@ -359,14 +403,18 @@ UI 約定：
 - 個人付款回報由 `myPayments` RPC 建立，可選用球員餘額；一般繳費與裝備付款都在管理端確認時才正式扣餘額。
 - 球員餘額以 `player_balance_transactions` 流水帳計算，管理員可手動調整，付款審核時可把溢繳轉入餘額。
 - sibling / family grouping 與季費家庭金額計算在 utils。
+- 比賽費由 `matches.match_fee_amount` 產生 `match_fee_items`，家長可在 `/my-payments` 合併回報，管理端在 `/fees` 審核。
+- 費用提醒由 `get_fee_management_reminders()` 與 `get_notification_feed()` 整合進通知中心。
+- Google Form 匯款資料走 `record-fee-remittance`，以 secret 驗證並建立付款 / 通知資料。
 
 重要規則：
 
 - 餘額屬於 `team_members`，不可扣成負數；家長只能看與使用自己綁定球員的餘額。
 - 修改付款或費用要檢查 sibling、primary payer、half price 與固定月繳排除規則。
 - 裝備付款回報在 `/my-payments` 與 `/fees?tab=equipment` 整合，但不要混入一般月費資料模型。
+- 比賽費付款回報在 UI 上可與一般付款合併，但資料模型仍使用 `match_payment_submissions`。
 
-## 12. 裝備管理與加購
+## 13. 裝備管理與加購
 
 主要檔案：
 
@@ -412,7 +460,7 @@ UI 約定：
 - 裝備圖片與處理照片可多張上傳，使用 `equipments` bucket，前端顯示需支援左右滑動。
 - 不要把來源專案的 `fee_records` 或月結模型搬進本專案。
 
-## 13. 棒球能力與體能測驗
+## 14. 棒球能力與體能測驗
 
 主要檔案：
 
@@ -446,7 +494,7 @@ UI 約定：
 - RPC 不得回傳敏感欄位。
 - 新增欄位需同步 table、RPC return shape、types、表單、列表、詳情頁與圖表設定。
 
-## 14. 節日主題
+## 15. 節日主題
 
 主要檔案：
 
@@ -474,7 +522,7 @@ UI 約定：
 - 手動補送 event key：`holiday_theme:manual:<activityId>:<requestKey>`。
 - 節日通知 feature/action：`holiday_theme:VIEW`。
 
-## 15. 推播與通知中心
+## 16. 推播與通知中心
 
 主要檔案：
 
@@ -512,7 +560,7 @@ UI 約定：
 - 賽事提醒 URL 統一使用 `/calendar?match_id=<id>`；舊 `/match-records?match_id=<id>` 必須正規化到 `/calendar`，由 `CalendarView` 開啟 `MatchDetailDialog`。
 - 推播 click target 不可只靠 hash route、search param、IndexedDB 或 `postMessage`，避免 iOS PWA 關閉啟動時只開 root 或持久化延遲造成導向遺失。
 
-## 16. PWA、版本與更新
+## 17. PWA、版本與更新
 
 主要檔案：
 
@@ -535,13 +583,14 @@ UI 約定：
 - 一般功能開發不手動改 `public/version.json`。
 - 修改 router / PWA / build 時要確認更新列與 chunk error recovery。
 
-## 17. 維護本文件
+## 18. 維護本文件
 
 下列情況需要同步更新本檔：
 
 - 新增或移除路由。
 - 新增 feature/action 或改權限行為。
 - 新增資料表、RPC、Edge Function、Storage bucket。
+- 新增 migration hotfix 或外部服務 env。
 - 改公開頁資料來源。
 - 改推播 event key 或收件規則。
 - 改裝備、付款、請假、點名、球員同步等核心流程。

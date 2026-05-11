@@ -33,8 +33,12 @@ description: "Project-specific workflow for jg-base-ball-community-app. Use when
 - 不要擴散 `national_id`、`guardian_phone`、`contact_line_id` 等敏感欄位。
 - 顯示球員資料時，先確認是否該走 `team_members_safe` 等安全讀取路徑。
 - 延續現有繁體中文文案與命名，不要因個人偏好大改風格。
-- 改到球員、請假、特訓報名 / 點數、收費、賽事等核心流程時，順手檢查是否影響同步、通知、彙總或關聯資料。
+- 改到球員、請假、特訓報名 / 點數、收費、賽事等核心流程時，順手檢查是否影響同步、通知、彙總或關聯資料，並轉讀對應 feature skill。
 - 改 `/training`、特訓報名、點數管理、特訓點名或禁報流程時，先讀 `jg-baseball-training` skill。
+- 改 `/fees`、`/my-payments`、球員餘額、比賽費、匯款匯入或費用提醒時，先讀 `jg-baseball-finance-payments` skill。
+- 改 `/calendar`、`/match-records`、陣容、照片、語音、天氣或賽事提醒時，先讀 `jg-baseball-match-records-media` skill。
+- 改 `/leave-requests`、`/my-leave-requests`、`/attendance`、點名 detail 或請假 webhook 時，先讀 `jg-baseball-leave-attendance` skill。
+- 改球員名單、使用者、linked member、team group 或敏感欄位時，先讀 `jg-baseball-roster-users-team-groups` skill。
 
 ## UI 標題規則
 
@@ -56,7 +60,7 @@ description: "Project-specific workflow for jg-base-ball-community-app. Use when
 ## 回報方式
 
 - 清楚說明改了什麼、為什麼這樣改、怎麼驗證、是否還有風險。
-- 若任務其實更像權限、球員同步、推播或賽事日曆同步，轉讀對應 skill 後再繼續工作。
+- 若任務其實更像權限、球員同步、推播、賽事日曆同步、收費付款、賽事紀錄、請假點名或 roster/users/team group，轉讀對應 skill 後再繼續工作。
 ## 2026-04 Security Update
 
 - 本專案的安全邊界以 DB policy / RLS / `security definer` RPC 為主，前端顯示控制只是輔助。

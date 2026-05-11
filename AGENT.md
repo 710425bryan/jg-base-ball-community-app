@@ -37,11 +37,15 @@
 | --- | --- | --- |
 | 一般 Vue / Supabase 修改 | `jg-baseball-project-workflow` | `src/router/index.ts`、相關 `view/component/store/service/type` |
 | 登入、角色、路由守衛、feature/action | `jg-baseball-auth-permissions` | `src/router/index.ts`、`src/stores/auth.ts`、`src/stores/permissions.ts`、相關 migration |
+| 球員名單、使用者、綁定球員、team group | `jg-baseball-roster-users-team-groups` | `PlayersView.vue`、`UsersView.vue`、`TeamGroupSettingsDialog.vue`、`src/stores/playerRoster.ts`、`src/stores/teamGroups.ts` |
 | 球員名單、Google Form / Sheet 同步 | `jg-baseball-player-sync` | `src/utils/playerSync.ts`、`src/utils/playerSync.test.ts`、`PlayersView.vue` |
+| 請假、點名、今日點名摘要 | `jg-baseball-leave-attendance` | `MyLeaveRequestsView.vue`、`LeaveRequestsView.vue`、`AttendanceListView.vue`、`RollCallView.vue`、`leave-webhook/*` |
 | 推播、通知中心、eventKey、subscription | `jg-baseball-push-notifications` | `src/utils/pushNotifications.ts`、`supabase/functions/send-push-notification/*` |
+| 賽事紀錄、陣容、照片、語音、天氣 | `jg-baseball-match-records-media` | `CalendarView.vue`、`MatchRecordsView.vue`、`src/services/matchesApi.ts`、`src/components/match-records/*` |
 | Google Calendar / iCal 賽事同步 | `jg-baseball-match-calendar-sync` | `src/utils/googleCalendarParser.ts`、`src/services/matchesApi.ts`、`SyncCalendarDialog.vue` |
 | 特訓報名、球員點數、特訓點名 | `jg-baseball-training` | `src/views/TrainingView.vue`、`src/services/trainingApi.ts`、`src/utils/training.ts`、`supabase_training_points_migration.sql` |
 | 場地與人員配置 | `jg-baseball-training-locations` | `src/views/TrainingLocationsView.vue`、`src/services/trainingLocationsApi.ts`、`src/utils/trainingLocationNotification.ts`、`supabase_training_locations_migration.sql` |
+| 收費、付款、球員餘額、比賽費、匯款匯入 | `jg-baseball-finance-payments` | `FeesView.vue`、`MyPaymentsView.vue`、`src/services/myPayments.ts`、`src/services/matchFees.ts`、`src/services/playerBalances.ts` |
 | 裝備管理、加購、庫存、裝備付款 | `jg-baseball-equipment-management` | `src/types/equipment.ts`、`src/services/equipmentApi.ts`、`src/stores/equipment*.ts`、`src/components/equipment/*` |
 | 棒球能力 / 體能測驗數據 | `jg-baseball-performance-data` | `src/services/performanceApi.ts`、`src/stores/performance.ts`、`src/components/performance/*` |
 | 節日主題、全站動畫、節日推播 | `jg-baseball-holiday-theme` | `src/composables/useHolidayTheme.ts`、`HolidayThemeSettingsView.vue`、`notify-holiday-theme/*` |
@@ -73,6 +77,8 @@
 
 - `docs/PROJECT_LOGIC.md`：目前專案功能邏輯、資料流、主要資料表與 RPC 對照。
 - `docs/FILE_MAP.md`：重要檔案地圖，協助 AI 快速定位該讀或該改的檔案。
+- `docs/MIGRATIONS.md`：migration / hotfix / repair 索引，修改 DB function / policy 前必讀。
+- `docs/EDGE_FUNCTIONS.md`：Supabase Edge Functions、外部服務與環境變數索引。
 - `.codex/skills/`：專案 AI workflow。
 - `public/`：靜態資產；`public/version.json` 由 Vite plugin 維護，功能開發不手動改。
 - `dist/`、`dev-dist/`：建置產物，預設不要編輯。
@@ -152,6 +158,7 @@
 
 - 球員名單主要在 `PlayersView`，資料表為 `team_members`；同步邏輯與 dedupe 在 `src/utils/playerSync.ts`。
 - 球員名單顯示經由 `src/stores/playerRoster.ts` 做 session 內記憶體快取；進頁先呼叫 `get_team_members_cache_meta()` 比對 `team_members` 的 `row_count` / `latest_changed_at`，有差異才重新抓完整名單。
+- team group 設定經由 `src/stores/teamGroups.ts`、`src/services/teamGroupsApi.ts` 與 `TeamGroupSettingsDialog.vue` 管理；改名、排序、刪除轉移時要檢查 `PlayersView`、`TrainingView`、`TrainingLocationsView`、`LeaveRequestsView`、`RollCallView` 的分組選項。
 - Google 表單 / Sheet 同步不得覆蓋既有 `team_members.is_primary_payer`、`team_members.is_half_price` 與 `team_members.fee_billing_mode`；新增球員時前兩者預設 `false`，收費模式預設 `role_default`。
 - 使用者管理在 `UsersView`，profile 新增 / 更新 / 刪除優先走 `admin_insert_profile()`、`admin_update_profile()`、`admin_delete_user()`。
 - 權限 UI 在 `RolePermissionsManager.vue`，對應 `app_roles` 與 `app_role_permissions`。
@@ -161,16 +168,20 @@
 - 家長 / 球員自己的請假走 `myLeaveRequests` RPC。
 - 後台請假管理在 `LeaveRequestsView`，會讀 `team_members` 與 `leave_requests`，需受 `leave_requests` feature RLS 保護。
 - 點名列表與點名頁使用 `attendance_events`、`attendance_records`，並會參照 `team_members`、`leave_requests`。
+- 外部請假 webhook 在 `supabase/functions/leave-webhook/index.ts`，改動時要檢查 secret、member match、假單 RPC 與推播 target。
 - `/attendance/:id` 點名 Detail（`RollCallView`）不可顯示或提供 `缺席` 操作；Detail UI 只保留 `出席`、`請假` 等允許操作，若需處理既有缺席資料或禁報流程，必須另設明確管理流程，不可直接把 `缺席` 按鈕放回 Detail。
 - 改到請假或點名時，要檢查通知中心、推播、今日缺席摘要與費用計算是否受影響。
 
 ### 賽事與 Google Calendar 同步
 
 - 賽事資料表為 `matches`，主要 API 在 `src/services/matchesApi.ts`。
+- `/calendar` 是登入後賽程入口，`?match_id=` 會開啟 `MatchDetailDialog`；推播與通知連結應導向 `/calendar?match_id=...`。
 - 個人成績頁 `/my-records` 不直接使用後台 `matchesApi` 讀列表，而是透過 `myPlayerRecords` RPC 依球員可見範圍取回比賽紀錄；打擊 / 投球彙總邏輯在 `src/utils/matchRecordStats.ts`。
 - `matchesApi` 保留 `google_calendar_event_id` 欄位缺失 / schema cache 尚未更新時的 fallback。
 - Google Calendar / iCal parsing 與同步規劃在 `src/utils/googleCalendarParser.ts`，UI 在 `SyncCalendarDialog.vue`。
 - 比賽紀錄相關元件在 `src/components/match-records/*`，照片使用 `matches-photos` bucket。
+- 陣容照片解析走 `src/utils/lineupPhotoParser.ts` 與 `supabase/functions/parse-lineup/index.ts`；比賽語音轉紀錄走 `MatchAudioRecorder`、`src/services/matchAudioApi.ts`、`src/utils/matchAudioTranscription.ts` 與 `supabase/functions/transcribe-match-audio/index.ts`。
+- 賽事天氣走 `src/services/weatherApi.ts`，地點解析優先透過 `supabase/functions/resolve-location`，失敗時保留前端 fallback。
 
 ### 特訓報名與球員點數
 
@@ -199,6 +210,9 @@
 - 球員餘額以 `player_balance_transactions` 流水帳管理，餘額屬於 `team_members`；管理員可手動調整與確認溢繳入帳，家長自助使用餘額後仍需管理端確認才正式扣款。
 - 社區球員固定月繳用 `team_members.fee_billing_mode = 'monthly_fixed'` 表示；球員身分仍是 `球員`，但併入 `monthly_fees`、排除 `quarterly_fees`，金額從 `fee_settings.monthly_fixed_fee` 帶入並在 `monthly_fees.fixed_monthly_fee` 留快照。
 - sibling / quarter fee / monthly settlement 等邏輯已拆在 `src/utils/*fee*` 與相關測試。
+- 比賽費走 `src/services/matchFees.ts`、`match_fee_items`、`match_payment_submissions`、`match_payment_submission_items`，可在 `/my-payments` 合併回報，在 `/fees` 審核。
+- 匯款表單匯入走 `supabase/functions/record-fee-remittance/index.ts` 與 `scripts/google-form-remittance-apps-script.js`，不得硬編碼 secret。
+- 費用提醒走 `src/services/feeManagementReminders.ts` 與 `supabase_fee_management_reminders_migration.sql`，改提醒時要檢查通知中心 `get_notification_feed()`。
 
 ### 裝備管理與加購
 
@@ -266,7 +280,9 @@
 - 新增受保護資料表時要同步 RLS、policy、必要 RPC、前端 service/type、AI 文件。
 - 公開資料讀取優先做成公開安全 RPC，只回傳必要且去敏感化欄位。
 - 修改 `profiles`、`team_members`、付款、裝備、請假、推播等核心表時，先檢查是否已有後續 migration 覆寫同名 function / policy。
+- 修改 migration 前讀 `docs/MIGRATIONS.md`，並用 `rg` 搜尋同名 table / function / policy 的所有後續 hotfix。
 - Edge Function 不硬編碼 secret、service role key、cron authorization；使用環境變數或 DB setting。
+- 修改 Edge Function 或外部 API 前讀 `docs/EDGE_FUNCTIONS.md`，確認所需 env、auth 模式與對應 skill。
 - Storage bucket policy 要跟功能權限一致；例如 avatars、equipments、matches-photos 各自有不同使用情境。
 
 ## 10. 驗證矩陣
@@ -285,6 +301,10 @@
 - UI 或整合風險高：`pnpm build`
 - 裝備：`pnpm exec vitest run src/utils/equipmentInventory.test.ts src/utils/equipmentPricing.test.ts src/utils/equipmentRequestStatus.test.ts`
 - 賽事同步：`pnpm exec vitest run src/utils/googleCalendarParser.test.ts src/services/matchesApi.test.ts`
+- 賽事紀錄 / 媒體：`pnpm exec vitest run src/services/matchesApi.test.ts src/utils/matchFieldEditor.test.ts src/utils/liveMatchScoreboard.test.ts src/utils/matchAudioTranscription.test.ts src/utils/lineupPhotoParser.test.ts src/services/weatherApi.test.ts`
+- 收費 / 付款：`pnpm exec vitest run src/utils/memberBilling.test.ts src/utils/monthlyFeeSettlement.test.ts src/utils/quarterlyFeeFamilies.test.ts src/utils/playerBalance.test.ts src/utils/feeManagementReminders.test.ts`
+- 請假 / 點名：`pnpm exec vitest run src/utils/leaveRequests.test.ts src/utils/dashboardHome.test.ts`
+- 名單 / 使用者 / 組別：`pnpm exec vitest run src/utils/playerSync.test.ts src/stores/playerRoster.test.ts src/stores/teamGroups.test.ts src/utils/profileAccess.test.ts`
 - 球員同步：`pnpm exec vitest run src/utils/playerSync.test.ts`
 - 推播工具：`pnpm exec vitest run src/utils/pushNotifications.test.ts`
 - 節日主題：`pnpm exec vitest run src/composables/useHolidayTheme.test.ts src/utils/holidayMotionLayout.test.ts src/components/layout/__tests__/HolidayThemeRibbon.test.ts src/views/HolidayThemeSettingsView.test.ts supabase/functions/notify-holiday-theme/logic.test.ts`
