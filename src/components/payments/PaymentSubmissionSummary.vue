@@ -20,6 +20,7 @@ const props = withDefaults(defineProps<{
   lineItemsCount?: number | null
   lineItemsTitle?: string
   emptyItemsText?: string
+  hideBalanceControl?: boolean
   disabled?: boolean
   formatCurrency?: (amount: number) => string
 }>(), {
@@ -29,6 +30,7 @@ const props = withDefaults(defineProps<{
   lineItemsCount: null,
   lineItemsTitle: '繳費項目清單',
   emptyItemsText: '目前尚未選擇繳費項目。',
+  hideBalanceControl: false,
   disabled: false,
   formatCurrency: undefined
 })
@@ -104,7 +106,7 @@ const displayedLineItemsCount = computed(() =>
 
 <template>
   <div class="space-y-5">
-    <section class="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4 md:p-5">
+    <section v-if="!hideBalanceControl" class="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4 md:p-5">
       <div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_12rem] md:items-center">
         <div class="min-w-0">
           <h4 class="text-base font-black text-emerald-800">{{ balanceOwnerLabel }}</h4>

@@ -328,8 +328,8 @@
               <div class="min-w-0 flex-1">
                 <div class="flex flex-wrap items-center justify-between gap-2">
                   <div class="font-black text-slate-800">{{ createDialogPaymentItemLabel }}</div>
-                  <span :class="getStatusPillClass(currentFeeDueStatus)" class="rounded-full border px-2.5 py-1 text-xs font-bold">
-                    {{ getStatusLabel(currentFeeDueStatus) }}
+                  <span :class="getStatusPillClass(createDialogMembershipStatus)" class="rounded-full border px-2.5 py-1 text-xs font-bold">
+                    {{ getStatusLabel(createDialogMembershipStatus) }}
                   </span>
                 </div>
                 <p class="mt-1 text-xs font-bold text-slate-400">
@@ -365,7 +365,7 @@
                 </el-select>
               </el-form-item>
 
-              <el-form-item label="金額" prop="amount" class="!mb-0 font-bold">
+              <el-form-item v-if="createDialogMember?.billing_mode !== 'quarterly'" label="金額" prop="amount" class="!mb-0 font-bold">
                 <el-input-number
                   v-model="submissionForm.amount"
                   class="!w-full"
@@ -374,6 +374,62 @@
                   size="large"
                 />
               </el-form-item>
+            </div>
+
+            <div v-if="isQuarterlyMembershipFlow" class="mt-4 grid gap-3">
+              <article
+                v-for="member in quarterlyPaymentCandidates"
+                :key="`quarterly-member-${member.member_id}`"
+                class="grid gap-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:grid-cols-[minmax(0,1fr)_minmax(10rem,18rem)] sm:items-start"
+                :class="[
+                  quarterlyMemberSnapshots[member.member_id]?.status !== 'unpaid' ? 'opacity-60' : '',
+                  selectedQuarterlyMemberIds.includes(member.member_id) ? 'border-primary/20 bg-primary/5' : ''
+                ]"
+              >
+                <div class="flex min-w-0 items-start gap-3">
+                  <input
+                    v-model="selectedQuarterlyMemberIds"
+                    type="checkbox"
+                    :value="member.member_id"
+                    :disabled="quarterlyMemberSnapshots[member.member_id]?.status !== 'unpaid'"
+                    class="mt-1 h-5 w-5 rounded border-gray-300 text-primary"
+                  />
+                  <div class="min-w-0">
+                    <div class="font-black text-slate-800">{{ member.name }}</div>
+                    <p class="mt-1 text-xs font-bold text-slate-400">
+                      {{ submissionForm.period_key }}｜{{ getStatusLabel(quarterlyMemberSnapshots[member.member_id]?.status || 'unpaid') }}｜可用餘額 {{ formatCurrency(member.balance_amount || 0) }}
+                    </p>
+                  </div>
+                </div>
+                <div
+                  class="grid gap-2"
+                  :class="getQuarterlyCandidateAvailableBalance(member) > 0 ? 'sm:grid-cols-2' : ''"
+                >
+                  <div class="grid gap-1">
+                    <span class="text-[11px] font-black text-slate-400">季費金額</span>
+                    <el-input-number
+                      v-model="quarterlyMemberAmounts[member.member_id]"
+                      class="!w-full"
+                      :min="0"
+                      :step="100"
+                      size="large"
+                      :disabled="!selectedQuarterlyMemberIds.includes(member.member_id)"
+                    />
+                  </div>
+                  <div v-if="getQuarterlyCandidateAvailableBalance(member) > 0" class="grid gap-1">
+                    <span class="text-[11px] font-black text-slate-400">餘額扣抵</span>
+                    <el-input-number
+                      v-model="quarterlyMemberBalanceAmounts[member.member_id]"
+                      class="!w-full"
+                      :min="0"
+                      :max="Math.min(Number(quarterlyMemberAmounts[member.member_id] || 0), getQuarterlyCandidateAvailableBalance(member))"
+                      :step="100"
+                      size="large"
+                      :disabled="!selectedQuarterlyMemberIds.includes(member.member_id)"
+                    />
+                  </div>
+                </div>
+              </article>
             </div>
 
             <div v-if="includeMembershipFee" class="mt-3 grid gap-1 text-xs leading-relaxed">
@@ -399,6 +455,7 @@
               v-model="selectedEquipmentTransactionIds"
               type="checkbox"
               :value="item.transaction_id"
+              :disabled="isMultiQuarterlyMembershipSelected"
               class="mt-1 h-5 w-5 rounded border-gray-300 text-primary"
             />
             <div class="min-w-0 flex-1">
@@ -424,6 +481,7 @@
               v-model="selectedMatchFeeItemIds"
               type="checkbox"
               :value="item.id"
+              :disabled="isMultiQuarterlyMembershipSelected"
               class="mt-1 h-5 w-5 rounded border-gray-300 text-primary"
             />
             <div class="min-w-0 flex-1">
@@ -450,13 +508,14 @@
 
         <PaymentSubmissionSummary
           v-model:balance-amount="submissionBalanceAmount"
-          :member-name="createDialogMember?.name || ''"
+          :member-name="paymentSummaryMemberName"
           :total-amount="selectedUnifiedTotalAmount"
           :available-balance="createDialogAvailableBalance"
           :external-amount="createDialogExternalPaymentAmount"
           :line-items="selectedUnifiedLineItems"
           line-items-title="本次送出的項目"
           empty-items-text="請先勾選本次要回報的付款項目。"
+          :hide-balance-control="isQuarterlyMembershipFlow"
           :disabled="isEstimatingAmount"
           :format-currency="formatCurrency"
         />
@@ -507,6 +566,7 @@ import AppPageHeader from '@/components/common/AppPageHeader.vue'
 import PaymentAccountInfoCard from '@/components/payments/PaymentAccountInfoCard.vue'
 import PaymentSubmissionSummary from '@/components/payments/PaymentSubmissionSummary.vue'
 import {
+  createMyQuarterlyPaymentSubmission,
   createMyPaymentSubmission,
   getMyPaymentRecords,
   listMyPaymentMembers,
@@ -518,6 +578,7 @@ import { createMatchPaymentSubmission, listMyMatchFeeItems } from '@/services/ma
 import { useAuthStore } from '@/stores/auth'
 import { useEquipmentPaymentsStore } from '@/stores/equipmentPayments'
 import type {
+  CreateMyQuarterlyPaymentSubmissionItemPayload,
   CreateMyPaymentSubmissionPayload,
   MyPaymentMember,
   MyPaymentRecord,
@@ -545,6 +606,11 @@ import {
   getExternalPaymentAmount
 } from '@/utils/playerBalance'
 import { getMemberBillingLabel } from '@/utils/memberBilling'
+import {
+  canUseGroupedQuarterlyPaymentSubmission,
+  summarizeQuarterlyPaymentSubmissionItems,
+  validateQuarterlyPaymentSubmissionItems
+} from '@/utils/quarterlyPaymentSubmissions'
 import { formatEquipmentVariantLabel } from '@/utils/equipmentPricing'
 import { getEquipmentRequestStatusLabel } from '@/utils/equipmentRequestStatus'
 import { buildGroupedPushEventKey, buildPushEventKey, dispatchPushNotification } from '@/utils/pushNotifications'
@@ -604,6 +670,12 @@ type UnifiedPaymentRecord = {
   note?: string | null
 }
 
+type QuarterlyPaymentMemberSnapshot = {
+  status: 'paid' | 'pending' | 'unpaid'
+  amount: number
+  balance_amount: number
+}
+
 const authStore = useAuthStore()
 const equipmentPaymentsStore = useEquipmentPaymentsStore()
 
@@ -620,6 +692,10 @@ const currentSubmissionEstimate = ref<MyPaymentSubmissionEstimate | null>(null)
 const currentDueEstimate = ref<MyPaymentSubmissionEstimate | null>(null)
 const formRef = ref()
 const includeMembershipFee = ref(false)
+const selectedQuarterlyMemberIds = ref<string[]>([])
+const quarterlyMemberAmounts = reactive<Record<string, number>>({})
+const quarterlyMemberBalanceAmounts = reactive<Record<string, number>>({})
+const quarterlyMemberSnapshots = ref<Record<string, QuarterlyPaymentMemberSnapshot>>({})
 const selectedEquipmentTransactionIds = ref<string[]>([])
 const selectedMatchFeeItemIds = ref<string[]>([])
 const equipmentPaymentItems = ref<EquipmentPaymentItem[]>([])
@@ -663,9 +739,31 @@ const createDialogMember = computed(() => {
   return members.value.find((member) => member.member_id === submissionForm.member_id) || selectedMember.value
 })
 
+const quarterlyPaymentCandidates = computed(() =>
+  linkedMembers.value.filter((member) => member.billing_mode === 'quarterly')
+)
+
+const isQuarterlyMembershipFlow = computed(() =>
+  includeMembershipFee.value && createDialogMember.value?.billing_mode === 'quarterly'
+)
+
+const selectedQuarterlyPaymentCandidates = computed(() => {
+  const selectedIds = new Set(selectedQuarterlyMemberIds.value)
+  return quarterlyPaymentCandidates.value.filter((member) => selectedIds.has(member.member_id))
+})
+
+const getQuarterlyCandidateAvailableBalance = (member: MyPaymentMember) =>
+  Math.max(0, Number(member.balance_amount || 0))
+
 const latestOfficialRecord = computed(() => records.value[0] || null)
 const createDialogAvailableBalance = computed(() =>
-  Number(createDialogBalanceOverride.value ?? createDialogMember.value?.balance_amount ?? 0)
+  isQuarterlyMembershipFlow.value
+    ? selectedQuarterlyPaymentCandidates.value.reduce((total, member) => {
+      const amount = Number(quarterlyMemberAmounts[member.member_id] || 0)
+      const available = Number(member.balance_amount || 0)
+      return total + Math.min(amount, available)
+    }, 0)
+    : Number(createDialogBalanceOverride.value ?? createDialogMember.value?.balance_amount ?? 0)
 )
 const submissionBalanceAmount = computed({
   get: () => Number(submissionForm.balance_amount || 0),
@@ -832,6 +930,30 @@ const currentFeeDueStatus = computed<'paid' | 'pending' | 'unpaid'>(() => {
   return 'unpaid'
 })
 
+const createDialogMembershipStatus = computed<'paid' | 'pending' | 'unpaid'>(() => {
+  if (createDialogMember.value?.billing_mode !== 'quarterly') {
+    return currentFeeDueStatus.value
+  }
+
+  const snapshotStatuses = quarterlyPaymentCandidates.value
+    .map((member) => quarterlyMemberSnapshots.value[member.member_id]?.status)
+    .filter((status): status is 'paid' | 'pending' | 'unpaid' => Boolean(status))
+
+  if (snapshotStatuses.some((status) => status === 'unpaid')) {
+    return 'unpaid'
+  }
+
+  if (snapshotStatuses.some((status) => status === 'pending')) {
+    return 'pending'
+  }
+
+  if (snapshotStatuses.some((status) => status === 'paid')) {
+    return 'paid'
+  }
+
+  return currentFeeDueStatus.value
+})
+
 const currentFeeDueAmount = computed(() => {
   const amount = currentFeeOfficialRecord.value?.amount
     ?? currentFeePaidSubmission.value?.amount
@@ -978,9 +1100,37 @@ const paymentReminderCards = computed(() =>
   ].filter((card): card is PaymentReminderCard => Boolean(card))
 )
 
-const canSelectMembershipFee = computed(() =>
-  canCreateSubmissionForSelectedMember.value && currentFeeDueStatus.value === 'unpaid'
-)
+const hasSelectableQuarterlyPaymentCandidate = computed(() => {
+  if (createDialogMember.value?.billing_mode !== 'quarterly') {
+    return false
+  }
+
+  return quarterlyPaymentCandidates.value.some((member) => {
+    const snapshotStatus = quarterlyMemberSnapshots.value[member.member_id]?.status
+
+    if (snapshotStatus) {
+      return snapshotStatus === 'unpaid'
+    }
+
+    if (member.member_id === createDialogMember.value?.member_id) {
+      return currentFeeDueStatus.value === 'unpaid'
+    }
+
+    return true
+  })
+})
+
+const canSelectMembershipFee = computed(() => {
+  if (!canCreateSubmissionForSelectedMember.value) {
+    return false
+  }
+
+  if (createDialogMember.value?.billing_mode === 'quarterly') {
+    return hasSelectableQuarterlyPaymentCandidate.value
+  }
+
+  return currentFeeDueStatus.value === 'unpaid'
+})
 
 const equipmentUnpaidItems = computed(() =>
   equipmentPaymentItems.value.filter((item) =>
@@ -1002,6 +1152,59 @@ const selectedMatchFeePaymentItems = computed(() => {
   return matchFeeUnpaidItems.value.filter((item) => selectedIds.has(item.id))
 })
 
+const selectedQuarterlyPaymentItems = computed<CreateMyQuarterlyPaymentSubmissionItemPayload[]>(() => {
+  if (!isQuarterlyMembershipFlow.value) {
+    return []
+  }
+
+  const periodKey = submissionForm.period_key.trim().toUpperCase()
+
+  return selectedQuarterlyPaymentCandidates.value.map((member) => {
+    const amount = Number(quarterlyMemberAmounts[member.member_id] || 0)
+    const availableBalance = Number(member.balance_amount || 0)
+    const balanceAmount = Math.min(
+      Number(quarterlyMemberBalanceAmounts[member.member_id] || 0),
+      amount,
+      availableBalance
+    )
+
+    return {
+      member_id: member.member_id,
+      period_key: periodKey,
+      amount,
+      balance_amount: balanceAmount
+    }
+  })
+})
+
+const quarterlyPaymentSummary = computed(() =>
+  summarizeQuarterlyPaymentSubmissionItems(selectedQuarterlyPaymentItems.value)
+)
+
+const isMultiQuarterlyMembershipSelected = computed(() =>
+  isQuarterlyMembershipFlow.value && selectedQuarterlyPaymentItems.value.length > 1
+)
+
+const paymentSummaryMemberName = computed(() => {
+  if (!isQuarterlyMembershipFlow.value) {
+    return createDialogMember.value?.name || ''
+  }
+
+  if (selectedQuarterlyPaymentCandidates.value.length > 1) {
+    return '多位球員季費'
+  }
+
+  return selectedQuarterlyPaymentCandidates.value[0]?.name || createDialogMember.value?.name || ''
+})
+
+const shouldUseGroupedQuarterlySubmission = computed(() =>
+  canUseGroupedQuarterlyPaymentSubmission(selectedQuarterlyPaymentItems.value.length, {
+    billingMode: createDialogMember.value?.billing_mode,
+    selectedEquipmentCount: selectedEquipmentPaymentItems.value.length,
+    selectedMatchFeeCount: selectedMatchFeePaymentItems.value.length
+  })
+)
+
 const selectedUnifiedLineItems = computed(() => {
   const lineItems: Array<{
     id: string
@@ -1012,7 +1215,19 @@ const selectedUnifiedLineItems = computed(() => {
     amount: number
   }> = []
 
-  if (includeMembershipFee.value) {
+  if (isQuarterlyMembershipFlow.value) {
+    selectedQuarterlyPaymentCandidates.value.forEach((member) => {
+      const snapshot = quarterlyMemberSnapshots.value[member.member_id]
+      lineItems.push({
+        id: `membership-${member.member_id}-${submissionForm.period_key || 'new'}`,
+        typeLabel: createDialogPaymentItemLabel.value,
+        title: member.name,
+        periodLabel: submissionForm.period_key,
+        meta: `${createDialogBillingModeLabel.value}｜${snapshot?.status || 'unpaid'}`,
+        amount: Number(quarterlyMemberAmounts[member.member_id]) || 0
+      })
+    })
+  } else if (includeMembershipFee.value) {
     lineItems.push({
       id: `membership-${submissionForm.period_key || 'new'}`,
       typeLabel: createDialogPaymentItemLabel.value,
@@ -1332,7 +1547,7 @@ const submissionRules = {
   amount: [
     {
       validator: (_rule: unknown, value: number, callback: (error?: Error) => void) => {
-        if (!includeMembershipFee.value) {
+        if (!includeMembershipFee.value || createDialogMember.value?.billing_mode === 'quarterly') {
           callback()
           return
         }
@@ -1350,6 +1565,11 @@ const submissionRules = {
   balance_amount: [
     {
       validator: (_rule: unknown, value: number, callback: (error?: Error) => void) => {
+        if (isQuarterlyMembershipFlow.value) {
+          callback()
+          return
+        }
+
         const normalized = Number(value) || 0
         if (normalized < 0) {
           callback(new Error('餘額扣抵不能小於 0'))
@@ -1445,7 +1665,7 @@ const getPaymentMemberBillingLabel = (member: MyPaymentMember) =>
 
 const getStatusLabel = (status?: string | null) => {
   if (status === 'paid' || status === 'approved') return '已確認'
-  if (status === 'pending_review') return '待確認'
+  if (status === 'pending_review' || status === 'pending') return '待確認'
   if (status === 'rejected') return '已退回'
   return '未繳 / 未確認'
 }
@@ -1531,13 +1751,130 @@ const resolveQuarterlyAmount = (periodKey: string) => {
 
   const exactSubmission = submissions.value.find((submission) => submission.period_key === periodKey)
   if (exactSubmission) {
-    return Math.max(0, Number(exactSubmission.amount) || 0)
+    return Math.max(0, getQuarterlySubmissionItemAmount(
+      exactSubmission,
+      createDialogMember.value?.member_id || exactSubmission.member_id
+    ))
   }
 
   return 0
 }
 
+const getQuarterlySubmissionItemAmount = (submission: MyPaymentSubmission, memberId: string) => {
+  const item = submission.items?.find((item) => item.member_id === memberId)
+
+  return item
+    ? Math.max(0, Number(item.amount) || 0)
+    : Math.max(0, Number(submission.amount) || 0)
+}
+
+const getQuarterlySubmissionItemBalanceAmount = (submission: MyPaymentSubmission, memberId: string) => {
+  const item = submission.items?.find((item) => item.member_id === memberId)
+
+  return item
+    ? Math.max(0, Number(item.balance_amount) || 0)
+    : Math.max(0, Number(submission.balance_amount) || 0)
+}
+
+const resolveQuarterlyMemberSnapshot = async (
+  member: MyPaymentMember,
+  periodKey: string
+): Promise<QuarterlyPaymentMemberSnapshot> => {
+  const [memberRecords, memberSubmissions, estimate] = await Promise.all([
+    member.member_id === selectedMemberId.value ? Promise.resolve(records.value) : getMyPaymentRecords(member.member_id),
+    member.member_id === selectedMemberId.value ? Promise.resolve(submissions.value) : listMyPaymentSubmissions(member.member_id),
+    getMyPaymentSubmissionEstimate(member.member_id, periodKey).catch(() => null)
+  ])
+
+  const officialRecord = memberRecords.find((record) => record.billing_mode === 'quarterly' && record.period_key === periodKey)
+  const periodSubmissions = memberSubmissions.filter((submission) =>
+    submission.billing_mode === 'quarterly'
+    && submission.period_key === periodKey
+    && (
+      submission.member_id === member.member_id
+      || submission.items?.some((item) => item.member_id === member.member_id)
+    )
+  )
+  const paidSubmission = periodSubmissions.find((submission) => isPaidStatus(submission.status))
+  const pendingSubmission = periodSubmissions.find((submission) => isPendingStatus(submission.status))
+
+  if (isPaidStatus(officialRecord?.status) || paidSubmission) {
+    return {
+      status: 'paid',
+      amount: Math.max(0, Number(officialRecord?.amount ?? (paidSubmission ? getQuarterlySubmissionItemAmount(paidSubmission, member.member_id) : 0)) || 0),
+      balance_amount: Math.max(0, Number(officialRecord?.balance_amount ?? (paidSubmission ? getQuarterlySubmissionItemBalanceAmount(paidSubmission, member.member_id) : 0)) || 0)
+    }
+  }
+
+  if (isPendingStatus(officialRecord?.status) || pendingSubmission) {
+    return {
+      status: 'pending',
+      amount: Math.max(0, Number(officialRecord?.amount ?? (pendingSubmission ? getQuarterlySubmissionItemAmount(pendingSubmission, member.member_id) : 0)) || 0),
+      balance_amount: Math.max(0, Number(officialRecord?.balance_amount ?? (pendingSubmission ? getQuarterlySubmissionItemBalanceAmount(pendingSubmission, member.member_id) : 0)) || 0)
+    }
+  }
+
+  return {
+    status: 'unpaid',
+    amount: Math.max(0, Number(officialRecord?.amount ?? estimate?.amount ?? 0) || 0),
+    balance_amount: Math.max(0, Number(officialRecord?.balance_amount ?? 0) || 0)
+  }
+}
+
+const refreshQuarterlyPaymentMemberSnapshots = async () => {
+  const periodKey = submissionForm.period_key.trim().toUpperCase()
+
+  if (!isQuarterlyMembershipFlow.value || !periodKey) {
+    quarterlyMemberSnapshots.value = {}
+    return
+  }
+
+  const snapshotPairs = await Promise.all(
+    quarterlyPaymentCandidates.value.map(async (member) => [
+      member.member_id,
+      await resolveQuarterlyMemberSnapshot(member, periodKey)
+    ] as const)
+  )
+  const nextSnapshots = Object.fromEntries(snapshotPairs)
+
+  quarterlyMemberSnapshots.value = nextSnapshots
+  quarterlyPaymentCandidates.value.forEach((member) => {
+    const snapshot = nextSnapshots[member.member_id]
+    const defaultAmount = Math.max(0, Number(snapshot?.amount || 0))
+    if (quarterlyMemberAmounts[member.member_id] == null || Number(quarterlyMemberAmounts[member.member_id]) <= 0) {
+      quarterlyMemberAmounts[member.member_id] = defaultAmount
+    }
+    if (quarterlyMemberBalanceAmounts[member.member_id] == null) {
+      quarterlyMemberBalanceAmounts[member.member_id] = 0
+    }
+  })
+  selectedQuarterlyMemberIds.value = selectedQuarterlyMemberIds.value.filter((memberId) => {
+    const snapshot = nextSnapshots[memberId]
+    return !snapshot || snapshot.status === 'unpaid'
+  })
+  if (selectedQuarterlyMemberIds.value.length === 0 && createDialogMember.value) {
+    const preferredMemberId = createDialogMember.value.member_id
+    const preferredSnapshot = nextSnapshots[preferredMemberId]
+    const fallbackMember = quarterlyPaymentCandidates.value.find((member) =>
+      nextSnapshots[member.member_id]?.status === 'unpaid'
+    )
+    const nextSelectedMemberId = (!preferredSnapshot || preferredSnapshot.status === 'unpaid')
+      ? preferredMemberId
+      : fallbackMember?.member_id
+
+    if (nextSelectedMemberId) {
+      selectedQuarterlyMemberIds.value = [nextSelectedMemberId]
+    }
+  }
+  syncBalanceDeductionLimit()
+}
+
 const syncBalanceDeductionLimit = () => {
+  if (isQuarterlyMembershipFlow.value) {
+    submissionForm.balance_amount = quarterlyPaymentSummary.value.totalBalanceAmount
+    return
+  }
+
   submissionForm.balance_amount = clampBalanceDeduction(
     submissionForm.balance_amount,
     selectedUnifiedTotalAmount.value,
@@ -1557,6 +1894,7 @@ const refreshSubmissionEstimate = async () => {
   if (targetMember.billing_mode === 'quarterly') {
     currentSubmissionEstimate.value = null
     submissionForm.amount = resolveQuarterlyAmount(normalizedPeriodKey)
+    await refreshQuarterlyPaymentMemberSnapshots()
     syncBalanceDeductionLimit()
     return
   }
@@ -1601,6 +1939,16 @@ const refreshCurrentDueEstimate = async () => {
   }
 }
 
+const resetQuarterlyPaymentDrafts = () => {
+  Object.keys(quarterlyMemberAmounts).forEach((memberId) => {
+    delete quarterlyMemberAmounts[memberId]
+  })
+  Object.keys(quarterlyMemberBalanceAmounts).forEach((memberId) => {
+    delete quarterlyMemberBalanceAmounts[memberId]
+  })
+  quarterlyMemberSnapshots.value = {}
+}
+
 const hydrateSubmissionDefaults = (periodKeyOverride?: string, shouldIncludeMembership = canSelectMembershipFee.value) => {
   const preferredLinkedMember = linkedMembers.value.find((member) => member.member_id === selectedMember.value?.member_id)
     || linkedMembers.value[0]
@@ -1617,6 +1965,10 @@ const hydrateSubmissionDefaults = (periodKeyOverride?: string, shouldIncludeMemb
     ? resolveQuarterlyAmount(submissionForm.period_key)
     : 0
   submissionForm.balance_amount = 0
+  selectedQuarterlyMemberIds.value = targetMember?.billing_mode === 'quarterly' && targetMember.member_id
+    ? [targetMember.member_id]
+    : []
+  resetQuarterlyPaymentDrafts()
   currentSubmissionEstimate.value = null
   createDialogBalanceOverride.value = null
   includeMembershipFee.value = shouldIncludeMembership
@@ -1736,7 +2088,7 @@ const openCreateDialog = async (
     : options.periodKey
   hydrateSubmissionDefaults(
     preservedMembershipPeriodKey,
-    preset ? preset === 'membership-fee' : includeMembershipFee.value || canSelectMembershipFee.value
+    preset ? preset === 'membership-fee' : includeMembershipFee.value || canSelectMembershipFee.value || selectedMember.value?.billing_mode === 'quarterly'
   )
   await refreshUnifiedPaymentSources()
 
@@ -1753,6 +2105,9 @@ const openCreateDialog = async (
   }
 
   await refreshSubmissionEstimate()
+  if (includeMembershipFee.value && !canSelectMembershipFee.value) {
+    includeMembershipFee.value = false
+  }
   syncBalanceDeductionLimit()
   isCreateDialogOpen.value = true
   await nextTick()
@@ -1812,11 +2167,7 @@ const submitPaymentSubmission = async () => {
     return
   }
 
-  submissionForm.balance_amount = clampBalanceDeduction(
-    submissionForm.balance_amount,
-    selectedUnifiedTotalAmount.value,
-    createDialogAvailableBalance.value
-  )
+  syncBalanceDeductionLimit()
 
   try {
     await formRef.value.validate()
@@ -1824,7 +2175,17 @@ const submitPaymentSubmission = async () => {
     return
   }
 
-  const membershipAmount = includeMembershipFee.value ? Number(submissionForm.amount) || 0 : 0
+  const quarterlyItemDrafts = isQuarterlyMembershipFlow.value
+    ? selectedQuarterlyPaymentItems.value
+    : []
+  const quarterlyItemsToSubmit = isQuarterlyMembershipFlow.value
+    ? quarterlyPaymentSummary.value.items
+    : []
+  const membershipAmount = includeMembershipFee.value
+    ? isQuarterlyMembershipFlow.value
+      ? quarterlyPaymentSummary.value.totalAmount
+      : Number(submissionForm.amount) || 0
+    : 0
   const equipmentItemsToSubmit = selectedEquipmentPaymentItems.value
   const matchFeeItemsToSubmit = selectedMatchFeePaymentItems.value
   const equipmentAmount = equipmentItemsToSubmit.reduce((total, item) => total + Number(item.total_amount || 0), 0)
@@ -1838,6 +2199,28 @@ const submitPaymentSubmission = async () => {
   if (includeMembershipFee.value && membershipAmount <= 0) {
     ElMessage.warning('請確認月費 / 季費金額大於 0')
     return
+  }
+
+  if (isMultiQuarterlyMembershipSelected.value && (equipmentAmount > 0 || matchFeeAmount > 0)) {
+    ElMessage.warning('多位球員季費一次繳費時，請不要同時勾選裝備或比賽費用')
+    return
+  }
+
+  if (isQuarterlyMembershipFlow.value) {
+    const validationErrors = validateQuarterlyPaymentSubmissionItems(quarterlyItemDrafts, {
+      periodKey: submissionForm.period_key,
+      availableBalances: Object.fromEntries(
+        quarterlyPaymentCandidates.value.map((member) => [
+          member.member_id,
+          member.balance_amount || 0
+        ])
+      )
+    })
+
+    if (validationErrors.length > 0) {
+      ElMessage.warning(validationErrors[0])
+      return
+    }
   }
 
   const balanceAllocations = allocateBalanceDeduction(
@@ -1857,16 +2240,28 @@ const submitPaymentSubmission = async () => {
   try {
     if (includeMembershipFee.value && membershipAmount > 0) {
       try {
-        const createdSubmission = await createMyPaymentSubmission({
-          member_id: submissionForm.member_id,
-          period_key: submissionForm.period_key.trim().toUpperCase(),
-          amount: membershipAmount,
-          ...buildSharedSubmissionPayload(membershipAmount, balanceAllocations.membership)
-        })
+        const singleQuarterlyItem = quarterlyItemsToSubmit[0]
+        const createdSubmission = shouldUseGroupedQuarterlySubmission.value
+          ? await createMyQuarterlyPaymentSubmission({
+            items: quarterlyItemsToSubmit,
+            ...buildSharedSubmissionPayload(membershipAmount, quarterlyPaymentSummary.value.totalBalanceAmount)
+          })
+          : await createMyPaymentSubmission({
+            member_id: isQuarterlyMembershipFlow.value && singleQuarterlyItem
+              ? singleQuarterlyItem.member_id
+              : submissionForm.member_id,
+            period_key: isQuarterlyMembershipFlow.value && singleQuarterlyItem
+              ? singleQuarterlyItem.period_key
+              : submissionForm.period_key.trim().toUpperCase(),
+            amount: membershipAmount,
+            ...buildSharedSubmissionPayload(membershipAmount, balanceAllocations.membership)
+          })
 
         if (createdSubmission) {
           submissions.value = [createdSubmission, ...submissions.value]
           includeMembershipFee.value = false
+          selectedQuarterlyMemberIds.value = []
+          resetQuarterlyPaymentDrafts()
           successLabels.push('月費 / 季費')
 
           void dispatchPushNotification({
@@ -2028,6 +2423,8 @@ watch(selectedMemberId, async (nextMemberId, previousMemberId) => {
 
   equipmentPaymentSummary.value = createEmptyPaymentPanelSummary()
   matchFeeSummary.value = createEmptyPaymentPanelSummary()
+  selectedQuarterlyMemberIds.value = []
+  resetQuarterlyPaymentDrafts()
   selectedEquipmentTransactionIds.value = []
   selectedMatchFeeItemIds.value = []
   equipmentPaymentItems.value = []
@@ -2050,6 +2447,10 @@ watch(
       : getDefaultMonthlyPeriodKey()
 
     submissionForm.period_key = nextDefaultPeriodKey
+    selectedQuarterlyMemberIds.value = targetMember?.billing_mode === 'quarterly' && targetMember.member_id
+      ? [targetMember.member_id]
+      : []
+    resetQuarterlyPaymentDrafts()
     await refreshSubmissionEstimate()
   }
 )
@@ -2061,6 +2462,9 @@ watch(
       return
     }
 
+    if (isQuarterlyMembershipFlow.value) {
+      resetQuarterlyPaymentDrafts()
+    }
     await refreshSubmissionEstimate()
   }
 )
@@ -2077,6 +2481,19 @@ watch(
   () => {
     syncBalanceDeductionLimit()
   }
+)
+
+watch(
+  selectedQuarterlyPaymentItems,
+  () => {
+    syncBalanceDeductionLimit()
+
+    if (isMultiQuarterlyMembershipSelected.value) {
+      selectedEquipmentTransactionIds.value = []
+      selectedMatchFeeItemIds.value = []
+    }
+  },
+  { deep: true }
 )
 
 watch(includeMembershipFee, (enabled) => {

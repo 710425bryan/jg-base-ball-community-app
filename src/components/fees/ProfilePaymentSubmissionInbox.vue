@@ -5,7 +5,7 @@
         <div>
           <h3 class="text-lg font-black text-amber-900">個人回報 / 待確認</h3>
           <p class="text-xs md:text-sm text-amber-700/80 mt-1">
-            這裡只顯示使用者從個人頁送出的付款回報；確認後仍需到下方月費或季費流程手動對應正式紀錄。
+            這裡顯示使用者從個人頁送出的付款回報；確認後會依月費或季費更新正式紀錄。
           </p>
         </div>
 
@@ -71,6 +71,25 @@
               <p v-if="submission.note" class="mt-3 text-sm text-gray-500 leading-relaxed">
                 {{ submission.note }}
               </p>
+
+              <div v-if="submission.items && submission.items.length > 0" class="mt-4 grid gap-2">
+                <article
+                  v-for="item in submission.items"
+                  :key="`${submission.id}-${item.member_id}`"
+                  class="grid gap-2 rounded-xl border border-amber-100 bg-amber-50/60 px-3 py-2 text-sm sm:grid-cols-[minmax(0,1fr)_8rem_8rem] sm:items-center"
+                >
+                  <div class="min-w-0">
+                    <div class="font-black text-slate-700">{{ item.member_name }}</div>
+                    <div class="text-xs font-bold text-slate-400">{{ item.period_key }}</div>
+                  </div>
+                  <div class="font-mono font-black text-primary sm:text-right">
+                    {{ formatCurrency(item.amount) }}
+                  </div>
+                  <div class="text-xs font-bold text-slate-500 sm:text-right">
+                    {{ buildPaymentBreakdownText(item.amount, item.balance_amount, formatCurrency) }}
+                  </div>
+                </article>
+              </div>
             </div>
 
             <div class="flex flex-row lg:flex-col gap-2 shrink-0">
@@ -112,11 +131,9 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRoute } from 'vue-router'
-import { supabase } from '@/services/supabase'
-import { reviewMyPaymentSubmission } from '@/services/myPayments'
-import type { MyPaymentSubmissionStatus } from '@/types/payments'
+import { listProfilePaymentSubmissions, reviewMyPaymentSubmission } from '@/services/myPayments'
+import type { MyPaymentSubmissionItem, MyPaymentSubmissionStatus } from '@/types/payments'
 import { buildPaymentBreakdownText } from '@/utils/playerBalance'
-import { getMemberBillingLabel } from '@/utils/memberBilling'
 
 type AdminPaymentSubmissionRow = {
   id: string
@@ -133,12 +150,8 @@ type AdminPaymentSubmissionRow = {
   status: MyPaymentSubmissionStatus
   created_at: string
   updated_at: string
-  team_members?: {
-    name?: string | null
-    role?: string | null
-    fee_billing_mode?: string | null
-  } | null
   member_name: string
+  items?: MyPaymentSubmissionItem[]
 }
 
 const DEFAULT_VISIBLE_COUNT = 4
@@ -162,13 +175,13 @@ const visiblePendingSubmissions = computed(() => {
   return pendingSubmissions.value.slice(0, DEFAULT_VISIBLE_COUNT)
 })
 
-const getBillingModeLabel = (submission: AdminPaymentSubmissionRow) =>
-  getMemberBillingLabel({
-    role: submission.team_members?.role || (submission.billing_mode === 'quarterly' ? '球員' : '校隊'),
-    fee_billing_mode: submission.billing_mode === 'monthly' && submission.team_members?.role === '球員'
-      ? 'monthly_fixed'
-      : submission.team_members?.fee_billing_mode
-  })
+const getBillingModeLabel = (submission: AdminPaymentSubmissionRow) => {
+  if (submission.items && submission.items.length > 0) {
+    return `季費 ${submission.items.length} 人`
+  }
+
+  return submission.billing_mode === 'quarterly' ? '季費' : '月費'
+}
 
 const formatCurrency = (amount: number) => {
   const normalizedAmount = Number(amount) || 0
@@ -229,36 +242,7 @@ const fetchSubmissions = async () => {
   isLoading.value = true
 
   try {
-    const { data, error } = await supabase
-      .from('profile_payment_submissions')
-      .select(`
-        id,
-        member_id,
-        billing_mode,
-        period_key,
-        amount,
-        balance_amount,
-        payment_method,
-        account_last_5,
-        remittance_date,
-        note,
-        status,
-        created_at,
-        updated_at,
-        team_members(name, role, fee_billing_mode)
-      `)
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      throw error
-    }
-
-    submissions.value = (data || []).map((submission: any) => ({
-      ...submission,
-      balance_amount: Number(submission.balance_amount || 0),
-      external_amount: Math.max(0, Number(submission.amount || 0) - Number(submission.balance_amount || 0)),
-      member_name: submission.team_members?.name || '未知成員'
-    }))
+    submissions.value = await listProfilePaymentSubmissions()
     await highlightSubmissionFromRoute()
   } catch (error: any) {
     ElMessage.error(error?.message || '無法載入個人付款回報')
@@ -272,6 +256,10 @@ const resolveOverpaymentAmount = async (
   nextStatus: 'approved' | 'rejected'
 ) => {
   if (nextStatus !== 'approved') {
+    return 0
+  }
+
+  if (submission.items && submission.items.length > 0) {
     return 0
   }
 

@@ -52,6 +52,7 @@ export type MyPaymentSubmission = {
   status: MyPaymentSubmissionStatus
   created_at: string
   updated_at: string
+  items?: MyPaymentSubmissionItem[]
 }
 
 export type CreateMyPaymentSubmissionPayload = {
@@ -59,6 +60,32 @@ export type CreateMyPaymentSubmissionPayload = {
   period_key: string
   amount: number
   balance_amount?: number
+  payment_method: string
+  account_last_5?: string | null
+  remittance_date: string
+  note?: string | null
+}
+
+export type MyPaymentSubmissionItem = {
+  id?: string | null
+  submission_id?: string | null
+  member_id: string
+  member_name: string
+  period_key: string
+  amount: number
+  balance_amount: number
+  external_amount: number
+}
+
+export type CreateMyQuarterlyPaymentSubmissionItemPayload = {
+  member_id: string
+  period_key: string
+  amount: number
+  balance_amount?: number
+}
+
+export type CreateMyQuarterlyPaymentSubmissionPayload = {
+  items: CreateMyQuarterlyPaymentSubmissionItemPayload[]
   payment_method: string
   account_last_5?: string | null
   remittance_date: string
