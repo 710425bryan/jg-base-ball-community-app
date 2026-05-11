@@ -8,6 +8,9 @@ import type {
   MyHomeTodoItem
 } from '@/types/myHome'
 import type { TrainingSession } from '@/types/training'
+import dayjs, { type Dayjs } from 'dayjs'
+
+const TIME_TOKEN_PATTERN = /\d{1,2}:\d{2}/g
 
 const safeNumber = (value: unknown) => {
   const parsed = Number(value)
@@ -40,6 +43,42 @@ export const canShowMyHomeTrainingRegistrationAction = (
   return sessions.some((session) =>
     session.match_id === nextEvent.id && session.is_registration_open
   )
+}
+
+const getMyHomeNextEventTimeTokens = (nextEvent: MyHomeNextEvent | null) =>
+  nextEvent?.time?.match(TIME_TOKEN_PATTERN) ?? []
+
+const buildMyHomeNextEventDateTime = (nextEvent: MyHomeNextEvent | null, time: string) => {
+  if (!nextEvent?.date) return null
+
+  const value = dayjs(`${nextEvent.date}T${time}`)
+  return value.isValid() ? value : null
+}
+
+export const getMyHomeNextEventEnd = (
+  nextEvent: MyHomeNextEvent | null
+): Dayjs | null => {
+  if (!nextEvent?.date) return null
+
+  const [startTime, endTime] = getMyHomeNextEventTimeTokens(nextEvent)
+  if (endTime) return buildMyHomeNextEventDateTime(nextEvent, endTime)
+
+  const start = buildMyHomeNextEventDateTime(nextEvent, startTime ?? '23:59')
+  if (!start) return null
+
+  if (startTime) {
+    return start.add(2, 'hour')
+  }
+
+  return start.endOf('day')
+}
+
+export const isMyHomeNextEventExpired = (
+  nextEvent: MyHomeNextEvent | null,
+  now: Dayjs = dayjs()
+) => {
+  const end = getMyHomeNextEventEnd(nextEvent)
+  return end ? !now.isBefore(end) : false
 }
 
 const buildPaymentTodo = (payment: MyHomePaymentSummary): MyHomeTodoItem | null => {

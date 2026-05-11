@@ -1209,7 +1209,9 @@ set search_path = public
 as $$
 declare
   v_user_id uuid := auth.uid();
-  v_today date := coalesce(p_today, (now() at time zone 'Asia/Taipei')::date);
+  v_taipei_now timestamp := now() at time zone 'Asia/Taipei';
+  v_today date := coalesce(p_today, v_taipei_now::date);
+  v_current_time time := case when coalesce(p_today, v_taipei_now::date) = v_taipei_now::date then v_taipei_now::time else '00:00'::time end;
   v_week_start date := (v_today - ((extract(isodow from v_today)::integer - 1) * interval '1 day'))::date;
   v_linked_ids uuid[] := '{}'::uuid[];
   v_members jsonb := '[]'::jsonb;
@@ -1263,6 +1265,14 @@ begin
         'match'::text as type,
         coalesce(nullif(m.match_name, ''), nullif(m.opponent, ''), '賽事')::text as title,
         m.match_date::date as event_date,
+        (mt.start_token)::time as event_start_time,
+        coalesce(
+          (mt.end_token)::time,
+          case
+            when mt.start_token is not null then ((mt.start_token)::time + interval '2 hours')::time
+            else '23:59'::time
+          end
+        ) as event_end_time,
         m.match_date::text as date,
         nullif(m.match_time, '')::text as time,
         nullif(m.location, '')::text as location,
@@ -1273,6 +1283,11 @@ begin
         nullif(m.players, '')::text as players,
         format('/match-records?match_id=%s', m.id::text) as route
       from public.matches m
+      cross join lateral (
+        select
+          substring(nullif(m.match_time, '') from '([0-9]{1,2}:[0-5][0-9])') as start_token,
+          substring(nullif(m.match_time, '') from '[0-9]{1,2}:[0-5][0-9][[:space:]]*[-~－—–][[:space:]]*([0-9]{1,2}:[0-5][0-9])') as end_token
+      ) mt
       where m.match_date >= v_today
 
       union all
@@ -1282,6 +1297,8 @@ begin
         'attendance'::text as type,
         coalesce(nullif(ae.title, ''), '球隊活動')::text as title,
         ae.date::date as event_date,
+        null::time as event_start_time,
+        '23:59'::time as event_end_time,
         ae.date::text as date,
         null::text as time,
         null::text as location,
@@ -1308,7 +1325,9 @@ begin
       players,
       route
     from event_candidates
-    order by event_date asc, coalesce(time, '23:59') asc
+    where event_date > v_today
+      or event_end_time > v_current_time
+    order by event_date asc, coalesce(event_start_time, '23:59'::time) asc
     limit 1
   ) event_row;
 

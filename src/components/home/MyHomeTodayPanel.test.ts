@@ -50,7 +50,8 @@ const buildSnapshot = (matchLevel: string | null): MyHomeSnapshot => ({
 const mountPanel = (snapshot: MyHomeSnapshot) => mount(MyHomeTodayPanel, {
   props: {
     snapshot,
-    selectedMemberId: 'member-1'
+    selectedMemberId: 'member-1',
+    showTrainingRegistrationAction: true
   },
   global: {
     stubs: {

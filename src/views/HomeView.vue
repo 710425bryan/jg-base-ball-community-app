@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ArrowDown, ArrowRight, Calendar, Cloudy, Goods, Lightning, Location, MoonNight, PartlyCloudy, Pouring, ShoppingCart, Sunny, Tickets, UserFilled, VideoCameraFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import dayjs from 'dayjs'
+import dayjs, { type Dayjs } from 'dayjs'
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import HomeHolidayHeroOverlay from '@/components/home/HomeHolidayHeroOverlay.vue'
@@ -36,7 +36,10 @@ import {
   isDashboardMatchInProgress,
   pickDashboardHeroMatch
 } from '@/utils/dashboardHome'
-import { canShowMyHomeTrainingRegistrationAction } from '@/utils/myHomeSnapshot'
+import {
+  canShowMyHomeTrainingRegistrationAction,
+  isMyHomeNextEventExpired
+} from '@/utils/myHomeSnapshot'
 
 type WeatherStatus = 'loading' | 'success' | 'unavailable'
 type WeatherIconName = 'cloudy' | 'lightning' | 'moon-night' | 'partly-cloudy' | 'pouring' | 'sunny'
@@ -69,12 +72,17 @@ type AnnouncementRow = {
   image_url?: string | null
 }
 
+type MyHomeSnapshotFetchOptions = {
+  silent?: boolean
+}
+
 const TEAM_LABEL = '中港熊戰'
 const MEMBER_STAT_ROLES = ['球員', '校隊', '教練']
 const INACTIVE_MEMBER_STATUSES = new Set(['離隊', '退隊'])
 const DEFAULT_WEATHER_TEMP = 26
 const DEFAULT_WEATHER_RAIN = 20
 const DEFAULT_WEATHER_WIND = 2
+const MY_HOME_SCHEDULE_REFRESH_COOLDOWN_MS = 5 * 60 * 1000
 const WEATHER_ICON_COMPONENTS: Record<WeatherIconName, typeof Cloudy> = {
   cloudy: Cloudy,
   lightning: Lightning,
@@ -130,6 +138,8 @@ const todayAttendanceLeaveCount = ref(0)
 
 let clockId: ReturnType<typeof setInterval> | null = null
 let myHomeTrainingSessionsRequestId = 0
+let isMyHomeSnapshotRefreshInFlight = false
+let lastMyHomeScheduleRefreshAt = 0
 
 const canViewMatches = computed(() => permissionsStore.can('matches', 'VIEW'))
 const canViewAnnouncements = computed(() => permissionsStore.can('announcements', 'VIEW'))
@@ -557,7 +567,7 @@ const fetchMyHomeTrainingSessions = async (memberId = selectedMyHomeMemberId.val
   }
 }
 
-const fetchMyHomeSnapshotData = async () => {
+const fetchMyHomeSnapshotData = async (options: MyHomeSnapshotFetchOptions = {}) => {
   if (!shouldShowMyHomePanel.value) {
     myHomeSnapshot.value = createEmptyMyHomeSnapshot()
     selectedMyHomeMemberId.value = ''
@@ -565,8 +575,13 @@ const fetchMyHomeSnapshotData = async () => {
     return
   }
 
-  isMyHomeLoading.value = true
-  myHomeError.value = ''
+  if (isMyHomeSnapshotRefreshInFlight) return
+  isMyHomeSnapshotRefreshInFlight = true
+
+  if (!options.silent) {
+    isMyHomeLoading.value = true
+    myHomeError.value = ''
+  }
 
   try {
     const snapshot = await getMyHomeSnapshot(now.value.format('YYYY-MM-DD'))
@@ -580,12 +595,31 @@ const fetchMyHomeSnapshotData = async () => {
     await fetchMyHomeTrainingSessions(selectedMyHomeMemberId.value)
   } catch (error: any) {
     console.error('Error fetching personal home snapshot:', error)
+    if (options.silent) return
+
     myHomeError.value = error?.message || '無法載入個人化首頁資料'
     myHomeSnapshot.value = createEmptyMyHomeSnapshot()
     selectedMyHomeMemberId.value = ''
     myHomeTrainingSessions.value = []
   } finally {
-    isMyHomeLoading.value = false
+    isMyHomeSnapshotRefreshInFlight = false
+    if (!options.silent) {
+      isMyHomeLoading.value = false
+    }
+  }
+}
+
+const refreshMyHomeSnapshotWhenScheduleMoves = (currentNow: Dayjs, previousNow: Dayjs) => {
+  if (!shouldShowMyHomePanel.value) return
+
+  const isNewDay = currentNow.format('YYYY-MM-DD') !== previousNow.format('YYYY-MM-DD')
+  const nextEventExpired = isMyHomeNextEventExpired(myHomeSnapshot.value.next_event, currentNow)
+
+  if (isNewDay || nextEventExpired) {
+    if (currentNow.valueOf() - lastMyHomeScheduleRefreshAt < MY_HOME_SCHEDULE_REFRESH_COOLDOWN_MS) return
+
+    lastMyHomeScheduleRefreshAt = currentNow.valueOf()
+    void fetchMyHomeSnapshotData({ silent: true })
   }
 }
 
@@ -638,7 +672,10 @@ const toggleTodayAttendanceStatus = () => {
 
 onMounted(() => {
   clockId = setInterval(() => {
-    now.value = dayjs()
+    const previousNow = now.value
+    const currentNow = dayjs()
+    now.value = currentNow
+    refreshMyHomeSnapshotWhenScheduleMoves(currentNow, previousNow)
   }, 60_000)
 
   const myHomePromise = fetchMyHomeSnapshotData()

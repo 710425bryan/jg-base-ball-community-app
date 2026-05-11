@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
+import dayjs from 'dayjs'
 import { createEmptyMyHomeSnapshot, type MyHomeSnapshot } from '@/types/myHome'
 import {
   buildMyHomeTodoItems,
   canShowMyHomeTrainingRegistrationAction,
-  getSelectedMyHomeMember
+  getSelectedMyHomeMember,
+  isMyHomeNextEventExpired
 } from '@/utils/myHomeSnapshot'
 
 const buildSnapshot = (overrides: Partial<MyHomeSnapshot> = {}): MyHomeSnapshot => ({
@@ -92,6 +94,50 @@ describe('myHomeSnapshot utilities', () => {
     }), 'm2')
 
     expect(todos.some((todo) => todo.key === 'today-leave')).toBe(true)
+  })
+
+  it('detects when the current next event time range has already ended', () => {
+    const snapshot = buildSnapshot({
+      next_event: {
+        id: 'match-1',
+        type: 'match',
+        title: 'Morning game',
+        date: '2026-04-20',
+        time: '09:00 - 11:00',
+        location: null,
+        opponent: null,
+        category_group: null,
+        match_level: null,
+        coaches: null,
+        players: null,
+        route: '/calendar?match_id=match-1'
+      }
+    })
+
+    expect(isMyHomeNextEventExpired(snapshot.next_event, dayjs('2026-04-20T10:30:00'))).toBe(false)
+    expect(isMyHomeNextEventExpired(snapshot.next_event, dayjs('2026-04-20T11:00:00'))).toBe(true)
+  })
+
+  it('uses a two hour window for next events with only a start time', () => {
+    const snapshot = buildSnapshot({
+      next_event: {
+        id: 'match-1',
+        type: 'match',
+        title: 'Single time game',
+        date: '2026-04-20',
+        time: '09:00',
+        location: null,
+        opponent: null,
+        category_group: null,
+        match_level: null,
+        coaches: null,
+        players: null,
+        route: '/calendar?match_id=match-1'
+      }
+    })
+
+    expect(isMyHomeNextEventExpired(snapshot.next_event, dayjs('2026-04-20T10:59:00'))).toBe(false)
+    expect(isMyHomeNextEventExpired(snapshot.next_event, dayjs('2026-04-20T11:00:00'))).toBe(true)
   })
 
   it('shows the training registration shortcut only when the next training session is open', () => {
