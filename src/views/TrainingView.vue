@@ -1128,7 +1128,52 @@ watch(selectedAdminSessionId, (next, prev) => {
                   </div>
                 </div>
 
-                <div class="training-table-scroll mt-4 min-w-0 overflow-x-auto custom-scrollbar">
+                <div class="mt-4 grid gap-3 sm:hidden">
+                  <article
+                    v-for="row in adminRegistrations"
+                    :key="row.registration_id"
+                    class="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm"
+                  >
+                    <div class="flex items-start justify-between gap-3">
+                      <div class="min-w-0">
+                        <div class="truncate text-sm font-black text-slate-800">{{ row.member_name }}</div>
+                        <div class="mt-0.5 text-xs font-bold text-gray-400">{{ row.member_role || '-' }} {{ row.team_group || '' }}</div>
+                      </div>
+                      <div class="shrink-0 text-right">
+                        <div class="text-base font-black leading-none text-slate-800">{{ row.available_points }}</div>
+                        <div class="mt-1 text-[11px] font-bold text-gray-400">可用點數</div>
+                      </div>
+                    </div>
+
+                    <div class="mt-3 flex flex-wrap items-center gap-2">
+                      <el-tag :type="getRegistrationStatusType(row.status)" effect="plain" class="!h-8 !rounded-xl !px-3 !font-black">
+                        {{ getTrainingRegistrationStatusLabel(row.status) }}
+                      </el-tag>
+                      <span class="text-xs font-bold text-gray-400">{{ getTrainingPointStatusLabel(row.point_status) }}</span>
+                    </div>
+
+                    <div class="training-review-actions mt-3">
+                      <el-button type="success" plain :loading="isReviewing" @click="reviewRegistration(row, 'selected')">
+                        <el-icon><Check /></el-icon>
+                        錄取
+                      </el-button>
+                      <el-button type="warning" plain :loading="isReviewing" @click="reviewRegistration(row, 'waitlisted')">
+                        <el-icon><Timer /></el-icon>
+                        候補
+                      </el-button>
+                      <el-button type="danger" plain :loading="isReviewing" @click="reviewRegistration(row, 'rejected')">
+                        <el-icon><Close /></el-icon>
+                        未錄取
+                      </el-button>
+                    </div>
+                  </article>
+
+                  <div v-if="adminRegistrations.length === 0" class="rounded-2xl border border-dashed border-gray-200 bg-white p-5 text-center text-sm font-bold text-gray-400">
+                    尚無報名資料
+                  </div>
+                </div>
+
+                <div class="training-table-scroll mt-4 hidden min-w-0 overflow-x-auto custom-scrollbar sm:block">
                   <el-table :data="adminRegistrations" class="training-table" empty-text="尚無報名資料" stripe>
                     <el-table-column prop="member_name" label="球員" min-width="130">
                       <template #default="{ row }">
@@ -1150,18 +1195,18 @@ watch(selectedAdminSessionId, (next, prev) => {
                         <div class="mt-1 text-[11px] font-bold text-gray-400">{{ getTrainingPointStatusLabel(row.point_status) }}</div>
                       </template>
                     </el-table-column>
-                    <el-table-column label="操作" min-width="220" align="right">
+                    <el-table-column label="操作" min-width="250" align="center">
                       <template #default="{ row }">
-                        <div class="flex flex-wrap justify-end gap-2">
-                          <el-button size="small" type="success" plain :loading="isReviewing" @click="reviewRegistration(row, 'selected')">
+                        <div class="training-review-actions">
+                          <el-button type="success" plain :loading="isReviewing" @click="reviewRegistration(row, 'selected')">
                             <el-icon><Check /></el-icon>
                             錄取
                           </el-button>
-                          <el-button size="small" type="warning" plain :loading="isReviewing" @click="reviewRegistration(row, 'waitlisted')">
+                          <el-button type="warning" plain :loading="isReviewing" @click="reviewRegistration(row, 'waitlisted')">
                             <el-icon><Timer /></el-icon>
                             候補
                           </el-button>
-                          <el-button size="small" type="danger" plain :loading="isReviewing" @click="reviewRegistration(row, 'rejected')">
+                          <el-button type="danger" plain :loading="isReviewing" @click="reviewRegistration(row, 'rejected')">
                             <el-icon><Close /></el-icon>
                             未錄取
                           </el-button>
@@ -1690,6 +1735,31 @@ watch(selectedAdminSessionId, (next, prev) => {
   width: 100%;
 }
 
+.training-review-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+
+.training-review-actions :deep(.el-button) {
+  width: 100%;
+  min-height: 38px;
+  margin: 0;
+  padding: 0 8px;
+  border-radius: 12px;
+  font-weight: 900;
+}
+
+.training-review-actions :deep(.el-button > span) {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
 @media (max-width: 639px) {
   .training-tabs :deep(.el-tabs__item) {
     height: 42px;
@@ -1705,6 +1775,16 @@ watch(selectedAdminSessionId, (next, prev) => {
 
   .training-table-scroll :deep(.training-table) {
     min-width: 620px;
+  }
+
+  .training-review-actions {
+    gap: 6px;
+  }
+
+  .training-review-actions :deep(.el-button) {
+    min-height: 42px;
+    padding: 0 6px;
+    font-size: 0.8125rem;
   }
 }
 </style>
