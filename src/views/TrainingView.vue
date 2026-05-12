@@ -145,6 +145,63 @@ const pastSessions = computed(() => sessions.value.filter((session) => dayjs(ses
 
 const memberAvailablePoints = computed(() => selectedMember.value?.available_points ?? 0)
 
+const createRegistrationStatusCounts = (): Record<TrainingRegistrationStatus, number> => ({
+  applied: 0,
+  selected: 0,
+  waitlisted: 0,
+  rejected: 0,
+  cancelled: 0
+})
+
+const adminRegistrationStatusCounts = computed(() => {
+  const counts = createRegistrationStatusCounts()
+  adminRegistrations.value.forEach((registration) => {
+    counts[registration.status] += 1
+  })
+  return counts
+})
+
+const adminRegistrationReviewStats = computed(() => {
+  const counts = adminRegistrationStatusCounts.value
+  const stats = [
+    {
+      key: 'applied',
+      label: '待審核',
+      value: counts.applied,
+      className: 'border-blue-100 bg-blue-50 text-blue-600'
+    },
+    {
+      key: 'selected',
+      label: '已錄取',
+      value: counts.selected,
+      className: 'border-emerald-100 bg-emerald-50 text-emerald-600'
+    },
+    {
+      key: 'waitlisted',
+      label: '候補',
+      value: counts.waitlisted,
+      className: 'border-amber-100 bg-amber-50 text-amber-700'
+    },
+    {
+      key: 'rejected',
+      label: '未錄取',
+      value: counts.rejected,
+      className: 'border-red-100 bg-red-50 text-red-500'
+    }
+  ]
+
+  if (counts.cancelled > 0) {
+    stats.push({
+      key: 'cancelled',
+      label: '已取消',
+      value: counts.cancelled,
+      className: 'border-gray-100 bg-gray-50 text-gray-500'
+    })
+  }
+
+  return stats
+})
+
 const statusOptions: Array<{ label: string; value: TrainingManualStatus }> = [
   { label: '草稿', value: 'draft' },
   { label: '開放報名', value: 'open' },
@@ -237,6 +294,36 @@ const formatSessionDate = (session: TrainingSession) => {
 const formatTrainingTimeRange = (range: TrainingTimeRange | null | undefined) => {
   const [startTime, endTime] = Array.isArray(range) ? range : []
   return startTime && endTime ? `${startTime} - ${endTime}` : null
+}
+
+const getSessionDateSortValue = (session: TrainingSession) => {
+  const date = dayjs(session.match_date)
+  return date.isValid() ? date.valueOf() : Number.MAX_SAFE_INTEGER
+}
+
+const getSessionStartTimeSortValue = (session: TrainingSession) => {
+  const match = String(session.match_time || '').match(/(\d{1,2}):(\d{2})/)
+  return match ? `${match[1].padStart(2, '0')}:${match[2]}` : '99:99'
+}
+
+const sortTrainingSessions = (items: TrainingSession[]) => {
+  const today = dayjs().startOf('day')
+  return [...items].sort((a, b) => {
+    const aDate = dayjs(a.match_date)
+    const bDate = dayjs(b.match_date)
+    const aIsPast = aDate.isValid() && aDate.isBefore(today)
+    const bIsPast = bDate.isValid() && bDate.isBefore(today)
+
+    if (aIsPast !== bIsPast) return aIsPast ? 1 : -1
+
+    const dateOrder = aIsPast && bIsPast
+      ? getSessionDateSortValue(b) - getSessionDateSortValue(a)
+      : getSessionDateSortValue(a) - getSessionDateSortValue(b)
+
+    return dateOrder
+      || getSessionStartTimeSortValue(a).localeCompare(getSessionStartTimeSortValue(b))
+      || a.match_name.localeCompare(b.match_name, 'zh-Hant')
+  })
 }
 
 const toDateTimeInput = (value?: string | null) => {
@@ -339,7 +426,7 @@ const refreshData = async () => {
       selectedMemberId.value = nextMembers[0].member_id
     }
 
-    const nextSessions = await trainingApi.listTrainingSessions(selectedMemberId.value || null)
+    const nextSessions = sortTrainingSessions(await trainingApi.listTrainingSessions(selectedMemberId.value || null))
     sessions.value = nextSessions
 
     const firstManageableSession = nextSessions[0] || null
@@ -363,7 +450,7 @@ const refreshData = async () => {
 }
 
 const handleMemberChange = async () => {
-  sessions.value = await trainingApi.listTrainingSessions(selectedMemberId.value || null)
+  sessions.value = sortTrainingSessions(await trainingApi.listTrainingSessions(selectedMemberId.value || null))
   await refreshMemberPointTransactions()
 }
 
@@ -728,6 +815,7 @@ watch(selectedAdminSessionId, (next, prev) => {
                 class="w-full mt-2"
                 size="large"
                 placeholder="請選擇綁定成員"
+                popper-class="training-select-popper"
                 :disabled="members.length === 0"
               >
                 <el-option
@@ -929,6 +1017,7 @@ watch(selectedAdminSessionId, (next, prev) => {
                     class="w-full"
                     size="large"
                     placeholder="選擇特訓課"
+                    popper-class="training-select-popper"
                     :disabled="sessions.length === 0"
                   >
                     <el-option
@@ -941,7 +1030,7 @@ watch(selectedAdminSessionId, (next, prev) => {
 
                   <el-form label-position="top" class="space-y-3">
                     <el-form-item label="手動狀態" class="font-bold">
-                      <el-select v-model="settingsForm.manual_status" class="w-full" size="large">
+                      <el-select v-model="settingsForm.manual_status" class="w-full" size="large" popper-class="training-select-popper">
                         <el-option
                           v-for="option in statusOptions"
                           :key="option.value"
@@ -1014,6 +1103,28 @@ watch(selectedAdminSessionId, (next, prev) => {
                     >
                       建立點名單
                     </button>
+                  </div>
+                </div>
+
+                <div class="mt-4 rounded-2xl border border-gray-100 bg-gray-50/80 p-3">
+                  <div class="flex items-center justify-between gap-3">
+                    <div class="min-w-0 text-xs font-black text-slate-500">報名統計</div>
+                    <div class="inline-flex min-h-8 shrink-0 items-center gap-2 rounded-full border border-primary/15 bg-white px-3 text-primary">
+                      <span class="text-xs font-black">總數</span>
+                      <span class="text-lg font-black leading-none">{{ adminRegistrations.length }}</span>
+                    </div>
+                  </div>
+
+                  <div class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+                    <div
+                      v-for="stat in adminRegistrationReviewStats"
+                      :key="stat.key"
+                      class="flex min-h-11 min-w-0 items-center justify-between gap-2 rounded-xl border px-3 py-2"
+                      :class="stat.className"
+                    >
+                      <span class="min-w-0 truncate text-xs font-black">{{ stat.label }}</span>
+                      <span class="shrink-0 text-lg font-black leading-none">{{ stat.value }}</span>
+                    </div>
                   </div>
                 </div>
 
@@ -1134,6 +1245,7 @@ watch(selectedAdminSessionId, (next, prev) => {
                     class="w-full"
                     size="large"
                     placeholder="選擇球員"
+                    popper-class="training-select-popper"
                   >
                     <el-option
                       v-for="member in rosterOptions"
@@ -1425,7 +1537,7 @@ watch(selectedAdminSessionId, (next, prev) => {
         </div>
 
         <el-form-item label="手動狀態" class="font-bold">
-          <el-select v-model="newSessionForm.manual_status" class="w-full" size="large">
+          <el-select v-model="newSessionForm.manual_status" class="w-full" size="large" popper-class="training-select-popper">
             <el-option
               v-for="option in statusOptions"
               :key="option.value"
@@ -1497,7 +1609,26 @@ watch(selectedAdminSessionId, (next, prev) => {
 }
 
 .training-view-page :deep(.el-select__selection),
-.training-view-page :deep(.el-select__selected-item) {
+.training-view-page :deep(.el-select__selected-item),
+.training-view-page :deep(.el-select__placeholder) {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.training-view-page :deep(.el-select__selected-item),
+.training-view-page :deep(.el-select__placeholder) {
+  line-height: 1.35;
+}
+
+:global(.training-select-popper .el-select-dropdown__item) {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  line-height: 1.35;
+}
+
+:global(.training-select-popper .el-select-dropdown__item span) {
   min-width: 0;
 }
 
