@@ -11,7 +11,7 @@ description: "Role-based auth and permission workflow for jg-base-ball-community
 
 ## 讀取順序
 
-1. 先讀 `AGENT.md`。
+1. 先讀 `AGENTS.md`。
 2. 讀 `src/router/index.ts`、`src/stores/auth.ts`、`src/stores/permissions.ts`。
 3. 再讀受影響的 `view`、`layout`、`component` 與相關 Supabase 查詢。
 4. 若任務牽涉敏感資料，再確認是不是應該改安全 view 或查詢路徑，而不是只改前端顯示。

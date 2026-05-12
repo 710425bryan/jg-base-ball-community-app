@@ -11,7 +11,7 @@ description: "Finance, fees, payment submissions, player balances, match fees, r
 
 ## 必讀檔案
 
-1. `AGENT.md`
+1. `AGENTS.md`
 2. `docs/PROJECT_LOGIC.md` 的「收費與付款」
 3. `docs/FILE_MAP.md`
 4. `docs/MIGRATIONS.md`

@@ -11,7 +11,7 @@ description: "Push notification workflow for jg-base-ball-community-app. Use whe
 
 ## 讀取順序
 
-1. 先讀 `AGENT.md`。
+1. 先讀 `AGENTS.md`。
 2. 讀 `src/utils/pushNotifications.ts` 與 `src/utils/pushNotifications.test.ts`。
 3. 讀 `supabase/functions/send-push-notification/index.ts` 與 `supabase/functions/_shared/push.ts`。
 4. 再讀實際發送通知的 `view`、`service`、`webhook` 或 Realtime 入口。

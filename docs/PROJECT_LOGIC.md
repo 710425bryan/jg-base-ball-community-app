@@ -4,7 +4,7 @@
 
 閱讀順序建議：
 
-1. 先讀 `AGENT.md`。
+1. 先讀 `AGENTS.md`。
 2. 要理解整體功能資料流時讀本檔。
 3. 要定位檔案時讀 `docs/FILE_MAP.md`。
 4. 涉及 DB 時讀 `docs/MIGRATIONS.md`；涉及 Edge Function / env 時讀 `docs/EDGE_FUNCTIONS.md`。

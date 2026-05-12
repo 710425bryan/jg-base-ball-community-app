@@ -11,7 +11,7 @@ description: "Player roster, users, profile binding, team groups, roster cache, 
 
 ## 必讀檔案
 
-1. `AGENT.md`
+1. `AGENTS.md`
 2. `docs/PROJECT_LOGIC.md` 的「球員、使用者與角色權限」
 3. `docs/FILE_MAP.md`
 4. `src/views/PlayersView.vue`

@@ -11,7 +11,7 @@ description: "Match records, schedule detail, lineup, media, live controller, au
 
 ## 必讀檔案
 
-1. `AGENT.md`
+1. `AGENTS.md`
 2. `docs/PROJECT_LOGIC.md` 的「賽事與比賽紀錄」
 3. `docs/FILE_MAP.md`
 4. `docs/EDGE_FUNCTIONS.md`

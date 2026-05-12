@@ -11,7 +11,7 @@ description: "Leave request, attendance event, roll call, dashboard attendance s
 
 ## 必讀檔案
 
-1. `AGENT.md`
+1. `AGENTS.md`
 2. `docs/PROJECT_LOGIC.md` 的「請假與點名」
 3. `docs/FILE_MAP.md`
 4. `src/views/MyLeaveRequestsView.vue`

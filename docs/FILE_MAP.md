@@ -4,7 +4,7 @@
 
 閱讀順序建議：
 
-1. `AGENT.md`
+1. `AGENTS.md`
 2. `docs/PROJECT_LOGIC.md`
 3. 本檔
 4. 任務對應 `.codex/skills/*/SKILL.md`
@@ -25,9 +25,8 @@
 
 | 檔案 | 用途 |
 | --- | --- |
-| `AGENT.md` | AI / Codex 必讀入口規則 |
-| `AGENTS.md` | 指向 `AGENT.md` 的相容入口 |
-| `.geminirules` | Gemini / Antigravity 相容入口，指向 `AGENT.md` |
+| `AGENTS.md` | AI / Codex 必讀入口規則 |
+| `.geminirules` | Gemini / Antigravity 相容入口，指向 `AGENTS.md` |
 | `AI_SKILLS.md` | repo 內 Codex skills 索引 |
 | `.codex/skills/*/SKILL.md` | 任務型 workflow |
 | `docs/PROJECT_LOGIC.md` | 功能邏輯與資料流 |
@@ -353,7 +352,7 @@
 - `supabase/functions/notify-holiday-theme/logic.test.ts`
 - `supabase/functions/resolve-location/logic.test.ts`
 
-驗證指令以 `AGENT.md` 的驗證矩陣為準。
+驗證指令以 `AGENTS.md` 的驗證矩陣為準。
 
 ## 15. 快速定位規則
 

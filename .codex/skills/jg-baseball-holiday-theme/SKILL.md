@@ -11,7 +11,7 @@ description: "Holiday theme workflow for jg-base-ball-community-app. Use when ad
 
 ## 讀取順序
 
-1. 先讀 `AGENT.md`。
+1. 先讀 `AGENTS.md`。
 2. 讀 `src/composables/useHolidayTheme.ts`、`src/utils/holidayMotionLayout.ts`。
 3. 讀 `src/views/HolidayThemeSettingsView.vue` 與 `src/components/settings/HolidayThemePreviewStage.vue`。
 4. 讀套用點：`src/views/LandingView.vue`、`src/views/HomeView.vue`、`src/App.vue`、`src/layouts/PublicLayout.vue`、`src/layouts/MainLayout.vue`。

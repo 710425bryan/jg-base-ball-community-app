@@ -11,7 +11,7 @@ description: "Project-specific workflow for jg-base-ball-community-app. Use when
 
 ## 啟動流程
 
-1. 先讀 `AGENT.md`。
+1. 先讀 `AGENTS.md`。
 2. 再讀與任務直接相關的檔案。
 3. 若任務牽涉路由、登入、權限、同步、推播，再補讀對應的 `router`、`stores`、`services`、`utils` 或 `supabase/functions`。
 4. 先辨識目標檔案是原始碼、產物、腳本、還是 migration，確認真的該編輯才動手。
@@ -24,7 +24,7 @@ description: "Project-specific workflow for jg-base-ball-community-app. Use when
 - 把外部資料存取與 Supabase 溝通集中在 `src/services/`。
 - 把資料庫變更做成新的 `supabase_*_migration.sql`，不要直接覆寫既有 migration。
 - 把 `public/version.json`、`dev-dist/`、`dist/` 視為產物，除非任務明確是建置或 PWA 輸出。
-- 新增 route-level 頁面或新功能域時，同步建立 / 更新流程規則：`AGENT.md`、`docs/PROJECT_LOGIC.md`、`docs/FILE_MAP.md`、`AI_SKILLS.md`，以及對應 `.codex/skills/<feature>/SKILL.md`。若併入既有 skill，要在回報中說明。
+- 新增 route-level 頁面或新功能域時，同步建立 / 更新流程規則：`AGENTS.md`、`docs/PROJECT_LOGIC.md`、`docs/FILE_MAP.md`、`AI_SKILLS.md`，以及對應 `.codex/skills/<feature>/SKILL.md`。若併入既有 skill，要在回報中說明。
 
 ## 固定守則
 

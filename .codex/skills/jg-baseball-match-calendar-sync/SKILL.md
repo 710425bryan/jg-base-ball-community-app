@@ -11,7 +11,7 @@ description: "Match calendar sync workflow for jg-base-ball-community-app. Use w
 
 ## 讀取順序
 
-1. 先讀 `AGENT.md`。
+1. 先讀 `AGENTS.md`。
 2. 讀 `src/utils/googleCalendarParser.ts` 與 `src/utils/googleCalendarParser.test.ts`。
 3. 讀 `src/services/matchesApi.ts` 與 `src/services/matchesApi.test.ts`。
 4. 再讀 `src/types/match.ts` 與實際同步 UI，例如 `MatchRecordsView`、`SyncCalendarDialog`。

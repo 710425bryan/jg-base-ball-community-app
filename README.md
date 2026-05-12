@@ -4,9 +4,9 @@
 
 ## AI / Agent 工作入口
 
-本專案的 AI 規則以 `AGENT.md` 為準：
+本專案的 AI 規則以 `AGENTS.md` 為準：
 
-1. 先讀 `AGENT.md`
+1. 先讀 `AGENTS.md`
 2. 需要理解功能資料流時讀 `docs/PROJECT_LOGIC.md`
 3. 需要定位檔案時讀 `docs/FILE_MAP.md`
 4. 涉及 migration 時讀 `docs/MIGRATIONS.md`

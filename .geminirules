@@ -1,10 +1,10 @@
 # Gemini / Antigravity Rules
 
-本專案的統一 AI 規則入口是 [AGENT.md](./AGENT.md)。
+本專案的統一 AI 規則入口是 [AGENTS.md](./AGENTS.md)。
 
-- 任何 Gemini / Antigravity / Codex / AI Agent 開始工作前，請先閱讀 `AGENT.md`。
-- 若本檔、`AGENTS.md`、IDE 提示或舊規則與 `AGENT.md` 衝突，以 `AGENT.md` 為準。
-- 若 `AGENT.md` 與實際程式碼衝突，先相信程式碼現況，並在回報中指出文件需要更新。
+- 任何 Gemini / Antigravity / Codex / AI Agent 開始工作前，請先閱讀 `AGENTS.md`。
+- 若本檔、IDE 提示或舊規則與 `AGENTS.md` 衝突，以 `AGENTS.md` 為準。
+- 若 `AGENTS.md` 與實際程式碼衝突，先相信程式碼現況，並在回報中指出文件需要更新。
 - 需要理解功能資料流時讀 `docs/PROJECT_LOGIC.md`。
 - 需要定位檔案時讀 `docs/FILE_MAP.md`。
 - 涉及 DB migration 時讀 `docs/MIGRATIONS.md`。

@@ -4,7 +4,7 @@
 
 ## 讀取規則
 
-1. 先讀 `AGENT.md`、`docs/PROJECT_LOGIC.md`、`docs/FILE_MAP.md`。
+1. 先讀 `AGENTS.md`、`docs/PROJECT_LOGIC.md`、`docs/FILE_MAP.md`。
 2. 再讀本檔確認 auth、secret、外部服務與回傳 shape。
 3. 修改通知類 function 時同步讀 `jg-baseball-push-notifications` skill。
 4. 修改付款匯入讀 `jg-baseball-finance-payments` skill。

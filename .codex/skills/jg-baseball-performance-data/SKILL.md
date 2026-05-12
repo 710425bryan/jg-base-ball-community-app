@@ -11,7 +11,7 @@ description: "棒球能力與體能測驗數據 workflow for jg-base-ball-commun
 
 ## 讀取順序
 
-1. 先讀 `AGENT.md`。
+1. 先讀 `AGENTS.md`。
 2. 讀 `src/router/index.ts`、`src/layouts/MainLayout.vue`、`src/components/RolePermissionsManager.vue`。
 3. 讀 `src/services/performanceApi.ts`、`src/stores/performance.ts`、`src/types/performance.ts`、`src/utils/performanceConfig.ts`。
 4. 若改 DB，讀 `supabase_performance_data_migration.sql` 並確認 RLS / RPC 與前端 feature key 一致。

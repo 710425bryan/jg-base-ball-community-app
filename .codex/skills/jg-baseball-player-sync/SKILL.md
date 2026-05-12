@@ -11,7 +11,7 @@ description: "Player roster sync workflow for jg-base-ball-community-app. Use wh
 
 ## 讀取順序
 
-1. 先讀 `AGENT.md`。
+1. 先讀 `AGENTS.md`。
 2. 讀 `src/utils/playerSync.ts` 與 `src/utils/playerSync.test.ts`。
 3. 再讀實際發起同步的 `view`、`service`、`script` 或 Edge Function。
 4. 若任務牽涉 schema，補讀相關 `supabase_*_migration.sql`。

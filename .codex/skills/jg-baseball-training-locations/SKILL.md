@@ -11,7 +11,7 @@ description: "Training venue and player assignment workflow for jg-base-ball-com
 
 ## 必讀檔案
 
-1. `AGENT.md`
+1. `AGENTS.md`
 2. `docs/PROJECT_LOGIC.md` 的「場地與人員配置」
 3. `docs/FILE_MAP.md`
 4. `src/views/TrainingLocationsView.vue`

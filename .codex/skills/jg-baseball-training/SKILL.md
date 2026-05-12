@@ -11,7 +11,7 @@ description: "Training registration and player points workflow for jg-base-ball-
 
 ## 必讀檔案
 
-1. `AGENT.md`
+1. `AGENTS.md`
 2. `docs/PROJECT_LOGIC.md` 的「特訓報名與球員點數」
 3. `docs/FILE_MAP.md`
 4. `src/views/TrainingView.vue`
@@ -94,5 +94,5 @@ description: "Training registration and player points workflow for jg-base-ball-
 
 ## 文件同步
 
-- 修改 `/training` route、feature/action、資料表、RPC、點名串接、點數規則時，同步更新 `AGENT.md`、`docs/PROJECT_LOGIC.md`、`docs/FILE_MAP.md` 與 `AI_SKILLS.md`。
+- 修改 `/training` route、feature/action、資料表、RPC、點名串接、點數規則時，同步更新 `AGENTS.md`、`docs/PROJECT_LOGIC.md`、`docs/FILE_MAP.md` 與 `AI_SKILLS.md`。
 - 若新增另一個 route-level 頁面，依專案規則建立或更新對應 skill。

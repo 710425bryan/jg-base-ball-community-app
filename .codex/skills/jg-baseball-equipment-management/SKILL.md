@@ -11,7 +11,7 @@ description: "Equipment management workflow for jg-base-ball-community-app. Use 
 
 ## 讀取順序
 
-1. 先讀 `AGENT.md`。
+1. 先讀 `AGENTS.md`。
 2. 讀 `src/types/equipment.ts`、`src/services/equipmentApi.ts`、`src/stores/equipment*.ts`。
 3. 若改 UI，讀 `src/views/EquipmentView.vue`、`src/views/EquipmentAddonsView.vue` 與 `src/components/equipment/*`。
 4. 若改付款或審核，讀 `src/views/MyPaymentsView.vue`、`src/views/FeesView.vue`、`src/components/equipment/MyEquipmentPaymentsPanel.vue`、`src/components/equipment/EquipmentPaymentSubmissionInbox.vue`。
