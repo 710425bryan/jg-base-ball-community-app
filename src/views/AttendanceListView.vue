@@ -125,6 +125,10 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Calendar, Checked, Loading, Plus } from '@element-plus/icons-vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
+import {
+  buildAttendanceLeaveSummaryRows,
+  getDefaultAttendanceStatusForMember
+} from '@/utils/attendanceLeave'
 import dayjs from 'dayjs'
 
 const router = useRouter()
@@ -176,8 +180,8 @@ const fetchEvents = async () => {
       const presentCount = records.filter((r: any) => ['出席', '遲到', '早退'].includes(r.status)).length
       const leaveCount = records.filter((r: any) => r.status === '請假').length
       const absentCount = records.filter((r: any) => r.status === '缺席').length
-      // 如果還沒進行過點名儲存，就顯示目前系統活躍球員總數
-      const totalCount = records.length > 0 ? records.length : (memberCount || 0)
+      // 點名紀錄可能只先寫入當天請假者；總數仍以有效球員數作為列表概覽。
+      const totalCount = Math.max(records.length, memberCount || 0)
       return { ...e, presentCount, leaveCount, absentCount, totalCount }
     }) || []
   } catch (error: any) {
@@ -204,6 +208,34 @@ const submitCreate = async () => {
   
   isSubmitting.value = true
   try {
+    const { data: members, error: memberError } = await supabase
+      .from('team_members')
+      .select('id')
+      .in('role', ['球員', '校隊'])
+      .neq('status', '退隊')
+
+    if (memberError) throw memberError
+
+    let leaveMemberIds = new Set<string>()
+    if (members && members.length > 0) {
+      const { data: leaves, error: leaveError } = await supabase
+        .from('leave_requests')
+        .select(`
+          id, user_id, leave_type, start_date, end_date, reason,
+          team_members ( id, name, avatar_url, role, jersey_number, status, team_group )
+        `)
+        .lte('start_date', form.date)
+        .gte('end_date', form.date)
+
+      if (leaveError) throw leaveError
+      leaveMemberIds = new Set(
+        buildAttendanceLeaveSummaryRows(leaves, members)
+          .filter((row) => row.in_roll_call_list)
+          .map((row) => row.member_id)
+          .filter(Boolean)
+      )
+    }
+
     const payload = {
       title: form.title,
       date: form.date,
@@ -220,21 +252,20 @@ const submitCreate = async () => {
       
     if (error) throw error
 
-    // 自動為所有現役球員/校隊產生預設點名紀錄 (狀態：請假)
-    const { data: members, error: memError } = await supabase
-      .from('team_members')
-      .select('id')
-      .in('role', ['球員', '校隊'])
-      .neq('status', '退隊')
-      
-    if (!memError && members && members.length > 0) {
-      const recordsPayload = members.map(m => ({
-        event_id: evData.id,
-        member_id: m.id,
-        status: '請假'
-      }))
-      // 批次插入，忽略錯誤
-      await supabase.from('attendance_records').insert(recordsPayload)
+    // 建立時只預寫當天有假單的球員；其他球員等實際點選出席 / 請假時再寫入。
+    if (members && members.length > 0 && leaveMemberIds.size > 0) {
+      const recordsPayload = members
+        .map(m => ({
+          event_id: evData.id,
+          member_id: m.id,
+          status: getDefaultAttendanceStatusForMember(m.id, leaveMemberIds)
+        }))
+        .filter(record => record.status === '請假')
+
+      if (recordsPayload.length > 0) {
+        const { error: recordError } = await supabase.from('attendance_records').insert(recordsPayload)
+        if (recordError) throw recordError
+      }
     }
     
     ElMessage.success('建立成功！即將進入點名畫面...')

@@ -5,7 +5,6 @@ import {
   type MyHomeEquipmentRequest,
   type MyHomeLeaveStatus,
   type MyHomeMember,
-  type MyHomeNextEvent,
   type MyHomePaymentDueItem,
   type MyHomeSnapshot,
   type MyHomeTrainingLocation
@@ -15,6 +14,7 @@ import {
   isSupabaseRpcUnavailable,
   markSupabaseRpcUnavailable
 } from '@/utils/supabaseRpc'
+import { normalizeMyHomeNextEvent } from '@/utils/myHomeSnapshot'
 
 const RPC_NAME = 'get_my_home_snapshot'
 
@@ -172,11 +172,9 @@ const enrichSnapshotWithMatchFees = async (snapshot: MyHomeSnapshot): Promise<My
 }
 
 const normalizeSnapshot = (payload: Partial<MyHomeSnapshot> | null | undefined): MyHomeSnapshot => {
-  const fallback = createEmptyMyHomeSnapshot()
-
   return {
     members: ensureArray<MyHomeMember>(payload?.members).map(normalizeMember),
-    next_event: (payload?.next_event ?? fallback.next_event) as MyHomeNextEvent | null,
+    next_event: normalizeMyHomeNextEvent(payload?.next_event),
     today_leaves: ensureArray<MyHomeLeaveStatus>(payload?.today_leaves),
     training_locations: ensureArray<Partial<MyHomeTrainingLocation>>(payload?.training_locations).map(normalizeTrainingLocation),
     payment_summary: {

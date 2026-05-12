@@ -130,7 +130,7 @@ UI 約定：
 
 資料流：
 
-- 個人化首頁摘要走 `get_my_home_snapshot(p_today)`，`MyHomeTodayPanel` 會在目前選取的綁定成員區塊顯示特訓點數卡；點數欄位優先由 snapshot 的 `members[*]` 帶入，若線上 RPC 尚未更新則由 `list_my_training_members()` 補齊，只呈現自己的 linked member。
+- 個人化首頁摘要走 `get_my_home_snapshot(p_today)`，`MyHomeTodayPanel` 的 Next Up 僅顯示下一筆 `matches` 賽程，點名狀態固定留在「今日訓練點名狀態」區塊；點數欄位優先由 snapshot 的 `members[*]` 帶入，若線上 RPC 尚未更新則由 `list_my_training_members()` 補齊，只呈現自己的 linked member。
 - 後台大廳的「今日訓練點名狀態」走 `get_dashboard_today_attendance_status(p_today)`，只給具備 `leave_requests:VIEW` 的角色顯示。
 - 我的假單：
   - `list_my_leave_members()`

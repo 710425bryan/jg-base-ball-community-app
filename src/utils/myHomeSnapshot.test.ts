@@ -5,7 +5,8 @@ import {
   buildMyHomeTodoItems,
   canShowMyHomeTrainingRegistrationAction,
   getSelectedMyHomeMember,
-  isMyHomeNextEventExpired
+  isMyHomeNextEventExpired,
+  normalizeMyHomeNextEvent
 } from '@/utils/myHomeSnapshot'
 
 const buildSnapshot = (overrides: Partial<MyHomeSnapshot> = {}): MyHomeSnapshot => ({
@@ -94,6 +95,33 @@ describe('myHomeSnapshot utilities', () => {
     }), 'm2')
 
     expect(todos.some((todo) => todo.key === 'today-leave')).toBe(true)
+  })
+
+  it('normalizes Next Up to the calendar schedule route', () => {
+    expect(normalizeMyHomeNextEvent({
+      id: 'match-1',
+      type: 'match',
+      title: 'Morning game',
+      date: '2026-04-20',
+      time: '09:00 - 11:00',
+      route: '/match-records?match_id=match-1'
+    })).toMatchObject({
+      id: 'match-1',
+      type: 'match',
+      title: 'Morning game',
+      date: '2026-04-20',
+      route: '/calendar?match_id=match-1'
+    })
+  })
+
+  it('drops stale attendance payloads from the personal Next Up slot', () => {
+    expect(normalizeMyHomeNextEvent({
+      id: 'attendance-1',
+      type: 'attendance',
+      title: 'Roll call',
+      date: '2026-04-20',
+      route: '/calendar'
+    })).toBeNull()
   })
 
   it('detects when the current next event time range has already ended', () => {

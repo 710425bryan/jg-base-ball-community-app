@@ -46,6 +46,7 @@
 | `supabase_my_home_snapshot_migration.sql` | 個人首頁 snapshot | linked member 安全邊界 |
 | `supabase_zz_my_home_training_points_migration.sql` | 個人首頁特訓點數補強 | 覆寫 / 補齊 snapshot 點數 |
 | `supabase_my_home_equipment_payment_ownership_migration.sql` | 個人首頁裝備付款歸屬修正 | 裝備付款摘要必讀 |
+| `supabase_my_home_next_event_match_only_hotfix.sql` | 個人首頁 Next Up 僅顯示賽程 | 避免點名單搶佔 Next Up |
 | `supabase_my_leave_requests_migration.sql` | 我的假單 RPC | 家長端請假安全入口 |
 | `supabase_my_player_records_migration.sql` | 我的成績 RPC | `/my-records` 不直接讀後台 matches |
 | `supabase_notification_feed_rpc_migration.sql` | 通知中心 RPC 初版 | 後續多個檔案覆寫 |

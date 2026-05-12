@@ -13,7 +13,7 @@ export type MyHomeMember = {
   available_training_points?: number
 }
 
-export type MyHomeEventType = 'match' | 'attendance'
+export type MyHomeEventType = 'match'
 
 export type MyHomeNextEvent = {
   id: string

@@ -34,11 +34,54 @@ export const getMyHomeMemberLeave = (
   memberId?: string | null
 ) => snapshot.today_leaves.find((leave) => leave.member_id === memberId) || null
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value && typeof value === 'object')
+
+const optionalString = (value: unknown) => {
+  if (value === null || value === undefined) return null
+
+  const normalized = String(value).trim()
+  return normalized || null
+}
+
+const normalizeNextEventRoute = (route: string | null, id: string) => {
+  const fallbackRoute = `/calendar?match_id=${encodeURIComponent(id)}`
+
+  if (!route) return fallbackRoute
+  if (route.startsWith('/match-records?')) return route.replace('/match-records', '/calendar')
+  if (route === '/match-records' || route === '/calendar') return fallbackRoute
+
+  return route
+}
+
+export const normalizeMyHomeNextEvent = (value: unknown): MyHomeNextEvent | null => {
+  if (!isRecord(value) || value.type !== 'match') return null
+
+  const id = optionalString(value.id)
+  const date = optionalString(value.date)
+  if (!id || !date) return null
+
+  return {
+    id,
+    type: 'match',
+    title: optionalString(value.title) || '賽事',
+    date,
+    time: optionalString(value.time),
+    location: optionalString(value.location),
+    opponent: optionalString(value.opponent),
+    category_group: optionalString(value.category_group),
+    match_level: optionalString(value.match_level),
+    coaches: optionalString(value.coaches),
+    players: optionalString(value.players),
+    route: normalizeNextEventRoute(optionalString(value.route), id)
+  }
+}
+
 export const canShowMyHomeTrainingRegistrationAction = (
   nextEvent: MyHomeNextEvent | null,
   sessions: Array<Pick<TrainingSession, 'match_id' | 'is_registration_open'>>
 ) => {
-  if (nextEvent?.match_level !== '特訓課') return false
+  if (nextEvent?.type !== 'match' || nextEvent.match_level !== '特訓課') return false
 
   return sessions.some((session) =>
     session.match_id === nextEvent.id && session.is_registration_open
@@ -212,10 +255,10 @@ export const buildMyHomeTodoItems = (
   if (snapshot.next_event) {
     items.push({
       key: 'next-event',
-      title: snapshot.next_event.type === 'match' ? '下一場賽事' : '下一個活動',
+      title: '下一場賽事',
       body: `${snapshot.next_event.date}${snapshot.next_event.time ? ` ${snapshot.next_event.time}` : ''}｜${snapshot.next_event.title}`,
       severity: 'info',
-      actionLabel: snapshot.next_event.type === 'match' ? '查看賽事' : '查看行事曆',
+      actionLabel: '查看賽事',
       route: snapshot.next_event.route
     })
   }
