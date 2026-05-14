@@ -11,7 +11,8 @@ import { useEquipmentPaymentsStore } from '@/stores/equipmentPayments'
 import { getPlayerBalance } from '@/services/playerBalances'
 import {
   EQUIPMENT_REQUEST_STATUS,
-  getEquipmentRequestStatusLabel
+  getEquipmentRequestStatusLabel,
+  isEquipmentPaymentPayableRequestStatus
 } from '@/utils/equipmentRequestStatus'
 import { formatEquipmentVariantLabel } from '@/utils/equipmentPricing'
 import {
@@ -95,7 +96,9 @@ const requiresLast5 = computed(() => isExternalPaymentRequired.value && requires
 const pendingRequestItems = computed(() => paymentsStore.myPendingRequestItems)
 
 const unpaidItems = computed(() =>
-  paymentsStore.myItems.filter((item) => item.payment_status === 'unpaid')
+  paymentsStore.myItems.filter((item) =>
+    item.payment_status === 'unpaid' && isEquipmentPaymentPayableRequestStatus(item.request_status)
+  )
 )
 
 const pendingItems = computed(() =>
@@ -396,7 +399,7 @@ defineExpose({
     <div class="px-5 md:px-6 py-4 border-b border-gray-100 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <div>
         <h3 class="text-lg font-black text-slate-800">裝備待付款</h3>
-        <p class="text-xs text-gray-400 mt-1">已領取的裝備加購與管理員新增的購買項目會列在這裡，可勾選後送出付款回報。</p>
+        <p class="text-xs text-gray-400 mt-1">已備貨 / 可取貨的裝備加購與管理員新增的購買項目會列在這裡，可勾選後送出付款回報。</p>
       </div>
       <div class="flex items-center gap-2">
         <button
@@ -435,7 +438,7 @@ defineExpose({
       <div v-if="pendingRequestItems.length > 0" class="rounded-2xl border border-blue-100 bg-blue-50/50 p-4">
         <div class="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <div class="font-black text-blue-700">待審核 / 尚未可付款</div>
-          <div class="text-xs font-bold text-blue-500">核准後會移到待付款，可先完成付款回報</div>
+          <div class="text-xs font-bold text-blue-500">備貨完成後會移到待付款，可再送出付款回報</div>
         </div>
         <div class="grid gap-3 md:grid-cols-2">
           <article

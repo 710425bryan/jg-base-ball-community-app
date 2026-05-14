@@ -318,7 +318,10 @@
           </div>
 
           <article class="rounded-2xl border border-white bg-white p-4 shadow-sm">
-            <label class="flex cursor-pointer items-start gap-3">
+            <label
+              class="flex items-start gap-3"
+              :class="canSelectMembershipFee ? 'cursor-pointer' : 'cursor-not-allowed opacity-75'"
+            >
               <input
                 v-model="includeMembershipFee"
                 type="checkbox"
@@ -333,10 +336,16 @@
                   </span>
                 </div>
                 <p class="mt-1 text-xs font-bold text-slate-400">
-                  {{ createDialogMember?.name || '尚未選擇成員' }}｜{{ createDialogBillingModeLabel }}
+                  {{ createDialogMembershipMetaText }}
                 </p>
               </div>
             </label>
+            <p
+              v-if="membershipSelectionHint"
+              class="mt-3 rounded-2xl border border-amber-100 bg-amber-50/70 px-3 py-2 text-xs font-bold leading-relaxed text-amber-700"
+            >
+              {{ membershipSelectionHint }}
+            </p>
 
             <div v-if="includeMembershipFee" class="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem] sm:items-start">
               <el-form-item label="期別" prop="period_key" class="!mb-0 font-bold">
@@ -612,7 +621,10 @@ import {
   validateQuarterlyPaymentSubmissionItems
 } from '@/utils/quarterlyPaymentSubmissions'
 import { formatEquipmentVariantLabel } from '@/utils/equipmentPricing'
-import { getEquipmentRequestStatusLabel } from '@/utils/equipmentRequestStatus'
+import {
+  getEquipmentRequestStatusLabel,
+  isEquipmentPaymentPayableRequestStatus
+} from '@/utils/equipmentRequestStatus'
 import { buildGroupedPushEventKey, buildPushEventKey, dispatchPushNotification } from '@/utils/pushNotifications'
 
 type PaymentPanelSummary = {
@@ -796,6 +808,61 @@ const createDialogBillingModeLabel = computed(() => {
 const createDialogPaymentItemLabel = computed(() =>
   createDialogMember.value?.billing_mode === 'quarterly' ? '季費' : '月費'
 )
+
+const createDialogMembershipPeriodKey = computed(() => {
+  if (createDialogMember.value?.billing_mode === 'quarterly') {
+    return submissionForm.period_key || currentFeePeriodKey.value
+  }
+
+  return currentFeePeriodKey.value
+})
+
+const createDialogMembershipMetaText = computed(() => {
+  const memberName = createDialogMember.value?.name || '尚未選擇成員'
+  const periodKey = createDialogMembershipPeriodKey.value
+  const parts = [
+    memberName,
+    createDialogBillingModeLabel.value,
+    periodKey ? `目前可回報 ${periodKey}` : null
+  ].filter(Boolean)
+
+  return parts.join('｜')
+})
+
+const nextMonthlyFeePeriod = computed(() => {
+  const today = dayjs()
+  return today.date() >= 25 ? today.add(1, 'month') : today
+})
+
+const membershipSelectionHint = computed(() => {
+  const member = createDialogMember.value
+
+  if (!member || canSelectMembershipFee.value) {
+    return ''
+  }
+
+  if (!canCreateSubmissionForSelectedMember.value) {
+    return createSubmissionAccessHint.value || '目前只能替自己的關聯成員新增付款回報。'
+  }
+
+  if (member.billing_mode === 'quarterly') {
+    return '這一季沒有可新增回報的季費；已確認或待確認的項目不能重複回報。'
+  }
+
+  const periodKey = currentFeePeriodKey.value
+  const nextPeriodKey = nextMonthlyFeePeriod.value.format('YYYY-MM')
+  const nextOpenDate = nextMonthlyFeePeriod.value.date(25).format('YYYY-MM-DD')
+
+  if (currentFeeDueStatus.value === 'paid') {
+    return `目前可回報的 ${periodKey} 月費已確認；${nextPeriodKey} 月費預計 ${nextOpenDate} 起開放回報。`
+  }
+
+  if (currentFeeDueStatus.value === 'pending') {
+    return `目前可回報的 ${periodKey} 月費已送出付款回報，等待管理員確認中。`
+  }
+
+  return `目前沒有可新增回報的 ${periodKey} 月費項目。`
+})
 
 const createDialogPeriodHint = computed(() => {
   return createDialogMember.value?.billing_mode === 'quarterly' ? '例如 2026-Q2' : '例如 2026-04'
@@ -1288,7 +1355,7 @@ const getEquipmentRequestRecordStatus = (status?: string | null) => {
 }
 
 const isEquipmentPaymentItemPayable = (item: EquipmentPaymentItem) =>
-  !item.request_status || item.request_status === 'picked_up'
+  isEquipmentPaymentPayableRequestStatus(item.request_status)
 
 const getEquipmentPaymentItemStatus = (item: EquipmentPaymentItem) => {
   const paymentStatus = item.payment_status || 'unpaid'

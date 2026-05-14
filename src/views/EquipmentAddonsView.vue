@@ -29,6 +29,7 @@ import {
   validateEquipmentPurchaseItemsAvailability
 } from '@/utils/equipmentInventory'
 import {
+  EQUIPMENT_PAYMENT_PAYABLE_REQUEST_STATUSES,
   EQUIPMENT_REQUEST_STATUS,
   getEquipmentRequestStatusLabel,
   getEquipmentRequestStatusTagType
@@ -381,11 +382,7 @@ const getManualPurchaseStatusTagType = (status?: string | null) => {
   return 'danger'
 }
 
-const requestPaymentEligibleStatuses = new Set([
-  EQUIPMENT_REQUEST_STATUS.APPROVED,
-  EQUIPMENT_REQUEST_STATUS.READY_FOR_PICKUP,
-  EQUIPMENT_REQUEST_STATUS.PICKED_UP
-])
+const requestPaymentEligibleStatuses = new Set(EQUIPMENT_PAYMENT_PAYABLE_REQUEST_STATUSES)
 
 const getRequestTransactionPaymentStatuses = (request: EquipmentPurchaseRequest) =>
   request.items
@@ -729,7 +726,7 @@ onMounted(() => {
         <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <AppPageHeader
             title="裝備加購"
-            subtitle="為已綁定成員申請裝備加購，管理員確認領取後再回報付款"
+            subtitle="為已綁定成員申請裝備加購，管理員備貨完成後即可回報付款"
             :icon="ShoppingCart"
             as="h2"
           >

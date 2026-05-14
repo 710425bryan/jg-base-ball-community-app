@@ -4,6 +4,7 @@ import {
   getEquipmentRequestStatusLabel,
   getEquipmentRequestStatusSortWeight,
   getEquipmentRequestStatusTagType,
+  isEquipmentPaymentPayableRequestStatus,
   isEquipmentRequestReservedStatus
 } from './equipmentRequestStatus'
 
@@ -18,6 +19,13 @@ describe('equipmentRequestStatus', () => {
     expect(isEquipmentRequestReservedStatus(EQUIPMENT_REQUEST_STATUS.APPROVED)).toBe(true)
     expect(isEquipmentRequestReservedStatus(EQUIPMENT_REQUEST_STATUS.READY_FOR_PICKUP)).toBe(true)
     expect(isEquipmentRequestReservedStatus(EQUIPMENT_REQUEST_STATUS.PICKED_UP)).toBe(false)
+  })
+
+  it('allows equipment payment after stock is ready for pickup', () => {
+    expect(isEquipmentPaymentPayableRequestStatus(null)).toBe(true)
+    expect(isEquipmentPaymentPayableRequestStatus(EQUIPMENT_REQUEST_STATUS.APPROVED)).toBe(false)
+    expect(isEquipmentPaymentPayableRequestStatus(EQUIPMENT_REQUEST_STATUS.READY_FOR_PICKUP)).toBe(true)
+    expect(isEquipmentPaymentPayableRequestStatus(EQUIPMENT_REQUEST_STATUS.PICKED_UP)).toBe(true)
   })
 
   it('sorts active workflow states before history states', () => {

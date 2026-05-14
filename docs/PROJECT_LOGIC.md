@@ -447,15 +447,16 @@ UI 約定：
 
 1. 家長 / 管理端建立加購申請：`pending`。
 2. 管理端審核：`approved` 或 `rejected`。
-3. 備貨完成：`ready_for_pickup`。
-4. 領取裝備：`picked_up`，並產生 `purchase` transaction。
-5. 家長在 `/my-payments` 回報裝備付款。
+3. 備貨完成 / 可取貨：`ready_for_pickup`，此時即可在 `/my-payments` 回報裝備付款。
+4. 領取裝備：`picked_up`，只代表實際取貨完成，不再作為付款回報前置條件。
+5. 家長在 `/my-payments` 回報裝備付款，資料走 `equipment_payment_submissions`。
 6. 管理端在 `/fees?tab=equipment` 審核付款回報：`approved` 或 `rejected`。
 
 重要規則：
 
 - `/equipment` 需要 `equipment:VIEW`。
 - `/equipment-addons` 只要求登入，資料安全靠 `linked_team_member_ids` 與 DB RLS。
+- 裝備付款可付範圍包含管理員新增購買項目，以及加購申請狀態為 `ready_for_pickup` 或 `picked_up` 且付款狀態仍為 `unpaid` 的 purchase transaction；前端可勾選狀態與 RPC 檢查必須一致。
 - 裝備剩餘量顯示優先走 `list_equipments_with_inventory_snapshot()`，只回傳匿名化聚合庫存快照，避免一般會員因 RLS 看不到其他人的交易 / 已保留申請而高估可用量。
 - 裝備圖片與處理照片可多張上傳，使用 `equipments` bucket，前端顯示需支援左右滑動。
 - 不要把來源專案的 `fee_records` 或月結模型搬進本專案。

@@ -20,8 +20,16 @@ export const EQUIPMENT_REQUEST_HISTORY_STATUSES: EquipmentRequestStatus[] = [
   EQUIPMENT_REQUEST_STATUS.CANCELLED
 ]
 
+export const EQUIPMENT_PAYMENT_PAYABLE_REQUEST_STATUSES: EquipmentRequestStatus[] = [
+  EQUIPMENT_REQUEST_STATUS.READY_FOR_PICKUP,
+  EQUIPMENT_REQUEST_STATUS.PICKED_UP
+]
+
 export const isEquipmentRequestReservedStatus = (status?: string | null) =>
   EQUIPMENT_REQUEST_RESERVED_STATUSES.includes(status as EquipmentRequestStatus)
+
+export const isEquipmentPaymentPayableRequestStatus = (status?: string | null) =>
+  !status || EQUIPMENT_PAYMENT_PAYABLE_REQUEST_STATUSES.includes(status as EquipmentRequestStatus)
 
 export const getEquipmentRequestStatusLabel = (status?: string | null) => {
   switch (status) {

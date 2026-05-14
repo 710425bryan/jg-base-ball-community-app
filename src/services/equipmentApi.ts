@@ -1,6 +1,9 @@
 import { supabase } from '@/services/supabase'
 import { compressImage } from '@/utils/imageCompressor'
-import { EQUIPMENT_REQUEST_RESERVED_STATUSES } from '@/utils/equipmentRequestStatus'
+import {
+  EQUIPMENT_REQUEST_RESERVED_STATUSES,
+  isEquipmentPaymentPayableRequestStatus
+} from '@/utils/equipmentRequestStatus'
 import {
   getEquipmentAvailablePurchaseQuantity,
   isOutgoingEquipmentTransactionType,
@@ -986,7 +989,7 @@ const isPayableUnpaidEquipmentTransaction = (row: any) => {
   if (!row?.request_item_id) return true
   const requestItem = pickSingle<any>(row?.request_item)
   const request = pickSingle<any>(requestItem?.request)
-  return request?.status === 'picked_up'
+  return isEquipmentPaymentPayableRequestStatus(request?.status)
 }
 
 const listEquipmentUnpaidPaymentItemsFromTables = async () => {

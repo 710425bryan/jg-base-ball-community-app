@@ -121,6 +121,7 @@
 | `supabase_zzzzzz_equipment_inventory_snapshot_rpc_migration.sql` | 庫存 snapshot RPC | 家長端剩餘量顯示 |
 | `supabase_zzzzzz_li_jinyi_equipment_payment_repair.sql` | 特定付款資料修復 | 資料修復，不當成通用 schema |
 | `supabase_zzzzzzz_equipment_payment_payable_scope_fix_migration.sql` | 裝備付款可付範圍修正 | 最新付款 scope |
+| `supabase_zzzzzzzz_equipment_ready_for_pickup_payment_scope_migration.sql` | 裝備已備貨即可付款 | 覆寫裝備付款 scope，`ready_for_pickup` / `picked_up` 皆可付款 |
 
 ## 能力、體測、節日與推播
 

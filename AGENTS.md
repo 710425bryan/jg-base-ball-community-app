@@ -220,7 +220,7 @@
 - 家長加購路由 `/equipment-addons`，只要求登入；資料安全由 `linked_team_member_ids` 與 DB RLS 限制，不要改成需要 `equipment:VIEW`。
 - 裝備資料流集中在 `src/types/equipment.ts`、`src/services/equipmentApi.ts`、`src/stores/equipment*.ts`、`src/components/equipment/*`。
 - 主要資料表包含 `equipment`、`equipment_transactions`、`equipment_inventory_adjustments`、`equipment_purchase_requests`、`equipment_purchase_request_items`、`equipment_payment_submissions`、`equipment_payment_submission_items`。
-- 裝備流程：加購申請 `pending` -> 審核 `approved` -> 備貨 `ready_for_pickup` -> 領取 `picked_up` -> 裝備付款回報 `pending_review` -> 費用端確認 `approved` 或退回 `rejected`。
+- 裝備流程：加購申請 `pending` -> 審核 `approved` -> 備貨 / 可取貨 `ready_for_pickup` 後即可進行裝備付款回報 `pending_review`；領取 `picked_up` 是後續取貨狀態，不再作為付款回報的前置條件；費用端確認付款後為 `approved`，也可退回 `rejected`。
 - 裝備圖片與處理照片使用 `equipments` bucket；主檔 / 備貨 / 領取照片可多張，並保留 `image_url`、`ready_image_url`、`pickup_image_url` 首圖相容欄位。
 - 裝備交易 `purchase` 產生後才進入付款回報；不要把來源專案的 `fee_records` 或月結關帳模型直接搬進本專案。
 

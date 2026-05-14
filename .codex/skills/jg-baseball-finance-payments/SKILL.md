@@ -35,6 +35,7 @@ description: "Finance, fees, payment submissions, player balances, match fees, r
 - 一般付款使用 `profile_payment_submissions` RPC。
 - 比賽費使用 `match_fee_items`、`match_payment_submissions`、`match_payment_submission_items`。
 - 裝備付款使用 `equipment_payment_submissions`，但在 `/fees?tab=equipment` 與 `/my-payments` 整合顯示。
+- 裝備加購申請只要到 `ready_for_pickup`（備貨完成 / 可取貨）即可回報付款，不需要等到 `picked_up`；調整裝備付款時要同步前端可勾選條件與 RPC 可付範圍。
 - 費用提醒進通知中心時要確認 `get_notification_feed()` 是否包含對應 source。
 
 ## 不可破壞規則

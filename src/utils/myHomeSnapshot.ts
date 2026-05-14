@@ -158,11 +158,11 @@ const buildEquipmentTodo = (equipment: MyHomeEquipmentSummary): MyHomeTodoItem |
   if (equipment.ready_for_pickup_count > 0) {
     return {
       key: 'equipment-ready',
-      title: '裝備可領取',
-      body: `${equipment.ready_for_pickup_count} 筆裝備已備貨完成，可以查看領取資訊。`,
+      title: '裝備已備貨',
+      body: `${equipment.ready_for_pickup_count} 筆裝備已備貨完成，可以領取，也可以先回報付款。`,
       severity: 'success',
-      actionLabel: '查看裝備狀態',
-      route: '/equipment-addons?tab=requests'
+      actionLabel: '前往繳費',
+      route: '/my-payments'
     }
   }
 
@@ -170,7 +170,7 @@ const buildEquipmentTodo = (equipment: MyHomeEquipmentSummary): MyHomeTodoItem |
     return {
       key: 'equipment-payment',
       title: '裝備付款待回報',
-      body: `${equipment.picked_up_unpaid_count} 筆已領取裝備尚未完成付款，金額約 ${formatMyHomeCurrency(equipment.unpaid_amount)}。`,
+      body: `${equipment.picked_up_unpaid_count} 筆已備貨或已領取裝備尚未完成付款，金額約 ${formatMyHomeCurrency(equipment.unpaid_amount)}。`,
       severity: 'warning',
       actionLabel: '前往繳費',
       route: '/my-payments'
