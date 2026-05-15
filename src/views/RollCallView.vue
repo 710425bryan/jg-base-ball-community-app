@@ -437,7 +437,7 @@ const fetchData = async () => {
       date: eventDate || evData.date
     }
 
-    // 2. 取得球員。特訓點名只列錄取名單，一般點名列所有現役球員/校隊。
+    // 2. 取得球員。特訓點名只列錄取名單；場地點名列最新場地配置中的該場地；一般點名列所有現役球員/校隊。
     let membersData: any[] = []
     if (evData.training_session_id) {
       const { data: registrations, error: registrationError } = await supabase
@@ -459,6 +459,14 @@ const fetchData = async () => {
         if (selectedMemberError) throw selectedMemberError
         membersData = selectedMembers || []
       }
+    } else if (evData.training_location_session_venue_id || evData.training_location_session_id) {
+      const { data: locationMembers, error: locationMemberError } = await supabase
+        .rpc('list_training_location_attendance_members', {
+          p_event_id: eventId
+        })
+
+      if (locationMemberError) throw locationMemberError
+      membersData = locationMembers || []
     } else {
       const { data: allMembers, error: memberError } = await supabase
         .from('team_members')

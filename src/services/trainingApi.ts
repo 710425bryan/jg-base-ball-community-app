@@ -5,6 +5,9 @@ import type {
   TrainingPointTransaction,
   TrainingRegistrationNotificationDiagnostics,
   TrainingRegistrationNotificationInvokeResult,
+  TrainingRegistrationRecord,
+  TrainingRegistrationStatusNotificationDispatchResult,
+  TrainingRegistrationStatusNotificationKind,
   TrainingRegistrationStatus,
   TrainingSelectionNotificationDispatchResult,
   TrainingSession,
@@ -47,6 +50,7 @@ const normalizeTrainingSession = (row: any): TrainingSession => ({
   registration_end_at: row?.registration_end_at || null,
   capacity: row?.capacity === null || row?.capacity === undefined ? null : Number(row.capacity),
   point_cost: Number(row?.point_cost || 0),
+  auto_select_enabled: Boolean(row?.auto_select_enabled),
   published_at: row?.published_at || null,
   selected_count: Number(row?.selected_count || 0),
   applied_count: Number(row?.applied_count || 0),
@@ -92,7 +96,7 @@ export const trainingApi = {
       p_note: note || null
     })
     if (error) throw error
-    return data
+    return data as TrainingRegistrationRecord
   },
 
   async cancelRegistration(registrationId: string) {
@@ -110,7 +114,8 @@ export const trainingApi = {
       p_registration_end_at: normalizeTaipeiDateTimeForRpc(input.registration_end_at),
       p_manual_status: input.manual_status,
       p_capacity: input.capacity ?? null,
-      p_point_cost: input.point_cost ?? 1
+      p_point_cost: input.point_cost ?? 1,
+      p_auto_select_enabled: input.auto_select_enabled === true
     })
     if (error) throw error
     return data
@@ -127,7 +132,8 @@ export const trainingApi = {
       p_registration_end_at: normalizeTaipeiDateTimeForRpc(input.registration_end_at),
       p_manual_status: input.manual_status,
       p_capacity: input.capacity ?? null,
-      p_point_cost: input.point_cost ?? 1
+      p_point_cost: input.point_cost ?? 1,
+      p_auto_select_enabled: input.auto_select_enabled === true
     })
     if (error) throw error
     return data
@@ -211,6 +217,27 @@ export const trainingApi = {
       },
       body: {
         session_id: sessionId,
+        dry_run: options?.dryRun === true,
+        force_resend: options?.forceResend === true
+      }
+    })
+    if (error) throw error
+    return data
+  },
+
+  async dispatchRegistrationStatusNotification(
+    registrationId: string,
+    kind: TrainingRegistrationStatusNotificationKind,
+    options?: { dryRun?: boolean; forceResend?: boolean }
+  ) {
+    const session = await ensureAuthenticatedSession()
+    const { data, error } = await supabase.functions.invoke<TrainingRegistrationStatusNotificationDispatchResult>('send-training-registration-status-notifications', {
+      headers: {
+        Authorization: `Bearer ${session.access_token}`
+      },
+      body: {
+        registration_id: registrationId,
+        kind,
         dry_run: options?.dryRun === true,
         force_resend: options?.forceResend === true
       }

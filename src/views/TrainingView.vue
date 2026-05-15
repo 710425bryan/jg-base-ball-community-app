@@ -51,6 +51,7 @@ type NewTrainingSessionForm = {
   registration_end_at: string
   capacity: number | null
   point_cost: number
+  auto_select_enabled: boolean
 }
 
 type PointGrantPreset = {
@@ -98,7 +99,8 @@ const settingsForm = reactive({
   registration_start_at: '',
   registration_end_at: '',
   capacity: null as number | null,
-  point_cost: 1
+  point_cost: 1,
+  auto_select_enabled: false
 })
 
 const newSessionForm = reactive<NewTrainingSessionForm>({
@@ -111,7 +113,8 @@ const newSessionForm = reactive<NewTrainingSessionForm>({
   registration_start_at: '',
   registration_end_at: '',
   capacity: null as number | null,
-  point_cost: 1
+  point_cost: 1,
+  auto_select_enabled: false
 })
 
 const pointForm = reactive({
@@ -368,6 +371,22 @@ const hydrateSettingsForm = (session: TrainingSession) => {
   settingsForm.registration_end_at = toDateTimeInput(session.registration_end_at)
   settingsForm.capacity = session.capacity
   settingsForm.point_cost = session.point_cost || 1
+  settingsForm.auto_select_enabled = Boolean(session.auto_select_enabled)
+}
+
+const dispatchRegistrationStatusNotification = async (
+  registrationId: string,
+  kind: 'submitted' | 'selected',
+  showWarning = false
+) => {
+  try {
+    await trainingApi.dispatchRegistrationStatusNotification(registrationId, kind)
+  } catch (error: any) {
+    console.warn(`Training registration ${kind} notification failed`, error)
+    if (showWarning) {
+      ElMessage.warning(`狀態已更新，但通知送出失敗：${error?.message || '請稍後再試'}`)
+    }
+  }
 }
 
 const loadRosterOptions = async () => {
@@ -471,6 +490,7 @@ const resetNewSessionForm = () => {
   newSessionForm.registration_end_at = ''
   newSessionForm.capacity = null
   newSessionForm.point_cost = 1
+  newSessionForm.auto_select_enabled = false
 }
 
 const openCreateSessionDialog = () => {
@@ -501,7 +521,8 @@ const createSessionWithMatch = async () => {
       registration_start_at: newSessionForm.registration_start_at || null,
       registration_end_at: newSessionForm.registration_end_at || null,
       capacity: newSessionForm.capacity,
-      point_cost: newSessionForm.point_cost
+      point_cost: newSessionForm.point_cost,
+      auto_select_enabled: newSessionForm.auto_select_enabled
     })
 
     if (savedSettings?.id) {
@@ -522,8 +543,14 @@ const submitRegistration = async (session: TrainingSession) => {
   if (!selectedMember.value || !session.session_id) return
 
   try {
-    await trainingApi.createRegistration(session.session_id, selectedMember.value.member_id)
-    ElMessage.success('已送出特訓報名，等待教練確認')
+    const registration = await trainingApi.createRegistration(session.session_id, selectedMember.value.member_id)
+    await dispatchRegistrationStatusNotification(registration.id, 'submitted')
+    if (registration.status === 'selected') {
+      await dispatchRegistrationStatusNotification(registration.id, 'selected')
+      ElMessage.success('已完成特訓報名並自動錄取')
+    } else {
+      ElMessage.success('已送出特訓報名，等待教練確認')
+    }
     await refreshData()
   } catch (error: any) {
     ElMessage.error(error?.message || '特訓報名失敗')
@@ -560,7 +587,8 @@ const saveSettings = async () => {
       registration_start_at: settingsForm.registration_start_at || null,
       registration_end_at: settingsForm.registration_end_at || null,
       capacity: settingsForm.capacity,
-      point_cost: settingsForm.point_cost
+      point_cost: settingsForm.point_cost,
+      auto_select_enabled: settingsForm.auto_select_enabled
     })
     if (savedSettings?.id) {
       selectedAdminSessionId.value = savedSettings.id
@@ -617,6 +645,9 @@ const reviewRegistration = async (
   isReviewing.value = true
   try {
     await trainingApi.reviewRegistration(registration.registration_id, status)
+    if (status === 'selected' && registration.status !== 'selected') {
+      await dispatchRegistrationStatusNotification(registration.registration_id, 'selected', true)
+    }
     ElMessage.success(`已更新 ${registration.member_name}：${getTrainingRegistrationStatusLabel(status)}`)
     await refreshData()
   } catch (error: any) {
@@ -1039,6 +1070,13 @@ watch(selectedAdminSessionId, (next, prev) => {
                         />
                       </el-select>
                     </el-form-item>
+                    <el-form-item label="自動錄取" class="font-bold">
+                      <div class="flex min-h-10 items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-gray-50 px-3">
+                        <span class="text-sm font-black text-slate-700">{{ settingsForm.auto_select_enabled ? '開啟' : '關閉' }}</span>
+                        <el-switch v-model="settingsForm.auto_select_enabled" :disabled="!settingsForm.match_id || isSavingSettings" />
+                      </div>
+                      <p class="mt-1 text-xs font-bold text-gray-400">開啟後新報名會在名額未滿時自動錄取。</p>
+                    </el-form-item>
                     <el-form-item label="報名開始" class="font-bold">
                       <el-date-picker
                         v-model="settingsForm.registration_start_at"
@@ -1087,6 +1125,18 @@ watch(selectedAdminSessionId, (next, prev) => {
                     <p class="mt-1 text-sm font-bold text-gray-400">錄取時會保留點數，上課當天由排程正式扣點。</p>
                   </div>
                   <div class="flex flex-wrap gap-2">
+                    <div class="inline-flex min-h-10 items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-3 text-sm font-black text-emerald-700">
+                      <span>自動錄取</span>
+                      <el-switch v-model="settingsForm.auto_select_enabled" :disabled="!selectedAdminSession?.session_id || isSavingSettings" />
+                    </div>
+                    <button
+                      type="button"
+                      class="min-h-10 rounded-2xl border border-emerald-200 px-4 text-sm font-black text-emerald-700 transition-colors hover:border-emerald-400 hover:bg-emerald-50 disabled:opacity-60"
+                      :disabled="isSavingSettings || !selectedAdminSession?.session_id"
+                      @click="saveSettings"
+                    >
+                      套用
+                    </button>
                     <button
                       type="button"
                       class="min-h-10 rounded-2xl border border-gray-200 px-4 text-sm font-black text-gray-600 transition-colors hover:border-primary hover:text-primary"
@@ -1152,6 +1202,10 @@ watch(selectedAdminSessionId, (next, prev) => {
                       <span class="text-xs font-bold text-gray-400">{{ getTrainingPointStatusLabel(row.point_status) }}</span>
                     </div>
 
+                    <div class="mt-2 text-xs font-bold text-gray-400">
+                      報名時間：{{ formatDateTime(row.created_at) }}
+                    </div>
+
                     <div class="training-review-actions mt-3">
                       <el-button type="success" plain :loading="isReviewing" @click="reviewRegistration(row, 'selected')">
                         <el-icon><Check /></el-icon>
@@ -1181,6 +1235,11 @@ watch(selectedAdminSessionId, (next, prev) => {
                         <div class="text-xs font-bold text-gray-400">{{ row.member_role || '-' }} {{ row.team_group || '' }}</div>
                       </template>
                     </el-table-column>
+                    <el-table-column label="報名時間" width="132">
+                      <template #default="{ row }">
+                        <span class="whitespace-nowrap text-xs font-bold text-slate-600">{{ formatDateTime(row.created_at) }}</span>
+                      </template>
+                    </el-table-column>
                     <el-table-column label="點數" width="120" align="center">
                       <template #default="{ row }">
                         <div class="font-black text-slate-800">{{ row.available_points }}</div>
@@ -1192,7 +1251,7 @@ watch(selectedAdminSessionId, (next, prev) => {
                         <el-tag :type="getRegistrationStatusType(row.status)" effect="plain" class="!font-black">
                           {{ getTrainingRegistrationStatusLabel(row.status) }}
                         </el-tag>
-                        <div class="mt-1 text-[11px] font-bold text-gray-400">{{ getTrainingPointStatusLabel(row.point_status) }}</div>
+                        <div class="mt-1 whitespace-nowrap text-[11px] font-bold text-gray-400">{{ getTrainingPointStatusLabel(row.point_status) }}</div>
                       </template>
                     </el-table-column>
                     <el-table-column label="操作" min-width="250" align="center">
@@ -1590,6 +1649,14 @@ watch(selectedAdminSessionId, (next, prev) => {
               :value="option.value"
             />
           </el-select>
+        </el-form-item>
+
+        <el-form-item label="自動錄取" class="font-bold">
+          <div class="flex min-h-10 items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-gray-50 px-3">
+            <span class="text-sm font-black text-slate-700">{{ newSessionForm.auto_select_enabled ? '開啟' : '關閉' }}</span>
+            <el-switch v-model="newSessionForm.auto_select_enabled" :disabled="isCreatingSession" />
+          </div>
+          <p class="mt-1 text-xs font-bold text-gray-400">開啟後新報名會在名額未滿時自動錄取。</p>
         </el-form-item>
 
         <div class="grid gap-3 sm:grid-cols-2">

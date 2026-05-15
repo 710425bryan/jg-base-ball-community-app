@@ -4,6 +4,9 @@ import {
   buildTrainingRegistrationNotificationEventKey,
   buildTrainingRegistrationNotificationTitle,
   buildTrainingRegistrationNotificationUrl,
+  buildTrainingRegistrationStatusNotificationBody,
+  buildTrainingRegistrationStatusNotificationEventKey,
+  buildTrainingRegistrationStatusNotificationTitle,
   hasRemainingTrainingRegistrationSlots,
   isTrainingRegistrationDeadlineReminderDue,
   type TrainingRegistrationNotificationSession
@@ -84,6 +87,32 @@ describe('trainingRegistrationNotification', () => {
       '地點：中港國小',
       '錄取人數：12 人',
       '請至特訓報名查看錄取名單與個人狀態。'
+    ].join('\n'))
+  })
+
+  it('builds targeted registration status notifications', () => {
+    const session = {
+      ...buildSession(),
+      registration_id: 'registration-1',
+      member_id: 'member-1',
+      member_name: '王小明'
+    }
+
+    expect(buildTrainingRegistrationStatusNotificationEventKey(session, 'submitted', 'manager-1'))
+      .toBe('training_registration_submitted:registration-1:manager-1')
+    expect(buildTrainingRegistrationStatusNotificationEventKey(session, 'selected', 'user-1'))
+      .toBe('training_registration_selected:registration-1:user-1')
+    expect(buildTrainingRegistrationStatusNotificationTitle(session, 'submitted'))
+      .toBe('收到特訓報名：王小明')
+    expect(buildTrainingRegistrationStatusNotificationTitle(session, 'selected'))
+      .toBe('特訓課已錄取：五月特訓課')
+    expect(buildTrainingRegistrationStatusNotificationBody(session, 'selected')).toBe([
+      '球員：王小明',
+      '課程：五月特訓課',
+      '日期：2026-05-02',
+      '時間：09:00 - 11:00',
+      '地點：中港國小',
+      '狀態：已錄取，請至特訓報名查看。'
     ].join('\n'))
   })
 

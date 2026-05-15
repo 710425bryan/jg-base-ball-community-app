@@ -18,6 +18,14 @@ export type TrainingRegistrationNotificationSession = {
 
 export type TrainingRegistrationNotificationKind = 'open' | 'deadline_reminder' | 'selection_published'
 
+export type TrainingRegistrationStatusNotificationKind = 'submitted' | 'selected'
+
+export type TrainingRegistrationStatusNotificationContext = TrainingRegistrationNotificationSession & {
+  registration_id: string
+  member_id?: string | null
+  member_name?: string | null
+}
+
 const normalizeDisplayValue = (value: unknown) => {
   if (value === null || value === undefined) return EMPTY_VALUE
   const normalized = String(value).replace(/\s+/g, ' ').trim()
@@ -155,6 +163,47 @@ export const buildTrainingRegistrationNotificationBody = (
 
   if (kind === 'deadline_reminder') {
     lines.push(`剩餘名額：${getRemainingSlotsLabel(session)}`)
+  }
+
+  return lines.join('\n')
+}
+
+export const buildTrainingRegistrationStatusNotificationEventKey = (
+  context: Pick<TrainingRegistrationStatusNotificationContext, 'registration_id'>,
+  kind: TrainingRegistrationStatusNotificationKind,
+  targetUserId: string
+) => `training_registration_${kind}:${context.registration_id}:${targetUserId}`
+
+export const buildTrainingRegistrationStatusNotificationTitle = (
+  context: Pick<TrainingRegistrationStatusNotificationContext, 'match_name' | 'member_name'>,
+  kind: TrainingRegistrationStatusNotificationKind
+) => {
+  if (kind === 'selected') {
+    return `特訓課已錄取：${normalizeDisplayValue(context.match_name)}`
+  }
+
+  return `收到特訓報名：${normalizeDisplayValue(context.member_name)}`
+}
+
+export const buildTrainingRegistrationStatusNotificationBody = (
+  context: Pick<
+    TrainingRegistrationStatusNotificationContext,
+    'match_name' | 'match_date' | 'match_time' | 'location' | 'member_name'
+  >,
+  kind: TrainingRegistrationStatusNotificationKind
+) => {
+  const lines = [
+    `球員：${normalizeDisplayValue(context.member_name)}`,
+    `課程：${normalizeDisplayValue(context.match_name)}`,
+    `日期：${normalizeDisplayValue(context.match_date)}`,
+    `時間：${normalizeDisplayValue(context.match_time)}`,
+    `地點：${normalizeDisplayValue(context.location)}`
+  ]
+
+  if (kind === 'selected') {
+    lines.push('狀態：已錄取，請至特訓報名查看。')
+  } else {
+    lines.push('狀態：已送出報名，請至報名審核查看。')
   }
 
   return lines.join('\n')

@@ -19,16 +19,18 @@ description: "Training venue and player assignment workflow for jg-base-ball-com
 6. `src/types/trainingLocation.ts`
 7. `src/utils/trainingLocationNotification.ts`
 8. `supabase_training_locations_migration.sql`
-9. `supabase/functions/send-training-location-notifications/index.ts`
-10. 若改首頁呈現，再讀 `src/services/myHome.ts`、`src/types/myHome.ts`、`src/components/home/MyHomeTodayPanel.vue`
+9. 若改連動點名，再讀 `supabase_zzzzzzzzz_training_location_attendance_migration.sql`、`src/views/AttendanceListView.vue`、`src/views/RollCallView.vue`
+10. `supabase/functions/send-training-location-notifications/index.ts`
+11. 若改首頁呈現，再讀 `src/services/myHome.ts`、`src/types/myHome.ts`、`src/components/home/MyHomeTodayPanel.vue`
 
 ## 功能邊界
 
 - 常用場地存在 `training_venues`。
-- 訓練主檔存在 `training_location_sessions`，可為一般練習或特訓，不依賴 `matches` 或 `attendance_events`。
+- 訓練主檔存在 `training_location_sessions`，可為一般練習或特訓；若建立連動點名，會透過 `attendance_events.training_location_session_id` / `training_location_session_venue_id` 串到現有點名系統。
 - 多場地區塊存在 `training_location_session_venues`。
 - 球員指派存在 `training_location_assignments`，同一訓練同一球員只能被指派一次。
 - 個人首頁只顯示登入者 linked member 的本週已發布配置。
+- 每個場地區塊各自建立一張點名單，點名名單以該場地最新 `training_location_assignments` 為準，不帶入全隊或其他場地球員。
 
 ## 權限規則
 
@@ -36,6 +38,7 @@ description: "Training venue and player assignment workflow for jg-base-ball-com
 - actions：`VIEW / CREATE / EDIT / DELETE`。
 - 前端 route guard、按鈕顯示與資料 RPC 都要檢查同一組 feature/action。
 - 個人首頁可見性不靠 `training_locations:VIEW`，只靠 `profiles.linked_team_member_ids`。
+- 建立場地配置點名單需 `training_locations:EDIT` + `attendance:CREATE`；開啟與操作點名單仍依 `attendance:VIEW / EDIT / DELETE`。
 
 ## 通知規則
 
@@ -50,4 +53,4 @@ description: "Training venue and player assignment workflow for jg-base-ball-com
 
 - `pnpm exec vitest run src/utils/trainingLocationNotification.test.ts src/composables/useNotificationFeed.test.ts`
 - `pnpm exec vue-tsc --noEmit`
-- 人工檢查無權限 route guard、有權限新增/發布/手動通知、個人首頁 linked member 本週場地、請假球員不通知。
+- 人工檢查無權限 route guard、有權限新增/發布/手動通知、多場地可個別建立點名單且只含該場地球員、修改配置後該場地點名名單同步、個人首頁 linked member 本週場地、請假球員不通知。

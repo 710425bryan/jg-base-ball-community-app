@@ -41,6 +41,7 @@ export interface TrainingSession {
   registration_end_at: string | null
   capacity: number | null
   point_cost: number
+  auto_select_enabled: boolean
   published_at: string | null
   selected_count: number
   applied_count: number
@@ -72,6 +73,21 @@ export interface TrainingAdminRegistration {
   point_balance: number
   reserved_points: number
   available_points: number
+}
+
+export interface TrainingRegistrationRecord {
+  id: string
+  session_id: string
+  member_id: string
+  status: TrainingRegistrationStatus
+  point_status: TrainingPointStatus
+  note: string | null
+  applied_by: string | null
+  selected_by: string | null
+  selected_at: string | null
+  cancelled_at: string | null
+  created_at: string
+  updated_at: string
 }
 
 export interface TrainingPointTransaction {
@@ -183,6 +199,24 @@ export interface TrainingSelectionNotificationDispatchResult {
   provider_counts: Record<string, number>
 }
 
+export type TrainingRegistrationStatusNotificationKind = 'submitted' | 'selected'
+
+export interface TrainingRegistrationStatusNotificationDispatchResult {
+  success: boolean
+  dry_run: boolean
+  kind: TrainingRegistrationStatusNotificationKind
+  registration_id: string
+  active_user_count: number
+  total_targets: number
+  created_count: number
+  duplicate_count: number
+  refreshed_count: number
+  dispatched_count: number
+  expired_count: number
+  failed_count: number
+  provider_counts: Record<string, number>
+}
+
 export interface TrainingSessionSettingsInput {
   match_id: string
   registration_start_at?: string | null
@@ -190,6 +224,7 @@ export interface TrainingSessionSettingsInput {
   manual_status: TrainingManualStatus
   capacity?: number | null
   point_cost?: number | null
+  auto_select_enabled?: boolean | null
 }
 
 export interface TrainingSessionCreateInput {
@@ -203,4 +238,5 @@ export interface TrainingSessionCreateInput {
   manual_status: TrainingManualStatus
   capacity?: number | null
   point_cost?: number | null
+  auto_select_enabled?: boolean | null
 }

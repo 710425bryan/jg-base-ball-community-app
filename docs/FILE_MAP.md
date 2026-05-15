@@ -82,8 +82,8 @@
 | `src/services/matchAudioApi.ts` | 比賽語音轉紀錄 Edge Function 呼叫 | `transcribe-match-audio` |
 | `src/services/matchFees.ts` | 比賽費付款與審核 RPC | `match_fee_items` / `match_payment_submissions` |
 | `src/services/weatherApi.ts` | 賽事 / 首頁天氣預報與地點解析 | `resolve-location`、Open-Meteo |
-| `src/services/trainingApi.ts` | 特訓報名、點數、特訓點名 RPC | `training_*` / `player_point_transactions` / `attendance_events.training_session_id` |
-| `src/services/trainingLocationsApi.ts` | 場地與人員配置 RPC | `training_location_*` / `training_venues` |
+| `src/services/trainingApi.ts` | 特訓報名、點數、特訓點名 RPC 與單筆報名 / 錄取通知呼叫 | `training_*` / `player_point_transactions` / `attendance_events.training_session_id` |
+| `src/services/trainingLocationsApi.ts` | 場地與人員配置、連動點名 RPC | `training_location_*` / `training_venues` / `attendance_events.training_location_session_id` / `training_location_session_venue_id` |
 | `src/services/equipmentApi.ts` | 裝備、加購、付款、庫存 API | 裝備 tables / RPC / `equipments` bucket |
 | `src/services/performanceApi.ts` | 棒球能力 / 體測 API | performance tables / RPC |
 | `src/services/feeManagementReminders.ts` | 費用管理提醒 RPC | `get_fee_management_reminders()` |
@@ -105,7 +105,7 @@
 | `src/utils/playerSync.ts` | Google Form / Sheet 球員同步、dedupe、保護欄位 |
 | `src/utils/pushNotifications.ts` | 前端推播派送、event key helper |
 | `src/utils/pushDeepLink.ts` | Web Push 點擊 target 正規化、IndexedDB / Cache Storage pending target、iOS PWA deep link fallback 與診斷 |
-| `src/utils/trainingRegistrationNotification.ts` | 特訓報名開始 / 截止前提醒文案、URL、event key |
+| `src/utils/trainingRegistrationNotification.ts` | 特訓報名開始 / 截止前提醒與單筆報名 / 錄取通知文案、URL、event key |
 | `src/utils/trainingLocationNotification.ts` | 場地通知文案、URL、event key、收件分組 |
 | `src/utils/googleCalendarParser.ts` | Google Calendar / iCal parser 與同步規劃 |
 | `src/utils/matchCalendarCopy.ts` | Google Calendar / 賽事複製文字 |
@@ -280,8 +280,8 @@
 | 收費 / 付款 | `supabase_fees_migration.sql`、`supabase_quarterly_fees_migration.sql`、`supabase_profile_payment_submissions_migration.sql`、`supabase_player_balance_transactions_migration.sql`、`supabase_fixed_monthly_billing_migration.sql`、`supabase_match_fees_migration.sql`、`supabase_fee_management_reminders_migration.sql` |
 | 裝備 | `supabase_equipment_management_migration.sql`、`supabase_equipment_inventory_adjustments_migration.sql`、`supabase_equipment_manual_purchase_records_migration.sql`、`supabase_equipment_multiple_photos_migration.sql`、`supabase_zzzzzz_equipment_inventory_snapshot_rpc_migration.sql`、`supabase_zzzzzzzz_equipment_ready_for_pickup_payment_scope_migration.sql` |
 | 能力 / 體測 | `supabase_performance_data_migration.sql`、`supabase_performance_view_scope_migration.sql` |
-| 特訓 / 點數 | `supabase_training_points_migration.sql`、`supabase_zz_training_point_transaction_delete_migration.sql`、`supabase_zz_training_registration_notifications_migration.sql` |
-| 場地與人員配置 | `supabase_training_locations_migration.sql` |
+| 特訓 / 點數 | `supabase_training_points_migration.sql`、`supabase_zz_training_point_transaction_delete_migration.sql`、`supabase_zz_training_registration_notifications_migration.sql`、`supabase_zzzzzzzz_training_auto_select_notifications_migration.sql` |
+| 場地與人員配置 | `supabase_training_locations_migration.sql`、`supabase_zzzzzzzzz_training_location_attendance_migration.sql` |
 | 賽事同步 | `supabase_matches_google_calendar_sync_migration.sql`、`supabase_match_calendar_daily_sync_schedule.sql` |
 | 推播 | `supabase_web_push_subscriptions_migration.sql`、`supabase_push_dispatch_events_migration.sql`、`supabase_match_reminder_notifications_migration.sql` |
 | 節日主題 | `supabase_holiday_theme_migration.sql` |
@@ -298,6 +298,7 @@
 | `supabase/functions/notify-holiday-theme/logic.ts` | 節日通知邏輯 |
 | `supabase/functions/send-match-reminders/index.ts` | 賽事提醒 |
 | `supabase/functions/send-training-registration-notifications/index.ts` | 特訓報名開始 / 截止前提醒通知 |
+| `supabase/functions/send-training-registration-status-notifications/index.ts` | 單筆特訓報名完成 / 錄取通知 |
 | `supabase/functions/send-training-selection-notifications/index.ts` | 特訓錄取名單公布通知 |
 | `supabase/functions/send-training-location-notifications/index.ts` | 訓練場地通知 |
 | `supabase/functions/sync-match-calendar/index.ts` | 賽事日曆同步 |

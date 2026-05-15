@@ -168,6 +168,7 @@
 - 家長 / 球員自己的請假走 `myLeaveRequests` RPC。
 - 後台請假管理在 `LeaveRequestsView`，會讀 `team_members` 與 `leave_requests`，需受 `leave_requests` feature RLS 保護。
 - 點名列表與點名頁使用 `attendance_events`、`attendance_records`，並會參照 `team_members`、`leave_requests`。
+- 場地配置建立的點名單透過 `attendance_events.training_location_session_id` / `training_location_session_venue_id` 串接；每個場地可各自建立一張點名單，`RollCallView` 名單只取該場地最新 `training_location_assignments`，不回退成全隊名單。
 - 外部請假 webhook 在 `supabase/functions/leave-webhook/index.ts`，改動時要檢查 secret、member match、假單 RPC 與推播 target。
 - `/attendance/:id` 點名 Detail（`RollCallView`）不可顯示或提供 `缺席` 操作；Detail UI 只保留 `出席`、`請假` 等允許操作，若需處理既有缺席資料或禁報流程，必須另設明確管理流程，不可直接把 `缺席` 按鈕放回 Detail。
 - 改到請假或點名時，要檢查通知中心、推播、今日缺席摘要與費用計算是否受影響。
@@ -188,9 +189,9 @@
 - 特訓沿用 `matches.match_level = '特訓課'`，報名與點數資料集中在 `training_session_settings`、`training_registrations`、`player_point_transactions`、`training_no_show_blocks`。
 - 前端頁面為 `/training`，分為個人報名、教練管理、點數管理；資料存取皆走 `src/services/trainingApi.ts` 封裝的 security definer RPC。
 - `training` feature/actions：`VIEW / CREATE / EDIT / DELETE`；linked member 可進入 `/training` 看自己的點數與報名。教練管理與點數管理只給 `CREATE / EDIT / DELETE` 其中一種管理權限者，單純 `VIEW` 不顯示管理工具。
-- 報名開關由 DB 端檢查手動狀態與時間窗；個人端不可直接寫 raw table。
+- 報名開關由 DB 端檢查手動狀態與時間窗；個人端不可直接寫 raw table。`training_session_settings.auto_select_enabled` 只影響開啟後的新報名：名額未滿且點數足夠時 DB 端直接錄取並保留點數，滿額時仍維持待審。
 - 教練可在沒有資料時建立特訓課與報名設定；新增特訓課預設上課時間 `09:00 - 12:00`、地點 `中港國小`，上課時間使用 Element Plus 時間範圍元件。
-- 報名開始時間到達且狀態為開放時，由 `send-training-registration-notifications` 排程檢查發送「特訓課開放報名」通知；報名截止前 24 小時內若還有錄取名額，會再發送一次「特訓課報名即將截止」通知；公布錄取名單時由 `send-training-selection-notifications` 發送「特訓課錄取名單已公布」通知；事件寫入 `push_dispatch_events` 供通知中心顯示，同時發送 Web Push。
+- 報名開始時間到達且狀態為開放時，由 `send-training-registration-notifications` 排程檢查發送「特訓課開放報名」通知；報名截止前 24 小時內若還有錄取名額，會再發送一次「特訓課報名即將截止」通知；公布錄取名單時由 `send-training-selection-notifications` 發送「特訓課錄取名單已公布」通知；單筆報名 / 錄取狀態由 `send-training-registration-status-notifications` 發送，報名完成只通知 `training:EDIT` 管理者，錄取只通知報名使用者；事件寫入 `push_dispatch_events` 供通知中心顯示，同時發送 Web Push。
 - 點數管理支援大量發放：可依全隊、角色、組別快速選取，並套用常用點數 / 原因 preset；送出仍只呼叫 `grant_player_points(uuid[], integer, text)`，不可直接寫 `player_point_transactions`。
 - 特訓點名透過 `attendance_events.training_session_id` 串接；後端缺席狀態會建立下一場禁報，出席 / 請假會解除該次禁報，但 `/attendance/:id` Detail UI 不顯示或提供 `缺席` 操作。
 
@@ -199,6 +200,7 @@
 - 後台路由 `/training-locations`，feature key 為 `training_locations`，actions：`VIEW / CREATE / EDIT / DELETE`。
 - 資料表為 `training_venues`、`training_location_sessions`、`training_location_session_venues`、`training_location_assignments`；前端一律走 `src/services/trainingLocationsApi.ts` 封裝的 security definer RPC。
 - 設定頁可建立某天訓練的多場地區塊，依全隊、角色或 `team_group` 快速帶入球員，再手動拖曳 / 勾選微調；同一訓練同一球員只能被配置到一個場地。
+- 場地配置的每個場地區塊可各自建立一張連動點名單；建立需 `training_locations:EDIT` + `attendance:CREATE`，開啟與操作仍走既有 `attendance:VIEW / EDIT / DELETE`。配置儲存後若場地已有連動點名單，DB 會同步該場地最新球員名單，移除已不在該場地內的點名紀錄。
 - 個人首頁透過 `get_my_home_snapshot()` 或 `list_my_week_training_locations()` 顯示 linked member 本週訓練場地；已請假球員仍可看到配置，但標示已請假。
 - `send-training-location-notifications` 於台灣時間前一天 20:10 或手動觸發，僅通知該球員綁定的有效使用者，且排除該訓練日已請假的球員；通知事件寫入 `push_dispatch_events.target_user_id` / `target_member_ids`，通知中心只顯示自己的場地通知。
 

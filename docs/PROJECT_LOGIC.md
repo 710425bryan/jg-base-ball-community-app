@@ -225,6 +225,7 @@ UI 約定：
 - 點名事件使用 `attendance_events`。
 - 單場點名紀錄使用 `attendance_records`。
 - 點名頁會參照球員名單與當日請假資料。
+- 場地配置點名單透過 `attendance_events.training_location_session_id` / `training_location_session_venue_id` 連回場地配置；每個場地區塊各自一張點名單，名單只取該場地最新 assignments。
 - 外部請假 webhook 會處理 member match、建立假單與通知，必須檢查 secret、payload normalize 與推播 target。
 - 今日訓練點名摘要走 `get_dashboard_today_attendance_status()`，只顯示給 `leave_requests:VIEW`。
 
@@ -296,6 +297,7 @@ UI 約定：
 - `src/utils/trainingRegistrationNotification.ts`
 - `src/views/RollCallView.vue`
 - `supabase/functions/send-training-registration-notifications/index.ts`
+- `supabase/functions/send-training-registration-status-notifications/index.ts`
 
 主要資料：
 
@@ -305,15 +307,15 @@ UI 約定：
 - `player_point_transactions`
 - `training_no_show_blocks`
 - `attendance_events.training_session_id`
-- `push_dispatch_events`：特訓報名開始 / 截止前一天通知去重與通知中心來源
+- `push_dispatch_events`：特訓報名開始 / 截止前一天、單筆報名 / 錄取狀態通知去重與通知中心來源
 
 資料流：
 
 - 家長 / 球員透過 `/training` 依 linked member 查看點數、點數紀錄、可報名特訓與自己的報名狀態；即使是管理者，在「我要報名」區塊也只顯示目前選取成員的點數紀錄。
-- 教練在 `/training` 設定特訓報名時間窗、手動開關、名額與扣點數，並審核錄取 / 候補 / 未錄取；教練管理與點數管理只給 `training:CREATE / EDIT / DELETE` 任一管理權限者。
-- 沒有特訓資料時，教練可在報名設定內新增特訓課與 settings；新增特訓課預設上課時間 `09:00 - 12:00`、地點 `中港國小`，上課時間使用 Element Plus 時間範圍元件，送出仍存成 `matches.match_time` 字串。
-- 報名開始時間到達且 `manual_status = 'open'` 時，`send-training-registration-notifications` 會建立 `training_registration_open:*` 事件，讓系統通知中心與 Web Push 同步收到「特訓課開放報名」通知；報名截止前 24 小時內若 `selected_count < capacity`（或不限名額），會建立 `training_registration_deadline:*` 事件再提醒一次。教練在報名審核按下「公布名單」後，前端會呼叫 `send-training-selection-notifications`，建立 `training_selection_published:*` 事件並發送「特訓課錄取名單已公布」通知。
-- 報名 RPC 會在 DB 端檢查 linked member、點數、禁報狀態、手動狀態與報名時間窗。
+- 教練在 `/training` 設定特訓報名時間窗、手動開關、自動錄取、名額與扣點數，並審核錄取 / 候補 / 未錄取；教練管理與點數管理只給 `training:CREATE / EDIT / DELETE` 任一管理權限者。
+- 沒有特訓資料時，教練可在報名設定內新增特訓課與 settings；新增特訓課預設上課時間 `09:00 - 12:00`、地點 `中港國小`，上課時間使用 Element Plus 時間範圍元件，送出仍存成 `matches.match_time` 字串；`auto_select_enabled` 預設關閉，只影響開啟後的新報名。
+- 報名開始時間到達且 `manual_status = 'open'` 時，`send-training-registration-notifications` 會建立 `training_registration_open:*` 事件，讓系統通知中心與 Web Push 同步收到「特訓課開放報名」通知；報名截止前 24 小時內若 `selected_count < capacity`（或不限名額），會建立 `training_registration_deadline:*` 事件再提醒一次。單筆報名成功後，前端呼叫 `send-training-registration-status-notifications`：`submitted` 通知 active `training:EDIT` 管理者，`selected` 只通知報名使用者，事件用 `target_user_id` / `target_member_ids` 限定通知中心可見範圍。教練在報名審核按下「公布名單」後，前端會呼叫 `send-training-selection-notifications`，建立 `training_selection_published:*` 事件並發送「特訓課錄取名單已公布」通知。
+- 報名 RPC 會在 DB 端檢查 linked member、點數、禁報狀態、手動狀態與報名時間窗；若自動錄取開啟且名額未滿，直接建立 `selected` + `reserved`，滿額則保留 `applied` 待審。
 - 錄取時保留點數；`process_training_session_automation()` 在上課當天對已錄取名單扣點，並用 idempotency key 避免重複扣。
 - 點數管理支援快速發放：可一鍵選全隊、角色、組別，套用常用點數 / 原因 preset；真正寫入仍統一呼叫 `grant_player_points(uuid[], integer, text)`，以交易紀錄追加方式建立流水帳。
 - 點數流水帳可由 `training:DELETE` 權限者刪除手動建立的誤發紀錄；刪除統一走 `delete_player_point_transactions(uuid[])`，系統扣點 / 關聯報名 / idempotency 紀錄不可刪，且刪除後餘額不得低於已保留點數。
@@ -325,7 +327,7 @@ UI 約定：
 - 一般成員或家長即使有 `training:VIEW`，也只看到個人報名 / 點數檢視，不可看到教練管理或點數發放工具。
 - 錄取名單公布後，登入使用者只能看到非敏感名單欄位。
 - 點數流水帳不可任意更新；加點、扣點、調整都新增 `player_point_transactions`，誤發刪除需走受權限與餘額檢查保護的 RPC。
-- 特訓報名開始與截止前提醒通知必須有穩定 event key，避免排程重試造成通知中心與 Web Push 重複顯示。
+- 特訓報名開始 / 截止前提醒與單筆報名 / 錄取通知都必須有穩定 event key；個別通知需帶 `target_user_id`，避免通知中心洩漏給非目標使用者。
 
 ## 11. 場地與人員配置
 
@@ -343,12 +345,15 @@ UI 約定：
 - `training_location_sessions`
 - `training_location_session_venues`
 - `training_location_assignments`
+- `attendance_events.training_location_session_id`
+- `attendance_events.training_location_session_venue_id`
 - `push_dispatch_events.target_user_id` / `target_member_ids`
 
 資料流：
 
 - 教練在 `/training-locations` 建立某天訓練配置，可設定多場地區塊，用全隊、角色或 `team_group` 快速帶入球員，再拖曳或勾選微調。
 - `save_training_location_session()` 會重建該訓練的場地與指派；DB 以 `(session_id, member_id)` 確保同一球員只在一個場地。
+- `create_training_location_venue_attendance_event()` 會為單一場地區塊建立或重用一張點名單，並由 `sync_training_location_attendance_records()` 自動同步該場地最新配置球員。
 - 個人首頁透過 `get_my_home_snapshot()` 的 `training_locations` 或 `list_my_week_training_locations()` fallback 顯示 linked member 本週場地，已請假時標示但不通知。
 - `send-training-location-notifications` 每日台灣時間 20:10 檢查隔天已發布配置，也可由設定頁手動觸發；同一使用者綁多名球員時合併成一則通知。
 
@@ -356,6 +361,7 @@ UI 約定：
 
 - `training_locations` feature/actions 為 `VIEW / CREATE / EDIT / DELETE`，預設只建立 `ADMIN` 權限。
 - 個人端只能看到自己的 linked member；管理端也只透過 security definer RPC 讀寫，不直接查 raw table。
+- 建立場地配置點名單需 `training_locations:EDIT` + `attendance:CREATE`；點名頁查看與出席 / 請假操作仍依 `attendance` 權限。多場地配置需分別從各場地區塊建立 / 開啟點名單。
 - 場地通知必須排除 `leave_requests.start_date <= training_date <= end_date` 的球員，且通知中心只能顯示 `target_user_id = auth.uid()` 的場地通知。
 
 ## 12. 收費與付款
@@ -534,6 +540,7 @@ UI 約定：
 - `public/push-sw.js`
 - `supabase/functions/send-push-notification/index.ts`
 - `supabase/functions/send-training-registration-notifications/index.ts`
+- `supabase/functions/send-training-registration-status-notifications/index.ts`
 - `supabase/functions/send-training-location-notifications/index.ts`
 - `supabase/functions/_shared/push.ts`
 
@@ -551,7 +558,7 @@ UI 約定：
 4. `eventKey` 進 `push_dispatch_events` 去重。
 5. 過期 subscription 由 Edge Function 清理。
 6. 通知中心透過 `get_notification_feed()` 匯整顯示。
-7. 排程型通知如賽事提醒、特訓報名開始 / 截止前提醒、場地通知，使用專屬 Edge Function 建立 `push_dispatch_events` 並派送 Web Push。
+7. 排程型通知如賽事提醒、特訓報名開始 / 截止前提醒、場地通知，使用專屬 Edge Function 建立 `push_dispatch_events` 並派送 Web Push；單筆特訓報名 / 錄取通知也使用專屬 Edge Function 寫入 targeted `push_dispatch_events`。
 8. 使用者點擊 Web Push 時，`public/push-sw.js` 同步啟動 client 導向，並把 target 寫入 IndexedDB `jg-baseball-push-deeplink/pendingTargets/latest` 與 Cache Storage `jg-baseball-push-deeplink-cache`；前端用 `pushDeepLink.ts` 正規化、短時間重試 consume pending target 後交給 router，推播設定可查看最後一次 click 診斷。
 
 重要規則：

@@ -45,15 +45,17 @@ description: "Training registration and player points workflow for jg-base-ball-
 - 個人報名只呼叫 `create_training_registration(p_session_id, p_member_id, p_note)`。
 - 取消報名只呼叫 `cancel_training_registration(p_registration_id)`。
 - DB 端必須檢查 linked member、報名時間窗、手動狀態、點數與禁報狀態。
+- `training_session_settings.auto_select_enabled` 預設關閉，只影響開啟後的新報名；名額未滿且點數足夠時 DB 端自動建立 `selected` + `reserved`，滿額時仍保留 `applied` 待審。
 - 已取消、未錄取、已扣點等狀態不得顯示不合適的取消操作。
 - 錄取名單公布前，一般使用者不可看到名單；公布後只能看到非敏感欄位。
 - 報名開始時間到達且狀態為 `open` 時，排程 Edge Function 送出特訓課開放報名通知；報名截止前 24 小時內若還有錄取名額，會再送一次截止提醒。通知必須同時進通知中心與 Web Push。
 - 特訓通知 event key 使用 `training_registration_open:<session_id>:<registration_start_at>` 與 `training_registration_deadline:<session_id>:<registration_end_at>`，避免排程每 5 分鐘重複派送。
+- 單筆報名 / 錄取通知走 `send-training-registration-status-notifications`；`submitted` 只通知 active `training:EDIT` 管理者，`selected` 只通知報名使用者，並以 `push_dispatch_events.target_user_id` 限制通知中心可見範圍。
 - 錄取名單公布後，前端呼叫 `send-training-selection-notifications` 送出「特訓課錄取名單已公布」通知；event key 使用 `training_selection_published:<session_id>:<published_at>`，通知同時進通知中心與 Web Push。
 
 ## 教練管理流程
 
-- 報名設定新增 / 更新走 `upsert_training_session_settings(...)`。
+- 報名設定新增 / 更新走 `upsert_training_session_settings(...)`，包含自動錄取開關。
 - 沒有特訓資料時，教練可用 `create_training_match_with_settings(...)` 建立 `matches` + `training_session_settings`。
 - 新增特訓課預設上課時間為 `09:00 - 12:00`，地點為 `中港國小`。
 - 上課時間輸入使用 Element Plus 時間範圍元件，送出仍存成 `matches.match_time` 字串。

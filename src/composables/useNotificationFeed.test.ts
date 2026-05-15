@@ -153,13 +153,13 @@ describe('notification feed controller', () => {
   it('maps training registration notifications', async () => {
     const fetcher = vi.fn().mockResolvedValue([
       {
-        id: 'training_registration_open:session-1:2026-04-30T01:00:00.000Z',
+        id: 'training_registration_selected:registration-1:user-1',
         source: 'training',
-        title: '特訓課開放報名：五月特訓課',
-        body: '課程：五月特訓課',
+        title: '特訓課已錄取：五月特訓課',
+        body: '球員：王小明',
         created_at: '2026-04-30T01:00:00.000Z',
         link: '/training?session_id=session-1',
-        highlight_member_id: null
+        highlight_member_id: 'member-1'
       }
     ])
 
@@ -167,9 +167,10 @@ describe('notification feed controller', () => {
     await controller.loadNotificationFeed(10)
 
     expect(controller.notifications.value[0]).toMatchObject({
-      id: 'training:training_registration_open:session-1:2026-04-30T01:00:00.000Z',
+      id: 'training:training_registration_selected:registration-1:user-1',
       source: 'training',
-      link: '/training?session_id=session-1'
+      link: '/training?session_id=session-1',
+      highlightMemberId: 'member-1'
     })
   })
 

@@ -76,6 +76,7 @@ const normalizeSessionVenue = (row: any): TrainingLocationSessionVenue => ({
   venue_name: String(row?.venue_name || ''),
   venue_address: row?.venue_address ? String(row.venue_address) : null,
   venue_maps_url: row?.venue_maps_url ? String(row.venue_maps_url) : null,
+  attendance_event_id: row?.attendance_event_id ? String(row.attendance_event_id) : null,
   sort_order: normalizeNumber(row?.sort_order),
   note: row?.note ? String(row.note) : null,
   member_ids: normalizeMemberIds(row?.member_ids),
@@ -154,6 +155,15 @@ export const trainingLocationsApi = {
       p_status: input.status,
       p_note: input.note || null,
       p_venues: input.venues
+    })
+    if (error) throw normalizeTrainingLocationError(error)
+    return String(data || '')
+  },
+
+  async createAttendanceEvent(sessionVenueId: string) {
+    await ensureAuthenticatedSession()
+    const { data, error } = await supabase.rpc('create_training_location_venue_attendance_event', {
+      p_session_venue_id: sessionVenueId
     })
     if (error) throw normalizeTrainingLocationError(error)
     return String(data || '')

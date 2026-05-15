@@ -26,6 +26,7 @@ export type TrainingLocationSessionVenue = {
   venue_name: string
   venue_address: string | null
   venue_maps_url: string | null
+  attendance_event_id: string | null
   sort_order: number
   note: string | null
   member_ids: string[]
@@ -48,6 +49,7 @@ export type TrainingLocationSession = {
 }
 
 export type TrainingLocationSessionSaveVenue = {
+  id?: string | null
   venue_id?: string | null
   venue_name: string
   venue_address?: string | null

@@ -48,6 +48,7 @@
 | `supabase/functions/notify-holiday-theme/logic.ts` | 節日通知純邏輯 | 有 Vitest coverage |
 | `supabase/functions/send-match-reminders/index.ts` | 賽事提醒 | URL 使用 `/calendar?match_id=...` |
 | `supabase/functions/send-training-registration-notifications/index.ts` | 特訓報名開始 / 截止前提醒 | event key 必須穩定 |
+| `supabase/functions/send-training-registration-status-notifications/index.ts` | 單筆特訓報名完成 / 錄取通知 | bearer user 驗證，`submitted` 給 `training:EDIT` 管理者，`selected` 給報名使用者 |
 | `supabase/functions/send-training-selection-notifications/index.ts` | 特訓錄取名單公布通知 | 手動觸發需檢查使用者權限 |
 | `supabase/functions/send-training-location-notifications/index.ts` | 訓練場地通知 | 排除已請假球員，只通知 linked users |
 | `supabase/functions/sync-match-calendar/index.ts` | iCal 賽事同步 | 修改 parser 時同步讀 calendar sync skill |

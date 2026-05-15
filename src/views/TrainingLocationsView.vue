@@ -5,8 +5,8 @@ import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Bell,
-  Calendar,
   Check,
+  Checked,
   Delete,
   Location,
   Plus,
@@ -33,7 +33,7 @@ type EditableVenue = TrainingLocationSessionVenue & {
 }
 
 const DEFAULT_START_TIME = '09:00'
-const DEFAULT_END_TIME = '12:00'
+const DEFAULT_END_TIME = '12:30'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -43,6 +43,10 @@ const canCreate = computed(() => permissionsStore.can('training_locations', 'CRE
 const canEdit = computed(() => permissionsStore.can('training_locations', 'EDIT'))
 const canDelete = computed(() => permissionsStore.can('training_locations', 'DELETE'))
 const canSave = computed(() => (form.session_id ? canEdit.value : canCreate.value))
+const canOpenAttendance = computed(() => permissionsStore.can('attendance', 'VIEW'))
+const canCreateAttendance = computed(() =>
+  canEdit.value && canOpenAttendance.value && permissionsStore.can('attendance', 'CREATE')
+)
 
 const sessions = ref<TrainingLocationSession[]>([])
 const venues = ref<TrainingVenue[]>([])
@@ -55,6 +59,8 @@ const searchQuery = ref('')
 const isLoading = ref(false)
 const isSaving = ref(false)
 const isDispatching = ref(false)
+const creatingAttendanceVenueIndex = ref<number | null>(null)
+const isCreatingAttendance = computed(() => creatingAttendanceVenueIndex.value !== null)
 
 const createEmptyVenue = (): EditableVenue => ({
   clientKey: `venue-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -63,6 +69,7 @@ const createEmptyVenue = (): EditableVenue => ({
   venue_name: '',
   venue_address: null,
   venue_maps_url: null,
+  attendance_event_id: null,
   sort_order: 0,
   note: null,
   member_ids: [],
@@ -137,6 +144,32 @@ const formatSessionDate = (date: string) => {
   return `${parsed.format('MM/DD')} 週${'日一二三四五六'[parsed.day()]}`
 }
 
+const getSessionStartAt = (session: Pick<TrainingLocationSession, 'training_date' | 'start_time' | 'end_time'>) => {
+  const time = session.start_time || session.end_time || '00:00'
+  const parsed = dayjs(`${session.training_date} ${time}`)
+  if (parsed.isValid()) return parsed
+
+  const dateOnly = dayjs(session.training_date)
+  return dateOnly.isValid() ? dateOnly : dayjs(0)
+}
+
+const sortSessionsByNearestTime = (items: TrainingLocationSession[]) => {
+  const now = dayjs()
+  return [...items].sort((a, b) => {
+    const aStart = getSessionStartAt(a)
+    const bStart = getSessionStartAt(b)
+    const aDistance = Math.abs(aStart.diff(now))
+    const bDistance = Math.abs(bStart.diff(now))
+    if (aDistance !== bDistance) return aDistance - bDistance
+
+    const aIsFuture = aStart.isAfter(now) || aStart.isSame(now)
+    const bIsFuture = bStart.isAfter(now) || bStart.isSame(now)
+    if (aIsFuture !== bIsFuture) return aIsFuture ? -1 : 1
+
+    return aStart.valueOf() - bStart.valueOf()
+  })
+}
+
 const getVenueMembers = (venue: EditableVenue) =>
   venue.member_ids
     .map((memberId) => rosterById.value.get(memberId))
@@ -162,7 +195,7 @@ const loadVenues = async () => {
 const loadSessions = async () => {
   const from = dayjs().subtract(14, 'day').format('YYYY-MM-DD')
   const to = dayjs().add(45, 'day').format('YYYY-MM-DD')
-  sessions.value = await trainingLocationsApi.listSessions(from, to)
+  sessions.value = sortSessionsByNearestTime(await trainingLocationsApi.listSessions(from, to))
 }
 
 const loadRoster = async () => {
@@ -345,6 +378,7 @@ const buildSavePayload = (status: TrainingLocationSessionStatus = form.status) =
   status,
   note: form.note || null,
   venues: form.venues.map((venue, index) => ({
+    id: venue.id,
     venue_id: venue.venue_id,
     venue_name: venue.venue_name,
     venue_address: venue.venue_address,
@@ -443,6 +477,63 @@ const dispatchNotifications = async () => {
     await handleTrainingLocationError(error, '發送場地通知失敗')
   } finally {
     isDispatching.value = false
+  }
+}
+
+const openTrainingLocationAttendance = async (venueIndex: number) => {
+  const targetVenue = form.venues[venueIndex]
+  if (!targetVenue) return
+
+  const existingEventId = targetVenue.attendance_event_id
+  if (existingEventId && !canSave.value) {
+    router.push(`/attendance/${existingEventId}`)
+    return
+  }
+
+  if (!existingEventId && !canCreateAttendance.value) {
+    ElMessage.warning('需要場地編輯與建立點名權限，才能建立點名單')
+    return
+  }
+
+  if (!canSave.value) {
+    ElMessage.warning('目前沒有儲存這份場地配置的權限')
+    return
+  }
+
+  if (!existingEventId && targetVenue.member_ids.length === 0) {
+    ElMessage.warning('請先在這個場地配置至少一位球員再建立點名單')
+    return
+  }
+
+  const targetVenueId = targetVenue.id
+  creatingAttendanceVenueIndex.value = venueIndex
+  try {
+    const sessionId = await saveSession(form.status)
+    if (!sessionId) return
+
+    const savedVenue = targetVenueId
+      ? form.venues.find((venue) => venue.id === targetVenueId)
+      : form.venues[venueIndex]
+
+    if (!savedVenue?.id) {
+      throw new Error('無法取得已儲存的場地區塊，請重新整理後再試。')
+    }
+
+    let eventId = savedVenue.attendance_event_id || null
+    if (!eventId) {
+      eventId = await trainingLocationsApi.createAttendanceEvent(savedVenue.id)
+      await loadSessions()
+      const refreshedSession = sessions.value.find((session) => session.session_id === sessionId)
+      if (refreshedSession) await hydrateSession(refreshedSession)
+      ElMessage.success('已建立場地點名單，可按「開啟點名」進入')
+      return
+    }
+
+    router.push(`/attendance/${eventId}`)
+  } catch (error: any) {
+    await handleTrainingLocationError(error, '建立點名單失敗')
+  } finally {
+    creatingAttendanceVenueIndex.value = null
   }
 }
 
@@ -659,6 +750,16 @@ onMounted(() => {
                     </div>
 
                     <div class="flex flex-wrap gap-2">
+                      <button
+                        v-if="venue.attendance_event_id ? canOpenAttendance : canCreateAttendance"
+                        type="button"
+                        class="inline-flex min-h-9 items-center gap-1.5 rounded-xl bg-slate-900 px-3 text-xs font-black text-white transition-colors hover:bg-slate-800 disabled:opacity-60"
+                        :disabled="isCreatingAttendance || isSaving || (!venue.attendance_event_id && venue.member_ids.length === 0)"
+                        @click="openTrainingLocationAttendance(venueIndex)"
+                      >
+                        <el-icon :class="{ 'is-loading': creatingAttendanceVenueIndex === venueIndex }"><Checked /></el-icon>
+                        {{ venue.attendance_event_id ? '開啟點名' : '建立點名' }}
+                      </button>
                       <button
                         type="button"
                         class="min-h-9 rounded-xl border border-slate-200 px-3 text-xs font-black text-slate-600 transition-colors hover:border-primary hover:text-primary"

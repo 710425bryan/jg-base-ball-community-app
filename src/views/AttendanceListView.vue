@@ -180,8 +180,10 @@ const fetchEvents = async () => {
       const presentCount = records.filter((r: any) => ['出席', '遲到', '早退'].includes(r.status)).length
       const leaveCount = records.filter((r: any) => r.status === '請假').length
       const absentCount = records.filter((r: any) => r.status === '缺席').length
-      // 點名紀錄可能只先寫入當天請假者；總數仍以有效球員數作為列表概覽。
-      const totalCount = Math.max(records.length, memberCount || 0)
+      // 場地配置點名的名單範圍固定來自該配置，不套用全隊總數 fallback。
+      const totalCount = e.training_location_session_venue_id || e.training_location_session_id
+        ? records.length
+        : Math.max(records.length, memberCount || 0)
       return { ...e, presentCount, leaveCount, absentCount, totalCount }
     }) || []
   } catch (error: any) {
