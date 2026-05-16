@@ -1,7 +1,9 @@
 import type { MatchRecord, MatchRecordInput } from '@/types/match'
 
 const TAIPEI_TIME_ZONE = 'Asia/Taipei'
-const OUR_TEAM_ALIASES = ['中港', '中港熊戰', '中港國小']
+const OFFICIAL_OUR_TEAM_ALIASES = ['中港熊戰']
+const LEGACY_OUR_TEAM_ALIASES = ['中港', '中港國小']
+const COMPATIBLE_OUR_TEAM_ALIASES = [...OFFICIAL_OUR_TEAM_ALIASES, ...LEGACY_OUR_TEAM_ALIASES]
 const TITLE_TEAM_KEYWORDS = ['錦標賽', '邀請賽', '友誼賽', '聯賽', '嘉年華', '就是棒', '春季', '秋季', '棒球', '盃']
 const VS_SEPARATOR = /\s*(?:v\.?\s*s\.?)\s*/i
 
@@ -152,12 +154,12 @@ const normalizeRosterNumber = (value: unknown) => {
   return /^\d+$/.test(normalized) ? String(Number(normalized)) : normalized
 }
 
-const isOurTeamName = (value: string) => {
+const isOurTeamName = (value: string, aliases = OFFICIAL_OUR_TEAM_ALIASES) => {
   const normalized = normalizeLooseNameKey(normalizeTeamName(value))
-  return OUR_TEAM_ALIASES.some((alias) => normalized === normalizeLooseNameKey(alias))
+  return aliases.some((alias) => normalized === normalizeLooseNameKey(alias))
 }
 
-const splitTitleSide = (value: string): SplitTitleSideResult => {
+const splitTitleSide = (value: string, aliases = OFFICIAL_OUR_TEAM_ALIASES): SplitTitleSideResult => {
   const normalized = collapseWhitespace(value)
 
   let bestIndex = -1
@@ -172,24 +174,27 @@ const splitTitleSide = (value: string): SplitTitleSideResult => {
   }
 
   if (bestIndex === -1) {
-    return { prefix: '', team: normalized, isOurTeam: isOurTeamName(normalized) }
+    return { prefix: '', team: normalized, isOurTeam: isOurTeamName(normalized, aliases) }
   }
 
   const boundary = bestIndex + bestKeyword.length
   const prefix = normalized.slice(0, boundary).trim()
   const team = normalized.slice(boundary).trim()
 
-  return { prefix, team, isOurTeam: isOurTeamName(team) }
+  return { prefix, team, isOurTeam: isOurTeamName(team, aliases) }
 }
 
-const splitTitleSideWithTeamAlias = (value: string): SplitTitleSideResult => {
-  const side = splitTitleSide(value)
+const splitTitleSideWithTeamAlias = (
+  value: string,
+  aliases = OFFICIAL_OUR_TEAM_ALIASES
+): SplitTitleSideResult => {
+  const side = splitTitleSide(value, aliases)
   if (side.isOurTeam) return side
 
   const normalized = collapseWhitespace(value)
-  const aliases = [...OUR_TEAM_ALIASES].sort((left, right) => right.length - left.length)
+  const sortedAliases = [...aliases].sort((left, right) => right.length - left.length)
 
-  for (const alias of aliases) {
+  for (const alias of sortedAliases) {
     const index = normalized.lastIndexOf(alias)
     if (index === -1) continue
 
@@ -496,13 +501,32 @@ const parseTitle = (title: string): ParsedTitle => {
     }
   }
 
-  const leftSide = splitTitleSideWithTeamAlias(parts[0])
-  const rightSide = splitTitleSideWithTeamAlias(parts.slice(1).join(' '))
+  const rightTitlePart = parts.slice(1).join(' ')
+  const officialLeftSide = splitTitleSideWithTeamAlias(parts[0], OFFICIAL_OUR_TEAM_ALIASES)
+  const officialRightSide = splitTitleSideWithTeamAlias(rightTitlePart, OFFICIAL_OUR_TEAM_ALIASES)
+  const officialLeftTeam = normalizeTeamName(officialLeftSide.team || parts[0])
+  const officialRightTeam = normalizeTeamName(officialRightSide.team || rightTitlePart)
+  const officialLeftIsUs = officialLeftSide.isOurTeam || isOurTeamName(officialLeftTeam)
+  const officialRightIsUs = officialRightSide.isOurTeam || isOurTeamName(officialRightTeam)
+
+  if (officialLeftIsUs !== officialRightIsUs) {
+    const tournamentName = officialLeftSide.prefix || officialRightSide.prefix || ''
+    const opponent = collapseWhitespace(officialLeftIsUs ? officialRightTeam : officialLeftTeam)
+
+    return {
+      tournamentName: collapseWhitespace(tournamentName),
+      opponent,
+      warnings: opponent ? [] : ['未解析到對手，將以待確認顯示']
+    }
+  }
+
+  const leftSide = splitTitleSideWithTeamAlias(parts[0], COMPATIBLE_OUR_TEAM_ALIASES)
+  const rightSide = splitTitleSideWithTeamAlias(rightTitlePart, COMPATIBLE_OUR_TEAM_ALIASES)
 
   const leftTeam = normalizeTeamName(leftSide.team || parts[0])
-  const rightTeam = normalizeTeamName(rightSide.team || parts.slice(1).join(' '))
-  const leftIsUs = leftSide.isOurTeam || isOurTeamName(leftTeam)
-  const rightIsUs = rightSide.isOurTeam || isOurTeamName(rightTeam)
+  const rightTeam = normalizeTeamName(rightSide.team || rightTitlePart)
+  const leftIsUs = leftSide.isOurTeam || isOurTeamName(leftTeam, COMPATIBLE_OUR_TEAM_ALIASES)
+  const rightIsUs = rightSide.isOurTeam || isOurTeamName(rightTeam, COMPATIBLE_OUR_TEAM_ALIASES)
 
   let tournamentName = leftSide.prefix || rightSide.prefix || ''
   let opponent = ''
@@ -516,7 +540,7 @@ const parseTitle = (title: string): ParsedTitle => {
     warnings.push('對戰雙方都像中港隊名，請確認對手')
   } else {
     warnings.push('未在對戰標題中偵測到中港隊名，請確認對手')
-    opponent = rightTeam && !isOurTeamName(rightTeam) ? rightTeam : ''
+    opponent = rightTeam && !isOurTeamName(rightTeam, COMPATIBLE_OUR_TEAM_ALIASES) ? rightTeam : ''
   }
 
   if (!opponent) {

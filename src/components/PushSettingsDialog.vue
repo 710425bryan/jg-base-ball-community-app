@@ -11,7 +11,12 @@
       <div class="bg-primary/5 p-4 rounded-xl border border-primary/20">
         <div class="flex items-center justify-between gap-4 mb-2">
           <span class="font-extrabold text-gray-800">啟用此裝置推播</span>
-          <el-switch v-model="settingsForm.receive_notifications" active-color="var(--color-primary)" @change="handleTogglePush" />
+          <el-switch
+            v-model="settingsForm.receive_notifications"
+            active-color="var(--color-primary)"
+            :disabled="isFetchingSettings || !settingsForm.is_supported"
+            @change="handleTogglePush"
+          />
         </div>
         <p class="text-sm text-gray-500 leading-relaxed">
           開啟後，將綁定「目前這台裝置與瀏覽器」。之後明日賽事提醒、請假通知與其他系統通知，會直接推播到這台裝置。
@@ -161,7 +166,7 @@ const isOpen = computed({
 
 const guideSteps = {
   mobile: [
-    '請先用手機開啟系統並登入；iPhone / iPad 請確認是從主畫面獨立 App 開啟，畫面上不應出現 Safari 或 Chrome 網址列。',
+    '請先用手機開啟系統並登入；iPhone / iPad 需要 iOS 16.4 以上，且必須從主畫面獨立 App 開啟，畫面上不應出現 Safari 或 Chrome 網址列。',
     '若還沒加入主畫面，Safari 分享選單加入最穩定；Chrome 加入主畫面後只要是獨立 App 模式也可以使用。',
     '回到此視窗上方，打開「啟用此裝置推播」開關。',
     '手機跳出通知權限時，請選擇「允許」。若曾封鎖，需到瀏覽器或系統設定解除通知封鎖。',
@@ -200,6 +205,15 @@ type PushSupportState = {
   supportMessage: string
   isIOS: boolean
   isStandalone: boolean
+  iosVersionLabel: string
+  hasServiceWorker: boolean
+  hasPushManager: boolean
+  hasNotificationApi: boolean
+}
+
+type IOSVersionInfo = {
+  label: string
+  isAtLeast164: boolean | null
 }
 
 type WebPushSubscriptionRow = {
@@ -216,14 +230,18 @@ const getPushSupportState = (): PushSupportState => {
       isSupported: false,
       supportMessage: '目前環境無法使用 Web Push 通知。',
       isIOS: false,
-      isStandalone: false
+      isStandalone: false,
+      iosVersionLabel: '無法判斷',
+      hasServiceWorker: false,
+      hasPushManager: false,
+      hasNotificationApi: false
     }
   }
 
-  const hasCoreSupport =
-    'serviceWorker' in navigator &&
-    'PushManager' in window &&
-    typeof Notification !== 'undefined'
+  const hasServiceWorker = 'serviceWorker' in navigator
+  const hasPushManager = 'PushManager' in window
+  const hasNotificationApi = typeof Notification !== 'undefined'
+  const hasCoreSupport = hasServiceWorker && hasPushManager && hasNotificationApi
 
   const isIOS =
     /iP(hone|ad|od)/i.test(navigator.userAgent) ||
@@ -233,21 +251,43 @@ const getPushSupportState = (): PushSupportState => {
     window.matchMedia?.('(display-mode: standalone)').matches === true ||
     (navigator as Navigator & { standalone?: boolean }).standalone === true
 
-  if (!hasCoreSupport) {
-    return {
-      isSupported: false,
-      supportMessage: '此瀏覽器不支援 Web Push 通知。',
-      isIOS,
-      isStandalone
-    }
-  }
+  const iosVersionInfo = getIOSVersionInfo()
+  const iosVersionLabel = isIOS ? iosVersionInfo.label : '非 iOS'
 
   if (isIOS && !isStandalone) {
     return {
       isSupported: false,
       supportMessage: 'iPhone 請先加入主畫面，並確認從主畫面圖示開啟後沒有 Safari 或 Chrome 網址列；若仍有網址列，建議刪除圖示後用 Safari 分享選單重新加入主畫面。',
       isIOS,
-      isStandalone
+      isStandalone,
+      iosVersionLabel,
+      hasServiceWorker,
+      hasPushManager,
+      hasNotificationApi
+    }
+  }
+
+  if (!hasCoreSupport) {
+    const iosVersionPrefix =
+      isIOS && iosVersionInfo.label !== '無法判斷'
+        ? `目前偵測為 ${iosVersionInfo.label}。`
+        : ''
+    const iosVersionRequirementHint = iosVersionInfo.isAtLeast164 === false
+      ? '目前 iOS 版本低於 16.4，請先更新 iOS。'
+      : '請先確認 iOS 已更新到 16.4 以上。'
+    const iosSupportHint = isIOS
+      ? `${iosVersionPrefix}iPhone Web Push 需要 iOS 16.4 以上、從主畫面 App 開啟，且瀏覽器必須提供 Notification API。${iosVersionRequirementHint}若已更新，請刪除主畫面舊圖示後用 Safari 重新加入主畫面。`
+      : '此瀏覽器不支援 Web Push 通知。'
+
+    return {
+      isSupported: false,
+      supportMessage: iosSupportHint,
+      isIOS,
+      isStandalone,
+      iosVersionLabel,
+      hasServiceWorker,
+      hasPushManager,
+      hasNotificationApi
     }
   }
 
@@ -255,9 +295,52 @@ const getPushSupportState = (): PushSupportState => {
     isSupported: true,
     supportMessage: '',
     isIOS,
-    isStandalone
+    isStandalone,
+    iosVersionLabel,
+    hasServiceWorker,
+    hasPushManager,
+    hasNotificationApi
   }
 }
+
+const getIOSVersionInfo = (): IOSVersionInfo => {
+  if (typeof navigator === 'undefined') {
+    return {
+      label: '無法判斷',
+      isAtLeast164: null
+    }
+  }
+
+  const ua = navigator.userAgent || ''
+  const versionMatch = ua.match(/(?:CPU(?: iPhone)? OS|iPhone OS|OS) (\d+)[._](\d+)(?:[._](\d+))?/i)
+
+  if (!versionMatch) {
+    return {
+      label: '無法判斷',
+      isAtLeast164: null
+    }
+  }
+
+  const major = Number(versionMatch[1])
+  const minor = Number(versionMatch[2])
+
+  if (Number.isNaN(major) || Number.isNaN(minor)) {
+    return {
+      label: '無法判斷',
+      isAtLeast164: null
+    }
+  }
+
+  const patch = versionMatch[3] ? Number(versionMatch[3]) : null
+  const versionParts = [major, minor, patch].filter((part): part is number => typeof part === 'number' && !Number.isNaN(part))
+
+  return {
+    label: `iOS ${versionParts.join('.')}`,
+    isAtLeast164: major > 16 || (major === 16 && minor >= 4)
+  }
+}
+
+const formatSupportFlag = (supported: boolean) => supported ? '支援' : '不支援'
 
 const getCurrentPlatformLabel = (state = getPushSupportState()) => {
   if (typeof navigator === 'undefined') return '目前裝置'
@@ -355,8 +438,13 @@ const refreshPushDiagnostics = async () => {
 
     pushDiagnosticRows.value = [
       { label: 'App 版本', value: __APP_VERSION__ },
+      { label: '裝置環境', value: getCurrentPlatformLabel(supportState) },
+      { label: 'iOS 版本', value: supportState.iosVersionLabel },
       { label: '獨立 App', value: supportState.isStandalone ? '是' : '否' },
       { label: '通知權限', value: formatNotificationPermission() },
+      { label: 'Notification API', value: formatSupportFlag(supportState.hasNotificationApi) },
+      { label: 'Push API', value: formatSupportFlag(supportState.hasPushManager) },
+      { label: 'SW API', value: formatSupportFlag(supportState.hasServiceWorker) },
       { label: 'SW 控制', value: serviceWorkerState.controller },
       { label: 'SW Script', value: serviceWorkerState.script },
       { label: '最後目標', value: lastClick?.targetPath || '尚無紀錄' },

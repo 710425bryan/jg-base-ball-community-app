@@ -219,6 +219,29 @@ END:VCALENDAR`)
     expect(noVersus.parseWarnings).toContain('未偵測到對戰格式，對手需確認')
   })
 
+  it('treats 中港熊戰 as our official team when the opponent is 中港國小', () => {
+    const parsed = parseMatchRecord({
+      id: 'uid-zhonggang-school@google.com',
+      summary: 'U12 新北聯賽 中港熊戰 vs 中港國小',
+      description: '組別 / 類別：U12\n賽事等級：一級',
+      location: '新北市棒球場',
+      startRaw: '20260531T000000Z',
+      endRaw: '20260531T013000Z'
+    })
+
+    expect(parsed.matchName).toBe('U12 新北聯賽')
+    expect(parsed.opponent).toBe('中港國小')
+    expect(parsed.parseWarnings).toEqual([])
+    expect(createMatchRecordInput(parsed)).toEqual(
+      expect.objectContaining({
+        match_name: 'U12 新北聯賽',
+        opponent: '中港國小',
+        match_date: '2026-05-31',
+        match_time: '08:00 - 09:30'
+      })
+    )
+  })
+
   it('conservatively checks calendar players against the active roster', () => {
     const playerCheck = checkCalendarPlayersAgainstRoster(
       [
