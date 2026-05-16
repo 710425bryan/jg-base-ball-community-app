@@ -42,6 +42,7 @@ export interface DashboardTodayAttendanceEvent {
 
 export interface DashboardTodayAttendanceStatus {
   todayEvent: DashboardTodayAttendanceEvent | null
+  todayEvents: DashboardTodayAttendanceEvent[]
   todayLeaveNames: string[]
   todayLeaveCount: number
 }
@@ -95,6 +96,7 @@ export const createEmptyDashboardPendingCounts = (): DashboardPendingCounts => (
 
 export const createEmptyDashboardTodayAttendanceStatus = (): DashboardTodayAttendanceStatus => ({
   todayEvent: null,
+  todayEvents: [],
   todayLeaveNames: [],
   todayLeaveCount: 0
 })

@@ -19,13 +19,36 @@ const normalizeNumber = (value: unknown) => {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
+const normalizeEvent = (value: unknown): DashboardTodayAttendanceEvent | null => {
+  if (!value || typeof value !== 'object') return null
+  const event = value as Partial<DashboardTodayAttendanceEvent>
+  if (!event.id) return null
+
+  return {
+    id: String(event.id),
+    title: event.title || '未命名點名單',
+    date: event.date || '',
+    eventType: event.eventType ?? null
+  }
+}
+
 const normalizeStatus = (
   payload: Partial<DashboardTodayAttendanceStatus> | null | undefined
 ): DashboardTodayAttendanceStatus => {
   const fallback = createEmptyDashboardTodayAttendanceStatus()
+  const legacyEvent = normalizeEvent(payload?.todayEvent)
+  const todayEvents = ensureArray<unknown>(payload?.todayEvents)
+    .map(normalizeEvent)
+    .filter((event): event is DashboardTodayAttendanceEvent => Boolean(event))
+  const normalizedEvents = todayEvents.length > 0
+    ? todayEvents
+    : legacyEvent
+      ? [legacyEvent]
+      : fallback.todayEvents
 
   return {
-    todayEvent: (payload?.todayEvent ?? fallback.todayEvent) as DashboardTodayAttendanceEvent | null,
+    todayEvent: normalizedEvents[0] ?? fallback.todayEvent,
+    todayEvents: normalizedEvents,
     todayLeaveNames: ensureArray<string>(payload?.todayLeaveNames),
     todayLeaveCount: normalizeNumber(payload?.todayLeaveCount)
   }

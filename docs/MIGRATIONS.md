@@ -43,6 +43,7 @@
 | --- | --- | --- |
 | `supabase_dashboard_snapshot_migration.sql` | 公開 / dashboard 摘要 | 公開頁只能回去敏感資料 |
 | `supabase_dashboard_today_attendance_status_migration.sql` | 今日訓練點名狀態 | `HomeView` dashboard 區塊依賴 |
+| `supabase_zzzzzzzzzz_dashboard_today_attendance_events_migration.sql` | 今日訓練點名狀態多筆點名單 | 覆寫 `get_dashboard_today_attendance_status()` 回傳 `todayEvents` |
 | `supabase_my_home_snapshot_migration.sql` | 個人首頁 snapshot | linked member 安全邊界 |
 | `supabase_zz_my_home_training_points_migration.sql` | 個人首頁特訓點數補強 | 覆寫 / 補齊 snapshot 點數 |
 | `supabase_my_home_equipment_payment_ownership_migration.sql` | 個人首頁裝備付款歸屬修正 | 裝備付款摘要必讀 |

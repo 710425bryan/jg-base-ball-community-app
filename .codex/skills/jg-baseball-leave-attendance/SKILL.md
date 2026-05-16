@@ -34,7 +34,7 @@ description: "Leave request, attendance event, roll call, dashboard attendance s
 - 後台請假管理在 `/leave-requests`，feature key 為 `leave_requests`。
 - 點名事件使用 `attendance_events`，單場紀錄使用 `attendance_records`。
 - `/attendance/:id` 顯示單場點名 detail。
-- 今日訓練點名狀態走 `get_dashboard_today_attendance_status()`，只給 `leave_requests:VIEW` 使用者顯示。
+- 今日訓練點名狀態走 `get_dashboard_today_attendance_status()`，需支援同一天多筆點名單，只給 `leave_requests:VIEW` 使用者顯示。
 - `leave-webhook` 可接 Google Form / 外部請假來源，並可能建立推播事件。
 
 ## 不可破壞規則

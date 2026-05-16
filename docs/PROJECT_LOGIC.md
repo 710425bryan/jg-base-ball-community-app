@@ -131,7 +131,7 @@ UI 約定：
 資料流：
 
 - 個人化首頁摘要走 `get_my_home_snapshot(p_today)`，`MyHomeTodayPanel` 的 Next Up 僅顯示下一筆 `matches` 賽程，點名狀態固定留在「今日訓練點名狀態」區塊；點數欄位優先由 snapshot 的 `members[*]` 帶入，若線上 RPC 尚未更新則由 `list_my_training_members()` 補齊，只呈現自己的 linked member。
-- 後台大廳的「今日訓練點名狀態」走 `get_dashboard_today_attendance_status(p_today)`，只給具備 `leave_requests:VIEW` 的角色顯示。
+- 後台大廳的「今日訓練點名狀態」走 `get_dashboard_today_attendance_status(p_today)`，會列出今日所有點名單，只給具備 `leave_requests:VIEW` 的角色顯示。
 - 我的假單：
   - `list_my_leave_members()`
   - `list_my_leave_requests(p_member_id)`
@@ -227,7 +227,7 @@ UI 約定：
 - 點名頁會參照球員名單與當日請假資料。
 - 場地配置點名單透過 `attendance_events.training_location_session_id` / `training_location_session_venue_id` 連回場地配置；每個場地區塊各自一張點名單，名單只取該場地最新 assignments。
 - 外部請假 webhook 會處理 member match、建立假單與通知，必須檢查 secret、payload normalize 與推播 target。
-- 今日訓練點名摘要走 `get_dashboard_today_attendance_status()`，只顯示給 `leave_requests:VIEW`。
+- 今日訓練點名摘要走 `get_dashboard_today_attendance_status()`，會回傳今日所有點名單與請假名單，只顯示給 `leave_requests:VIEW`。
 
 重要規則：
 

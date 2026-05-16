@@ -191,6 +191,20 @@ const sampleTodayAttendanceStatus = {
     date: '2026-04-20',
     eventType: '練習'
   },
+  todayEvents: [
+    {
+      id: 'attendance-1',
+      title: '週六訓練點名',
+      date: '2026-04-20',
+      eventType: '練習'
+    },
+    {
+      id: 'attendance-2',
+      title: '室內體能點名',
+      date: '2026-04-20',
+      eventType: '練習'
+    }
+  ],
   todayLeaveNames: ['小明', '小華'],
   todayLeaveCount: 2
 }
@@ -399,7 +413,10 @@ describe('HomeView dashboard redesign', () => {
 
     expect(panel.exists()).toBe(true)
     expect(panel.text()).toContain('今日訓練點名狀態')
+    expect(panel.text()).toContain('今日 2 張點名單')
     expect(panel.text()).toContain('週六訓練點名')
+    expect(panel.text()).toContain('室內體能點名')
+    expect(wrapper.findAll('[data-test="today-attendance-event-item"]')).toHaveLength(2)
     expect(wrapper.find('[data-test="today-attendance-leave-total"]').text()).toContain('2')
     expect(panel.text()).toContain('小明')
     expect(toggle.attributes('aria-expanded')).toBe('false')

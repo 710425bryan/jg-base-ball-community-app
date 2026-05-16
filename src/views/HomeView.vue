@@ -132,7 +132,7 @@ const isMyHomeLoading = ref(false)
 const myHomeError = ref('')
 const isTodayAttendanceOpen = ref(false)
 const isTodayAttendanceLoading = ref(false)
-const todayAttendanceEvent = ref<DashboardTodayAttendanceEvent | null>(null)
+const todayAttendanceEvents = ref<DashboardTodayAttendanceEvent[]>([])
 const todayAttendanceLeaveNames = ref<string[]>([])
 const todayAttendanceLeaveCount = ref(0)
 
@@ -277,13 +277,19 @@ const weatherIconStyle = computed<Record<string, string>>(() => {
 const todayAttendanceLeaveTotal = computed(() =>
   todayAttendanceLeaveCount.value || todayAttendanceLeaveNames.value.length
 )
+const todayAttendanceEventCount = computed(() => todayAttendanceEvents.value.length)
+const primaryTodayAttendanceEvent = computed(() => todayAttendanceEvents.value[0] ?? null)
 const todayAttendanceDateLabel = computed(() => {
-  if (!todayAttendanceEvent.value?.date) return todayLabel.value
-  return dayjs(todayAttendanceEvent.value.date).format('YYYY/MM/DD')
+  if (!primaryTodayAttendanceEvent.value?.date) return todayLabel.value
+  return dayjs(primaryTodayAttendanceEvent.value.date).format('YYYY/MM/DD')
 })
 const todayAttendanceEventSubtitle = computed(() => {
-  if (!todayAttendanceEvent.value) return '今天無訓練點名'
-  return `${todayAttendanceEvent.value.title}｜${todayAttendanceDateLabel.value}`
+  if (todayAttendanceEventCount.value === 0) return '今天無訓練點名'
+  if (todayAttendanceEventCount.value === 1) {
+    return `${primaryTodayAttendanceEvent.value?.title || '未命名點名單'}｜${todayAttendanceDateLabel.value}`
+  }
+
+  return `今日 ${todayAttendanceEventCount.value} 張點名單｜${todayAttendanceDateLabel.value}`
 })
 const heroMatch = computed(() => (canViewMatches.value ? pickDashboardHeroMatch(matchesStore.matches, now.value) : null))
 const isHeroMatchLive = computed(() => (heroMatch.value ? isDashboardMatchInProgress(heroMatch.value, now.value) : false))
@@ -337,6 +343,11 @@ const getRecentResultToneClass = (match: MatchRecord) => {
   return 'text-[#94a3b8]'
 }
 
+const getTodayAttendanceEventMeta = (event: DashboardTodayAttendanceEvent) => {
+  const dateLabel = event.date ? dayjs(event.date).format('YYYY/MM/DD') : todayLabel.value
+  return [event.eventType, dateLabel].filter(Boolean).join('｜')
+}
+
 const getAddonAvailabilityLabel = (equipment: Equipment) => {
   const availableSizes = getEquipmentSizeInventoryList(equipment).filter((item) => item.remaining > 0)
   if (availableSizes.length > 0) return `${availableSizes.length} 個尺寸可選`
@@ -351,7 +362,7 @@ const resetAdminStats = () => {
 }
 
 const resetTodayAttendanceStatus = () => {
-  todayAttendanceEvent.value = null
+  todayAttendanceEvents.value = []
   todayAttendanceLeaveNames.value = []
   todayAttendanceLeaveCount.value = 0
 }
@@ -497,7 +508,7 @@ const fetchTodayAttendanceStatus = async () => {
 
   try {
     const status = await getDashboardTodayAttendanceStatus(now.value.format('YYYY-MM-DD'))
-    todayAttendanceEvent.value = status.todayEvent
+    todayAttendanceEvents.value = status.todayEvents
     todayAttendanceLeaveNames.value = status.todayLeaveNames
     todayAttendanceLeaveCount.value = status.todayLeaveCount
   } catch (error) {
@@ -1101,7 +1112,7 @@ onUnmounted(() => {
             讀取今日點名狀態中...
           </div>
 
-          <div v-else-if="todayAttendanceEvent" class="grid gap-4 lg:grid-cols-[260px_minmax(0,1fr)_auto] lg:items-center">
+          <div v-else-if="todayAttendanceEventCount > 0" class="grid gap-4 lg:grid-cols-[260px_minmax(0,1fr)_auto] lg:items-start">
             <div class="rounded-xl bg-white px-4 py-4 shadow-sm ring-1 ring-blue-100">
               <div class="text-xs font-black uppercase tracking-[0.18em] text-blue-500">今日請假</div>
               <div data-test="today-attendance-leave-total" class="mt-2 flex items-end gap-2 text-4xl font-black leading-none text-blue-950">
@@ -1111,20 +1122,45 @@ onUnmounted(() => {
               <p class="mt-3 text-xs font-bold leading-5 text-slate-400">含請假系統與今日點名，名單以目前資料為準。</p>
             </div>
 
-            <div class="min-w-0 rounded-xl bg-white px-4 py-4 shadow-sm ring-1 ring-blue-100">
-              <div class="mb-3 flex items-center gap-2 text-sm font-black text-slate-700">
-                <el-icon class="text-blue-500"><UserFilled /></el-icon>
-                請假名單
+            <div class="grid min-w-0 gap-4">
+              <div class="min-w-0 rounded-xl bg-white px-4 py-4 shadow-sm ring-1 ring-blue-100">
+                <div class="mb-3 flex items-center justify-between gap-3 text-sm font-black text-slate-700">
+                  <span class="inline-flex items-center gap-2">
+                    <el-icon class="text-blue-500"><Tickets /></el-icon>
+                    今日點名單
+                  </span>
+                  <span class="shrink-0 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-black text-blue-600">
+                    {{ todayAttendanceEventCount }} 張
+                  </span>
+                </div>
+                <div class="grid gap-2">
+                  <div
+                    v-for="event in todayAttendanceEvents"
+                    :key="event.id"
+                    data-test="today-attendance-event-item"
+                    class="flex min-w-0 flex-col gap-1 rounded-lg border border-blue-100 bg-blue-50/60 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <span class="min-w-0 truncate text-sm font-black text-blue-950">{{ event.title || '未命名點名單' }}</span>
+                    <span class="shrink-0 text-xs font-bold text-blue-700/80">{{ getTodayAttendanceEventMeta(event) }}</span>
+                  </div>
+                </div>
               </div>
-              <div class="flex flex-wrap gap-2">
-                <span
-                  v-for="(name, idx) in todayAttendanceLeaveNames"
-                  :key="`${name}-${idx}`"
-                  class="rounded-lg border border-gray-200 bg-slate-50 px-3 py-1.5 text-xs font-bold tracking-widest text-gray-700"
-                >
-                  {{ name }}
-                </span>
-                <span v-if="todayAttendanceLeaveNames.length === 0" class="text-sm font-bold text-emerald-700">目前無請假紀錄</span>
+
+              <div class="min-w-0 rounded-xl bg-white px-4 py-4 shadow-sm ring-1 ring-blue-100">
+                <div class="mb-3 flex items-center gap-2 text-sm font-black text-slate-700">
+                  <el-icon class="text-blue-500"><UserFilled /></el-icon>
+                  請假名單
+                </div>
+                <div class="flex flex-wrap gap-2">
+                  <span
+                    v-for="(name, idx) in todayAttendanceLeaveNames"
+                    :key="`${name}-${idx}`"
+                    class="rounded-lg border border-gray-200 bg-slate-50 px-3 py-1.5 text-xs font-bold tracking-widest text-gray-700"
+                  >
+                    {{ name }}
+                  </span>
+                  <span v-if="todayAttendanceLeaveNames.length === 0" class="text-sm font-bold text-emerald-700">目前無請假紀錄</span>
+                </div>
               </div>
             </div>
 
