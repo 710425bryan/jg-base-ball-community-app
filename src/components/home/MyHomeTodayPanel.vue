@@ -47,6 +47,12 @@ const selectedTrainingLocations = computed(() =>
       return leftKey.localeCompare(rightKey)
     })
 )
+const trainingMonthDates = computed(() => props.snapshot.training_month_dates)
+const upcomingTrainingMonthDate = computed(() =>
+  trainingMonthDates.value.find((item) => !item.is_past)
+  || trainingMonthDates.value[trainingMonthDates.value.length - 1]
+  || null
+)
 const paymentSummary = computed(() => props.snapshot.payment_summary)
 const equipmentSummary = computed(() => props.snapshot.equipment_summary)
 const isPointCardFlipped = ref(false)
@@ -97,6 +103,12 @@ const formatTrainingLocationDate = (value: string) => {
 const formatTrainingLocationTime = (start?: string | null, end?: string | null) => {
   if (start && end) return `${start}-${end}`
   return start || end || '時間未設定'
+}
+
+const getTrainingMonthDateClass = (date: { is_today: boolean; is_past: boolean }) => {
+  if (date.is_today) return 'border-primary bg-primary text-white shadow-sm shadow-primary/20'
+  if (date.is_past) return 'border-slate-100 bg-white/70 text-slate-400'
+  return 'border-emerald-100 bg-white text-emerald-700'
 }
 
 const getTodoClass = (todo: MyHomeTodoItem) => {
@@ -308,6 +320,34 @@ watch(() => selectedMember.value?.id, () => {
               >
                 我要請假
               </RouterLink>
+            </div>
+            </section>
+
+            <section class="rounded-2xl border border-emerald-100 bg-emerald-50 p-5 shadow-sm">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <div class="text-sm font-black text-slate-900">本月訓練日期</div>
+                <p class="mt-1 text-xs font-bold text-emerald-700">
+                  <span v-if="upcomingTrainingMonthDate">下一次 {{ upcomingTrainingMonthDate.label }}</span>
+                  <span v-else>當月訓練日會顯示在這裡</span>
+                </p>
+              </div>
+              <span class="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-black text-emerald-700">{{ trainingMonthDates.length }} 天</span>
+            </div>
+
+            <div v-if="trainingMonthDates.length > 0" class="mt-3 flex flex-wrap gap-2">
+              <span
+                v-for="date in trainingMonthDates"
+                :key="date.date"
+                class="inline-flex min-h-9 items-center rounded-xl border px-3 text-sm font-black"
+                :class="getTrainingMonthDateClass(date)"
+              >
+                {{ date.label }}
+              </span>
+            </div>
+
+            <div v-else class="mt-3 rounded-xl border border-dashed border-emerald-200 bg-white/85 px-3 py-4 text-center text-sm font-bold text-slate-500">
+              本月尚未設定訓練日期。
             </div>
             </section>
 

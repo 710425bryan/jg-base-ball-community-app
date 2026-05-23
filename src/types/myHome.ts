@@ -54,6 +54,14 @@ export type MyHomeTrainingLocation = {
   is_on_leave: boolean
 }
 
+export type MyHomeTrainingMonthDate = {
+  date: string
+  weekday: string
+  label: string
+  is_today: boolean
+  is_past: boolean
+}
+
 export type MyHomePaymentDueItem = {
   member_id: string
   member_name: string
@@ -100,6 +108,7 @@ export type MyHomeSnapshot = {
   next_event: MyHomeNextEvent | null
   today_leaves: MyHomeLeaveStatus[]
   training_locations: MyHomeTrainingLocation[]
+  training_month_dates: MyHomeTrainingMonthDate[]
   payment_summary: MyHomePaymentSummary
   equipment_summary: MyHomeEquipmentSummary
   match_fee_summary: MyHomeMatchFeeSummary
@@ -123,6 +132,7 @@ export const createEmptyMyHomeSnapshot = (): MyHomeSnapshot => ({
   next_event: null,
   today_leaves: [],
   training_locations: [],
+  training_month_dates: [],
   payment_summary: {
     unpaid_count: 0,
     pending_review_count: 0,

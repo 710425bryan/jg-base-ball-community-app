@@ -44,7 +44,23 @@ const buildSnapshot = (matchLevel: string | null): MyHomeSnapshot => ({
     coaches: null,
     players: null,
     route: '/calendar?match_id=match-1'
-  }
+  },
+  training_month_dates: [
+    {
+      date: '2026-05-02',
+      weekday: '週六',
+      label: '5/2 週六',
+      is_today: false,
+      is_past: true
+    },
+    {
+      date: '2026-05-09',
+      weekday: '週六',
+      label: '5/9 週六',
+      is_today: false,
+      is_past: false
+    }
+  ]
 })
 
 const mountPanel = (snapshot: MyHomeSnapshot) => mount(MyHomeTodayPanel, {
@@ -78,5 +94,14 @@ describe('MyHomeTodayPanel', () => {
     expect(wrapper.text()).not.toContain('特訓報名')
     expect(wrapper.findAllComponents(RouterLinkStub).some((link) => link.props('to') === '/training')).toBe(false)
     expect(wrapper.findAllComponents(RouterLinkStub).some((link) => link.props('to') === '/my-leave-requests')).toBe(true)
+  })
+
+  it('shows all training dates for the current month', () => {
+    const wrapper = mountPanel(buildSnapshot('友誼賽'))
+
+    expect(wrapper.text()).toContain('本月訓練日期')
+    expect(wrapper.text()).toContain('5/2 週六')
+    expect(wrapper.text()).toContain('5/9 週六')
+    expect(wrapper.text()).toContain('下一次 5/9 週六')
   })
 })

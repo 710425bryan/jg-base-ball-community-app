@@ -121,6 +121,12 @@ const router = createRouter({
           meta: { feature: 'training_locations' }
         },
         {
+          path: 'training-dates',
+          name: 'TrainingDates',
+          component: () => import('../views/TrainingDatesView.vue'),
+          meta: { feature: 'training_dates' }
+        },
+        {
           path: 'leave-requests',
           name: 'LeaveRequests',
           component: () => import('../views/LeaveRequestsView.vue'),

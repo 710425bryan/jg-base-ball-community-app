@@ -44,6 +44,7 @@
 | 賽事紀錄、陣容、照片、語音、天氣 | `jg-baseball-match-records-media` | `CalendarView.vue`、`MatchRecordsView.vue`、`src/services/matchesApi.ts`、`src/components/match-records/*` |
 | Google Calendar / iCal 賽事同步 | `jg-baseball-match-calendar-sync` | `src/utils/googleCalendarParser.ts`、`src/services/matchesApi.ts`、`SyncCalendarDialog.vue` |
 | 特訓報名、球員點數、特訓點名 | `jg-baseball-training` | `src/views/TrainingView.vue`、`src/services/trainingApi.ts`、`src/utils/training.ts`、`supabase_training_points_migration.sql` |
+| 每月訓練日期、日期異動通知 | `jg-baseball-training-dates` | `src/views/TrainingDatesView.vue`、`src/services/trainingDatesApi.ts`、`src/utils/trainingMonthDates.ts`、`supabase_training_dates_migration.sql` |
 | 場地與人員配置 | `jg-baseball-training-locations` | `src/views/TrainingLocationsView.vue`、`src/services/trainingLocationsApi.ts`、`src/utils/trainingLocationNotification.ts`、`supabase_training_locations_migration.sql` |
 | 收費、付款、球員餘額、比賽費、匯款匯入 | `jg-baseball-finance-payments` | `FeesView.vue`、`MyPaymentsView.vue`、`src/services/myPayments.ts`、`src/services/matchFees.ts`、`src/services/playerBalances.ts` |
 | 裝備管理、加購、庫存、裝備付款 | `jg-baseball-equipment-management` | `src/types/equipment.ts`、`src/services/equipmentApi.ts`、`src/stores/equipment*.ts`、`src/components/equipment/*` |
@@ -116,7 +117,7 @@
 登入後頁面掛在 `MainLayout`，父層 `meta.requiresAuth = true`。
 
 - 不需額外 feature 的登入頁：`/dashboard`、`/calendar`、`/profile`、`/my-records`、`/my-payments`、`/equipment-addons`、`/my-leave-requests`。
-- 需要 `meta.feature` 的後台頁：`leave_requests`、`players`、`users`、`join_inquiries`、`announcements`、`holiday_theme_settings`、`attendance`、`training`、`training_locations`、`matches`、`fees`、`baseball_ability`、`physical_tests`、`equipment`。
+- 需要 `meta.feature` 的後台頁：`leave_requests`、`players`、`users`、`join_inquiries`、`announcements`、`holiday_theme_settings`、`attendance`、`training`、`training_dates`、`training_locations`、`matches`、`fees`、`baseball_ability`、`physical_tests`、`equipment`。
 - `baseball_ability` 與 `physical_tests` 有 `allowLinkedMemberView` 例外：有綁定球員者可唯讀自己的資料；管理權限者可看全隊。
 - 無權限時導回 `/dashboard`。
 
@@ -141,7 +142,7 @@
 
 ### 個人首頁與個人功能
 
-- `HomeView` 同時有後台 dashboard 與個人化區塊；個人化摘要走 `src/services/myHome.ts` 的 `get_my_home_snapshot()`，RPC 未部署時顯示空狀態 fallback；`MyHomeTodayPanel` 的特訓點數卡只顯示目前選取 linked member 的 snapshot 點數欄位，若線上 snapshot 尚未帶點數欄位，前端會用 `list_my_training_members()` 補齊。
+- `HomeView` 同時有後台 dashboard 與個人化區塊；個人化摘要走 `src/services/myHome.ts` 的 `get_my_home_snapshot()`，RPC 未部署時顯示空狀態 fallback；`MyHomeTodayPanel` 會一次顯示當月份全部訓練日期，未設定月份預設為該月所有星期六；特訓點數卡只顯示目前選取 linked member 的 snapshot 點數欄位，若線上 snapshot 尚未帶點數欄位，前端會用 `list_my_training_members()` 補齊。
 - `MyLeaveRequestsView` 走 `src/services/myLeaveRequests.ts`：`list_my_leave_members()`、`list_my_leave_requests()`、`create_my_leave_requests()`、`delete_my_leave_request()`。
 - `MyPaymentsView` 走 `src/services/myPayments.ts`：`list_my_payment_members()`、`get_my_payment_records()`、`list_my_payment_submissions()`、`create_my_payment_submission()`、`get_my_payment_submission_estimate()`；一般繳費與裝備付款皆可使用 `player_balance_transactions` 計算出的球員餘額扣抵。
 - `MyPlayerRecordsView` 走 `src/services/myPlayerRecords.ts`：`list_my_player_record_members()`、`get_my_player_match_records()`；一般使用者只能看綁定球員，具 `players:VIEW` 者可切換全隊球員但預設仍優先關聯球員。
@@ -197,6 +198,11 @@
 
 ### 場地與人員配置
 
+- 後台路由 `/training-dates`，feature key 為 `training_dates`，actions：`VIEW / EDIT`。
+- 資料表為 `training_month_date_settings`；未設定月份由 `get_training_month_dates()` 回傳該月所有星期六。
+- 後台儲存走 `save_training_month_dates()`，只管理日期，不取代 `/training-locations` 的場地與人員配置。
+- DB 排程 `training-month-date-defaults-daily` 於台灣時間每日 00:05 呼叫 `ensure_training_month_date_setting()`；每月 1 日會自動建立當月預設週六設定，已存在設定時不覆蓋，也不發送通知。
+- 日期有新增或取消時，`send-training-date-notifications` 會通知綁定有效球員 / 校隊的家長與球員；通知中心只顯示 `target_user_id = auth.uid()` 的訓練日期通知。
 - 後台路由 `/training-locations`，feature key 為 `training_locations`，actions：`VIEW / CREATE / EDIT / DELETE`。
 - 資料表為 `training_venues`、`training_location_sessions`、`training_location_session_venues`、`training_location_assignments`；前端一律走 `src/services/trainingLocationsApi.ts` 封裝的 security definer RPC。
 - 設定頁可建立某天訓練的多場地區塊，依全隊、角色或 `team_group` 快速帶入球員，再手動拖曳 / 勾選微調；同一訓練同一球員只能被配置到一個場地。
@@ -306,6 +312,7 @@
 - 賽事紀錄 / 媒體：`pnpm exec vitest run src/services/matchesApi.test.ts src/utils/matchFieldEditor.test.ts src/utils/liveMatchScoreboard.test.ts src/utils/matchAudioTranscription.test.ts src/utils/lineupPhotoParser.test.ts src/services/weatherApi.test.ts`
 - 收費 / 付款：`pnpm exec vitest run src/utils/memberBilling.test.ts src/utils/monthlyFeeSettlement.test.ts src/utils/quarterlyFeeFamilies.test.ts src/utils/playerBalance.test.ts src/utils/feeManagementReminders.test.ts`
 - 請假 / 點名：`pnpm exec vitest run src/utils/leaveRequests.test.ts src/utils/dashboardHome.test.ts`
+- 訓練日期設定：`pnpm exec vitest run src/utils/trainingMonthDates.test.ts src/components/home/MyHomeTodayPanel.test.ts src/composables/useNotificationFeed.test.ts`
 - 名單 / 使用者 / 組別：`pnpm exec vitest run src/utils/playerSync.test.ts src/stores/playerRoster.test.ts src/stores/teamGroups.test.ts src/utils/profileAccess.test.ts`
 - 球員同步：`pnpm exec vitest run src/utils/playerSync.test.ts`
 - 推播工具：`pnpm exec vitest run src/utils/pushNotifications.test.ts`

@@ -60,6 +60,7 @@ UI 約定：
 - `/holiday-theme-settings`：`holiday_theme_settings`
 - `/attendance`、`/attendance/:id`：`attendance`
 - `/training`：`training`，linked member 可看個人報名與點數，管理工具需 `CREATE / EDIT / DELETE`
+- `/training-dates`：`training_dates`
 - `/training-locations`：`training_locations`
 - `/match-records`：`matches`
 - `/fees`：`fees`
@@ -329,7 +330,36 @@ UI 約定：
 - 點數流水帳不可任意更新；加點、扣點、調整都新增 `player_point_transactions`，誤發刪除需走受權限與餘額檢查保護的 RPC。
 - 特訓報名開始 / 截止前提醒與單筆報名 / 錄取通知都必須有穩定 event key；個別通知需帶 `target_user_id`，避免通知中心洩漏給非目標使用者。
 
-## 11. 場地與人員配置
+## 11. 訓練日期設定
+
+主要檔案：
+
+- `src/views/TrainingDatesView.vue`
+- `src/services/trainingDatesApi.ts`
+- `src/utils/trainingMonthDates.ts`
+- `src/utils/trainingDateNotification.ts`
+- `supabase/functions/send-training-date-notifications/index.ts`
+
+主要資料：
+
+- `training_month_date_settings`
+- `push_dispatch_events.target_user_id` / `target_member_ids`
+
+資料流：
+
+- 管理者在 `/training-dates` 選擇月份並勾選該月訓練日期；未設定月份預設為該月所有星期六。
+- 個人首頁透過 `get_my_home_snapshot()` 的 `training_month_dates` 或 `get_training_month_dates()` fallback，一次顯示當月份全部訓練日期。
+- `save_training_month_dates()` 只儲存日期與備註，不建立場地、不指派球員，也不取代 `/training-locations`。
+- `training-month-date-defaults-daily` DB cron 於台灣時間每日 00:05 呼叫 `ensure_training_month_date_setting()`；換月後會自動建立當月預設週六設定，若該月已有設定則不覆蓋，且此自動建立流程不發通知。
+- 日期新增或取消時，前端呼叫 `send-training-date-notifications`，通知綁定有效球員 / 校隊的有效使用者。
+
+重要規則：
+
+- `training_dates` feature/actions 為 `VIEW / EDIT`，預設只建立 `ADMIN` 權限。
+- `get_training_month_dates()` 可供登入後個人首頁讀取非敏感日期；後台路由與儲存仍需 `training_dates` 權限。
+- 訓練日期通知必須寫入 `push_dispatch_events.target_user_id` / `target_member_ids`，通知中心只能顯示自己的日期異動通知。
+
+## 12. 場地與人員配置
 
 主要檔案：
 
@@ -364,7 +394,7 @@ UI 約定：
 - 建立場地配置點名單需 `training_locations:EDIT` + `attendance:CREATE`；點名頁查看與出席 / 請假操作仍依 `attendance` 權限。多場地配置需分別從各場地區塊建立 / 開啟點名單。
 - 場地通知必須排除 `leave_requests.start_date <= training_date <= end_date` 的球員，且通知中心只能顯示 `target_user_id = auth.uid()` 的場地通知。
 
-## 12. 收費與付款
+## 13. 收費與付款
 
 主要檔案：
 
@@ -420,7 +450,7 @@ UI 約定：
 - 裝備付款回報在 `/my-payments` 與 `/fees?tab=equipment` 整合，但不要混入一般月費資料模型。
 - 比賽費付款回報在 UI 上可與一般付款合併，但資料模型仍使用 `match_payment_submissions`。
 
-## 13. 裝備管理與加購
+## 14. 裝備管理與加購
 
 主要檔案：
 
@@ -467,7 +497,7 @@ UI 約定：
 - 裝備圖片與處理照片可多張上傳，使用 `equipments` bucket，前端顯示需支援左右滑動。
 - 不要把來源專案的 `fee_records` 或月結模型搬進本專案。
 
-## 14. 棒球能力與體能測驗
+## 15. 棒球能力與體能測驗
 
 主要檔案：
 
@@ -501,7 +531,7 @@ UI 約定：
 - RPC 不得回傳敏感欄位。
 - 新增欄位需同步 table、RPC return shape、types、表單、列表、詳情頁與圖表設定。
 
-## 15. 節日主題
+## 16. 節日主題
 
 主要檔案：
 
@@ -529,7 +559,7 @@ UI 約定：
 - 手動補送 event key：`holiday_theme:manual:<activityId>:<requestKey>`。
 - 節日通知 feature/action：`holiday_theme:VIEW`。
 
-## 16. 推播與通知中心
+## 17. 推播與通知中心
 
 主要檔案：
 
@@ -541,6 +571,7 @@ UI 約定：
 - `supabase/functions/send-push-notification/index.ts`
 - `supabase/functions/send-training-registration-notifications/index.ts`
 - `supabase/functions/send-training-registration-status-notifications/index.ts`
+- `supabase/functions/send-training-date-notifications/index.ts`
 - `supabase/functions/send-training-location-notifications/index.ts`
 - `supabase/functions/_shared/push.ts`
 
@@ -558,7 +589,7 @@ UI 約定：
 4. `eventKey` 進 `push_dispatch_events` 去重。
 5. 過期 subscription 由 Edge Function 清理。
 6. 通知中心透過 `get_notification_feed()` 匯整顯示。
-7. 排程型通知如賽事提醒、特訓報名開始 / 截止前提醒、場地通知，使用專屬 Edge Function 建立 `push_dispatch_events` 並派送 Web Push；單筆特訓報名 / 錄取通知也使用專屬 Edge Function 寫入 targeted `push_dispatch_events`。
+7. 排程型通知如賽事提醒、特訓報名開始 / 截止前提醒、訓練日期異動、場地通知，使用專屬 Edge Function 建立 `push_dispatch_events` 並派送 Web Push；單筆特訓報名 / 錄取通知也使用專屬 Edge Function 寫入 targeted `push_dispatch_events`。
 8. 使用者點擊 Web Push 時，`public/push-sw.js` 同步啟動 client 導向，並把 target 寫入 IndexedDB `jg-baseball-push-deeplink/pendingTargets/latest` 與 Cache Storage `jg-baseball-push-deeplink-cache`；前端用 `pushDeepLink.ts` 正規化、短時間重試 consume pending target 後交給 router，推播設定可查看最後一次 click 診斷。
 
 重要規則：
@@ -568,7 +599,7 @@ UI 約定：
 - 賽事提醒 URL 統一使用 `/calendar?match_id=<id>`；舊 `/match-records?match_id=<id>` 必須正規化到 `/calendar`，由 `CalendarView` 開啟 `MatchDetailDialog`。
 - 推播 click target 不可只靠 hash route、search param、IndexedDB 或 `postMessage`，避免 iOS PWA 關閉啟動時只開 root 或持久化延遲造成導向遺失。
 
-## 17. PWA、版本與更新
+## 18. PWA、版本與更新
 
 主要檔案：
 
@@ -591,7 +622,7 @@ UI 約定：
 - 一般功能開發不手動改 `public/version.json`。
 - 修改 router / PWA / build 時要確認更新列與 chunk error recovery。
 
-## 18. 維護本文件
+## 19. 維護本文件
 
 下列情況需要同步更新本檔：
 

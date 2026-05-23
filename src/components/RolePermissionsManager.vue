@@ -357,6 +357,12 @@ const systemFeatures = [
     actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
   },
   {
+    key: 'training_dates',
+    name: '訓練日期設定',
+    desc: '設定每月訓練日期並發送日期異動通知',
+    actions: ['VIEW', 'EDIT']
+  },
+  {
     key: 'training_locations',
     name: '場地與人員配置',
     desc: '設定訓練場地、人員分組與場地通知',

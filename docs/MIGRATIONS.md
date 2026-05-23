@@ -65,6 +65,7 @@
 | `supabase_zz_training_attendance_status_hotfix.sql` | 特訓點名狀態 hotfix | 影響禁報 / 出席 / 請假 |
 | `supabase_zz_training_selection_publish_hotfix.sql` | 錄取名單發布 hotfix | 公布名單與通知前讀 |
 | `supabase_zz_training_hotfix_verify.sql` | 特訓 hotfix 驗證 | 驗證用 SQL |
+| `supabase_training_dates_migration.sql` | 每月訓練日期設定、換月預設日期排程與日期異動通知 | `/training-dates` 主線，覆寫 `get_notification_feed()` / `get_my_home_snapshot()`，新增 `training-month-date-defaults-daily` DB cron |
 | `supabase_training_locations_migration.sql` | 場地與人員配置主 migration | `/training-locations` 主線 |
 | `supabase_training_locations_assignment_schema_hotfix.sql` | 場地指派 schema hotfix | 修改 assignment 前讀 |
 | `supabase_zzzzzzzzz_training_location_attendance_migration.sql` | 場地配置連動點名 | 覆寫場地列表 / 儲存 RPC，新增 `attendance_events.training_location_session_id` / `training_location_session_venue_id` |

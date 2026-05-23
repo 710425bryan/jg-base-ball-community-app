@@ -198,6 +198,30 @@ describe('notification feed controller', () => {
     })
   })
 
+  it('maps training date notifications', async () => {
+    const fetcher = vi.fn().mockResolvedValue([
+      {
+        id: 'training_dates:2026-05-01:user-1:2026-05-01T08:00:00.000Z',
+        source: 'training_date',
+        title: '訓練日期異動：2026 年 5 月',
+        body: '本月訓練日：5/2 週六、5/9 週六',
+        created_at: '2026-05-01T12:10:00.000Z',
+        link: '/dashboard?training_month=2026-05',
+        highlight_member_id: 'member-1'
+      }
+    ])
+
+    const controller = createNotificationFeedController(fetcher)
+    await controller.loadNotificationFeed(10)
+
+    expect(controller.notifications.value[0]).toMatchObject({
+      id: 'training_date:training_dates:2026-05-01:user-1:2026-05-01T08:00:00.000Z',
+      source: 'training_date',
+      link: '/dashboard?training_month=2026-05',
+      highlightMemberId: 'member-1'
+    })
+  })
+
   it('maps fee management reminder notifications and keeps current todo ids stable', async () => {
     const fetcher = vi.fn()
       .mockResolvedValueOnce([

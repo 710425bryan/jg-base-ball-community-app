@@ -55,6 +55,7 @@
                     <el-dropdown-item v-if="permissionsStore.can('join_inquiries', 'VIEW')" @click="router.push('/join-inquiries')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">入隊申請</el-dropdown-item>
                     <el-dropdown-item v-if="permissionsStore.can('announcements', 'VIEW')" @click="router.push('/announcements')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">系統公告</el-dropdown-item>
                     <el-dropdown-item v-if="permissionsStore.can('holiday_theme_settings', 'VIEW')" @click="router.push('/holiday-theme-settings')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">節日主題設定</el-dropdown-item>
+                    <el-dropdown-item v-if="permissionsStore.can('training_dates', 'VIEW')" @click="router.push('/training-dates')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">訓練日期</el-dropdown-item>
                     <el-dropdown-item v-if="permissionsStore.can('training_locations', 'VIEW')" @click="router.push('/training-locations')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">場地配置</el-dropdown-item>
                     <el-dropdown-item v-if="permissionsStore.can('fees', 'VIEW')" @click="router.push('/fees')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">收費管理</el-dropdown-item>
                     <el-dropdown-item v-if="permissionsStore.can('equipment', 'VIEW')" @click="router.push('/equipment')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">裝備管理</el-dropdown-item>
@@ -405,6 +406,7 @@ const notificationSourceLabels: Record<NotificationSource, string> = {
   announcement: '公告',
   equipment: '裝備通知',
   training: '特訓通知',
+  training_date: '訓練日期',
   training_location: '場地通知'
 };
 let autoPushPromptTimer: number | null = null;
@@ -633,6 +635,7 @@ const teamDesktopNavItems = computed<DesktopNavItem[]>(() => [
   { label: '比賽紀錄', to: '/match-records', visible: permissionsStore.can('matches', 'VIEW') },
   { label: '請假系統', to: '/leave-requests', visible: permissionsStore.can('leave_requests', 'VIEW') },
   { label: '點名系統', to: '/attendance', visible: permissionsStore.can('attendance', 'VIEW') },
+  { label: '訓練日期', to: '/training-dates', visible: permissionsStore.can('training_dates', 'VIEW') },
   { label: '場地配置', to: '/training-locations', visible: permissionsStore.can('training_locations', 'VIEW') },
   { label: '球員名單', to: '/players', visible: permissionsStore.can('players', 'VIEW') }
 ].filter(isVisibleDesktopNavItem));
@@ -646,6 +649,7 @@ const adminDesktopNavItems = computed<DesktopNavItem[]>(() => [
   { label: '入隊申請', to: '/join-inquiries', visible: permissionsStore.can('join_inquiries', 'VIEW') },
   { label: '系統公告', to: '/announcements', visible: permissionsStore.can('announcements', 'VIEW') },
   { label: '節日主題設定', to: '/holiday-theme-settings', visible: permissionsStore.can('holiday_theme_settings', 'VIEW') },
+  { label: '訓練日期', to: '/training-dates', visible: permissionsStore.can('training_dates', 'VIEW') },
   { label: '場地配置', to: '/training-locations', visible: permissionsStore.can('training_locations', 'VIEW') },
   { label: '收費管理', to: '/fees', visible: permissionsStore.can('fees', 'VIEW') },
   { label: '裝備管理', to: '/equipment', visible: permissionsStore.can('equipment', 'VIEW') },
@@ -682,6 +686,7 @@ const mobileMenuGroups = computed<MobileMenuGroup[]>(() => [
       { label: '比賽紀錄', to: '/match-records', visible: permissionsStore.can('matches', 'VIEW') },
       { label: '請假系統', to: '/leave-requests', visible: permissionsStore.can('leave_requests', 'VIEW') },
       { label: '點名系統', to: '/attendance', visible: permissionsStore.can('attendance', 'VIEW') },
+      { label: '訓練日期', to: '/training-dates', visible: permissionsStore.can('training_dates', 'VIEW') },
       { label: '場地配置', to: '/training-locations', visible: permissionsStore.can('training_locations', 'VIEW') },
       { label: '球員名單', to: '/players', visible: permissionsStore.can('players', 'VIEW') }
     ].filter(isVisibleMobileMenuItem)
@@ -701,6 +706,7 @@ const mobileMenuGroups = computed<MobileMenuGroup[]>(() => [
       { label: '入隊申請', to: '/join-inquiries', visible: permissionsStore.can('join_inquiries', 'VIEW') },
       { label: '系統公告', to: '/announcements', visible: permissionsStore.can('announcements', 'VIEW') },
       { label: '節日主題設定', to: '/holiday-theme-settings', visible: permissionsStore.can('holiday_theme_settings', 'VIEW') },
+      { label: '訓練日期', to: '/training-dates', visible: permissionsStore.can('training_dates', 'VIEW') },
       { label: '收費管理', to: '/fees', visible: permissionsStore.can('fees', 'VIEW') },
       { label: '裝備管理', to: '/equipment', visible: permissionsStore.can('equipment', 'VIEW') },
       { label: '使用者名單', to: '/users', visible: permissionsStore.can('users', 'VIEW') }

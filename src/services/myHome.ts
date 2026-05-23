@@ -7,6 +7,7 @@ import {
   type MyHomeMember,
   type MyHomePaymentDueItem,
   type MyHomeSnapshot,
+  type MyHomeTrainingMonthDate,
   type MyHomeTrainingLocation
 } from '@/types/myHome'
 import {
@@ -15,6 +16,12 @@ import {
   markSupabaseRpcUnavailable
 } from '@/utils/supabaseRpc'
 import { normalizeMyHomeNextEvent } from '@/utils/myHomeSnapshot'
+import {
+  buildTrainingMonthDateItems,
+  getDefaultTrainingMonthDates,
+  getTrainingMonthStartDate,
+  normalizeTrainingMonth
+} from '@/utils/trainingMonthDates'
 
 const RPC_NAME = 'get_my_home_snapshot'
 
@@ -74,6 +81,26 @@ const normalizeTrainingLocation = (row: Partial<MyHomeTrainingLocation>): MyHome
   venue_maps_url: row?.venue_maps_url ? String(row.venue_maps_url) : null,
   is_on_leave: Boolean(row?.is_on_leave)
 })
+
+const normalizeTrainingMonthDate = (row: Partial<MyHomeTrainingMonthDate> | string): MyHomeTrainingMonthDate => {
+  if (typeof row === 'string') {
+    return buildTrainingMonthDateItems([row])[0] || {
+      date: row,
+      weekday: '',
+      label: row,
+      is_today: false,
+      is_past: false
+    }
+  }
+
+  return {
+    date: String(row?.date || ''),
+    weekday: String(row?.weekday || ''),
+    label: String(row?.label || row?.date || ''),
+    is_today: Boolean(row?.is_today),
+    is_past: Boolean(row?.is_past)
+  }
+}
 
 const enrichMembersWithTrainingPoints = async (
   snapshot: MyHomeSnapshot,
@@ -136,6 +163,47 @@ const enrichSnapshotWithTrainingLocations = async (
   }
 }
 
+const enrichSnapshotWithTrainingMonthDates = async (
+  snapshot: MyHomeSnapshot,
+  rawPayload: Partial<MyHomeSnapshot> | null | undefined,
+  today?: string | null
+): Promise<MyHomeSnapshot> => {
+  const month = normalizeTrainingMonth(today)
+
+  if (rawPayload && 'training_month_dates' in rawPayload) {
+    return {
+      ...snapshot,
+      training_month_dates: buildTrainingMonthDateItems(
+        snapshot.training_month_dates.map((item) => item.date),
+        today
+      )
+    }
+  }
+
+  try {
+    const { data, error } = await supabase.rpc('get_training_month_dates', {
+      p_month: getTrainingMonthStartDate(month)
+    })
+    if (error) throw error
+
+    const payload = (data ?? {}) as { training_dates?: unknown; is_default?: boolean }
+    const dates = ensureArray<string>(payload.training_dates)
+    return {
+      ...snapshot,
+      training_month_dates: buildTrainingMonthDateItems(
+        payload.is_default === false ? dates : getDefaultTrainingMonthDates(month),
+        today
+      )
+    }
+  } catch (error) {
+    console.warn('get_training_month_dates RPC 無法補齊首頁訓練日期，暫以本月週六顯示。', error)
+    return {
+      ...snapshot,
+      training_month_dates: buildTrainingMonthDateItems(getDefaultTrainingMonthDates(month), today)
+    }
+  }
+}
+
 const enrichSnapshotWithMatchFees = async (snapshot: MyHomeSnapshot): Promise<MyHomeSnapshot> => {
   if (snapshot.members.length === 0) {
     return snapshot
@@ -177,6 +245,7 @@ const normalizeSnapshot = (payload: Partial<MyHomeSnapshot> | null | undefined):
     next_event: normalizeMyHomeNextEvent(payload?.next_event),
     today_leaves: ensureArray<MyHomeLeaveStatus>(payload?.today_leaves),
     training_locations: ensureArray<Partial<MyHomeTrainingLocation>>(payload?.training_locations).map(normalizeTrainingLocation),
+    training_month_dates: ensureArray<Partial<MyHomeTrainingMonthDate> | string>(payload?.training_month_dates).map(normalizeTrainingMonthDate),
     payment_summary: {
       unpaid_count: normalizeNumber(payload?.payment_summary?.unpaid_count),
       pending_review_count: normalizeNumber(payload?.payment_summary?.pending_review_count),
@@ -222,11 +291,12 @@ export const getMyHomeSnapshot = async (today?: string | null) => {
 
   const payload = (data ?? null) as Partial<MyHomeSnapshot> | null
   const rawMembers = ensureArray<Partial<MyHomeMember>>(payload?.members)
-  const snapshot = await enrichSnapshotWithTrainingLocations(
+  const snapshotWithLocations = await enrichSnapshotWithTrainingLocations(
     normalizeSnapshot(payload),
     payload,
     today
   )
+  const snapshot = await enrichSnapshotWithTrainingMonthDates(snapshotWithLocations, payload, today)
 
   const withTrainingPoints = await enrichMembersWithTrainingPoints(snapshot, rawMembers)
 
