@@ -11,6 +11,8 @@ import type { TrainingSession } from '@/types/training'
 import dayjs, { type Dayjs } from 'dayjs'
 
 const TIME_TOKEN_PATTERN = /\d{1,2}:\d{2}/g
+const PLAYER_LIST_SEPARATOR_PATTERN = /[,，、\n\r;；/]+/
+const LEADING_PLAYER_NUMBER_PATTERN = /^#?(\d{1,3})(?:\D|$)/
 
 const safeNumber = (value: unknown) => {
   const parsed = Number(value)
@@ -43,6 +45,17 @@ const optionalString = (value: unknown) => {
   const normalized = String(value).trim()
   return normalized || null
 }
+
+const normalizeComparableName = (value: unknown) =>
+  String(value || '').trim().replace(/\s+/g, '')
+
+const normalizeJerseyNumber = (value: unknown) =>
+  String(value ?? '').trim().replace(/^#/, '')
+
+const cleanPlayerListEntryName = (value: string) =>
+  normalizeComparableName(value)
+    .replace(/^#?\d{1,3}[.．、:\-：]*/, '')
+    .replace(/[（(].*?[）)]/g, '')
 
 const normalizeNextEventRoute = (route: string | null, id: string) => {
   const fallbackRoute = `/calendar?match_id=${encodeURIComponent(id)}`
@@ -123,6 +136,63 @@ export const isMyHomeNextEventExpired = (
   const end = getMyHomeNextEventEnd(nextEvent)
   return end ? !now.isBefore(end) : false
 }
+
+const parsePlayerListEntries = (value?: string | null) =>
+  String(value || '')
+    .split(PLAYER_LIST_SEPARATOR_PATTERN)
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+
+export const isMyHomeMemberInEventPlayers = (
+  event: MyHomeNextEvent | null,
+  member: MyHomeMember | null
+) => {
+  if (!event || !member) return false
+
+  const entries = parsePlayerListEntries(event.players)
+  if (entries.length === 0) return false
+
+  const memberName = normalizeComparableName(member.name)
+  const memberNumber = normalizeJerseyNumber(member.jersey_number)
+
+  return entries.some((entry) => {
+    const entryName = cleanPlayerListEntryName(entry)
+    if (entryName && entryName === memberName) return true
+
+    const numberMatch = entry.match(LEADING_PLAYER_NUMBER_PATTERN)
+    return Boolean(memberNumber && numberMatch?.[1] === memberNumber)
+  })
+}
+
+const normalizeTodoToday = (today: Dayjs | string | null | undefined) => {
+  if (dayjs.isDayjs(today)) return today.startOf('day')
+
+  const parsed = today ? dayjs(today) : dayjs()
+  return parsed.isValid() ? parsed.startOf('day') : dayjs().startOf('day')
+}
+
+const isTodayOrTomorrow = (dateValue: string | null | undefined, today: Dayjs) => {
+  if (!dateValue) return false
+
+  const date = dayjs(dateValue)
+  if (!date.isValid()) return false
+
+  return date.isSame(today, 'day') || date.isSame(today.add(1, 'day'), 'day')
+}
+
+const hasTrainingDateInLeavePromptWindow = (
+  snapshot: MyHomeSnapshot,
+  today: Dayjs
+) => snapshot.training_month_dates.some((item) => isTodayOrTomorrow(item.date, today))
+
+const hasRosteredEventInLeavePromptWindow = (
+  snapshot: MyHomeSnapshot,
+  selectedMember: MyHomeMember,
+  today: Dayjs
+) => (
+  isTodayOrTomorrow(snapshot.next_event?.date, today) &&
+  isMyHomeMemberInEventPlayers(snapshot.next_event, selectedMember)
+)
 
 const buildPaymentTodo = (payment: MyHomePaymentSummary): MyHomeTodoItem | null => {
   if (payment.unpaid_count > 0) {
@@ -234,9 +304,11 @@ const buildMatchFeeTodo = (matchFees: MyHomeMatchFeeSummary): MyHomeTodoItem | n
 
 export const buildMyHomeTodoItems = (
   snapshot: MyHomeSnapshot,
-  selectedMemberId?: string | null
+  selectedMemberId?: string | null,
+  todayInput?: Dayjs | string | null
 ): MyHomeTodoItem[] => {
   const selectedMember = getSelectedMyHomeMember(snapshot.members, selectedMemberId)
+  const today = normalizeTodoToday(todayInput)
 
   if (!selectedMember) {
     return [{
@@ -251,15 +323,16 @@ export const buildMyHomeTodoItems = (
 
   const items: MyHomeTodoItem[] = []
   const todayLeave = getMyHomeMemberLeave(snapshot, selectedMember.id)
+  const nextEvent = snapshot.next_event
 
-  if (snapshot.next_event) {
+  if (nextEvent && isMyHomeMemberInEventPlayers(nextEvent, selectedMember)) {
     items.push({
       key: 'next-event',
       title: '下一場賽事',
-      body: `${snapshot.next_event.date}${snapshot.next_event.time ? ` ${snapshot.next_event.time}` : ''}｜${snapshot.next_event.title}`,
+      body: `${nextEvent.date}${nextEvent.time ? ` ${nextEvent.time}` : ''}｜${nextEvent.title}`,
       severity: 'info',
       actionLabel: '查看賽事',
-      route: snapshot.next_event.route
+      route: nextEvent.route
     })
   }
 
@@ -272,7 +345,10 @@ export const buildMyHomeTodoItems = (
       actionLabel: '查看假單',
       route: '/my-leave-requests'
     })
-  } else {
+  } else if (
+    hasTrainingDateInLeavePromptWindow(snapshot, today) ||
+    hasRosteredEventInLeavePromptWindow(snapshot, selectedMember, today)
+  ) {
     items.push({
       key: 'leave-action',
       title: '需要請假嗎？',

@@ -187,6 +187,40 @@ watch(() => selectedMember.value?.id, () => {
           部分資料暫時無法更新：{{ errorMessage }}
         </div>
 
+        <section
+          class="mb-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4 shadow-sm md:hidden"
+          data-test="mobile-training-month-dates"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <div class="flex items-center gap-2 text-base font-black text-slate-900">
+                <el-icon class="text-emerald-700"><Calendar /></el-icon>
+                本月訓練日期
+              </div>
+              <p class="mt-1 text-sm font-bold text-emerald-700">
+                <span v-if="upcomingTrainingMonthDate">下一次 {{ upcomingTrainingMonthDate.label }}</span>
+                <span v-else>當月訓練日會顯示在這裡</span>
+              </p>
+            </div>
+            <span class="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-black text-emerald-700">{{ trainingMonthDates.length }} 天</span>
+          </div>
+
+          <div v-if="trainingMonthDates.length > 0" class="mt-3 grid grid-cols-2 gap-2">
+            <span
+              v-for="date in trainingMonthDates"
+              :key="`mobile-${date.date}`"
+              class="inline-flex min-h-10 items-center justify-center rounded-xl border px-2 text-sm font-black"
+              :class="getTrainingMonthDateClass(date)"
+            >
+              {{ date.label }}
+            </span>
+          </div>
+
+          <div v-else class="mt-3 rounded-xl border border-dashed border-emerald-200 bg-white/85 px-3 py-4 text-center text-sm font-bold text-slate-500">
+            本月尚未設定訓練日期。
+          </div>
+        </section>
+
         <div class="grid gap-4 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] xl:grid-cols-[minmax(0,0.75fr)_minmax(0,1.05fr)_minmax(320px,0.9fr)]">
           <section class="rounded-2xl border border-slate-100 bg-slate-50 p-5">
           <div class="flex items-center gap-3">
@@ -313,17 +347,10 @@ watch(() => selectedMember.value?.id, () => {
               >
                 開啟導航
               </a>
-              <RouterLink
-                v-if="!isNextTrainingEvent"
-                to="/my-leave-requests"
-                class="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition-colors hover:border-primary hover:text-primary"
-              >
-                我要請假
-              </RouterLink>
             </div>
             </section>
 
-            <section class="rounded-2xl border border-emerald-100 bg-emerald-50 p-5 shadow-sm">
+            <section class="hidden rounded-2xl border border-emerald-100 bg-emerald-50 p-5 shadow-sm md:block">
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
                 <div class="text-sm font-black text-slate-900">本月訓練日期</div>

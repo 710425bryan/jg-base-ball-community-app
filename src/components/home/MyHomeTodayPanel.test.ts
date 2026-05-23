@@ -88,12 +88,13 @@ describe('MyHomeTodayPanel', () => {
     expect(wrapper.findAllComponents(RouterLinkStub).some((link) => link.props('to') === '/my-leave-requests')).toBe(false)
   })
 
-  it('hides the training registration link for regular matches', () => {
+  it('hides Next Up training and leave shortcuts for regular matches', () => {
     const wrapper = mountPanel(buildSnapshot('友誼賽'))
 
     expect(wrapper.text()).not.toContain('特訓報名')
     expect(wrapper.findAllComponents(RouterLinkStub).some((link) => link.props('to') === '/training')).toBe(false)
-    expect(wrapper.findAllComponents(RouterLinkStub).some((link) => link.props('to') === '/my-leave-requests')).toBe(true)
+    expect(wrapper.text()).not.toContain('我要請假')
+    expect(wrapper.findAllComponents(RouterLinkStub).some((link) => link.props('to') === '/my-leave-requests')).toBe(false)
   })
 
   it('shows all training dates for the current month', () => {

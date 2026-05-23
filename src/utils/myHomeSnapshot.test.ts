@@ -5,6 +5,7 @@ import {
   buildMyHomeTodoItems,
   canShowMyHomeTrainingRegistrationAction,
   getSelectedMyHomeMember,
+  isMyHomeMemberInEventPlayers,
   isMyHomeNextEventExpired,
   normalizeMyHomeNextEvent
 } from '@/utils/myHomeSnapshot'
@@ -73,6 +74,87 @@ describe('myHomeSnapshot utilities', () => {
       key: 'match-fee-payment',
       route: '/my-payments'
     }))
+  })
+
+  it('shows the next event todo only when the selected member is in the event player list', () => {
+    const snapshot = buildSnapshot({
+      members: [
+        { id: 'm1', name: '小安', role: '球員', team_group: null, status: '在隊', jersey_number: null, avatar_url: null },
+        { id: 'm2', name: '小宇', role: '球員', team_group: null, status: '在隊', jersey_number: null, avatar_url: null }
+      ],
+      next_event: {
+        id: 'match-1',
+        type: 'match',
+        title: '週末盃賽',
+        date: '2026-05-09',
+        time: '09:00',
+        location: null,
+        opponent: null,
+        category_group: null,
+        match_level: '正式賽',
+        coaches: null,
+        players: '小宇',
+        route: '/calendar?match_id=match-1'
+      }
+    })
+
+    expect(buildMyHomeTodoItems(snapshot, 'm1', '2026-05-01').some((todo) => todo.key === 'next-event')).toBe(false)
+    expect(buildMyHomeTodoItems(snapshot, 'm2', '2026-05-01').some((todo) => todo.key === 'next-event')).toBe(true)
+  })
+
+  it('matches event players by jersey number when the roster entry includes a number', () => {
+    const member = { id: 'm1', name: '小安', role: '球員', team_group: null, status: '在隊', jersey_number: '8', avatar_url: null }
+    const event = {
+      id: 'match-1',
+      type: 'match',
+      title: '週末盃賽',
+      date: '2026-05-09',
+      time: '09:00',
+      location: null,
+      opponent: null,
+      category_group: null,
+      match_level: '正式賽',
+      coaches: null,
+      players: '#8 小宇',
+      route: '/calendar?match_id=match-1'
+    } as const
+
+    expect(isMyHomeMemberInEventPlayers(event, member)).toBe(true)
+  })
+
+  it('shows leave action only when today or tomorrow has a relevant training or rostered event', () => {
+    const snapshot = buildSnapshot({
+      members: [
+        { id: 'm1', name: '小安', role: '球員', team_group: null, status: '在隊', jersey_number: null, avatar_url: null }
+      ]
+    })
+
+    expect(buildMyHomeTodoItems(snapshot, 'm1', '2026-05-01').some((todo) => todo.key === 'leave-action')).toBe(false)
+
+    expect(buildMyHomeTodoItems({
+      ...snapshot,
+      training_month_dates: [
+        { date: '2026-05-02', weekday: '週六', label: '5/2 週六', is_today: false, is_past: false }
+      ]
+    }, 'm1', '2026-05-01').some((todo) => todo.key === 'leave-action')).toBe(true)
+
+    expect(buildMyHomeTodoItems({
+      ...snapshot,
+      next_event: {
+        id: 'match-1',
+        type: 'match',
+        title: '週末盃賽',
+        date: '2026-05-02',
+        time: '09:00',
+        location: null,
+        opponent: null,
+        category_group: null,
+        match_level: '正式賽',
+        coaches: null,
+        players: '小安',
+        route: '/calendar?match_id=match-1'
+      }
+    }, 'm1', '2026-05-01').some((todo) => todo.key === 'leave-action')).toBe(true)
   })
 
   it('shows today leave state for the selected member only', () => {
