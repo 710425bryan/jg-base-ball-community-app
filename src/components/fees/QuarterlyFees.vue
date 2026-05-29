@@ -93,6 +93,12 @@
       </div>
     </div>
 
+    <QuarterlyFeeCompensationPanel
+      :period-key="selectedPeriodLabel"
+      :start-month="selectedStartMonth"
+      :end-month="selectedEndMonth"
+    />
+
     <!-- 收到的匯款回報區塊 (精簡橫幅) -->
     <div class="bg-blue-50 border border-blue-100 rounded-2xl p-4 md:p-5 shadow-sm mb-2 flex flex-col sm:flex-row items-center justify-between gap-4">
       <div class="flex items-center gap-3 w-full sm:w-auto">
@@ -315,6 +321,7 @@ import {
   sumQuarterlyFeeGroupAmount
 } from '@/utils/quarterlyFeeFamilies'
 import { buildPaymentBreakdownText } from '@/utils/playerBalance'
+import QuarterlyFeeCompensationPanel from '@/components/fees/QuarterlyFeeCompensationPanel.vue'
 
 const emit = defineEmits<{
   (e: 'summary-change', payload: {

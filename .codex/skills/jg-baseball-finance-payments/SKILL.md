@@ -19,13 +19,14 @@ description: "Finance, fees, payment submissions, player balances, match fees, r
 6. `src/views/MyPaymentsView.vue`
 7. `src/services/myPayments.ts`
 8. `src/services/playerBalances.ts`
-9. `src/services/matchFees.ts`
-10. `src/services/feeManagementReminders.ts`
-11. `src/types/payments.ts`、`src/types/playerBalances.ts`、`src/types/matchFees.ts`、`src/types/feeManagementReminders.ts`
-12. `src/utils/memberBilling.ts`、`src/utils/monthlyFeeSettlement.ts`、`src/utils/quarterlyFeeFamilies.ts`、`src/utils/playerBalance.ts`、`src/utils/siblingGroups.ts`
-13. 相關 migration：`supabase_fees_migration.sql`、`supabase_quarterly_fees_migration.sql`、`supabase_profile_payment_submissions_migration.sql`、`supabase_player_balance_transactions_migration.sql`、`supabase_fixed_monthly_billing_migration.sql`、`supabase_match_fees_migration.sql`、`supabase_fee_management_reminders_migration.sql`
-14. 若改到匯款表單，再讀 `supabase/functions/record-fee-remittance/index.ts` 與 `scripts/google-form-remittance-apps-script.js`
-15. 若改到裝備付款，再同時讀 `jg-baseball-equipment-management` skill
+9. `src/services/quarterlyFeeCompensations.ts`
+10. `src/services/matchFees.ts`
+11. `src/services/feeManagementReminders.ts`
+12. `src/types/payments.ts`、`src/types/playerBalances.ts`、`src/types/quarterlyFeeCompensation.ts`、`src/types/matchFees.ts`、`src/types/feeManagementReminders.ts`
+13. `src/utils/memberBilling.ts`、`src/utils/monthlyFeeSettlement.ts`、`src/utils/quarterlyFeeFamilies.ts`、`src/utils/quarterlyFeeCompensation.ts`、`src/utils/playerBalance.ts`、`src/utils/siblingGroups.ts`
+14. 相關 migration：`supabase_fees_migration.sql`、`supabase_quarterly_fees_migration.sql`、`supabase_profile_payment_submissions_migration.sql`、`supabase_player_balance_transactions_migration.sql`、`supabase_fixed_monthly_billing_migration.sql`、`supabase_quarterly_fee_compensation_migration.sql`、`supabase_match_fees_migration.sql`、`supabase_fee_management_reminders_migration.sql`
+15. 若改到匯款表單，再讀 `supabase/functions/record-fee-remittance/index.ts` 與 `scripts/google-form-remittance-apps-script.js`
+16. 若改到裝備付款，再同時讀 `jg-baseball-equipment-management` skill
 
 ## 功能邊界
 
@@ -33,6 +34,7 @@ description: "Finance, fees, payment submissions, player balances, match fees, r
 - 家長端 `/my-payments` 可合併一般繳費、裝備付款與比賽費付款回報。
 - 球員餘額以 `player_balance_transactions` 流水帳推導，不直接覆寫權威餘額。
 - 一般付款使用 `profile_payment_submissions` RPC。
+- 季費堂數不足補償使用 `quarterly_fee_compensation_items`，只產生待審核單；核准後才寫入 `player_balance_transactions`。
 - 比賽費使用 `match_fee_items`、`match_payment_submissions`、`match_payment_submission_items`。
 - 裝備付款使用 `equipment_payment_submissions`，但在 `/fees?tab=equipment` 與 `/my-payments` 整合顯示。
 - 裝備加購申請只要到 `ready_for_pickup`（備貨完成 / 可取貨）即可回報付款，不需要等到 `picked_up`；調整裝備付款時要同步前端可勾選條件與 RPC 可付範圍。
@@ -45,6 +47,7 @@ description: "Finance, fees, payment submissions, player balances, match fees, r
 - 球員餘額不可扣成負數；家長自助使用餘額後仍需管理端審核才正式扣款。
 - 社區球員固定月繳以 `team_members.fee_billing_mode = 'monthly_fixed'` 表示，角色仍是 `球員`。
 - 固定月繳球員進 `monthly_fees`，排除 `quarterly_fees` 與家庭季費分組。
+- 季費補償的堂數不足只看當月週六數與 `/training-dates` 設定日期總數，補課日不限定週六。
 - `is_primary_payer`、`is_half_price`、sibling / family grouping 會影響金額，改費用時要同步檢查。
 - 比賽費付款不得混入一般月費或裝備付款資料模型；只在 UI 與付款回報流程上整合。
 - 匯款表單 Edge Function 不硬編碼 secret，使用 `FORM_REMITTANCE_SECRET` 或環境設定。
@@ -61,6 +64,6 @@ description: "Finance, fees, payment submissions, player balances, match fees, r
 ## 驗證
 
 - 基本檢查：`pnpm exec vue-tsc --noEmit`
-- 費用純邏輯：`pnpm exec vitest run src/utils/memberBilling.test.ts src/utils/monthlyFeeSettlement.test.ts src/utils/quarterlyFeeFamilies.test.ts src/utils/playerBalance.test.ts src/utils/feeManagementReminders.test.ts`
+- 費用純邏輯：`pnpm exec vitest run src/utils/memberBilling.test.ts src/utils/monthlyFeeSettlement.test.ts src/utils/quarterlyFeeFamilies.test.ts src/utils/quarterlyFeeCompensation.test.ts src/utils/playerBalance.test.ts src/utils/feeManagementReminders.test.ts`
 - 比賽費或付款 UI 風險高時跑：`pnpm build`
 - 人工 sanity check：家長 linked member 可見性、管理端審核、餘額扣抵、固定月繳排除季費、比賽費付款、裝備付款整合。

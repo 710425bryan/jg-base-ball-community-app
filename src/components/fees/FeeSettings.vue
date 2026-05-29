@@ -5,6 +5,44 @@
       <div>校隊維持計次月費；開啟固定月繳的社區球員會以這裡設定的月繳金額進入月費表，預設 2000 元，不參與堂數、請假或手足半價計算。</div>
     </div>
 
+    <section class="overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-sm" v-loading="isCompensationDefaultsLoading">
+      <div class="border-b border-emerald-100 bg-emerald-50/80 px-4 py-3">
+        <h3 class="text-base font-black text-gray-800">季費堂數不足補償</h3>
+        <p class="mt-1 text-xs font-medium text-emerald-700/80">用於球員季費表單的補償試算；核准補償單後才會轉入球員餘額。</p>
+      </div>
+      <div class="grid gap-4 p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
+        <label class="flex flex-col gap-1.5">
+          <span class="text-xs font-bold text-gray-500">一般球員每日折抵金額 (元)</span>
+          <el-input-number
+            v-model="compensationDefaults.regularDailyCredit"
+            :min="0"
+            :step="50"
+            size="large"
+            class="!w-full"
+          />
+        </label>
+        <label class="flex flex-col gap-1.5">
+          <span class="text-xs font-bold text-gray-500">半價 / 手足折扣每日折抵金額 (元)</span>
+          <el-input-number
+            v-model="compensationDefaults.discountDailyCredit"
+            :min="0"
+            :step="50"
+            size="large"
+            class="!w-full"
+          />
+        </label>
+        <button
+          type="button"
+          class="inline-flex h-10 items-center justify-center rounded-xl px-5 text-sm font-black transition-colors"
+          :class="isCompensationDefaultsDirty ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'cursor-not-allowed bg-gray-100 text-gray-400'"
+          :disabled="isCompensationDefaultsSaving || !isCompensationDefaultsDirty"
+          @click="updateCompensationDefaults"
+        >
+          {{ isCompensationDefaultsSaving ? '儲存中...' : '儲存預設' }}
+        </button>
+      </div>
+    </section>
+
     <section class="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm" v-loading="isLoading">
       <div class="border-b border-gray-100 bg-gray-50/80 px-4 py-3">
         <h3 class="text-base font-black text-gray-800">校隊計次月費</h3>
@@ -112,15 +150,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { supabase } from '@/services/supabase'
 import { ElMessage } from 'element-plus'
 import { InfoFilled } from '@element-plus/icons-vue'
+import {
+  getQuarterlyFeeCompensationDefaults,
+  saveQuarterlyFeeCompensationDefaults
+} from '@/services/quarterlyFeeCompensations'
+import type { QuarterlyFeeCompensationDefaults } from '@/types/quarterlyFeeCompensation'
 import {
   DEFAULT_FIXED_MONTHLY_FEE,
   FIXED_MONTHLY_FEE_BILLING_MODE,
   normalizeFixedMonthlyFee
 } from '@/utils/memberBilling'
+import {
+  DEFAULT_QUARTERLY_COMPENSATION_DISCOUNT_DAILY_CREDIT,
+  DEFAULT_QUARTERLY_COMPENSATION_REGULAR_DAILY_CREDIT,
+  normalizeQuarterlyFeeCompensationDefaults
+} from '@/utils/quarterlyFeeCompensation'
 
 type FeeSettingKind = 'per_session' | 'monthly_fixed'
 
@@ -134,6 +182,22 @@ const fixedMonthlyFeeMap = ref<Record<string, number>>({})
 const isSaving = ref<Record<string, boolean>>({})
 const isPerSessionDirty = ref<Record<string, boolean>>({})
 const isFixedMonthlyDirty = ref<Record<string, boolean>>({})
+const compensationDefaults = ref<QuarterlyFeeCompensationDefaults>({
+  regularDailyCredit: DEFAULT_QUARTERLY_COMPENSATION_REGULAR_DAILY_CREDIT,
+  discountDailyCredit: DEFAULT_QUARTERLY_COMPENSATION_DISCOUNT_DAILY_CREDIT
+})
+const savedCompensationDefaults = ref<QuarterlyFeeCompensationDefaults>({
+  regularDailyCredit: DEFAULT_QUARTERLY_COMPENSATION_REGULAR_DAILY_CREDIT,
+  discountDailyCredit: DEFAULT_QUARTERLY_COMPENSATION_DISCOUNT_DAILY_CREDIT
+})
+const isCompensationDefaultsLoading = ref(false)
+const isCompensationDefaultsSaving = ref(false)
+
+const isCompensationDefaultsDirty = computed(() => {
+  const normalized = normalizeQuarterlyFeeCompensationDefaults(compensationDefaults.value)
+  return normalized.regularDailyCredit !== savedCompensationDefaults.value.regularDailyCredit
+    || normalized.discountDailyCredit !== savedCompensationDefaults.value.discountDailyCredit
+})
 
 const markDirty = (memberId: string, kind: FeeSettingKind) => {
   if (kind === 'per_session') {
@@ -199,6 +263,35 @@ const fetchData = async () => {
   }
 }
 
+const fetchCompensationDefaults = async () => {
+  isCompensationDefaultsLoading.value = true
+  try {
+    const defaults = await getQuarterlyFeeCompensationDefaults()
+    compensationDefaults.value = { ...defaults }
+    savedCompensationDefaults.value = { ...defaults }
+  } catch (e: any) {
+    ElMessage.error('載入季費補償預設失敗: ' + e.message)
+    console.error(e)
+  } finally {
+    isCompensationDefaultsLoading.value = false
+  }
+}
+
+const updateCompensationDefaults = async () => {
+  isCompensationDefaultsSaving.value = true
+  try {
+    const saved = await saveQuarterlyFeeCompensationDefaults(compensationDefaults.value)
+    compensationDefaults.value = { ...saved }
+    savedCompensationDefaults.value = { ...saved }
+    ElMessage.success('季費補償預設已更新')
+  } catch (e: any) {
+    ElMessage.error('儲存季費補償預設失敗: ' + e.message)
+    console.error(e)
+  } finally {
+    isCompensationDefaultsSaving.value = false
+  }
+}
+
 const updateFeeSetting = async (memberId: string, kind: FeeSettingKind) => {
   isSaving.value[memberId] = true
 
@@ -241,5 +334,6 @@ const updateFeeSetting = async (memberId: string, kind: FeeSettingKind) => {
 
 onMounted(() => {
   fetchData()
+  fetchCompensationDefaults()
 })
 </script>

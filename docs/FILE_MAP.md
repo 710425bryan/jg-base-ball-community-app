@@ -75,6 +75,7 @@
 | `src/services/myLeaveRequests.ts` | 我的假單 RPC | `list_my_leave_members()` 等 |
 | `src/services/myPayments.ts` | 我的繳費 RPC | `profile_payment_submissions` 相關 RPC |
 | `src/services/playerBalances.ts` | 球員餘額 RPC | `player_balance_transactions`、餘額查詢 / 調整 |
+| `src/services/quarterlyFeeCompensations.ts` | 季費堂數不足補償 RPC | `quarterly_fee_compensation_items`、`player_balance_transactions` |
 | `src/services/myPlayerRecords.ts` | 我的成績 RPC | `list_my_player_record_members()`、`get_my_player_match_records()` |
 | `src/services/playerRosterApi.ts` | 球員名單查詢與 cache meta RPC | `team_members` / `team_members_safe` / `get_team_members_cache_meta()` |
 | `src/services/teamGroupsApi.ts` | team group 設定 RPC | `team_group_settings` 相關 RPC |
@@ -122,6 +123,7 @@
 | `src/utils/memberBilling.ts` | 球員有效繳費模式、固定月繳與月費計算 helper |
 | `src/utils/monthlyFeeSettlement.ts` | 月費結算 |
 | `src/utils/quarterlyFeeFamilies.ts` | 季費家庭分組與金額 |
+| `src/utils/quarterlyFeeCompensation.ts` | 季費堂數不足補償堂數與金額試算 |
 | `src/utils/playerBalance.ts` | 球員餘額扣抵金額與顯示文字 |
 | `src/utils/paymentMethods.ts` | 付款方式與顯示文字 |
 | `src/utils/feeManagementReminders.ts` | 費用提醒摘要純邏輯 |
@@ -192,9 +194,10 @@
 
 | 檔案 | 用途 |
 | --- | --- |
-| `src/components/fees/FeeSettings.vue` | 校隊計次費率與社區球員固定月繳金額設定 |
+| `src/components/fees/FeeSettings.vue` | 校隊計次費率、社區球員固定月繳金額與季費補償預設設定 |
 | `src/components/fees/SchoolTeamFees.vue` | 月費管理，包含校隊計次與社區球員固定月繳 |
 | `src/components/fees/QuarterlyFees.vue` | 季費管理，排除固定月繳球員 |
+| `src/components/fees/QuarterlyFeeCompensationPanel.vue` | 季費堂數不足補償試算、待審核與核准 |
 | `src/components/fees/ProfilePaymentSubmissionInbox.vue` | 個人付款回報審核 |
 | `src/components/fees/PlayerBalanceManager.vue` | 球員餘額管理與流水帳 |
 | `src/components/fees/MatchFeeManagementPanel.vue` | 比賽費項目管理與付款狀態 |
@@ -263,6 +266,7 @@
 | `src/types/myHome.ts` | 個人首頁 snapshot 型別 |
 | `src/types/payments.ts` | 個人付款型別 |
 | `src/types/playerBalances.ts` | 球員餘額型別 |
+| `src/types/quarterlyFeeCompensation.ts` | 季費堂數不足補償型別 |
 | `src/types/performance.ts` | 能力 / 體測型別 |
 | `src/types/publicLanding.ts` | 公開首頁 snapshot 型別 |
 | `src/types/teamGroup.ts` | team group 設定型別 |
@@ -279,7 +283,7 @@
 | 公開首頁 / Dashboard | `supabase_dashboard_snapshot_migration.sql`、`supabase_my_home_snapshot_migration.sql`、`supabase_zz_my_home_training_points_migration.sql` |
 | 假單 | `supabase_my_leave_requests_migration.sql` |
 | 個人成績 | `supabase_my_player_records_migration.sql` |
-| 收費 / 付款 | `supabase_fees_migration.sql`、`supabase_quarterly_fees_migration.sql`、`supabase_profile_payment_submissions_migration.sql`、`supabase_player_balance_transactions_migration.sql`、`supabase_fixed_monthly_billing_migration.sql`、`supabase_match_fees_migration.sql`、`supabase_fee_management_reminders_migration.sql` |
+| 收費 / 付款 | `supabase_fees_migration.sql`、`supabase_quarterly_fees_migration.sql`、`supabase_profile_payment_submissions_migration.sql`、`supabase_player_balance_transactions_migration.sql`、`supabase_fixed_monthly_billing_migration.sql`、`supabase_quarterly_fee_compensation_migration.sql`、`supabase_match_fees_migration.sql`、`supabase_fee_management_reminders_migration.sql` |
 | 裝備 | `supabase_equipment_management_migration.sql`、`supabase_equipment_inventory_adjustments_migration.sql`、`supabase_equipment_manual_purchase_records_migration.sql`、`supabase_equipment_multiple_photos_migration.sql`、`supabase_zzzzzz_equipment_inventory_snapshot_rpc_migration.sql`、`supabase_zzzzzzzz_equipment_ready_for_pickup_payment_scope_migration.sql` |
 | 能力 / 體測 | `supabase_performance_data_migration.sql`、`supabase_performance_view_scope_migration.sql` |
 | 特訓 / 點數 | `supabase_training_points_migration.sql`、`supabase_zz_training_point_transaction_delete_migration.sql`、`supabase_zz_training_registration_notifications_migration.sql`、`supabase_zzzzzzzz_training_auto_select_notifications_migration.sql` |

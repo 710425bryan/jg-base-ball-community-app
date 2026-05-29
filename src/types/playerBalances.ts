@@ -10,6 +10,7 @@ export type PlayerBalanceTransactionSource =
   | 'manual_adjustment'
   | 'payment_deduction'
   | 'overpayment'
+  | 'quarterly_compensation'
   | string
 
 export type PlayerBalanceTransaction = {

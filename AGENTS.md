@@ -217,6 +217,7 @@
 - 個人繳費回報走 `profile_payment_submissions` RPC；管理端審核在費用頁。
 - 球員餘額以 `player_balance_transactions` 流水帳管理，餘額屬於 `team_members`；管理員可手動調整與確認溢繳入帳，家長自助使用餘額後仍需管理端確認才正式扣款。
 - 社區球員固定月繳用 `team_members.fee_billing_mode = 'monthly_fixed'` 表示；球員身分仍是 `球員`，但併入 `monthly_fees`、排除 `quarterly_fees`，金額從 `fee_settings.monthly_fixed_fee` 帶入並在 `monthly_fees.fixed_monthly_fee` 留快照。
+- 季費堂數不足補償以當月週六數對比 `/training-dates` 訓練日期設定總天數；任何設定日期都算一堂，達當月週六數就不補償。補償先產生 `quarterly_fee_compensation_items` 待審核單，核准後才用 `quarterly_compensation` source 寫入 `player_balance_transactions`。
 - sibling / quarter fee / monthly settlement 等邏輯已拆在 `src/utils/*fee*` 與相關測試。
 - 比賽費走 `src/services/matchFees.ts`、`match_fee_items`、`match_payment_submissions`、`match_payment_submission_items`，可在 `/my-payments` 合併回報，在 `/fees` 審核。
 - 匯款表單匯入走 `supabase/functions/record-fee-remittance/index.ts` 與 `scripts/google-form-remittance-apps-script.js`，不得硬編碼 secret。
@@ -310,7 +311,7 @@
 - 裝備：`pnpm exec vitest run src/utils/equipmentInventory.test.ts src/utils/equipmentPricing.test.ts src/utils/equipmentRequestStatus.test.ts`
 - 賽事同步：`pnpm exec vitest run src/utils/googleCalendarParser.test.ts src/services/matchesApi.test.ts`
 - 賽事紀錄 / 媒體：`pnpm exec vitest run src/services/matchesApi.test.ts src/utils/matchFieldEditor.test.ts src/utils/liveMatchScoreboard.test.ts src/utils/matchAudioTranscription.test.ts src/utils/lineupPhotoParser.test.ts src/services/weatherApi.test.ts`
-- 收費 / 付款：`pnpm exec vitest run src/utils/memberBilling.test.ts src/utils/monthlyFeeSettlement.test.ts src/utils/quarterlyFeeFamilies.test.ts src/utils/playerBalance.test.ts src/utils/feeManagementReminders.test.ts`
+- 收費 / 付款：`pnpm exec vitest run src/utils/memberBilling.test.ts src/utils/monthlyFeeSettlement.test.ts src/utils/quarterlyFeeFamilies.test.ts src/utils/quarterlyFeeCompensation.test.ts src/utils/playerBalance.test.ts src/utils/feeManagementReminders.test.ts`
 - 請假 / 點名：`pnpm exec vitest run src/utils/leaveRequests.test.ts src/utils/dashboardHome.test.ts`
 - 訓練日期設定：`pnpm exec vitest run src/utils/trainingMonthDates.test.ts src/components/home/MyHomeTodayPanel.test.ts src/composables/useNotificationFeed.test.ts`
 - 名單 / 使用者 / 組別：`pnpm exec vitest run src/utils/playerSync.test.ts src/stores/playerRoster.test.ts src/stores/teamGroups.test.ts src/utils/profileAccess.test.ts`

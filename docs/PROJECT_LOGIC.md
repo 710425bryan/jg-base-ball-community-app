@@ -402,6 +402,7 @@ UI 約定：
 - `src/components/fees/FeeSettings.vue`
 - `src/components/fees/SchoolTeamFees.vue`
 - `src/components/fees/QuarterlyFees.vue`
+- `src/components/fees/QuarterlyFeeCompensationPanel.vue`
 - `src/components/fees/ProfilePaymentSubmissionInbox.vue`
 - `src/components/fees/PlayerBalanceManager.vue`
 - `src/components/fees/MatchFeeManagementPanel.vue`
@@ -410,11 +411,13 @@ UI 約定：
 - `src/components/fees/FeeManagementReminderPanel.vue`
 - `src/services/myPayments.ts`
 - `src/services/playerBalances.ts`
+- `src/services/quarterlyFeeCompensations.ts`
 - `src/services/matchFees.ts`
 - `src/services/feeManagementReminders.ts`
 - `src/utils/memberBilling.ts`
 - `src/utils/monthlyFeeSettlement.ts`
 - `src/utils/quarterlyFeeFamilies.ts`
+- `src/utils/quarterlyFeeCompensation.ts`
 - `src/utils/playerBalance.ts`
 - `src/utils/siblingGroups.ts`
 - `supabase/functions/record-fee-remittance/index.ts`
@@ -425,6 +428,7 @@ UI 約定：
 - `fee_settings`
 - `monthly_fees`
 - `quarterly_fees`
+- `quarterly_fee_compensation_items`
 - `profile_payment_submissions`
 - `player_balance_transactions`
 - `match_fee_items`
@@ -437,6 +441,7 @@ UI 約定：
 - `team_members.fee_billing_mode = 'monthly_fixed'` 代表社區球員固定月繳：角色仍為 `球員`，但有效繳費模式為月繳；月費表採固定金額減手動扣減，季費表與家庭季費分組排除該球員。
 - 校隊計次月費的本月堂數由 `/training-dates` 的訓練日期設定天數自動帶入，月費頁不可手動改堂數；請假扣減只依所選月份統計假單日期，以球員 + 日期去重，不合併點名紀錄。
 - 固定月繳預設金額存在 `fee_settings.monthly_fixed_fee`，正式月費紀錄會在 `monthly_fees.calculation_type` / `monthly_fees.fixed_monthly_fee` 保留當月計算方式與金額快照。
+- 季費堂數不足補償依當月週六數與 `/training-dates` 訓練日期設定總天數計算；週五、週日或其他補課日都算一堂，設定天數達當月週六數即不補償。補償預設每日折抵為一般 500 元、半價 / 手足折扣 250 元，可在收費設定調整。系統只產生 `quarterly_fee_compensation_items` 待審核單，管理員核准後才以 `quarterly_compensation` source 寫入 `player_balance_transactions`。
 - 個人付款回報由 `myPayments` RPC 建立，可選用球員餘額；一般繳費與裝備付款都在管理端確認時才正式扣餘額。
 - 球員餘額以 `player_balance_transactions` 流水帳計算，管理員可手動調整，付款審核時可把溢繳轉入餘額。
 - sibling / family grouping 與季費家庭金額計算在 utils。

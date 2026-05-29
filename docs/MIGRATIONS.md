@@ -98,6 +98,7 @@
 | `supabase_profile_payment_submission_estimate_migration.sql` | 付款估算 RPC | 家長端送出前估算 |
 | `supabase_profile_payment_submission_estimate_monthly_record_migration.sql` | 月費紀錄估算補強 | 固定月繳 / 月費估算必讀 |
 | `supabase_player_balance_transactions_migration.sql` | 球員餘額流水帳與付款 RPC 覆寫 | 餘額權威主線 |
+| `supabase_quarterly_fee_compensation_migration.sql` | 季費堂數不足補償 | 產生待審核補償單，核准後寫入球員餘額 |
 | `supabase_match_fees_migration.sql` | 比賽費 items / submissions | 比賽費與餘額整合 |
 | `supabase_fee_management_reminders_migration.sql` | 費用提醒與通知中心 | 覆寫 `get_notification_feed()` |
 

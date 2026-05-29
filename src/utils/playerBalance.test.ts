@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildPaymentBreakdownText,
   clampBalanceDeduction,
+  formatPlayerBalanceSource,
   getExternalPaymentAmount
 } from './playerBalance'
 
@@ -24,5 +25,9 @@ describe('playerBalance', () => {
     expect(buildPaymentBreakdownText(1200, 0, money)).toBe('外部付款 $1200')
     expect(buildPaymentBreakdownText(1200, 500, money)).toBe('餘額扣抵 $500，外部付款 $700')
     expect(buildPaymentBreakdownText(1200, 1200, money)).toBe('全額使用餘額 $1200')
+  })
+
+  it('labels quarterly compensation balance transactions', () => {
+    expect(formatPlayerBalanceSource('quarterly_compensation')).toBe('季費補償')
   })
 })
