@@ -435,6 +435,7 @@ UI 約定：
 
 - 後台費用頁管理月費、季費與付款回報審核。
 - `team_members.fee_billing_mode = 'monthly_fixed'` 代表社區球員固定月繳：角色仍為 `球員`，但有效繳費模式為月繳；月費表採固定金額減手動扣減，季費表與家庭季費分組排除該球員。
+- 校隊計次月費的本月堂數由 `/training-dates` 的訓練日期設定天數自動帶入，月費頁不可手動改堂數；請假扣減只依所選月份統計假單日期，以球員 + 日期去重，不合併點名紀錄。
 - 固定月繳預設金額存在 `fee_settings.monthly_fixed_fee`，正式月費紀錄會在 `monthly_fees.calculation_type` / `monthly_fees.fixed_monthly_fee` 保留當月計算方式與金額快照。
 - 個人付款回報由 `myPayments` RPC 建立，可選用球員餘額；一般繳費與裝備付款都在管理端確認時才正式扣餘額。
 - 球員餘額以 `player_balance_transactions` 流水帳計算，管理員可手動調整，付款審核時可把溢繳轉入餘額。

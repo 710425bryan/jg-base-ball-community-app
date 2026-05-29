@@ -21,24 +21,22 @@
 
       <div class="w-full sm:w-auto flex flex-col gap-1.5 border-l-0 sm:border-l border-gray-200 pl-0 sm:pl-4">
         <label class="text-xs font-bold text-gray-500">本月堂數</label>
-        <el-input-number
-          v-model="monthlyTotalSessions"
-          :min="0"
-          :step="1"
-          size="large"
-          class="!w-full sm:!w-32"
-          :disabled="isLoading"
-          @change="handleMonthlyTotalSessionsChange"
-        />
+        <div class="inline-flex h-10 w-full items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-4 text-gray-800 sm:w-32">
+          <span class="font-mono text-2xl font-black leading-none">{{ monthlyTotalSessions }}</span>
+          <span class="text-xs font-bold text-gray-500">堂</span>
+        </div>
       </div>
 
       <div class="w-full sm:w-auto flex flex-col gap-1.5 border-l-0 sm:border-l border-gray-200 pl-0 sm:pl-4">
         <span class="text-xs font-bold text-gray-500">月份統計說明</span>
         <p class="text-xs text-gray-500 leading-relaxed max-w-sm">
-          請假天數改為依照所選月份自動統計，不需要另外勾選日期；本月堂數由全隊共用，預設 4 堂，若實際不同可在這裡一次調整。
+          本月堂數依訓練日期設定自動計算；請假天數只依所選月份的假單日期統計。
+        </p>
+        <p class="text-[11px] text-gray-400 leading-relaxed max-w-sm">
+          {{ trainingMonthDateSummary }}
         </p>
         <p v-if="hasMonthlyTotalMismatch" class="text-[11px] text-amber-600 leading-relaxed max-w-sm">
-          這個月份的舊資料堂數不一致，已先統一顯示為 4；存檔後會覆蓋成相同堂數。
+          這個月份既有月費紀錄與目前訓練日期 / 請假統計不同，存檔後會以最新試算覆蓋。
         </p>
       </div>
       </div>
@@ -207,7 +205,7 @@
     <!-- Data Table -->
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden" v-loading="isLoading">
       <div class="px-4 py-3 text-xs text-gray-400 border-b border-gray-100 bg-gray-50/60">
-        請假天數會依照所選月份統計全部請假日期；本月堂數是計次月費共用值。社區月繳列不參與堂數、請假或單堂費率計算。
+        請假天數會依照所選月份統計假單日期；本月堂數依訓練日期設定自動計算。社區月繳列不參與堂數、請假或單堂費率計算。
       </div>
       <div class="overflow-x-auto">
         <table class="w-full min-w-[900px]">
@@ -313,8 +311,14 @@ import { Loading, BellFilled, Edit, Delete, Check, Calendar } from '@element-plu
 import dayjs from 'dayjs'
 import { useWindowSize } from '@vueuse/core'
 import { useRoute } from 'vue-router'
-import { getDefaultMonthlyFeeSettlementMonth } from '@/utils/monthlyFeeSettlement'
+import { trainingDatesApi } from '@/services/trainingDatesApi'
+import {
+  buildMonthlyFeeLeaveDateMap,
+  getDefaultMonthlyFeeSettlementMonth,
+  getMonthlyFeeTotalSessionsFromTrainingDates
+} from '@/utils/monthlyFeeSettlement'
 import { buildPaymentBreakdownText } from '@/utils/playerBalance'
+import { formatTrainingMonthDateLabel } from '@/utils/trainingMonthDates'
 import {
   calculateFixedMonthlyPayableAmount,
   calculatePerSessionMonthlyPayableAmount,
@@ -338,6 +342,8 @@ const emit = defineEmits<{
 const selectedMonth = ref(getDefaultMonthlyFeeSettlementMonth())
 const monthlyTotalSessions = ref(4)
 const hasMonthlyTotalMismatch = ref(false)
+const trainingMonthDates = ref<string[]>([])
+const trainingMonthDatesIsDefault = ref(false)
 const isLoading = ref(false)
 const isCalculating = ref(false)
 const feesList = ref<any[]>([])
@@ -406,23 +412,14 @@ const getMonthBounds = (monthValue: string) => ({
   endOfMonth: dayjs(monthValue).endOf('month').format('YYYY-MM-DD')
 })
 
-const getDefaultTotalSessions = (monthValue: string) => {
-  if (!monthValue) return 0
-  return 4
-}
-
-const enumerateDates = (startDate: string, endDate: string) => {
-  const dates: string[] = []
-  let cursor = dayjs(startDate)
-  const lastDay = dayjs(endDate)
-
-  while (cursor.isBefore(lastDay) || cursor.isSame(lastDay, 'day')) {
-    dates.push(cursor.format('YYYY-MM-DD'))
-    cursor = cursor.add(1, 'day')
+const trainingMonthDateSummary = computed(() => {
+  const source = trainingMonthDatesIsDefault.value ? '未設定月份，使用預設週六' : '訓練日期設定'
+  if (trainingMonthDates.value.length === 0) {
+    return `${source}：本月沒有訓練日`
   }
 
-  return dates
-}
+  return `${source}：${trainingMonthDates.value.map(formatTrainingMonthDateLabel).join('、')}`
+})
 
 const onMonthChange = () => {
   fetchData()
@@ -446,13 +443,12 @@ const markAllFeesChanged = () => {
   })
 }
 
-const handleMonthlyTotalSessionsChange = (value: number | undefined) => {
-  monthlyTotalSessions.value = Math.max(0, Number(value ?? 0))
-  syncMonthlyTotalToFees()
-
-  if (feesList.value.length > 0) {
-    markAllFeesChanged()
-  }
+const markFeeIdsChanged = (memberIds: string[]) => {
+  memberIds.forEach((memberId) => {
+    if (!pendingChanges.value.includes(memberId)) {
+      pendingChanges.value.push(memberId)
+    }
+  })
 }
 
 const formatCurrency = (amount: number) => {
@@ -586,6 +582,10 @@ const calculateFees = async () => {
   
   try {
     const { startOfMonth, endOfMonth } = getMonthBounds(selectedMonth.value)
+    const monthDateSettings = await trainingDatesApi.getMonthDates(selectedMonth.value)
+    trainingMonthDates.value = monthDateSettings.training_dates
+    trainingMonthDatesIsDefault.value = monthDateSettings.is_default
+    monthlyTotalSessions.value = getMonthlyFeeTotalSessionsFromTrainingDates(monthDateSettings.training_dates)
 
     // 1. 撈取校隊與固定月繳球員名單
     const { data: membersData, error: membersErr } = await supabase
@@ -638,41 +638,21 @@ const calculateFees = async () => {
     const feeSettingMap = new Map(feeSettings?.map(f => [f.member_id, f.per_session_fee]))
     const fixedMonthlyFeeMap = new Map(feeSettings?.map(f => [f.member_id, f.monthly_fixed_fee]))
 
-    // 共用堂數預設為 4；若已有一致的舊資料則沿用舊值
-
-    // 撈取該月請假紀錄 (關聯假單系統)
-    const { data: leaves, error: leavesErr } = await supabase
+    const leaveRequestsRes = await supabase
       .from('leave_requests')
       .select('user_id, start_date, end_date')
       .lte('start_date', endOfMonth)
       .gte('end_date', startOfMonth)
-    if (leavesErr) throw leavesErr
+    if (leaveRequestsRes.error) throw leaveRequestsRes.error
 
-    // 依照整個月份來統計請假日期，避免漏掉未手動勾選的日期
-    const leaveMap = new Map()
-    const preciseLeaveMap = new Map<string, Record<string, boolean>>()
-    
-    // 共用堂數先帶入預設值 4
-    const computedBaseSessions = getDefaultTotalSessions(selectedMonth.value)
-
-    members.forEach(member => {
-      const p_leaves = leaves?.filter(l => l.user_id === member.id) || []
-      
-      const dateLeaveRecord: Record<string, boolean> = {}
-
-      p_leaves.forEach(l => {
-        const rangeStart = l.start_date > startOfMonth ? l.start_date : startOfMonth
-        const rangeEnd = l.end_date < endOfMonth ? l.end_date : endOfMonth
-
-        enumerateDates(rangeStart, rangeEnd).forEach(date => {
-          dateLeaveRecord[date] = true
-        })
-      })
-
-      const leaveCount = Object.keys(dateLeaveRecord).length
-
-      leaveMap.set(member.id, leaveCount)
-      preciseLeaveMap.set(member.id, dateLeaveRecord)
+    const leaveDateMap = buildMonthlyFeeLeaveDateMap({
+      leaveRequests: (leaveRequestsRes.data || []).map((leave: any) => ({
+        memberId: leave.user_id,
+        startDate: leave.start_date,
+        endDate: leave.end_date
+      })),
+      monthStart: startOfMonth,
+      monthEnd: endOfMonth
     })
 
 
@@ -686,17 +666,13 @@ const calculateFees = async () => {
 
     const existingFeeRows = existingFees || []
     const existingFeeMap = new Map(existingFeeRows.map(f => [f.member_id, f]))
+    const nonFixedExistingFees = existingFeeRows.filter((fee: any) => fee.calculation_type !== 'monthly_fixed')
     const storedMonthlyTotals = Array.from(new Set(
-      existingFeeRows
-        .filter((fee: any) => fee.calculation_type !== 'monthly_fixed')
-        .map((fee: any) => fee.total_sessions)
-        .filter((value: any): value is number => typeof value === 'number' && !Number.isNaN(value))
+      nonFixedExistingFees.map((fee: any) => Number(fee.total_sessions || 0))
     ))
 
-    hasMonthlyTotalMismatch.value = storedMonthlyTotals.length > 1
-    monthlyTotalSessions.value = storedMonthlyTotals.length === 1
-      ? storedMonthlyTotals[0]
-      : computedBaseSessions
+    hasMonthlyTotalMismatch.value = storedMonthlyTotals.length > 1 ||
+      nonFixedExistingFees.some((fee: any) => Number(fee.total_sessions || 0) !== monthlyTotalSessions.value)
 
     // 組裝
     feesList.value = members.map(m => {
@@ -736,7 +712,8 @@ const calculateFees = async () => {
         }
       }
       
-      const leave_sessions = isFixedMonthly ? 0 : (leaveMap.get(m.id) || 0)
+      const countedLeaveDates = isFixedMonthly ? [] : (leaveDateMap.get(m.id) || [])
+      const leave_sessions = countedLeaveDates.length
       const has_leave_overlap = leave_sessions > 0
 
       return {
@@ -758,14 +735,30 @@ const calculateFees = async () => {
         has_leave_overlap,
         is_discounted: isDiscounted,
         sibling_ids: m.sibling_ids,
-        detailed_leaves: preciseLeaveMap.get(m.id),
-        counted_leave_dates: Object.keys(preciseLeaveMap.get(m.id) || {}).sort()
+        detailed_leaves: Object.fromEntries(countedLeaveDates.map((date) => [date, true])),
+        counted_leave_dates: countedLeaveDates
       }
     })
 
     if (hasMonthlyTotalMismatch.value) {
       syncMonthlyTotalToFees()
       markAllFeesChanged()
+    }
+
+    const staleOrNewFeeMemberIds = feesList.value
+      .filter((fee) => {
+        const existing = existingFeeMap.get(fee.member_id)
+        if (!existing) return true
+
+        return Number(existing.total_sessions || 0) !== (isFixedMonthlyFee(fee) ? 0 : monthlyTotalSessions.value) ||
+          Number(existing.leave_sessions || 0) !== (isFixedMonthlyFee(fee) ? 0 : fee.leave_sessions) ||
+          Number(existing.payable_amount || 0) !== getFeePayableAmount(fee)
+      })
+      .map((fee) => fee.member_id)
+
+    if (staleOrNewFeeMemberIds.length > 0) {
+      hasMonthlyTotalMismatch.value = staleOrNewFeeMemberIds.some((memberId) => existingFeeMap.has(memberId))
+      markFeeIdsChanged(staleOrNewFeeMemberIds)
     }
 
   } catch (e: any) {
