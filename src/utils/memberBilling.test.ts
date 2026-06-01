@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  calculateDiscountedPerSessionFee,
   calculateFixedMonthlyPayableAmount,
   calculatePerSessionMonthlyPayableAmount,
   DEFAULT_FIXED_MONTHLY_FEE,
@@ -51,5 +52,11 @@ describe('memberBilling', () => {
   it('keeps per-session calculation separate from fixed monthly calculation', () => {
     expect(calculatePerSessionMonthlyPayableAmount(4, 1, 500, 0)).toBe(1500)
     expect(calculatePerSessionMonthlyPayableAmount(4, 1, 250, 100)).toBe(650)
+  })
+
+  it('applies half-price discounts to the per-session fee before monthly calculation', () => {
+    expect(calculateDiscountedPerSessionFee(500, true)).toBe(250)
+    expect(calculateDiscountedPerSessionFee(500, false)).toBe(500)
+    expect(calculatePerSessionMonthlyPayableAmount(3, 1, calculateDiscountedPerSessionFee(500, true), 0)).toBe(500)
   })
 })

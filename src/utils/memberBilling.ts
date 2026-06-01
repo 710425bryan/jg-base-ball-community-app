@@ -68,6 +68,15 @@ export const calculatePerSessionMonthlyPayableAmount = (
   return attendedSessions * (Number(perSessionFee) || 0) - (Number(deductionAmount) || 0)
 }
 
+export const calculateDiscountedPerSessionFee = (
+  perSessionFee: unknown,
+  isDiscounted: boolean
+) => {
+  const normalizedFee = Math.max(0, Math.trunc(Number(perSessionFee) || 0))
+
+  return isDiscounted ? Math.round(normalizedFee / 2) : normalizedFee
+}
+
 export const getMemberBillingLabel = (member: BillingModeMember) => {
   if (isFixedMonthlyBillingMember(member)) return '社區月繳'
   if (member.role === '校隊') return '校隊月繳'

@@ -320,6 +320,7 @@ import {
 import { buildPaymentBreakdownText } from '@/utils/playerBalance'
 import { formatTrainingMonthDateLabel } from '@/utils/trainingMonthDates'
 import {
+  calculateDiscountedPerSessionFee,
   calculateFixedMonthlyPayableAmount,
   calculatePerSessionMonthlyPayableAmount,
   DEFAULT_FIXED_MONTHLY_FEE,
@@ -707,10 +708,9 @@ const calculateFees = async () => {
           }
         }
         
-        if (isDiscounted) {
-          per_session_fee = Math.round(per_session_fee / 2)
-        }
       }
+
+      per_session_fee = calculateDiscountedPerSessionFee(per_session_fee, isDiscounted)
       
       const countedLeaveDates = isFixedMonthly ? [] : (leaveDateMap.get(m.id) || [])
       const leave_sessions = countedLeaveDates.length
