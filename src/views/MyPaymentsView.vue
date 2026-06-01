@@ -614,6 +614,7 @@ import {
   clampBalanceDeduction,
   getExternalPaymentAmount
 } from '@/utils/playerBalance'
+import { getDefaultMonthlyFeeSettlementMonth } from '@/utils/monthlyFeeSettlement'
 import { getMemberBillingLabel } from '@/utils/memberBilling'
 import {
   canUseGroupedQuarterlyPaymentSubmission,
@@ -867,7 +868,9 @@ const membershipSelectionHint = computed(() => {
 })
 
 const createDialogPeriodHint = computed(() => {
-  return createDialogMember.value?.billing_mode === 'quarterly' ? '例如 2026-Q2' : '例如 2026-04'
+  return createDialogMember.value?.billing_mode === 'quarterly'
+    ? '例如 2026-Q2'
+    : `例如 ${getDefaultMonthlyPeriodKey()}`
 })
 
 const createDialogEstimateHelperText = computed(() => {
@@ -1715,9 +1718,9 @@ const getCurrentQuarterKey = (date = dayjs()) => {
 }
 
 const getCurrentMonthlyFeePeriodKey = (date = dayjs()) =>
-  date.date() >= 25 ? date.format('YYYY-MM') : date.subtract(1, 'month').format('YYYY-MM')
+  getDefaultMonthlyFeeSettlementMonth(date)
 
-const getDefaultMonthlyPeriodKey = () => dayjs().subtract(1, 'month').format('YYYY-MM')
+const getDefaultMonthlyPeriodKey = () => getCurrentMonthlyFeePeriodKey()
 
 const getDefaultQuarterlyPeriodKey = (preferredPeriodKey?: string | null) =>
   resolveQuarterlyDefaultPeriodKey(preferredPeriodKey, getCurrentQuarterKey())
@@ -1732,14 +1735,7 @@ const getDefaultSubmissionPeriodKey = (
     return getDefaultQuarterlyPeriodKey(normalizedPreferredPeriodKey)
   }
 
-  const latestTargetRecord = targetMember
-    ? records.value.find((record) =>
-      record.member_id === targetMember.member_id &&
-      record.billing_mode === targetMember.billing_mode
-    )
-    : null
-
-  return normalizedPreferredPeriodKey || latestTargetRecord?.period_key || getDefaultMonthlyPeriodKey()
+  return normalizedPreferredPeriodKey || getDefaultMonthlyPeriodKey()
 }
 
 const buildMemberOptionLabel = (member: MyPaymentMember) => {
