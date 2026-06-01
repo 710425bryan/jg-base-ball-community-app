@@ -210,7 +210,7 @@
       <template #footer>
         <div class="flex justify-end gap-3 mt-4">
           <el-button @click="editDialogVisible = false" class="!rounded-xl font-bold px-6" size="large">取消</el-button>
-          <el-button type="primary" @click="saveRemittanceEdit" class="!rounded-xl font-bold px-6" size="large">確定變更</el-button>
+          <el-button type="primary" :loading="isEditingRemittance" @click="saveRemittanceEdit" class="!rounded-xl font-bold px-6" size="large">儲存變更</el-button>
         </div>
       </template>
     </el-dialog>
@@ -316,6 +316,7 @@ import {
   getQuarterlyFeeExternalAmount,
   getExpectedQuarterlyAmount,
   groupQuarterlyFeeRecordsByPayment,
+  resolveQuarterlyDisplayAmount,
   selectLatestQuarterlyRecord,
   sumQuarterlyFeeGroupBalanceAmount,
   sumQuarterlyFeeGroupAmount
@@ -405,6 +406,7 @@ const editForm = ref({
   payment_items: [] as string[],
   other_item_note: ''
 })
+const isEditingRemittance = ref(false)
 
 const DEFAULT_QUARTERLY_PAYMENT_ITEM = '學費(季繳$6000/3000)'
 
@@ -701,17 +703,12 @@ const fetchData = async () => {
       const hasFullFamilyCoverage = exactCoveredMemberIds.size >= linkedMemberIds.length
       const expectedAmount = getExpectedQuarterlyAmount(member, members, siblingGroupMap)
       const baseRecord = ownRecordEntry?.record || fallbackRecordEntry?.record || null
-      const storedAmount = Number(ownRecordEntry?.record?.amount)
-      const hasFamilyPricingRule = linkedMemberIds.length > 1 || Boolean(member.is_half_price)
-      const shouldUseExpectedAmount =
-        !ownRecordEntry ||
-        !hasFullFamilyCoverage ||
-        (hasFamilyPricingRule && storedAmount !== expectedAmount)
-      const rowAmount = shouldUseExpectedAmount
-        ? expectedAmount
-        : Number.isFinite(storedAmount)
-          ? storedAmount
-          : expectedAmount
+      const rowAmount = resolveQuarterlyDisplayAmount({
+        hasOwnRecord: Boolean(ownRecordEntry),
+        hasFullFamilyCoverage,
+        storedAmount: ownRecordEntry?.record?.amount,
+        expectedAmount
+      })
 
       return {
         member_id: member.id,
@@ -810,7 +807,7 @@ const fetchRemittances = async (
 }
 
 const saveAll = async () => {
-  if (pendingChanges.value.length === 0) return
+  if (pendingChanges.value.length === 0) return true
   isLoading.value = true
   
   try {
@@ -864,9 +861,11 @@ const saveAll = async () => {
     await refreshRemittances()
     ElMessage.success('存檔成功')
     pendingChanges.value = []
+    return true
   } catch (err: any) {
     ElMessage.error('存檔失敗: ' + err.message)
     console.error(err)
+    return false
   } finally {
     isLoading.value = false
   }
@@ -940,11 +939,19 @@ const openEditDialog = (fee: any) => {
   editDialogVisible.value = true
 }
 
-const saveRemittanceEdit = () => {
+const saveRemittanceEdit = async () => {
   const feeItem = feesList.value.find(f => f.member_id === editForm.value.member_id)
-  if (feeItem) {
-    feeItem.amount = editForm.value.amount
-    feeItem.balance_amount = Math.min(Number(editForm.value.balance_amount || 0), Number(editForm.value.amount || 0))
+  if (!feeItem) {
+    editDialogVisible.value = false
+    return
+  }
+
+  isEditingRemittance.value = true
+  try {
+    const editedAmount = Number(editForm.value.amount) || 0
+
+    feeItem.amount = editedAmount
+    feeItem.balance_amount = Math.min(Number(editForm.value.balance_amount || 0), editedAmount)
     feeItem.remittance_date = editForm.value.remittance_date
     feeItem.account_last_5 = editForm.value.account_last_5
     feeItem.payment_method = editForm.value.payment_method
@@ -958,8 +965,14 @@ const saveRemittanceEdit = () => {
       other_item_note: feeItem.other_item_note
     }, { skipSelf: true })
     markChanged(feeItem)
+
+    const saved = await saveAll()
+    if (saved) {
+      editDialogVisible.value = false
+    }
+  } finally {
+    isEditingRemittance.value = false
   }
-  editDialogVisible.value = false
 }
 
 const exportCSV = () => {

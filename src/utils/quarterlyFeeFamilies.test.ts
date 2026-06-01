@@ -7,6 +7,7 @@ import {
   getQuarterlyFeeExternalAmount,
   getExpectedQuarterlyAmount,
   groupQuarterlyFeeRecordsByPayment,
+  resolveQuarterlyDisplayAmount,
   sumQuarterlyFeeGroupBalanceAmount,
   sumQuarterlyFeeGroupAmount
 } from './quarterlyFeeFamilies'
@@ -110,5 +111,30 @@ describe('quarterlyFeeFamilies', () => {
     expect(sumQuarterlyFeeGroupAmount(groupedRecords[0].records)).toBe(9000)
     expect(sumQuarterlyFeeGroupBalanceAmount(groupedRecords[0].records)).toBe(1500)
     expect(getQuarterlyFeeExternalAmount(groupedRecords[0].records[0])).toBe(5000)
+  })
+
+  it('keeps a stored amount when the member has a complete official quarterly record', () => {
+    expect(resolveQuarterlyDisplayAmount({
+      hasOwnRecord: true,
+      hasFullFamilyCoverage: true,
+      storedAmount: 5200,
+      expectedAmount: FULL_QUARTERLY_FEE_AMOUNT
+    })).toBe(5200)
+  })
+
+  it('uses the expected amount while legacy family records are missing member rows', () => {
+    expect(resolveQuarterlyDisplayAmount({
+      hasOwnRecord: true,
+      hasFullFamilyCoverage: false,
+      storedAmount: 5200,
+      expectedAmount: FULL_QUARTERLY_FEE_AMOUNT
+    })).toBe(FULL_QUARTERLY_FEE_AMOUNT)
+
+    expect(resolveQuarterlyDisplayAmount({
+      hasOwnRecord: false,
+      hasFullFamilyCoverage: false,
+      storedAmount: 5200,
+      expectedAmount: HALF_QUARTERLY_FEE_AMOUNT
+    })).toBe(HALF_QUARTERLY_FEE_AMOUNT)
   })
 })

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   canUseGroupedQuarterlyPaymentSubmission,
+  isQuarterlyPeriodKey,
+  resolveQuarterlyDefaultPeriodKey,
   summarizeQuarterlyPaymentSubmissionItems,
   validateQuarterlyPaymentSubmissionItems
 } from './quarterlyPaymentSubmissions'
@@ -46,6 +48,16 @@ describe('quarterlyPaymentSubmissions', () => {
     })
 
     expect(errors).toContain('all quarterly payment item amounts must be greater than 0')
+  })
+
+  it('recognizes only quarterly period keys', () => {
+    expect(isQuarterlyPeriodKey('2026-q2')).toBe(true)
+    expect(isQuarterlyPeriodKey('2026-04')).toBe(false)
+  })
+
+  it('falls back to the current quarter when a preferred quarterly period is invalid', () => {
+    expect(resolveQuarterlyDefaultPeriodKey('2026-04', '2026-Q2')).toBe('2026-Q2')
+    expect(resolveQuarterlyDefaultPeriodKey('2026-q3', '2026-Q2')).toBe('2026-Q3')
   })
 
   it('does not allow grouped quarterly submissions to mix with other payment types', () => {

@@ -16,7 +16,23 @@ const normalizeMoney = (value: unknown) => {
   return Number.isFinite(parsed) ? Math.max(0, Math.trunc(parsed)) : 0
 }
 
-const normalizePeriodKey = (value: string) => value.trim().toUpperCase()
+const QUARTERLY_PERIOD_KEY_PATTERN = /^[0-9]{4}-Q[1-4]$/
+
+export const normalizeQuarterlyPeriodKey = (value: unknown) =>
+  typeof value === 'string' ? value.trim().toUpperCase() : ''
+
+export const isQuarterlyPeriodKey = (value: unknown) =>
+  QUARTERLY_PERIOD_KEY_PATTERN.test(normalizeQuarterlyPeriodKey(value))
+
+export const resolveQuarterlyDefaultPeriodKey = (preferredPeriodKey: unknown, fallbackPeriodKey: string) => {
+  const normalizedPreferredPeriodKey = normalizeQuarterlyPeriodKey(preferredPeriodKey)
+
+  if (isQuarterlyPeriodKey(normalizedPreferredPeriodKey)) {
+    return normalizedPreferredPeriodKey
+  }
+
+  return normalizeQuarterlyPeriodKey(fallbackPeriodKey)
+}
 
 export const normalizeQuarterlyPaymentSubmissionItems = (
   items: QuarterlyPaymentSubmissionItemDraft[]
@@ -26,7 +42,7 @@ export const normalizeQuarterlyPaymentSubmissionItems = (
 
     return {
       member_id: item.member_id,
-      period_key: normalizePeriodKey(item.period_key),
+      period_key: normalizeQuarterlyPeriodKey(item.period_key),
       amount,
       balance_amount: Math.min(normalizeMoney(item.balance_amount), amount)
     }
@@ -57,7 +73,7 @@ export const validateQuarterlyPaymentSubmissionItems = (
 ) => {
   const normalizedItems = normalizeQuarterlyPaymentSubmissionItems(items)
   const errors: string[] = []
-  const expectedPeriodKey = normalizePeriodKey(options.periodKey || '')
+  const expectedPeriodKey = normalizeQuarterlyPeriodKey(options.periodKey || '')
   const seenMemberIds = new Set<string>()
 
   if (normalizedItems.length === 0) {
@@ -69,7 +85,7 @@ export const validateQuarterlyPaymentSubmissionItems = (
   }
 
   normalizedItems.forEach((item) => {
-    if (!/^[0-9]{4}-Q[1-4]$/.test(item.period_key)) {
+    if (!isQuarterlyPeriodKey(item.period_key)) {
       errors.push('quarterly period_key must look like YYYY-Q1')
     }
 

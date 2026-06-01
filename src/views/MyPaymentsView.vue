@@ -617,6 +617,9 @@ import {
 import { getMemberBillingLabel } from '@/utils/memberBilling'
 import {
   canUseGroupedQuarterlyPaymentSubmission,
+  isQuarterlyPeriodKey,
+  normalizeQuarterlyPeriodKey,
+  resolveQuarterlyDefaultPeriodKey,
   summarizeQuarterlyPaymentSubmissionItems,
   validateQuarterlyPaymentSubmissionItems
 } from '@/utils/quarterlyPaymentSubmissions'
@@ -767,7 +770,6 @@ const selectedQuarterlyPaymentCandidates = computed(() => {
 const getQuarterlyCandidateAvailableBalance = (member: MyPaymentMember) =>
   Math.max(0, Number(member.balance_amount || 0))
 
-const latestOfficialRecord = computed(() => records.value[0] || null)
 const createDialogAvailableBalance = computed(() =>
   isQuarterlyMembershipFlow.value
     ? selectedQuarterlyPaymentCandidates.value.reduce((total, member) => {
@@ -1564,14 +1566,14 @@ const quarterPeriodOptions = computed(() => {
   }
 
   records.value.forEach((record) => {
-    if (record.billing_mode === 'quarterly' && record.period_key) {
-      quarterKeys.add(record.period_key)
+    if (record.billing_mode === 'quarterly' && isQuarterlyPeriodKey(record.period_key)) {
+      quarterKeys.add(normalizeQuarterlyPeriodKey(record.period_key))
     }
   })
 
   submissions.value.forEach((submission) => {
-    if (submission.billing_mode === 'quarterly' && submission.period_key) {
-      quarterKeys.add(submission.period_key)
+    if (submission.billing_mode === 'quarterly' && isQuarterlyPeriodKey(submission.period_key)) {
+      quarterKeys.add(normalizeQuarterlyPeriodKey(submission.period_key))
     }
   })
 
@@ -1598,7 +1600,7 @@ const submissionRules = {
 
         const normalizedValue = (value || '').trim().toUpperCase()
         const isValid = targetMember.billing_mode === 'quarterly'
-          ? /^[0-9]{4}-Q[1-4]$/.test(normalizedValue)
+          ? isQuarterlyPeriodKey(normalizedValue)
           : /^[0-9]{4}-[0-9]{2}$/.test(normalizedValue)
 
         if (!isValid) {
@@ -1716,6 +1718,29 @@ const getCurrentMonthlyFeePeriodKey = (date = dayjs()) =>
   date.date() >= 25 ? date.format('YYYY-MM') : date.subtract(1, 'month').format('YYYY-MM')
 
 const getDefaultMonthlyPeriodKey = () => dayjs().subtract(1, 'month').format('YYYY-MM')
+
+const getDefaultQuarterlyPeriodKey = (preferredPeriodKey?: string | null) =>
+  resolveQuarterlyDefaultPeriodKey(preferredPeriodKey, getCurrentQuarterKey())
+
+const getDefaultSubmissionPeriodKey = (
+  targetMember: MyPaymentMember | null | undefined,
+  preferredPeriodKey?: string | null
+) => {
+  const normalizedPreferredPeriodKey = preferredPeriodKey?.trim() || ''
+
+  if (targetMember?.billing_mode === 'quarterly') {
+    return getDefaultQuarterlyPeriodKey(normalizedPreferredPeriodKey)
+  }
+
+  const latestTargetRecord = targetMember
+    ? records.value.find((record) =>
+      record.member_id === targetMember.member_id &&
+      record.billing_mode === targetMember.billing_mode
+    )
+    : null
+
+  return normalizedPreferredPeriodKey || latestTargetRecord?.period_key || getDefaultMonthlyPeriodKey()
+}
 
 const buildMemberOptionLabel = (member: MyPaymentMember) => {
   const scopeLabel = member.is_linked === false ? '管理員檢視' : '我的關聯'
@@ -2021,13 +2046,10 @@ const hydrateSubmissionDefaults = (periodKeyOverride?: string, shouldIncludeMemb
     || linkedMembers.value[0]
     || null
   const targetMember = preferredLinkedMember
-  const fallbackPeriodKey = targetMember?.billing_mode === 'quarterly'
-    ? getCurrentQuarterKey()
-    : getDefaultMonthlyPeriodKey()
-  const normalizedPeriodKeyOverride = periodKeyOverride?.trim().toUpperCase() || ''
+  const defaultPeriodKey = getDefaultSubmissionPeriodKey(targetMember, periodKeyOverride)
 
   submissionForm.member_id = targetMember?.member_id || ''
-  submissionForm.period_key = normalizedPeriodKeyOverride || latestOfficialRecord.value?.period_key || fallbackPeriodKey
+  submissionForm.period_key = defaultPeriodKey
   submissionForm.amount = targetMember?.billing_mode === 'quarterly'
     ? resolveQuarterlyAmount(submissionForm.period_key)
     : 0
@@ -2455,10 +2477,15 @@ const toggleUnifiedRecordSelection = (item: UnifiedPaymentRecord, selected: bool
       const targetMember = linkedMembers.value.find((member) => member.member_id === selectedMemberId.value)
         || linkedMembers.value[0]
         || null
+      const nextPeriodKey = targetMember?.billing_mode === 'quarterly'
+        ? getDefaultQuarterlyPeriodKey(item.periodKey)
+        : item.periodKey
 
       submissionForm.member_id = targetMember?.member_id || ''
-      submissionForm.period_key = item.periodKey
-      submissionForm.amount = Number(item.amount) || 0
+      submissionForm.period_key = nextPeriodKey
+      submissionForm.amount = targetMember?.billing_mode === 'quarterly'
+        ? resolveQuarterlyAmount(nextPeriodKey)
+        : Number(item.amount) || 0
       void refreshSubmissionEstimate()
     }
 
@@ -2509,9 +2536,7 @@ watch(
     }
 
     const targetMember = members.value.find((member) => member.member_id === nextMemberId)
-    const nextDefaultPeriodKey = targetMember?.billing_mode === 'quarterly'
-      ? getCurrentQuarterKey()
-      : getDefaultMonthlyPeriodKey()
+    const nextDefaultPeriodKey = getDefaultSubmissionPeriodKey(targetMember)
 
     submissionForm.period_key = nextDefaultPeriodKey
     selectedQuarterlyMemberIds.value = targetMember?.billing_mode === 'quarterly' && targetMember.member_id

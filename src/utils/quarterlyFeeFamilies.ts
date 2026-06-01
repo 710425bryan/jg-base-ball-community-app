@@ -185,3 +185,31 @@ export const sumQuarterlyFeeGroupBalanceAmount = <
 export const getQuarterlyFeeExternalAmount = (
   record: Pick<QuarterlyFeeGroupingRecord, 'amount' | 'balance_amount'>
 ) => Math.max(0, (Number(record.amount) || 0) - (Number(record.balance_amount) || 0))
+
+type ResolveQuarterlyDisplayAmountInput = {
+  hasOwnRecord: boolean
+  hasFullFamilyCoverage: boolean
+  storedAmount: unknown
+  expectedAmount: number
+}
+
+export const resolveQuarterlyDisplayAmount = ({
+  hasOwnRecord,
+  hasFullFamilyCoverage,
+  storedAmount,
+  expectedAmount
+}: ResolveQuarterlyDisplayAmountInput) => {
+  const normalizedExpectedAmount = Number(expectedAmount) || 0
+  const normalizedStoredAmount = Number(storedAmount)
+  const hasStoredAmount =
+    storedAmount !== null &&
+    storedAmount !== undefined &&
+    storedAmount !== '' &&
+    Number.isFinite(normalizedStoredAmount)
+
+  if (!hasOwnRecord || !hasFullFamilyCoverage || !hasStoredAmount) {
+    return normalizedExpectedAmount
+  }
+
+  return normalizedStoredAmount
+}
