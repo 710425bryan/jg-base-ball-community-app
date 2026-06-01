@@ -1062,10 +1062,10 @@ const currentFeeReminderCard = computed<PaymentReminderCard | null>(() => {
   const amountLabel = currentFeeDueAmount.value > 0 ? formatCurrency(currentFeeDueAmount.value) : '金額待確認'
 
   if (status === 'paid') {
-    const targetSelector = currentFeeOfficialRecord.value
-      ? `[data-profile-period-key="${periodKey}"]`
-      : currentFeePaidSubmission.value
-        ? `[data-profile-submission-id="${currentFeePaidSubmission.value.id}"]`
+    const targetSelector = currentFeePaidSubmission.value
+      ? `[data-profile-submission-id="${currentFeePaidSubmission.value.id}"]`
+      : currentFeeOfficialRecord.value
+        ? `[data-profile-period-key="${periodKey}"]`
         : '#profile-payment-records-section'
 
     return {
@@ -1403,6 +1403,47 @@ const getUnifiedStatusLabel = (
   return getStatusLabel(status)
 }
 
+const getMembershipPeriodLookupKey = (billingMode?: string | null, periodKey?: string | null) =>
+  `${billingMode || ''}:${periodKey || ''}`
+
+const activeMembershipSubmissionStatusByPeriod = computed(() => {
+  const statusMap = new Map<string, string>()
+
+  submissions.value.forEach((submission) => {
+    if (!isPaidStatus(submission.status) && !isPendingStatus(submission.status)) {
+      return
+    }
+
+    const periodKeys = new Set<string>()
+    if (submission.period_key) {
+      periodKeys.add(submission.period_key)
+    }
+    submission.items?.forEach((item) => {
+      if (item.period_key) {
+        periodKeys.add(item.period_key)
+      }
+    })
+
+    periodKeys.forEach((periodKey) => {
+      const lookupKey = getMembershipPeriodLookupKey(submission.billing_mode, periodKey)
+      const currentStatus = statusMap.get(lookupKey)
+
+      if (isPaidStatus(currentStatus)) {
+        return
+      }
+
+      statusMap.set(lookupKey, submission.status)
+    })
+  })
+
+  return statusMap
+})
+
+const getActiveMembershipSubmissionStatus = (record: MyPaymentRecord) =>
+  activeMembershipSubmissionStatusByPeriod.value.get(
+    getMembershipPeriodLookupKey(record.billing_mode, record.period_key)
+  ) || null
+
 const unifiedPaymentRecords = computed<UnifiedPaymentRecord[]>(() => {
   const rows: UnifiedPaymentRecord[] = []
   const selectedMemberName = selectedMember.value?.name || ''
@@ -1437,6 +1478,15 @@ const unifiedPaymentRecords = computed<UnifiedPaymentRecord[]>(() => {
 
   records.value.forEach((record) => {
     const status = record.status || 'unpaid'
+    const activeSubmissionStatus = getActiveMembershipSubmissionStatus(record)
+
+    if (
+      isPaidStatus(activeSubmissionStatus)
+      || (isPendingStatus(activeSubmissionStatus) && !isPaidStatus(status))
+    ) {
+      return
+    }
+
     rows.push({
       id: `membership-record-${record.period_key}-${record.updated_at || 'na'}`,
       sourceId: record.period_key,
