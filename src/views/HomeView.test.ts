@@ -9,6 +9,7 @@ const pushMock = vi.fn()
 const fetchMock = vi.fn()
 const fetchEquipmentsMock = vi.fn()
 const rpcMock = vi.fn()
+let latestTeamMembersRealtimeHandler: (() => void) | null = null
 
 const teamMembersInMock = vi.fn()
 const teamMembersSelectMock = vi.fn(() => ({
@@ -66,6 +67,17 @@ const fromMock = vi.fn((table: string) => {
 
   throw new Error(`Unexpected table: ${table}`)
 })
+const realtimeChannelMock = {
+  on: vi.fn((_event: string, config: { table?: string }, callback: () => void) => {
+    if (config?.table === 'team_members') {
+      latestTeamMembersRealtimeHandler = callback
+    }
+    return realtimeChannelMock
+  }),
+  subscribe: vi.fn(() => realtimeChannelMock)
+}
+const channelMock = vi.fn(() => realtimeChannelMock)
+const removeChannelMock = vi.fn()
 
 vi.mock('vue-router', async () => {
   const actual = await vi.importActual<typeof import('vue-router')>('vue-router')
@@ -81,7 +93,9 @@ vi.mock('@/services/supabase', () => ({
   supabase: {
     auth: {},
     rpc: rpcMock,
-    from: fromMock
+    from: fromMock,
+    channel: channelMock,
+    removeChannel: removeChannelMock
   }
 }))
 
@@ -364,6 +378,7 @@ const mountHomeView = async ({
 
 beforeEach(() => {
   vi.clearAllMocks()
+  latestTeamMembersRealtimeHandler = null
 })
 
 afterEach(() => {
@@ -391,6 +406,37 @@ describe('HomeView dashboard redesign', () => {
     expect(wrapper.find('[data-test="today-attendance-events-count"]').text()).toContain('點名單 2')
     expect(teamMembersInMock).toHaveBeenCalledWith('role', ['球員', '校隊', '教練'])
     expect(attendanceEventsSelectMock).toHaveBeenCalledWith('id, attendance_records(member_id, status)')
+    expect(channelMock).toHaveBeenCalledWith('dashboard-admin-team-members-stats')
+    expect(realtimeChannelMock.on).toHaveBeenCalledWith(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'team_members' },
+      expect.any(Function)
+    )
+  })
+
+  it('refreshes admin stats when team member rows change', async () => {
+    const { wrapper } = await mountHomeView({
+      role: 'ADMIN'
+    })
+
+    expect(wrapper.find('[data-test="team-members-total"]').text()).toContain('3')
+    expect(latestTeamMembersRealtimeHandler).toEqual(expect.any(Function))
+
+    teamMembersInMock.mockResolvedValueOnce({
+      data: [
+        { role: '校隊', status: '在隊' },
+        { role: '球員', status: '在隊' },
+        { role: '球員', status: '在隊' },
+        { role: '教練', status: '在隊' }
+      ],
+      error: null
+    })
+
+    latestTeamMembersRealtimeHandler?.()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="team-members-total"]').text()).toContain('4')
+    expect(wrapper.find('[data-test="community-members-count"]').text()).toContain('社區 2')
   })
 
   it('hides the admin stats cards for non-admin users', async () => {

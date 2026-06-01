@@ -97,6 +97,7 @@
 | `supabase_profile_payment_review_member_id_ambiguity_fix_migration.sql` | 付款審核 member_id ambiguity 修正 | 審核流程必讀 |
 | `supabase_profile_payment_submission_estimate_migration.sql` | 付款估算 RPC | 家長端送出前估算 |
 | `supabase_profile_payment_submission_estimate_monthly_record_migration.sql` | 月費紀錄估算補強 | 固定月繳 / 月費估算必讀 |
+| `supabase_zzzzzzzz_profile_payment_estimate_training_dates_migration.sql` | 付款估算訓練日期補強 | 月繳本月堂數改以 `/training-dates` 設定天數計算 |
 | `supabase_player_balance_transactions_migration.sql` | 球員餘額流水帳與付款 RPC 覆寫 | 餘額權威主線 |
 | `supabase_quarterly_fee_compensation_migration.sql` | 季費堂數不足補償 | 產生待審核補償單，核准後寫入球員餘額 |
 | `supabase_match_fees_migration.sql` | 比賽費 items / submissions | 比賽費與餘額整合 |
