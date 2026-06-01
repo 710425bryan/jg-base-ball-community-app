@@ -95,6 +95,7 @@
 | `supabase_profile_payment_submissions_migration.sql` | 個人付款回報 | `/my-payments` 主線 |
 | `supabase_profile_payment_rpc_fix_migration.sql` | 個人付款 RPC 修正 | 覆寫付款 RPC |
 | `supabase_profile_payment_review_member_id_ambiguity_fix_migration.sql` | 付款審核 member_id ambiguity 修正 | 審核流程必讀 |
+| `supabase_zzzzzzzz_profile_payment_review_conflict_target_hotfix.sql` | 付款審核 conflict target 修正 | 多球員季繳覆寫後的 `member_id` ambiguity 修正 |
 | `supabase_profile_payment_submission_estimate_migration.sql` | 付款估算 RPC | 家長端送出前估算 |
 | `supabase_profile_payment_submission_estimate_monthly_record_migration.sql` | 月費紀錄估算補強 | 固定月繳 / 月費估算必讀 |
 | `supabase_zzzzzzzz_profile_payment_estimate_training_dates_migration.sql` | 付款估算訓練日期補強 | 月繳本月堂數改以 `/training-dates` 設定天數計算 |

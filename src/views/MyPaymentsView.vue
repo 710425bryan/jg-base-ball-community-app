@@ -20,11 +20,17 @@
 
             <button
               type="button"
-              class="flex-1 sm:flex-none rounded-2xl bg-primary hover:bg-primary-hover text-white font-bold px-5 py-3 transition-colors disabled:opacity-70"
-              :disabled="!canCreateSubmissionForSelectedMember || isRefreshing"
+              class="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-3 font-bold text-white transition-colors hover:bg-primary-hover disabled:opacity-70 sm:flex-none"
+              :disabled="!canCreateSubmissionForSelectedMember || isRefreshing || isPreparingCreateDialog"
+              :aria-busy="isPreparingCreateDialog"
               @click="openCreateDialog()"
             >
-              新增付款回報
+              <span
+                v-if="isPreparingCreateDialog"
+                class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+                aria-hidden="true"
+              />
+              {{ isPreparingCreateDialog ? '載入中...' : '新增付款回報' }}
             </button>
           </template>
         </AppPageHeader>
@@ -99,11 +105,17 @@
               </div>
               <button
                 type="button"
-                class="rounded-2xl bg-slate-900 px-4 py-2 text-sm font-black text-white transition-colors hover:bg-black disabled:opacity-60"
-                :disabled="!canCreateSubmissionForSelectedMember"
+                class="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-2 text-sm font-black text-white transition-colors hover:bg-black disabled:opacity-60"
+                :disabled="!canCreateSubmissionForSelectedMember || isRefreshing || isPreparingCreateDialog"
+                :aria-busy="isPreparingCreateDialog"
                 @click="openCreateDialog()"
               >
-                新增付款回報
+                <span
+                  v-if="isPreparingCreateDialog"
+                  class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white"
+                  aria-hidden="true"
+                />
+                {{ isPreparingCreateDialog ? '載入中...' : '新增付款回報' }}
               </button>
             </div>
 
@@ -249,8 +261,10 @@
       destroy-on-close
     >
       <el-form ref="formRef" :model="submissionForm" :rules="submissionRules" label-position="top" class="space-y-5">
-        <div class="grid gap-4 sm:grid-cols-2">
-          <el-form-item label="繳費成員" prop="member_id" class="font-bold">
+        <PaymentAccountInfoCard compact />
+
+        <div class="grid grid-cols-2 gap-3 sm:gap-4">
+          <el-form-item label="繳費成員" prop="member_id" class="min-w-0 font-bold">
             <el-select v-model="submissionForm.member_id" class="w-full" size="large" disabled>
               <el-option
                 v-for="member in linkedMembers"
@@ -261,7 +275,7 @@
             </el-select>
           </el-form-item>
 
-          <el-form-item label="匯款日期" prop="remittance_date" class="font-bold">
+          <el-form-item label="匯款日期" prop="remittance_date" class="min-w-0 font-bold">
             <el-date-picker
               v-model="submissionForm.remittance_date"
               type="date"
@@ -273,8 +287,8 @@
           </el-form-item>
         </div>
 
-        <div class="grid gap-4 sm:grid-cols-2">
-          <el-form-item label="匯款方式" prop="payment_method" class="font-bold">
+        <div class="grid grid-cols-2 gap-3 sm:gap-4">
+          <el-form-item label="匯款方式" prop="payment_method" class="min-w-0 font-bold">
             <el-select
               v-model="submissionForm.payment_method"
               class="w-full"
@@ -292,7 +306,7 @@
             </el-select>
           </el-form-item>
 
-          <el-form-item label="匯款帳號後五碼" prop="account_last_5" class="font-bold">
+          <el-form-item label="匯款帳號後五碼" prop="account_last_5" class="min-w-0 font-bold">
             <el-input
               :model-value="submissionForm.account_last_5"
               size="large"
@@ -303,8 +317,6 @@
             />
           </el-form-item>
         </div>
-
-        <PaymentAccountInfoCard compact />
 
         <section class="space-y-4 rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
           <div class="flex items-center justify-between gap-3">
@@ -701,6 +713,7 @@ const submissions = ref<MyPaymentSubmission[]>([])
 const selectedMemberId = ref('')
 const isBootstrapping = ref(true)
 const isRefreshing = ref(false)
+const isPreparingCreateDialog = ref(false)
 const isCreateDialogOpen = ref(false)
 const isSubmitting = ref(false)
 const isEstimatingAmount = ref(false)
@@ -2163,40 +2176,45 @@ const openCreateDialog = async (
     preset?: 'membership-fee' | 'equipment' | 'match-fees'
   } = {}
 ) => {
-  if (!canCreateSubmissionForSelectedMember.value) {
+  if (!canCreateSubmissionForSelectedMember.value || isPreparingCreateDialog.value) {
     return
   }
 
-  const preset = options.preset
-  const preservedMembershipPeriodKey = includeMembershipFee.value
-    ? submissionForm.period_key
-    : options.periodKey
-  hydrateSubmissionDefaults(
-    preservedMembershipPeriodKey,
-    preset ? preset === 'membership-fee' : includeMembershipFee.value || canSelectMembershipFee.value || selectedMember.value?.billing_mode === 'quarterly'
-  )
-  await refreshUnifiedPaymentSources()
+  isPreparingCreateDialog.value = true
+  try {
+    const preset = options.preset
+    const preservedMembershipPeriodKey = includeMembershipFee.value
+      ? submissionForm.period_key
+      : options.periodKey
+    hydrateSubmissionDefaults(
+      preservedMembershipPeriodKey,
+      preset ? preset === 'membership-fee' : includeMembershipFee.value || canSelectMembershipFee.value || selectedMember.value?.billing_mode === 'quarterly'
+    )
+    await refreshUnifiedPaymentSources()
 
-  if (preset === 'equipment') {
-    includeMembershipFee.value = false
-    selectedEquipmentTransactionIds.value = equipmentUnpaidItems.value.map((item) => item.transaction_id)
-    selectedMatchFeeItemIds.value = []
-  } else if (preset === 'match-fees') {
-    includeMembershipFee.value = false
-    selectedEquipmentTransactionIds.value = []
-    selectedMatchFeeItemIds.value = matchFeeUnpaidItems.value.map((item) => item.id)
-  } else if (preset === 'membership-fee') {
-    includeMembershipFee.value = true
-  }
+    if (preset === 'equipment') {
+      includeMembershipFee.value = false
+      selectedEquipmentTransactionIds.value = equipmentUnpaidItems.value.map((item) => item.transaction_id)
+      selectedMatchFeeItemIds.value = []
+    } else if (preset === 'match-fees') {
+      includeMembershipFee.value = false
+      selectedEquipmentTransactionIds.value = []
+      selectedMatchFeeItemIds.value = matchFeeUnpaidItems.value.map((item) => item.id)
+    } else if (preset === 'membership-fee') {
+      includeMembershipFee.value = true
+    }
 
-  await refreshSubmissionEstimate()
-  if (includeMembershipFee.value && !canSelectMembershipFee.value) {
-    includeMembershipFee.value = false
+    await refreshSubmissionEstimate()
+    if (includeMembershipFee.value && !canSelectMembershipFee.value) {
+      includeMembershipFee.value = false
+    }
+    syncBalanceDeductionLimit()
+    isCreateDialogOpen.value = true
+    await nextTick()
+    formRef.value?.clearValidate?.()
+  } finally {
+    isPreparingCreateDialog.value = false
   }
-  syncBalanceDeductionLimit()
-  isCreateDialogOpen.value = true
-  await nextTick()
-  formRef.value?.clearValidate?.()
 }
 
 const handleSubmissionPaymentMethodChange = (value: string) => {
