@@ -33,7 +33,7 @@ const selectedLevel = ref('')
 type MonthRange = [string, string]
 
 const createDefaultMonthRange = (): MonthRange => [
-  dayjs().format('YYYY-MM'),
+  dayjs().subtract(1, 'month').format('YYYY-MM'),
   dayjs().add(1, 'month').format('YYYY-MM')
 ]
 

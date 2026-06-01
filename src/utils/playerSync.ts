@@ -17,6 +17,8 @@ export type GuardianAccountSyncRow = {
   playerNames: string[]
 }
 
+export type PlayerSyncCsvHeaderMap = Map<string, number>
+
 const normalizePlayerSyncKey = (value: string | null | undefined) => value?.trim() ?? ''
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const PLAYER_NAME_DELIMITER_PATTERN = /[,、，/／;；\r\n]+/
@@ -57,6 +59,35 @@ export const dedupePlayerSyncRows = <T>(
       .filter((row): row is T => row !== undefined),
     duplicateCount
   }
+}
+
+export const buildPlayerSyncCsvHeaderMap = (headers: string[]): PlayerSyncCsvHeaderMap => {
+  const headerMap: PlayerSyncCsvHeaderMap = new Map()
+
+  headers.forEach((header, index) => {
+    const normalizedHeader = header?.trim()
+    if (normalizedHeader && !headerMap.has(normalizedHeader)) {
+      headerMap.set(normalizedHeader, index)
+    }
+  })
+
+  return headerMap
+}
+
+export const getPlayerSyncCsvCell = (
+  row: string[],
+  headerMap: PlayerSyncCsvHeaderMap,
+  ...headers: string[]
+) => {
+  for (const header of headers) {
+    const index = headerMap.get(header)
+    if (index === undefined) continue
+
+    const value = row[index]?.trim()
+    if (value) return value
+  }
+
+  return ''
 }
 
 export const normalizePlayerSyncEmail = (value: string | null | undefined) =>

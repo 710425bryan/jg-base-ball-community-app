@@ -303,7 +303,6 @@ import { BellFilled, Calendar, Check, Delete } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 import { useRoute } from 'vue-router'
 import { useWindowSize } from '@vueuse/core'
-import { buildPushEventKey, dispatchPushNotification } from '@/utils/pushNotifications'
 import {
   buildSiblingGroupMap,
   normalizeSiblingIds,
@@ -613,7 +612,7 @@ const buildQuarterlyPayload = (fee: any, now: string) => ({
   payment_method: fee.payment_method,
   account_last_5: ['銀行轉帳', '郵局無摺', 'ATM存款'].includes(fee.payment_method) ? fee.account_last_5 : null,
   remittance_date: fee.remittance_date,
-  status: fee.is_paid ? 'paid' : 'unpaid',
+  status: fee.is_paid ? 'paid' : fee.status === 'pending_review' ? 'pending_review' : 'unpaid',
   paid_at: fee.is_paid ? now : null,
   updated_at: now
 })
@@ -727,6 +726,7 @@ const fetchData = async () => {
         payment_method: baseRecord?.payment_method || '銀行轉帳',
         account_last_5: baseRecord?.account_last_5 || '',
         remittance_date: baseRecord?.remittance_date || dayjs().format('YYYY-MM-DD'),
+        status: baseRecord?.status || 'unpaid',
         is_paid: baseRecord ? baseRecord.status === 'paid' : false,
         is_discounted: expectedAmount < FULL_QUARTERLY_FEE_AMOUNT,
         expected_amount: expectedAmount
@@ -756,7 +756,7 @@ const fetchRemittances = async (
       .from('quarterly_fees')
       .select('id, member_id, member_ids, year_quarter, payment_method, amount, balance_amount, created_at, updated_at, status, remittance_date, account_last_5, payment_items, other_item_note')
       .eq('year_quarter', selectedPeriodLabel.value)
-      .or('status.is.null,status.neq.paid')
+      .or('status.is.null,status.eq.pending_review')
       .order('created_at', { ascending: false })
       .limit(30)
       
@@ -838,17 +838,6 @@ const saveAll = async () => {
           fee.record_id = data[0].id
           fee.record_member_id = data[0].member_id
           fee.record_member_ids = Array.isArray(data[0].member_ids) ? [...data[0].member_ids] : [...payload.member_ids]
-
-          void dispatchPushNotification({
-            title: `[新增匯款] 收到 ${fee.member_name} 的繳費登記`,
-            body: `${selectedPeriodLabel.value}，金額 ${payload.amount} 元`,
-            url: `/fees?member_id=${fee.member_id}`,
-            feature: 'fees',
-            action: 'VIEW',
-            eventKey: buildPushEventKey('quarterly_fee', data[0].id)
-          }).catch((pushError) => {
-            console.warn('季費推播傳送失敗', pushError)
-          })
         }
       }
 
@@ -856,6 +845,7 @@ const saveAll = async () => {
       fee.family_key = buildQuarterlyFamilyKey(payload.member_ids)
       fee.amount = payload.amount
       fee.balance_amount = payload.balance_amount
+      fee.status = payload.status
     }
 
     await refreshRemittances()

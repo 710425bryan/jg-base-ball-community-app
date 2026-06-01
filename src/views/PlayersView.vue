@@ -290,9 +290,9 @@
                   <span v-else class="text-gray-300">-</span>
                 </div>
                 <div>
-                  <span class="block text-[10px] font-bold text-slate-400 mb-0.5">球衣尺寸</span>
-                  <span v-if="member.jersey_size" class="font-bold text-slate-800">
-                    {{ member.jersey_size }}
+                  <span class="block text-[10px] font-bold text-slate-400 mb-0.5">背號</span>
+                  <span v-if="member.jersey_number" class="font-mono font-bold text-slate-800">
+                    #{{ member.jersey_number }}
                   </span>
                   <span v-else class="text-gray-300">-</span>
                 </div>
@@ -416,7 +416,7 @@
             <el-form-item v-if="canEditPlayers" label="身分證字號" prop="national_id" class="font-bold mb-0">
               <el-input v-model="form.national_id" placeholder="身分證字號" />
             </el-form-item>
-            <el-form-item label="背號" prop="jersey_number" class="font-bold mb-0" v-if="form.role === '球員' || form.role === '教練'">
+            <el-form-item label="背號" prop="jersey_number" class="font-bold mb-0" v-if="form.role === '球員' || form.role === '校隊' || form.role === '教練'">
               <el-input v-model="form.jersey_number" placeholder="隊上背號" />
             </el-form-item>
             <el-form-item prop="is_early_enrollment" class="font-bold mb-0 flex items-center h-[52px]">
@@ -456,12 +456,6 @@
               <el-select v-model="form.sibling_ids" multiple placeholder="無" clearable filterable class="w-full">
                 <el-option v-for="m in members.filter(x => x.id !== form.id && (x.role === '球員' || x.role === '校隊'))" :key="m.id" :label="m.name" :value="m.id" />
               </el-select>
-            </el-form-item>
-            <el-form-item label="球衣名字" prop="jersey_name" class="font-bold mb-0" v-if="form.role === '球員' || form.role === '校隊' || form.role === '教練'">
-              <el-input v-model="form.jersey_name" placeholder="球衣顯示名稱" />
-            </el-form-item>
-            <el-form-item label="球衣尺寸" prop="jersey_size" class="font-bold mb-0" v-if="form.role === '球員' || form.role === '校隊' || form.role === '教練'">
-              <el-input v-model="form.jersey_size" placeholder="例如: XS, S, M, L, XL" />
             </el-form-item>
           </div>
         </div>
@@ -672,8 +666,10 @@ import { supabase } from '@/services/supabase'
 import { compressImage } from '@/utils/imageCompressor'
 import { buildPushEventKey, dispatchPushNotification } from '@/utils/pushNotifications'
 import {
+  buildPlayerSyncCsvHeaderMap,
   buildGuardianAccountSyncRows,
   dedupePlayerSyncRows,
+  getPlayerSyncCsvCell,
   getProtectedFeeFlagsPayloadForGoogleFormSync,
   type GuardianAccountSyncInput,
   type GuardianAccountSyncRow
@@ -720,6 +716,25 @@ const canEditUsers = computed(() => permissionsStore.can('users', 'EDIT'))
 const PLAYER_SYNC_SHEET_ID = '1xERmQABQONXNONfw_pz9cDmz5Pb597sYYVQE3AT5ySk'
 const PLAYER_SYNC_SHEET_GID = '0'
 const PLAYER_SYNC_CSV_URL = `https://docs.google.com/spreadsheets/d/${PLAYER_SYNC_SHEET_ID}/export?format=csv&id=${PLAYER_SYNC_SHEET_ID}&gid=${PLAYER_SYNC_SHEET_GID}`
+const PLAYER_SYNC_REQUIRED_HEADERS = [
+  '姓名',
+  '身分',
+  '中港校隊',
+  '是否有兄弟姐妹也在熊戰社區',
+  '出生年月日',
+  '提早入學',
+  '身分證字號',
+  '投球慣用手',
+  '打擊慣用方向',
+  '主要聯絡人LINE ID',
+  '主要聯絡人email',
+  '主要聯絡人身分',
+  '法定代理人',
+  '法定代理人-手機',
+  '清寒低收資格',
+  '備註',
+  '肖像授權同意權'
+]
 const DEFAULT_SYNC_USER_PASSWORD = '123456'
 const GENERAL_MEMBER_ROLE_FALLBACK = 'MEMBER'
 const GENERAL_MEMBER_ROLE_CANDIDATE_KEYS = ['MEMBER', 'PARENT', 'GENERAL_MEMBER']
@@ -1608,7 +1623,7 @@ const buildGuardianAccountSyncSummary = (result: GuardianAccountSyncResult) => {
 const syncFromGoogleSheet = async () => {
   if (!canEditPlayers.value) return;
   try {
-    await ElMessageBox.confirm('確定要從 Google 表單同步球員名單？這將會更新同名球員、新增缺漏球員，並依主要聯絡人 email 建立一般成員帳號；重複 email 不會重複新增。', '🔄 同步確認', {
+    await ElMessageBox.confirm('確定要從 Google 表單同步球員名單？這將會更新同名球員、新增缺漏球員，並依主要聯絡人 email 建立一般成員帳號；球衣號碼與球衣資料會保留系統現值，不會由表單覆蓋。', '🔄 同步確認', {
       confirmButtonText: '開始同步', cancelButtonText: '取消', type: 'warning'
     });
     
@@ -1618,6 +1633,14 @@ const syncFromGoogleSheet = async () => {
     const csvData = parseCSV(response.data);
     
     if (csvData.length < 2) throw new Error('無法擷取到有效的表單資料或資料為空');
+
+    const headerMap = buildPlayerSyncCsvHeaderMap(csvData[0] || [])
+    const missingHeaders = PLAYER_SYNC_REQUIRED_HEADERS.filter((header) => !headerMap.has(header))
+    if (missingHeaders.length > 0) {
+      throw new Error(`表單缺少必要欄位：${missingHeaders.join('、')}`)
+    }
+    const readCell = (row: string[], ...headers: string[]) =>
+      getPlayerSyncCsvCell(row, headerMap, ...headers)
 
     const existingMap = new Map();
     members.value.forEach(m => {
@@ -1631,16 +1654,17 @@ const syncFromGoogleSheet = async () => {
     
     for (let i = 1; i < csvData.length; i++) {
       const row = csvData[i];
-      if (row.length < 10 || !row[0]?.trim()) continue; 
+      if (row.length < 1) continue;
       
-      const name = row[0].trim();
-      const rawRole = row[1]?.trim();
+      const name = readCell(row, '姓名');
+      if (!name) continue;
+      const rawRole = readCell(row, '身分');
       let roleMapped = ['教練', '管理群', '其他'].includes(rawRole) ? rawRole : '球員';
-      if (row[2]?.trim() === '是') {
+      if (readCell(row, '中港校隊') === '是') {
         roleMapped = '校隊';
       }
       
-      const siblingNamesRaw = row[3]?.trim();
+      const siblingNamesRaw = readCell(row, '是否有兄弟姐妹也在熊戰社區');
       const siblingNames = siblingNamesRaw ? siblingNamesRaw.split(/[,、]/).map(s => s.trim()).filter(Boolean) : [];
       let sibling_ids: string[] = [];
       siblingNames.forEach(sName => {
@@ -1648,26 +1672,24 @@ const syncFromGoogleSheet = async () => {
         if (sibling && sibling.id) sibling_ids.push(sibling.id);
       });
 
-      let birth_date: string | null = row[4]?.trim().replace(/\//g, '-') || null;
+      let birth_date: string | null = readCell(row, '出生年月日').replace(/\//g, '-') || null;
       if (birth_date && isNaN(Date.parse(birth_date))) {
           birth_date = null;
       }
       
-      const is_early_enrollment = row[6]?.trim() === '有';
-      const national_id = row[7]?.trim() || null;
-      const throwing_hand = row[8]?.trim() || null;
-      const batting_hand = row[9]?.trim() || null;
-      const contact_line_id = row[10]?.trim() || null;
-      const contact_email = row[11]?.trim() || null;
-      const contact_relation = row[12]?.trim() || null;
-      const guardian_name = row[13]?.trim() || null;
-      const guardian_phone = row[14]?.trim() || null;
-      const jersey_number = row[15]?.trim() || null;
-      const jersey_size = row[16]?.trim() || null;
-      const jersey_name = row[17]?.trim() || null;
-      const low_income_qualification = row[18]?.trim() === '是';
-      const notes = row[19]?.trim() && !['無', '沒', '無。'].includes(row[19]?.trim()) ? row[19]?.trim() : null;
-      const portrait_auth_str = row[20] || '';
+      const is_early_enrollment = readCell(row, '提早入學') === '有';
+      const national_id = readCell(row, '身分證字號') || null;
+      const throwing_hand = readCell(row, '投球慣用手') || null;
+      const batting_hand = readCell(row, '打擊慣用方向') || null;
+      const contact_line_id = readCell(row, '主要聯絡人LINE ID', '主要聯絡人 LINE ID') || null;
+      const contact_email = readCell(row, '主要聯絡人email', '主要聯絡人 email', '主要聯絡人Email') || null;
+      const contact_relation = readCell(row, '主要聯絡人身分') || null;
+      const guardian_name = readCell(row, '法定代理人') || null;
+      const guardian_phone = readCell(row, '法定代理人-手機', '法定代理人手機') || null;
+      const low_income_qualification = readCell(row, '清寒低收資格') === '是';
+      const rawNotes = readCell(row, '備註');
+      const notes = rawNotes && !['無', '沒', '無。'].includes(rawNotes) ? rawNotes : null;
+      const portrait_auth_str = readCell(row, '肖像授權同意權') || '';
       const portrait_auth = portrait_auth_str.includes('同意') || portrait_auth_str.includes('已充分閱讀');
       
       const basePayload: any = {
@@ -1683,9 +1705,6 @@ const syncFromGoogleSheet = async () => {
         contact_relation,
         guardian_name,
         guardian_phone,
-        jersey_number,
-        jersey_size,
-        jersey_name,
         low_income_qualification,
         notes,
         portrait_auth
