@@ -63,6 +63,7 @@
 | `src/stores/equipment.ts` | 裝備主檔、交易、庫存狀態 | `src/services/equipmentApi.ts` |
 | `src/stores/equipmentRequests.ts` | 裝備加購申請 / 審核狀態 | `src/services/equipmentApi.ts` |
 | `src/stores/equipmentPayments.ts` | 裝備付款項目與審核狀態 | `src/services/equipmentApi.ts` |
+| `src/stores/vendors.ts` | 廠商名單與交易類別狀態 | `src/services/vendorsApi.ts` |
 | `src/stores/performance.ts` | 能力 / 體測資料狀態 | `src/services/performanceApi.ts` |
 
 ## 5. Services
@@ -87,6 +88,7 @@
 | `src/services/trainingDatesApi.ts` | 每月訓練日期設定與日期異動通知呼叫 | `training_month_date_settings` / `get_training_month_dates()` / `save_training_month_dates()` / `send-training-date-notifications` |
 | `src/services/trainingLocationsApi.ts` | 場地與人員配置、連動點名 RPC | `training_location_*` / `training_venues` / `attendance_events.training_location_session_id` / `training_location_session_venue_id` |
 | `src/services/equipmentApi.ts` | 裝備、加購、付款、庫存 API | 裝備 tables / RPC / `equipments` bucket |
+| `src/services/vendorsApi.ts` | 廠商名單、交易類別與照片 signed URL API | `vendors` / `vendor_trade_categories` / `vendors` bucket |
 | `src/services/performanceApi.ts` | 棒球能力 / 體測 API | performance tables / RPC |
 | `src/services/feeManagementReminders.ts` | 費用管理提醒 RPC | `get_fee_management_reminders()` |
 | `src/services/supabase.ts` | Supabase client | env vars |
@@ -120,6 +122,7 @@
 | `src/utils/equipmentInventory.ts` | 裝備庫存計算 |
 | `src/utils/equipmentPricing.ts` | 裝備價格計算 |
 | `src/utils/equipmentRequestStatus.ts` | 裝備申請狀態規則 |
+| `src/utils/vendors.ts` | 廠商搜尋、交易類別分組與照片 path normalize |
 | `src/utils/memberBilling.ts` | 球員有效繳費模式、固定月繳與月費計算 helper |
 | `src/utils/monthlyFeeSettlement.ts` | 月費結算 |
 | `src/utils/quarterlyFeeFamilies.ts` | 季費家庭分組與金額 |
@@ -169,6 +172,7 @@
 | `/match-records` | `src/views/MatchRecordsView.vue` | `matches:VIEW` |
 | `/fees` | `src/views/FeesView.vue` | `fees:VIEW` |
 | `/equipment` | `src/views/EquipmentView.vue` | `equipment:VIEW` |
+| `/vendors` | `src/views/VendorsView.vue` | `vendors:VIEW` |
 | `/baseball-ability` | `src/views/BaseballAbilityView.vue` | `baseball_ability` + linked member exception |
 | `/baseball-ability/:memberId` | `src/views/BaseballAbilityDetailView.vue` | `baseball_ability` + linked member exception |
 | `/physical-tests` | `src/views/PhysicalTestsView.vue` | `physical_tests` + linked member exception |
@@ -189,6 +193,13 @@
 | `src/components/equipment/EquipmentRequestReviewPanel.vue` | 加購審核面板 |
 | `src/components/equipment/EquipmentTransactionDialog.vue` | 裝備交易紀錄 |
 | `src/components/equipment/MyEquipmentPaymentsPanel.vue` | 個人裝備付款 |
+
+### Vendors
+
+| 檔案 | 用途 |
+| --- | --- |
+| `src/components/vendors/VendorFormDialog.vue` | 廠商新增 / 編輯表單、交易類別 allow-create、多照片上傳 |
+| `src/components/vendors/VendorPhotoGallery.vue` | 廠商照片 signed URL 輪播顯示 |
 
 ### Fees
 
@@ -260,6 +271,7 @@
 | --- | --- |
 | `src/types/dashboard.ts` | Dashboard / notification feed 型別 |
 | `src/types/equipment.ts` | 裝備管理型別 |
+| `src/types/vendor.ts` | 廠商名單與交易類別型別 |
 | `src/types/leaveRequests.ts` | 我的假單型別 |
 | `src/types/match.ts` | 賽事型別 |
 | `src/types/matchFees.ts` | 比賽費與付款回報型別 |
@@ -285,6 +297,7 @@
 | 個人成績 | `supabase_my_player_records_migration.sql` |
 | 收費 / 付款 | `supabase_fees_migration.sql`、`supabase_quarterly_fees_migration.sql`、`supabase_profile_payment_submissions_migration.sql`、`supabase_player_balance_transactions_migration.sql`、`supabase_fixed_monthly_billing_migration.sql`、`supabase_quarterly_fee_compensation_migration.sql`、`supabase_match_fees_migration.sql`、`supabase_fee_management_reminders_migration.sql` |
 | 裝備 | `supabase_equipment_management_migration.sql`、`supabase_equipment_inventory_adjustments_migration.sql`、`supabase_equipment_manual_purchase_records_migration.sql`、`supabase_equipment_multiple_photos_migration.sql`、`supabase_zzzzzz_equipment_inventory_snapshot_rpc_migration.sql`、`supabase_zzzzzzzz_equipment_ready_for_pickup_payment_scope_migration.sql` |
+| 廠商 | `supabase_vendor_management_migration.sql` |
 | 能力 / 體測 | `supabase_performance_data_migration.sql`、`supabase_performance_view_scope_migration.sql` |
 | 特訓 / 點數 | `supabase_training_points_migration.sql`、`supabase_zz_training_point_transaction_delete_migration.sql`、`supabase_zz_training_registration_notifications_migration.sql`、`supabase_zzzzzzzz_training_auto_select_notifications_migration.sql` |
 | 訓練日期設定 / 換月預設排程 | `supabase_training_dates_migration.sql` |
@@ -356,6 +369,7 @@
 - `src/utils/equipmentInventory.test.ts`
 - `src/utils/equipmentPricing.test.ts`
 - `src/utils/equipmentRequestStatus.test.ts`
+- `src/utils/vendors.test.ts`
 - `src/composables/useHolidayTheme.test.ts`
 - `src/views/HolidayThemeSettingsView.test.ts`
 - `supabase/functions/notify-holiday-theme/logic.test.ts`

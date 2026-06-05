@@ -48,6 +48,7 @@
 | 場地與人員配置 | `jg-baseball-training-locations` | `src/views/TrainingLocationsView.vue`、`src/services/trainingLocationsApi.ts`、`src/utils/trainingLocationNotification.ts`、`supabase_training_locations_migration.sql` |
 | 收費、付款、球員餘額、比賽費、匯款匯入 | `jg-baseball-finance-payments` | `FeesView.vue`、`MyPaymentsView.vue`、`src/services/myPayments.ts`、`src/services/matchFees.ts`、`src/services/playerBalances.ts` |
 | 裝備管理、加購、庫存、裝備付款 | `jg-baseball-equipment-management` | `src/types/equipment.ts`、`src/services/equipmentApi.ts`、`src/stores/equipment*.ts`、`src/components/equipment/*` |
+| 廠商名單、交易類別、廠商照片 | `jg-baseball-vendors` | `src/views/VendorsView.vue`、`src/services/vendorsApi.ts`、`src/stores/vendors.ts`、`src/components/vendors/*` |
 | 棒球能力 / 體能測驗數據 | `jg-baseball-performance-data` | `src/services/performanceApi.ts`、`src/stores/performance.ts`、`src/components/performance/*` |
 | 節日主題、全站動畫、節日推播 | `jg-baseball-holiday-theme` | `src/composables/useHolidayTheme.ts`、`HolidayThemeSettingsView.vue`、`notify-holiday-theme/*` |
 
@@ -117,7 +118,7 @@
 登入後頁面掛在 `MainLayout`，父層 `meta.requiresAuth = true`。
 
 - 不需額外 feature 的登入頁：`/dashboard`、`/calendar`、`/profile`、`/my-records`、`/my-payments`、`/equipment-addons`、`/my-leave-requests`。
-- 需要 `meta.feature` 的後台頁：`leave_requests`、`players`、`users`、`join_inquiries`、`announcements`、`holiday_theme_settings`、`attendance`、`training`、`training_dates`、`training_locations`、`matches`、`fees`、`baseball_ability`、`physical_tests`、`equipment`。
+- 需要 `meta.feature` 的後台頁：`leave_requests`、`players`、`users`、`join_inquiries`、`announcements`、`holiday_theme_settings`、`attendance`、`training`、`training_dates`、`training_locations`、`matches`、`fees`、`baseball_ability`、`physical_tests`、`equipment`、`vendors`。
 - `baseball_ability` 與 `physical_tests` 有 `allowLinkedMemberView` 例外：有綁定球員者可唯讀自己的資料；管理權限者可看全隊。
 - 無權限時導回 `/dashboard`。
 
@@ -233,6 +234,16 @@
 - 裝備圖片與處理照片使用 `equipments` bucket；主檔 / 備貨 / 領取照片可多張，並保留 `image_url`、`ready_image_url`、`pickup_image_url` 首圖相容欄位。
 - 裝備交易 `purchase` 產生後才進入付款回報；不要把來源專案的 `fee_records` 或月結關帳模型直接搬進本專案。
 
+### 廠商名單
+
+- 後台廠商名單路由 `/vendors`，feature key 為 `vendors`，actions：`VIEW / CREATE / EDIT / DELETE`。
+- 廠商資料流集中在 `src/types/vendor.ts`、`src/services/vendorsApi.ts`、`src/stores/vendors.ts`、`src/utils/vendors.ts`、`src/views/VendorsView.vue` 與 `src/components/vendors/*`。
+- 主要資料表包含 `vendors` 與 `vendor_trade_categories`；交易類別是獨立資料表，自行輸入後保留為下次可選選項，刪除廠商不刪交易類別。
+- 廠商照片使用 private `vendors` bucket，資料表只保存 storage path；前端讀取時由 `vendorsApi` 產生 signed URL。
+- 列表預設表格模式，也支援卡片模式；兩種模式都依交易類別分組，並支援搜尋與交易類別 filter。
+- 廠商名單獨立於裝備與收費，不複製 `equipment` 或 `fees` 權限；新增角色權限時由「角色與權限設定」手動開啟。
+- 新增、編輯、刪除按鈕由 `vendors:CREATE / EDIT / DELETE` 控制；資料安全仍必須由 DB RLS 與 storage policy 檢查。
+
 ### 棒球能力與體能測驗
 
 - 後台路由：`/baseball-ability`、`/baseball-ability/:memberId`、`/physical-tests`、`/physical-tests/:memberId`。
@@ -316,6 +327,7 @@
 - 訓練日期設定：`pnpm exec vitest run src/utils/trainingMonthDates.test.ts src/components/home/MyHomeTodayPanel.test.ts src/composables/useNotificationFeed.test.ts`
 - 名單 / 使用者 / 組別：`pnpm exec vitest run src/utils/playerSync.test.ts src/stores/playerRoster.test.ts src/stores/teamGroups.test.ts src/utils/profileAccess.test.ts`
 - 球員同步：`pnpm exec vitest run src/utils/playerSync.test.ts`
+- 廠商名單：`pnpm exec vitest run src/utils/vendors.test.ts`
 - 推播工具：`pnpm exec vitest run src/utils/pushNotifications.test.ts`
 - 節日主題：`pnpm exec vitest run src/composables/useHolidayTheme.test.ts src/utils/holidayMotionLayout.test.ts src/components/layout/__tests__/HolidayThemeRibbon.test.ts src/views/HolidayThemeSettingsView.test.ts supabase/functions/notify-holiday-theme/logic.test.ts`
 - 能力 / 體測：至少 `pnpm exec vue-tsc --noEmit` 與 `pnpm build`，並人工檢查 ADMIN CRUD、linked member 唯讀、無權限導回、兩 feature 權限互不互通。

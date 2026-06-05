@@ -95,6 +95,12 @@
 - 用途：裝備管理、家長加購、請購審核、備貨 / 領取、裝備付款回報。
 - 典型情境：修改 `/equipment`、`/equipment-addons`、`equipment_transactions`、`equipment_purchase_requests`、`equipment_payment_submissions`、裝備 storage 或相關推播。
 
+### `jg-baseball-vendors`
+
+- 路徑：`.codex/skills/jg-baseball-vendors/SKILL.md`
+- 用途：廠商名單、交易類別保存、廠商照片與 vendors 權限。
+- 典型情境：修改 `/vendors`、`vendors`、`vendor_trade_categories`、`src/services/vendorsApi.ts`、`src/stores/vendors.ts`、`src/components/vendors/*`、或 `vendors` storage policy。
+
 ### `jg-baseball-performance-data`
 
 - 路徑：`.codex/skills/jg-baseball-performance-data/SKILL.md`

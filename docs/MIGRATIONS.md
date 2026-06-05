@@ -130,6 +130,12 @@
 | `supabase_zzzzzzz_equipment_payment_payable_scope_fix_migration.sql` | 裝備付款可付範圍修正 | 最新付款 scope |
 | `supabase_zzzzzzzz_equipment_ready_for_pickup_payment_scope_migration.sql` | 裝備已備貨即可付款 | 覆寫裝備付款 scope，`ready_for_pickup` / `picked_up` 皆可付款 |
 
+## 廠商
+
+| 檔案 | 用途 | 注意事項 |
+| --- | --- | --- |
+| `supabase_vendor_management_migration.sql` | 廠商名單 tables / RLS / private storage policies | `/vendors` 主線；只預設 `ADMIN` 的 `vendors` 權限，交易類別刪除不跟著刪廠商 |
+
 ## 能力、體測、節日與推播
 
 | 檔案 | 用途 | 注意事項 |
