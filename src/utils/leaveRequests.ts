@@ -40,6 +40,78 @@ export const leaveRequestBaseRules: FormRules<LeaveRequestFormState> = {
   leave_type: [{ required: true, message: '請選擇假別', trigger: 'change' }]
 }
 
+const normalizeDateValue = (value: string | null | undefined) => {
+  const normalized = String(value || '').trim()
+  const parsed = dayjs(normalized)
+  return parsed.isValid() && parsed.format('YYYY-MM-DD') === normalized ? normalized : null
+}
+
+const collectDatesInRange = (
+  startDate: string | null | undefined,
+  endDate: string | null | undefined,
+  maxIterations: number
+) => {
+  const startValue = normalizeDateValue(startDate)
+  const endValue = normalizeDateValue(endDate)
+  if (!startValue || !endValue) {
+    return []
+  }
+
+  let currentDate = dayjs(startValue)
+  const finalDate = dayjs(endValue)
+  if (finalDate.isBefore(currentDate, 'day')) {
+    return []
+  }
+
+  const dates: string[] = []
+  let loops = 0
+  while ((currentDate.isBefore(finalDate) || currentDate.isSame(finalDate, 'day')) && loops < maxIterations) {
+    dates.push(currentDate.format('YYYY-MM-DD'))
+    currentDate = currentDate.add(1, 'day')
+    loops += 1
+  }
+
+  return dates
+}
+
+const dedupeSortedDates = (dates: string[]) => [...new Set(dates)].sort((left, right) => left.localeCompare(right))
+
+export const collectLeaveRequestDates = (
+  form: LeaveRequestFormState,
+  maxIterations = 365
+) => {
+  if (form.leave_mode === '單日請假') {
+    const date = normalizeDateValue(form.date_single)
+    return date ? [date] : []
+  }
+
+  if (form.leave_mode === '連續多日') {
+    return collectDatesInRange(form.date_range?.[0], form.date_range?.[1], maxIterations)
+  }
+
+  if (!form.recurring_days || form.recurring_days.length === 0) {
+    return []
+  }
+
+  const rangeDates = collectDatesInRange(form.recurring_range?.[0], form.recurring_range?.[1], maxIterations)
+  return dedupeSortedDates(rangeDates.filter((date) => form.recurring_days.includes(dayjs(date).day())))
+}
+
+export const findNonTrainingLeaveDates = (
+  leaveDates: string[],
+  trainingDates: string[]
+) => {
+  const trainingDateSet = new Set(trainingDates.map(normalizeDateValue).filter((date): date is string => Boolean(date)))
+  return dedupeSortedDates(
+    leaveDates
+      .map(normalizeDateValue)
+      .filter((date): date is string => {
+        if (!date) return false
+        return !trainingDateSet.has(date)
+      })
+  )
+}
+
 export const buildLeaveReasonText = (
   reason: string,
   timeRange: LeaveRequestFormState['time_range']

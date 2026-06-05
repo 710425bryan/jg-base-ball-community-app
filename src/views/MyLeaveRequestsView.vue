@@ -172,7 +172,7 @@
         </div>
 
         <el-form-item label="請假模式" prop="leave_mode" class="font-bold mb-5">
-          <el-radio-group v-model="form.leave_mode" class="w-full flex custom-segmented">
+          <el-radio-group v-model="form.leave_mode" class="w-full flex custom-segmented" @change="handleLeaveDateSelectionChange">
             <el-radio-button
               v-for="option in LEAVE_MODE_OPTIONS"
               :key="option"
@@ -192,6 +192,7 @@
               value-format="YYYY-MM-DD"
               size="large"
               class="!w-full"
+              @change="handleLeaveDateSelectionChange"
             />
           </el-form-item>
         </template>
@@ -208,6 +209,7 @@
               value-format="YYYY-MM-DD"
               size="large"
               class="!w-full"
+              @change="handleLeaveDateSelectionChange"
             />
           </el-form-item>
         </template>
@@ -215,7 +217,12 @@
         <template v-else-if="form.leave_mode === '固定週期'">
           <div class="bg-purple-50/40 rounded-xl p-4 border border-purple-100 flex flex-col gap-4 mb-4">
             <el-form-item label="固定星期請假" class="font-bold text-primary mb-0 custom-week-selector">
-              <el-checkbox-group v-model="form.recurring_days" size="default" class="w-full flex justify-between sm:justify-start gap-1 sm:gap-2">
+              <el-checkbox-group
+                v-model="form.recurring_days"
+                size="default"
+                class="w-full flex justify-between sm:justify-start gap-1 sm:gap-2"
+                @change="handleLeaveDateSelectionChange"
+              >
                 <el-checkbox-button
                   v-for="option in LEAVE_WEEKDAY_OPTIONS"
                   :key="option.value"
@@ -236,10 +243,26 @@
                 format="YYYY-MM-DD"
                 value-format="YYYY-MM-DD"
                 class="!w-full"
+                @change="handleLeaveDateSelectionChange"
               />
             </el-form-item>
           </div>
         </template>
+
+        <el-alert
+          v-if="nonTrainingLeaveDates.length > 0"
+          type="warning"
+          show-icon
+          :closable="false"
+          class="!rounded-xl"
+        >
+          <template #title>
+            請假日期不是上課日期
+          </template>
+          <p class="text-sm leading-relaxed">
+            {{ nonTrainingLeaveDatesSummary }} 不是目前訓練日期設定中的上課日期，仍可送出假單。
+          </p>
+        </el-alert>
 
         <el-form-item label="請假原因說明" prop="reason" class="font-bold">
           <el-input v-model="form.reason" type="textarea" :rows="3" placeholder="請簡述請假事由 (選填)" />
@@ -286,6 +309,7 @@ import {
   listMyLeaveMembers,
   listMyLeaveRequests
 } from '@/services/myLeaveRequests'
+import { trainingDatesApi } from '@/services/trainingDatesApi'
 import type {
   LeaveRequestFormState,
   MyLeaveMember,
@@ -294,7 +318,9 @@ import type {
 import {
   buildLeaveNotificationDateLabel,
   buildLeaveRequestRecords,
+  collectLeaveRequestDates,
   createDefaultLeaveRequestFormState,
+  findNonTrainingLeaveDates,
   LEAVE_MODE_OPTIONS,
   LEAVE_TYPE_OPTIONS,
   LEAVE_WEEKDAY_OPTIONS,
@@ -305,6 +331,7 @@ import {
   describePushDispatchIssue,
   dispatchPushNotification
 } from '@/utils/pushNotifications'
+import { formatTrainingMonthDateLabel } from '@/utils/trainingMonthDates'
 
 const members = ref<MyLeaveMember[]>([])
 const leaveRequests = ref<MyLeaveRequest[]>([])
@@ -313,7 +340,11 @@ const isBootstrapping = ref(true)
 const isRefreshing = ref(false)
 const isCreateDialogOpen = ref(false)
 const isSubmitting = ref(false)
+const nonTrainingLeaveDates = ref<string[]>([])
+const trainingDateCheckToken = ref(0)
+const lastTrainingDateWarningKey = ref('')
 const formRef = ref()
+const trainingDateCache = new Map<string, string[]>()
 
 const form = reactive<LeaveRequestFormState>(createDefaultLeaveRequestFormState())
 const formRules = leaveRequestBaseRules
@@ -332,6 +363,15 @@ const memberSelectorHelperText = computed(() => {
   }
 
   return '切換不同關聯成員時，頁面會同步顯示對應的假單紀錄。'
+})
+
+const nonTrainingLeaveDatesSummary = computed(() => {
+  const previewDates = nonTrainingLeaveDates.value.slice(0, 5).map(formatTrainingMonthDateLabel)
+  const suffix = nonTrainingLeaveDates.value.length > 5
+    ? ` 等 ${nonTrainingLeaveDates.value.length} 天`
+    : ''
+
+  return `${previewDates.join('、')}${suffix}`
 })
 
 const sortLeaveRequests = (rows: MyLeaveRequest[]) => {
@@ -385,6 +425,70 @@ const formatDateTime = (value?: string | null) => {
 
 const hydrateFormDefaults = () => {
   Object.assign(form, createDefaultLeaveRequestFormState())
+  nonTrainingLeaveDates.value = []
+  lastTrainingDateWarningKey.value = ''
+}
+
+const getTrainingDatesForMonth = async (month: string) => {
+  const cachedDates = trainingDateCache.get(month)
+  if (cachedDates) {
+    return cachedDates
+  }
+
+  const result = await trainingDatesApi.getMonthDates(month)
+  trainingDateCache.set(month, result.training_dates)
+  return result.training_dates
+}
+
+const buildNonTrainingLeaveDatesMessage = (dates: string[]) => {
+  const previewDates = dates.slice(0, 5).map(formatTrainingMonthDateLabel)
+  const suffix = dates.length > 5 ? ` 等 ${dates.length} 天` : ''
+  return `提醒：${previewDates.join('、')}${suffix} 不是上課日期，假單仍可送出。`
+}
+
+const refreshTrainingDateWarning = async ({ notify = false }: { notify?: boolean } = {}) => {
+  const leaveDates = collectLeaveRequestDates(form)
+  const currentToken = trainingDateCheckToken.value + 1
+  trainingDateCheckToken.value = currentToken
+
+  if (leaveDates.length === 0) {
+    nonTrainingLeaveDates.value = []
+    lastTrainingDateWarningKey.value = ''
+    return []
+  }
+
+  try {
+    const months = [...new Set(leaveDates.map((date) => date.slice(0, 7)))]
+    const trainingDatesByMonth = await Promise.all(months.map(getTrainingDatesForMonth))
+    const nextNonTrainingDates = findNonTrainingLeaveDates(leaveDates, trainingDatesByMonth.flat())
+
+    if (currentToken !== trainingDateCheckToken.value) {
+      return nextNonTrainingDates
+    }
+
+    nonTrainingLeaveDates.value = nextNonTrainingDates
+
+    const warningKey = `${form.leave_mode}:${nextNonTrainingDates.join('|')}`
+    if (nextNonTrainingDates.length === 0) {
+      lastTrainingDateWarningKey.value = ''
+    } else if (notify && warningKey !== lastTrainingDateWarningKey.value) {
+      ElMessage.warning(buildNonTrainingLeaveDatesMessage(nextNonTrainingDates))
+      lastTrainingDateWarningKey.value = warningKey
+    }
+
+    return nextNonTrainingDates
+  } catch (error) {
+    console.warn('無法檢查請假日期是否為上課日期', error)
+    if (currentToken === trainingDateCheckToken.value) {
+      nonTrainingLeaveDates.value = []
+      lastTrainingDateWarningKey.value = ''
+    }
+    return []
+  }
+}
+
+const handleLeaveDateSelectionChange = () => {
+  void nextTick().then(() => refreshTrainingDateWarning({ notify: true }))
 }
 
 const refreshCurrentMemberData = async () => {
@@ -414,6 +518,7 @@ const openCreateDialog = async () => {
   isCreateDialogOpen.value = true
   await nextTick()
   formRef.value?.clearValidate?.()
+  void refreshTrainingDateWarning()
 }
 
 const submitLeaveRequest = async () => {
@@ -434,6 +539,11 @@ const submitLeaveRequest = async () => {
       memberId: selectedMember.value.member_id,
       form
     })
+
+    const nextNonTrainingDates = await refreshTrainingDateWarning()
+    if (nextNonTrainingDates.length > 0) {
+      ElMessage.warning(buildNonTrainingLeaveDatesMessage(nextNonTrainingDates))
+    }
 
     const createdRows = await createMyLeaveRequests({
       member_id: selectedMember.value.member_id,

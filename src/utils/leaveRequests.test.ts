@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildLeaveRequestRecords,
+  collectLeaveRequestDates,
+  findNonTrainingLeaveDates,
   createDefaultLeaveRequestFormState
 } from './leaveRequests'
 
@@ -97,5 +99,35 @@ describe('leaveRequests', () => {
         recurring_range: ['2026-04-20', '2026-04-25']
       }
     })).toThrow('所選期限內沒有符合該星期的日期')
+  })
+
+  it('collects leave dates from single-day, range, and recurring forms', () => {
+    const form = createDefaultLeaveRequestFormState()
+
+    expect(collectLeaveRequestDates({
+      ...form,
+      leave_mode: '單日請假',
+      date_single: '2026-06-06'
+    })).toEqual(['2026-06-06'])
+
+    expect(collectLeaveRequestDates({
+      ...form,
+      leave_mode: '連續多日',
+      date_range: ['2026-06-05', '2026-06-07']
+    })).toEqual(['2026-06-05', '2026-06-06', '2026-06-07'])
+
+    expect(collectLeaveRequestDates({
+      ...form,
+      leave_mode: '固定週期',
+      recurring_days: [2, 6],
+      recurring_range: ['2026-06-01', '2026-06-14']
+    })).toEqual(['2026-06-02', '2026-06-06', '2026-06-09', '2026-06-13'])
+  })
+
+  it('finds leave dates that are not training dates', () => {
+    expect(findNonTrainingLeaveDates(
+      ['2026-06-05', '2026-06-06', '2026-06-07', '2026-06-06'],
+      ['2026-06-06']
+    )).toEqual(['2026-06-05', '2026-06-07'])
   })
 })
