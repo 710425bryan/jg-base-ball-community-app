@@ -525,10 +525,10 @@ UI 約定：
 資料流：
 
 - 後台在 `/vendors` 管理採購相關廠商，feature key 為 `vendors`，actions 為 `VIEW / CREATE / EDIT / DELETE`。
-- 列表預設表格檢視，也可切換卡片檢視；兩種檢視都依 `trade_category` 分組。
-- 搜尋會比對廠商名稱、交易類別、聯絡人、電話、採購價備註、地址與官網；交易類別 filter 可縮小到單一類別。
+- 列表預設表格檢視，也可切換卡片檢視；兩種檢視都依 `trade_category` 分組。列表使用 Supabase range 分頁，進頁載入第一頁，捲動接近底部才載入下一頁。
+- 搜尋會比對廠商名稱、交易類別、聯絡人、電話、採購價備註、地址與官網；交易類別 filter 可縮小到單一類別，並重新從第一頁抓取。
 - 新增 / 編輯廠商時會先確保 `vendor_trade_categories.name` 存在；使用者自行輸入的類別會保留為之後可選選項，刪除廠商不刪類別。
-- 廠商照片可多張上傳，前端先壓縮後寫入 private `vendors` bucket；資料表保存 storage path，讀取列表時由 `vendorsApi` 產生短效 signed URL。
+- 廠商照片可多張上傳，前端使用 `compressImage(file, 1600, 1200, 0.82, 900_000)` 壓縮後寫入 private `vendors` bucket；資料表保存 storage path，讀取列表時由 `vendorsApi` 產生短效 signed URL。
 
 重要規則：
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Delete,
@@ -20,11 +20,10 @@ import VendorFormDialog from '@/components/vendors/VendorFormDialog.vue'
 import VendorPhotoGallery from '@/components/vendors/VendorPhotoGallery.vue'
 import { usePermissionsStore } from '@/stores/permissions'
 import { useVendorsStore } from '@/stores/vendors'
-import type { Vendor } from '@/types/vendor'
+import type { Vendor, VendorFilters } from '@/types/vendor'
 import { normalizeExternalUrl } from '@/utils/externalUrl'
 import {
   ALL_VENDOR_CATEGORIES,
-  filterVendors,
   groupVendorsByCategory
 } from '@/utils/vendors'
 
@@ -37,6 +36,8 @@ const viewMode = ref<'grid' | 'table'>('table')
 const isMobileFiltersOpen = ref(false)
 const isFormDialogOpen = ref(false)
 const editingVendor = ref<Vendor | null>(null)
+const scrollContainerRef = ref<HTMLElement | null>(null)
+let filterReloadTimer: ReturnType<typeof setTimeout> | null = null
 
 const canCreate = computed(() => permissionsStore.can('vendors', 'CREATE'))
 const canEdit = computed(() => permissionsStore.can('vendors', 'EDIT'))
@@ -51,13 +52,12 @@ const categoryOptions = computed(() => {
   return [ALL_VENDOR_CATEGORIES, ...new Set(names)]
 })
 
-const filteredVendors = computed(() =>
-  filterVendors(vendorsStore.vendors, {
-    keyword: searchKeyword.value,
-    category: selectedCategory.value
-  })
-)
-const groupedVendors = computed(() => groupVendorsByCategory(filteredVendors.value))
+const currentFilters = computed<VendorFilters>(() => ({
+  keyword: searchKeyword.value,
+  category: selectedCategory.value
+}))
+const visibleVendors = computed(() => vendorsStore.vendors)
+const groupedVendors = computed(() => groupVendorsByCategory(visibleVendors.value))
 const hasActiveFilters = computed(() =>
   searchKeyword.value.trim().length > 0 || selectedCategory.value !== ALL_VENDOR_CATEGORIES
 )
@@ -65,7 +65,7 @@ const mobileFilterLabel = computed(() =>
   selectedCategory.value === ALL_VENDOR_CATEGORIES ? '篩選' : selectedCategory.value
 )
 const summary = computed(() => ({
-  total: vendorsStore.vendors.length,
+  total: vendorsStore.total,
   categories: categoryOptions.value.length - 1,
   withPhotos: vendorsStore.vendors.filter((vendor) => vendor.image_paths.length > 0).length
 }))
@@ -74,6 +74,12 @@ const clearFilters = () => {
   searchKeyword.value = ''
   selectedCategory.value = ALL_VENDOR_CATEGORIES
   isMobileFiltersOpen.value = false
+}
+
+const resetScrollPosition = () => {
+  if (scrollContainerRef.value) {
+    scrollContainerRef.value.scrollTop = 0
+  }
 }
 
 const formatDate = (value?: string | null) => {
@@ -120,14 +126,58 @@ const removeVendor = async (vendor: Vendor) => {
 
 const refresh = async () => {
   try {
-    await vendorsStore.loadVendors()
+    await vendorsStore.loadVendors({
+      reset: true,
+      filters: currentFilters.value
+    })
+    resetScrollPosition()
   } catch (error: any) {
     ElMessage.error(error?.message || '無法載入廠商資料')
   }
 }
 
+const scheduleFilterReload = () => {
+  if (filterReloadTimer) {
+    clearTimeout(filterReloadTimer)
+  }
+
+  filterReloadTimer = setTimeout(() => {
+    void refresh()
+  }, 300)
+}
+
+const loadMoreVendors = async () => {
+  if (!vendorsStore.hasMore || vendorsStore.isLoading || vendorsStore.isLoadingMore) return
+
+  try {
+    await vendorsStore.loadNextVendors()
+  } catch (error: any) {
+    ElMessage.error(error?.message || '無法載入更多廠商')
+  }
+}
+
+const handleListScroll = (event: Event) => {
+  const target = event.currentTarget as HTMLElement | null
+  if (!target) return
+
+  const distanceToBottom = target.scrollHeight - target.scrollTop - target.clientHeight
+  if (distanceToBottom < 360) {
+    void loadMoreVendors()
+  }
+}
+
+watch([searchKeyword, selectedCategory], () => {
+  scheduleFilterReload()
+})
+
 onMounted(() => {
   void refresh()
+})
+
+onBeforeUnmount(() => {
+  if (filterReloadTimer) {
+    clearTimeout(filterReloadTimer)
+  }
 })
 </script>
 
@@ -205,7 +255,7 @@ onMounted(() => {
           <ViewModeSwitch v-model="viewMode" grid-label="卡片" table-label="表格" class="hidden md:inline-flex" />
 
           <div class="flex items-center justify-between text-xs font-bold text-gray-400 md:hidden">
-            <span>顯示 {{ filteredVendors.length }} / {{ summary.total }}</span>
+            <span>顯示 {{ visibleVendors.length }} / {{ summary.total }}</span>
             <button v-if="hasActiveFilters" type="button" class="text-primary" @click="clearFilters">清除篩選</button>
           </div>
 
@@ -230,11 +280,15 @@ onMounted(() => {
       </div>
     </div>
 
-    <div class="flex-1 overflow-y-auto min-h-0 p-3 md:p-6 pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:pb-6 custom-scrollbar">
+    <div
+      ref="scrollContainerRef"
+      class="flex-1 overflow-y-auto min-h-0 p-3 md:p-6 pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:pb-6 custom-scrollbar"
+      @scroll="handleListScroll"
+    >
       <div class="max-w-7xl mx-auto">
         <AppLoadingState v-if="vendorsStore.isLoading" text="廠商資料載入中..." />
 
-        <section v-else-if="filteredVendors.length === 0" class="rounded-lg border border-gray-100 bg-white p-10 text-center shadow-sm">
+        <section v-else-if="visibleVendors.length === 0" class="rounded-lg border border-gray-100 bg-white p-10 text-center shadow-sm">
           <el-icon class="text-6xl text-gray-200"><OfficeBuilding /></el-icon>
           <h3 class="mt-4 text-lg font-black text-slate-800">沒有符合條件的廠商</h3>
           <p class="mt-2 text-sm text-gray-400">調整搜尋條件，或新增第一筆廠商資料。</p>
@@ -407,6 +461,16 @@ onMounted(() => {
               </div>
             </section>
           </section>
+
+          <div class="flex justify-center py-2">
+            <span v-if="vendorsStore.isLoadingMore" class="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-gray-500 shadow-sm">
+              <el-icon class="is-loading"><Refresh /></el-icon>
+              載入更多廠商
+            </span>
+            <span v-else-if="!vendorsStore.hasMore" class="text-xs font-bold text-gray-400">
+              已載入全部廠商
+            </span>
+          </div>
         </div>
       </div>
     </div>

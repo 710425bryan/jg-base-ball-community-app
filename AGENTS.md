@@ -239,8 +239,8 @@
 - 後台廠商名單路由 `/vendors`，feature key 為 `vendors`，actions：`VIEW / CREATE / EDIT / DELETE`。
 - 廠商資料流集中在 `src/types/vendor.ts`、`src/services/vendorsApi.ts`、`src/stores/vendors.ts`、`src/utils/vendors.ts`、`src/views/VendorsView.vue` 與 `src/components/vendors/*`。
 - 主要資料表包含 `vendors` 與 `vendor_trade_categories`；交易類別是獨立資料表，自行輸入後保留為下次可選選項，刪除廠商不刪交易類別。
-- 廠商照片使用 private `vendors` bucket，資料表只保存 storage path；前端讀取時由 `vendorsApi` 產生 signed URL。
-- 列表預設表格模式，也支援卡片模式；兩種模式都依交易類別分組，並支援搜尋與交易類別 filter。
+- 廠商照片使用 private `vendors` bucket，資料表只保存 storage path；前端上傳前先壓縮，讀取時由 `vendorsApi` 產生 signed URL。
+- 列表預設表格模式，也支援卡片模式；兩種模式都依交易類別分組，並支援搜尋與交易類別 filter。列表資料走分頁，進頁先抓第一頁，捲動接近底部才抓下一頁。
 - 廠商名單獨立於裝備與收費，不複製 `equipment` 或 `fees` 權限；新增角色權限時由「角色與權限設定」手動開啟。
 - 新增、編輯、刪除按鈕由 `vendors:CREATE / EDIT / DELETE` 控制；資料安全仍必須由 DB RLS 與 storage policy 檢查。
 

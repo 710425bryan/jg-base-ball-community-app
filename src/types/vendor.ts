@@ -38,6 +38,20 @@ export type VendorFilters = {
   category?: string
 }
 
+export type VendorPageRequest = {
+  page?: number
+  pageSize?: number
+  filters?: VendorFilters
+}
+
+export type VendorPageResult = {
+  vendors: Vendor[]
+  total: number
+  page: number
+  pageSize: number
+  hasMore: boolean
+}
+
 export type VendorCategoryGroup = {
   category: string
   vendors: Vendor[]

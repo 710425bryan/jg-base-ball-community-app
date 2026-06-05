@@ -24,8 +24,8 @@ description: "Vendor management workflow for jg-base-ball-community-app. Use whe
 - migration 只預設建立 `ADMIN` 的 `vendors` 權限列，其他角色由「角色與權限設定」手動開啟。
 - `vendors` 表的 `name` 與 `trade_category` 必填；`purchase_price_note` 是自由文字，不做金額計算或排序。
 - `vendor_trade_categories.name` 是唯一選項來源；新增或編輯廠商時先確保類別存在，刪除廠商不刪類別。
-- 廠商照片使用 private `vendors` bucket；資料表只保存 storage path，前端顯示要透過 signed URL，不保存公開 URL。
-- 列表預設表格檢視，也可切換卡片檢視；兩種檢視都要依交易類別分組。
+- 廠商照片使用 private `vendors` bucket；資料表只保存 storage path，前端顯示要透過 signed URL，不保存公開 URL。上傳前使用 `compressImage(file, 1600, 1200, 0.82, 900_000)` 壓縮。
+- 列表預設表格檢視，也可切換卡片檢視；兩種檢視都要依交易類別分組。列表使用 Supabase range 分頁，進頁只抓第一頁，捲動接近底部時才載入下一頁。
 - 搜尋應涵蓋廠商名稱、交易類別、聯絡人、電話、採購價、地址與官網。
 - 官網外連必須先用 `normalizeExternalUrl()`，無效網址不產生 link。
 - 前端按鈕權限只是 UX；資料安全要靠 `vendors` / `vendor_trade_categories` RLS 與 storage policy。

@@ -1,7 +1,13 @@
 import { supabase } from '@/services/supabase'
-import type { Vendor, VendorFormPayload, VendorTradeCategory } from '@/types/vendor'
+import type {
+  Vendor,
+  VendorFormPayload,
+  VendorPageRequest,
+  VendorPageResult,
+  VendorTradeCategory
+} from '@/types/vendor'
 import { compressImage } from '@/utils/imageCompressor'
-import { normalizeVendorImagePaths, normalizeVendorText } from '@/utils/vendors'
+import { ALL_VENDOR_CATEGORIES, normalizeVendorImagePaths, normalizeVendorText } from '@/utils/vendors'
 
 const VENDOR_SELECT = `
   id,
@@ -26,7 +32,22 @@ const CATEGORY_SELECT = `
   updated_at
 `
 
+export const VENDOR_PAGE_SIZE = 24
+
+const SEARCH_COLUMNS = [
+  'name',
+  'trade_category',
+  'contact_name',
+  'phone',
+  'purchase_price_note',
+  'address',
+  'website_url'
+]
+
 const unique = (values: Array<string | null | undefined>) => [...new Set(values.map(normalizeVendorText).filter(Boolean))]
+
+const sanitizePostgrestSearchText = (value: string) =>
+  value.replace(/[,%()*]/g, ' ').replace(/\s+/g, ' ').trim()
 
 const normalizeCategory = (row: any): VendorTradeCategory => ({
   id: String(row?.id || ''),
@@ -126,18 +147,49 @@ export const ensureVendorTradeCategory = async (name: string) => {
   return normalizeCategory(data)
 }
 
-export const fetchVendors = async () => {
-  const { data, error } = await supabase
+export const fetchVendors = async ({
+  page = 0,
+  pageSize = VENDOR_PAGE_SIZE,
+  filters = {}
+}: VendorPageRequest = {}): Promise<VendorPageResult> => {
+  const currentPage = Math.max(0, page)
+  const currentPageSize = Math.max(1, pageSize)
+  const from = currentPage * currentPageSize
+  const to = from + currentPageSize - 1
+  const keyword = sanitizePostgrestSearchText(normalizeVendorText(filters.keyword))
+  const category = normalizeVendorText(filters.category || ALL_VENDOR_CATEGORIES)
+
+  let query = supabase
     .from('vendors')
-    .select(VENDOR_SELECT)
+    .select(VENDOR_SELECT, { count: 'exact' })
+
+  if (category && category !== ALL_VENDOR_CATEGORIES) {
+    query = query.eq('trade_category', category)
+  }
+
+  if (keyword) {
+    const searchPattern = `%${keyword}%`
+    query = query.or(SEARCH_COLUMNS.map((column) => `${column}.ilike.${searchPattern}`).join(','))
+  }
+
+  const { data, error, count } = await query
     .order('trade_category', { ascending: true })
     .order('name', { ascending: true })
+    .range(from, to)
 
   if (error) throw error
 
   const rows = data || []
   const signedUrlMap = await createSignedUrlMap(rows.flatMap((row: any) => normalizeVendorImagePaths(row?.image_paths)))
-  return rows.map((row: any) => normalizeVendor(row, signedUrlMap))
+  const total = typeof count === 'number' ? count : from + rows.length
+
+  return {
+    vendors: rows.map((row: any) => normalizeVendor(row, signedUrlMap)),
+    total,
+    page: currentPage,
+    pageSize: currentPageSize,
+    hasMore: from + rows.length < total
+  }
 }
 
 export const uploadVendorImage = async (file: File, folder = 'vendor_images') => {
