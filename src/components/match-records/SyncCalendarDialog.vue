@@ -259,13 +259,12 @@
 import { computed, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
-  fetchAndParseICal,
-  planCalendarSync,
   type CalendarSyncIssueSeverity,
   type CalendarSyncItem,
   type CalendarSyncPlayerCheckItem,
   type CalendarSyncRosterMember
 } from '@/utils/googleCalendarParser'
+import { fetchCalendarSyncPlan } from '@/services/matchCalendarSync'
 import { useMatchesStore } from '@/stores/matches'
 import { supabase } from '@/services/supabase'
 
@@ -367,10 +366,12 @@ const handleFetch = async () => {
       ensureMatchesLoaded(),
       fetchRosterMembers()
     ])
-    const parsedMatches = await fetchAndParseICal(calendarUrl.value)
-    syncItems.value = planCalendarSync(matchesStore.matches, parsedMatches, {
+    const syncPlan = await fetchCalendarSyncPlan({
+      calendarUrl: calendarUrl.value,
+      existingMatches: matchesStore.matches,
       rosterMembers: rosterMembers.value
     })
+    syncItems.value = syncPlan.syncItems
     hasFetched.value = true
 
     if (actionableItems.value.length === 0) {

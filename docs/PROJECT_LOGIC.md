@@ -273,7 +273,7 @@ UI 約定：
 資料流：
 
 - `matchesApi` 封裝 `matches` CRUD。
-- Google Calendar / iCal parser 負責把外部日曆轉成 match payload。
+- Google Calendar / iCal parser 負責把外部日曆轉成 match payload；手動同步預覽優先走 `sync-match-calendar` Edge Function dry-run，瀏覽器第三方 CORS proxy 只作 fallback。
 - 同步規劃維持 `create`、`update`、`skip` 三種結果。
 - 比賽紀錄元件處理陣容、照片、出席統計、賽事細節與 live controller。
 - `/calendar?match_id=...` 會開啟 `MatchDetailDialog`；推播與通知的比賽詳情 URL 統一導向這條路徑。

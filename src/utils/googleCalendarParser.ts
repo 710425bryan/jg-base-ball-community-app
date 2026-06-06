@@ -1120,6 +1120,49 @@ export const parseICalText = (text: string): ParsedMatch[] => {
   return events.map(parseMatchRecord)
 }
 
+const ICAL_FETCH_TIMEOUT_MS = 8000
+
+const decodeDataUriContent = (value: string) => {
+  const match = value.match(/^data:([^,]*),(.*)$/s)
+  if (!match) return value
+
+  const [, metadata, encodedContent] = match
+  if (metadata.toLowerCase().includes(';base64')) {
+    const binary = atob(encodedContent.replace(/\s+/g, ''))
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
+    return new TextDecoder('utf-8').decode(bytes)
+  }
+
+  try {
+    return decodeURIComponent(encodedContent)
+  } catch {
+    return encodedContent
+  }
+}
+
+const normalizeFetchedICalText = (value: string) => {
+  const decoded = decodeDataUriContent(value).replace(/^\uFEFF/, '')
+  if (!decoded.trimStart().startsWith('BEGIN:VCALENDAR')) {
+    throw new Error('Proxy returned non-iCal content')
+  }
+  return decoded
+}
+
+const fetchWithTimeout = async (url: string) => {
+  if (typeof AbortController === 'undefined') {
+    return await fetch(url)
+  }
+
+  const controller = new AbortController()
+  const timeoutId = globalThis.setTimeout(() => controller.abort(), ICAL_FETCH_TIMEOUT_MS)
+
+  try {
+    return await fetch(url, { signal: controller.signal })
+  } finally {
+    globalThis.clearTimeout(timeoutId)
+  }
+}
+
 const fetchICalText = async (url: string) => {
   const proxyUrls = [
     `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
@@ -1131,7 +1174,7 @@ const fetchICalText = async (url: string) => {
 
   for (const proxyUrl of proxyUrls) {
     try {
-      const response = await fetch(proxyUrl)
+      const response = await fetchWithTimeout(proxyUrl)
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`)
       }
@@ -1141,10 +1184,10 @@ const fetchICalText = async (url: string) => {
         if (!data?.contents) {
           throw new Error('Proxy returned empty content')
         }
-        return data.contents as string
+        return normalizeFetchedICalText(data.contents as string)
       }
 
-      return await response.text()
+      return normalizeFetchedICalText(await response.text())
     } catch (error) {
       lastError = error
     }

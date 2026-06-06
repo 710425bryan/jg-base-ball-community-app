@@ -81,6 +81,7 @@
 | `src/services/playerRosterApi.ts` | 球員名單查詢與 cache meta RPC | `team_members` / `team_members_safe` / `get_team_members_cache_meta()` |
 | `src/services/teamGroupsApi.ts` | team group 設定 RPC | `team_group_settings` 相關 RPC |
 | `src/services/matchesApi.ts` | 賽事 CRUD | `matches` |
+| `src/services/matchCalendarSync.ts` | Google Calendar 手動同步預覽 | `sync-match-calendar` Edge Function、瀏覽器 proxy fallback |
 | `src/services/matchAudioApi.ts` | 比賽語音轉紀錄 Edge Function 呼叫 | `transcribe-match-audio` |
 | `src/services/matchFees.ts` | 比賽費付款與審核 RPC | `match_fee_items` / `match_payment_submissions` |
 | `src/services/weatherApi.ts` | 賽事 / 首頁天氣預報與地點解析 | `resolve-location`、Open-Meteo |
