@@ -325,6 +325,19 @@ const removeMemberFromVenue = (memberId: string, venueIndex: number) => {
   target.member_ids = target.member_ids.filter((id) => id !== memberId)
 }
 
+const clearVenueMembers = (venueIndex: number) => {
+  const target = form.venues[venueIndex]
+  if (!target) return
+
+  if (target.member_ids.length === 0) {
+    ElMessage.warning('這個場地目前沒有球員')
+    return
+  }
+
+  target.member_ids = []
+  selectedVenueIndex.value = venueIndex
+}
+
 const isPoolMemberSelected = (memberId: string) =>
   selectedPoolMemberIds.value.includes(memberId)
 
@@ -791,6 +804,14 @@ onMounted(() => {
                         @click="moveSelectedMembersToVenue(venueIndex)"
                       >
                         移入勾選
+                      </button>
+                      <button
+                        type="button"
+                        class="min-h-9 rounded-xl border border-amber-100 px-3 text-xs font-black text-amber-600 transition-colors hover:bg-amber-50 disabled:cursor-not-allowed disabled:border-slate-100 disabled:bg-slate-100 disabled:text-slate-400"
+                        :disabled="venue.member_ids.length === 0"
+                        @click="clearVenueMembers(venueIndex)"
+                      >
+                        清除球員
                       </button>
                       <button
                         type="button"
