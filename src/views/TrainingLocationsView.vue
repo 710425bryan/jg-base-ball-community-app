@@ -97,6 +97,10 @@ const rosterById = computed(() =>
   new Map(roster.value.map((member) => [member.member_id, member]))
 )
 
+const activeRosterMemberIds = computed(() =>
+  new Set(roster.value.map((member) => member.member_id))
+)
+
 const assignedMemberIds = computed(() =>
   new Set(form.venues.flatMap((venue) => venue.member_ids))
 )
@@ -184,6 +188,26 @@ const getVenueMembers = (venue: EditableVenue) =>
     .map((memberId) => rosterById.value.get(memberId))
     .filter((member): member is TrainingLocationRosterMember => Boolean(member))
 
+const getSaveableMemberIds = (memberIds: string[]) =>
+  memberIds.filter((memberId) => activeRosterMemberIds.value.has(memberId))
+
+const getVenueActiveMemberCount = (venue: EditableVenue) =>
+  getSaveableMemberIds(venue.member_ids).length
+
+const pruneUnavailableVenueMembers = () => {
+  let removedCount = 0
+
+  form.venues.forEach((venue) => {
+    const nextMemberIds = getSaveableMemberIds(venue.member_ids)
+    removedCount += venue.member_ids.length - nextMemberIds.length
+    venue.member_ids = nextMemberIds
+  })
+
+  selectedPoolMemberIds.value = getSaveableMemberIds(selectedPoolMemberIds.value)
+
+  return removedCount
+}
+
 const getMemberMeta = (member: TrainingLocationRosterMember) =>
   [
     member.role || '球員',
@@ -212,9 +236,11 @@ const loadRoster = async () => {
     ...member,
     team_group: normalizeTeamGroup(member.team_group) || null
   }))
-  selectedPoolMemberIds.value = selectedPoolMemberIds.value.filter((memberId) =>
-    rosterById.value.has(memberId)
-  )
+
+  const removedCount = pruneUnavailableVenueMembers()
+  if (removedCount > 0) {
+    ElMessage.warning(`已移除 ${removedCount} 位已退隊或不在目前可配置名單中的球員，儲存後會同步更新。`)
+  }
 }
 
 const handleTrainingLocationError = async (error: any, fallbackMessage: string) => {
@@ -423,7 +449,7 @@ const buildSavePayload = (status: TrainingLocationSessionStatus = form.status) =
     venue_maps_url: venue.venue_maps_url,
     note: venue.note,
     sort_order: (index + 1) * 10,
-    member_ids: venue.member_ids
+    member_ids: getSaveableMemberIds(venue.member_ids)
   }))
 })
 
@@ -452,6 +478,7 @@ const validateForm = (nextStatus: TrainingLocationSessionStatus) => {
 }
 
 const saveSession = async (status: TrainingLocationSessionStatus = form.status) => {
+  pruneUnavailableVenueMembers()
   if (!validateForm(status)) return null
 
   isSaving.value = true
@@ -538,7 +565,7 @@ const openTrainingLocationAttendance = async (venueIndex: number) => {
     return
   }
 
-  if (!existingEventId && targetVenue.member_ids.length === 0) {
+  if (!existingEventId && getVenueActiveMemberCount(targetVenue) === 0) {
     ElMessage.warning('請先在這個場地配置至少一位球員再建立點名單')
     return
   }
@@ -792,7 +819,7 @@ onMounted(() => {
                         v-if="venue.attendance_event_id ? canOpenAttendance : canCreateAttendance"
                         type="button"
                         class="inline-flex min-h-9 items-center gap-1.5 rounded-xl bg-slate-900 px-3 text-xs font-black text-white transition-colors hover:bg-slate-800 disabled:opacity-60"
-                        :disabled="isCreatingAttendance || isSaving || (!venue.attendance_event_id && venue.member_ids.length === 0)"
+                        :disabled="isCreatingAttendance || isSaving || (!venue.attendance_event_id && getVenueActiveMemberCount(venue) === 0)"
                         @click="openTrainingLocationAttendance(venueIndex)"
                       >
                         <el-icon :class="{ 'is-loading': creatingAttendanceVenueIndex === venueIndex }"><Checked /></el-icon>
@@ -808,7 +835,7 @@ onMounted(() => {
                       <button
                         type="button"
                         class="min-h-9 rounded-xl border border-amber-100 px-3 text-xs font-black text-amber-600 transition-colors hover:bg-amber-50 disabled:cursor-not-allowed disabled:border-slate-100 disabled:bg-slate-100 disabled:text-slate-400"
-                        :disabled="venue.member_ids.length === 0"
+                        :disabled="getVenueActiveMemberCount(venue) === 0"
                         @click="clearVenueMembers(venueIndex)"
                       >
                         清除球員
@@ -843,7 +870,7 @@ onMounted(() => {
                       </button>
                     </div>
 
-                    <div v-if="venue.member_ids.length === 0" class="rounded-xl border border-dashed border-slate-200 px-3 py-5 text-center text-sm font-bold text-slate-400 sm:col-span-2 xl:col-span-3">
+                    <div v-if="getVenueActiveMemberCount(venue) === 0" class="rounded-xl border border-dashed border-slate-200 px-3 py-5 text-center text-sm font-bold text-slate-400 sm:col-span-2 xl:col-span-3">
                       拖曳或移入球員到這個場地。
                     </div>
                   </div>

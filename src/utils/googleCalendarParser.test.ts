@@ -391,10 +391,10 @@ END:VCALENDAR`)
         home_score: 8,
         opponent_score: 5,
         coaches: '手動教練',
-        players: '手動球員',
+        players: '尤丞洋',
         note: '賽後筆記',
         photo_url: 'https://example.com/match.jpg',
-        absent_players: [{ name: '王小明', type: '請假' }],
+        absent_players: [],
         lineup: [{ order: 1, position: '投手', name: '尤丞洋', number: '15' }],
         inning_logs: [{ inning: '一上', log: '安打得分' }],
         batting_stats: [
@@ -443,6 +443,52 @@ END:VCALENDAR`)
 
     expect(syncPlan).toHaveLength(1)
     expect(syncPlan[0].action).toBe('skip')
+  })
+
+  it('updates existing matches when the calendar player list changes', () => {
+    const parsed = parseMatchRecord({
+      id: 'uid-players@google.com',
+      summary: 'U12 春季聯賽 中港熊戰 vs 華興小學',
+      description: [
+        '組別 / 類別：U12',
+        '賽事等級：一級',
+        '盃賽名稱：春季聯賽U12組',
+        '參賽球員：',
+        '15 尤丞洋',
+        '2 楊晴恩'
+      ].join('\n'),
+      location: '迪化壘球場',
+      startRaw: '20260328T000000Z',
+      endRaw: '20260328T013000Z'
+    })
+
+    const existingMatch: MatchRecord = {
+      ...buildExistingMatch('players-1', createMatchRecordInput(parsed)),
+      players: '尤丞洋',
+      lineup: [{ order: 1, position: '未排', name: '尤丞洋', number: '15' }]
+    }
+
+    const syncPlan = planCalendarSync([existingMatch], [parsed], {
+      minimumMatchDate: '2026-01-01'
+    })
+
+    const updateItem = syncPlan[0]
+    if (updateItem.action !== 'update') {
+      throw new Error(`Expected update action, received ${updateItem.action}`)
+    }
+
+    expect(updateItem.payload.players).toBe('尤丞洋,楊晴恩')
+    expect(updateItem.payload.lineup).toEqual([
+      { order: 1, position: '未排', name: '尤丞洋', number: '15' },
+      { order: 2, position: '未排', name: '楊晴恩', number: '2' }
+    ])
+    expect(updateItem.scheduleDiffs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: 'players', before: '尤丞洋', after: '尤丞洋、楊晴恩' })
+      ])
+    )
+    expect('batting_stats' in updateItem.payload).toBe(false)
+    expect('pitching_stats' in updateItem.payload).toBe(false)
   })
 
   it('updates tournament_name with a schedule-only payload for existing matches', () => {
@@ -513,7 +559,7 @@ END:VCALENDAR`)
     expect('batting_stats' in updateItem.payload).toBe(false)
   })
 
-  it('shows schedule diffs for update items without touching participant fields', () => {
+  it('shows schedule and participant diffs without touching manual lineup fields', () => {
     const parsed = parseMatchRecord({
       id: 'uid-diff@google.com',
       summary: 'U10八德迷你棒球聯賽 中港熊戰vs小小馬',
@@ -549,11 +595,13 @@ END:VCALENDAR`)
     expect(updateItem.scheduleDiffs).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ field: 'opponent', before: '待確認', after: '小小馬' }),
-        expect.objectContaining({ field: 'match_time', before: '11:30 - 12:20', after: '11:40 - 12:30' })
+        expect.objectContaining({ field: 'match_time', before: '11:30 - 12:20', after: '11:40 - 12:30' }),
+        expect.objectContaining({ field: 'players', before: '手動球員', after: '張顥瀚' })
       ])
     )
-    expect('players' in updateItem.payload).toBe(false)
+    expect(updateItem.payload.players).toBe('張顥瀚')
     expect('lineup' in updateItem.payload).toBe(false)
+    expect('current_lineup' in updateItem.payload).toBe(false)
   })
 
   it('plans match fee changes as schedule updates', () => {

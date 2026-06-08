@@ -578,6 +578,9 @@ const buildLineup = (players: ParsedMatch['players']) =>
 
 const buildPlayersSummary = (players: ParsedMatch['players']) => players.map((player) => player.name).join(',')
 
+const buildAbsentPlayers = (players: ParsedMatch['absentPlayers']) =>
+  players.map((name) => ({ name, type: '請假' }))
+
 const getCalendarTournamentName = (match: ParsedMatch) => collapseWhitespace(match.tournamentName || '')
 
 const emptyPlayerCheck = (players: ParsedMatch['players'] = []): CalendarSyncPlayerCheck => ({
@@ -752,11 +755,66 @@ export const createMatchRecordInput = (
     players: buildPlayersSummary(players),
     note: buildCalendarNote(match),
     photo_url: '',
-    absent_players: match.absentPlayers.map((name) => ({ name, type: '請假' })),
+    absent_players: buildAbsentPlayers(match.absentPlayers),
     lineup: buildLineup(players),
     inning_logs: [],
     batting_stats: []
   }
+}
+
+const lineupHasNamedPlayers = (lineup: MatchRecord['lineup'] | MatchRecord['current_lineup'] | null | undefined) =>
+  Array.isArray(lineup) && lineup.some((player) => collapseWhitespace(String(player?.name || '')))
+
+const isCalendarManagedLineup = (
+  lineup: MatchRecord['lineup'] | MatchRecord['current_lineup'] | null | undefined
+) =>
+  Array.isArray(lineup) &&
+  lineup.length > 0 &&
+  lineup.every((player) => {
+    const position = collapseWhitespace(String(player?.position || ''))
+    return !position || position === '未排'
+  })
+
+const shouldSyncCalendarLineup = (
+  lineup: MatchRecord['lineup'] | MatchRecord['current_lineup'] | null | undefined
+) => !lineupHasNamedPlayers(lineup) || isCalendarManagedLineup(lineup)
+
+const hasAbsentPlayers = (players: MatchRecord['absent_players'] | null | undefined) =>
+  Array.isArray(players) && players.some((player) => collapseWhitespace(String(player?.name || '')))
+
+const createMatchParticipantUpdateInput = (
+  match: ParsedMatch,
+  players: ParsedMatch['players'],
+  existingMatch: MatchRecord | null
+): Partial<MatchRecordInput> => {
+  if (!match.players.length && !match.absentPlayers.length) {
+    return {}
+  }
+
+  const payload: Partial<MatchRecordInput> = {}
+
+  if (match.players.length > 0) {
+    payload.players = buildPlayersSummary(players)
+
+    const lineup = buildLineup(players)
+    if (shouldSyncCalendarLineup(existingMatch?.lineup)) {
+      payload.lineup = lineup
+    }
+
+    if (
+      Array.isArray(existingMatch?.current_lineup) &&
+      existingMatch.current_lineup.length > 0 &&
+      shouldSyncCalendarLineup(existingMatch.current_lineup)
+    ) {
+      payload.current_lineup = lineup
+    }
+  }
+
+  if (match.absentPlayers.length > 0 || hasAbsentPlayers(existingMatch?.absent_players)) {
+    payload.absent_players = buildAbsentPlayers(match.absentPlayers)
+  }
+
+  return payload
 }
 
 const createMatchScheduleUpdateInput = (match: ParsedMatch): Partial<MatchRecordInput> => {
@@ -812,16 +870,52 @@ const syncUpdateFields: Array<keyof MatchRecordInput> = [
   'location',
   'category_group',
   'match_level',
-  'match_fee_amount'
+  'match_fee_amount',
+  'players',
+  'absent_players'
 ]
 
-const normalizeSyncValue = (value: unknown) => {
+const normalizePlayersSummaryForSync = (value: unknown) =>
+  String(value ?? '')
+    .split(',')
+    .map((name) => collapseWhitespace(name))
+    .filter(Boolean)
+    .join(',')
+
+const normalizeAbsentPlayersForSync = (value: unknown) =>
+  (Array.isArray(value) ? value : [])
+    .map((player) => ({
+      name: collapseWhitespace(String(player?.name || '')),
+      type: collapseWhitespace(String(player?.type || ''))
+    }))
+    .filter((player) => player.name)
+    .sort((left, right) => `${left.name}:${left.type}`.localeCompare(`${right.name}:${right.type}`, 'zh-Hant'))
+
+const formatAbsentPlayersForSync = (value: unknown) => {
+  const players = normalizeAbsentPlayersForSync(value)
+  if (!players.length) return '空白'
+  return players.map((player) => `${player.name}${player.type ? `（${player.type}）` : ''}`).join('、')
+}
+
+const normalizeSyncValue = (value: unknown, field?: keyof MatchRecordInput) => {
   if (value === null || value === undefined) return ''
+  if (field === 'players') return normalizePlayersSummaryForSync(value)
+  if (field === 'absent_players') {
+    return normalizeAbsentPlayersForSync(value)
+      .map((player) => `${player.name}:${player.type}`)
+      .join('|')
+  }
   return typeof value === 'string' ? collapseWhitespace(value) : value
 }
 
-const formatSyncValue = (value: unknown) => {
-  const normalized = normalizeSyncValue(value)
+const formatSyncValue = (value: unknown, field?: keyof MatchRecordInput) => {
+  if (field === 'players') {
+    const players = normalizePlayersSummaryForSync(value)
+    return players ? players.split(',').join('、') : '空白'
+  }
+  if (field === 'absent_players') return formatAbsentPlayersForSync(value)
+
+  const normalized = normalizeSyncValue(value, field)
   return normalized === '' ? '空白' : String(normalized)
 }
 
@@ -835,14 +929,16 @@ const scheduleFieldLabels: Partial<Record<keyof MatchRecordInput, string>> = {
   location: '地點',
   category_group: '組別',
   match_level: '賽事等級',
-  match_fee_amount: '比賽費用'
+  match_fee_amount: '比賽費用',
+  players: '出賽名單',
+  absent_players: '請假球員'
 }
 
 const isSyncPayloadEqual = (existing: MatchRecord, payload: Partial<MatchRecordInput>) =>
   syncUpdateFields.every((field) => {
     if (!(field in payload)) return true
 
-    return normalizeSyncValue(existing[field]) === normalizeSyncValue(payload[field])
+    return normalizeSyncValue(existing[field], field) === normalizeSyncValue(payload[field], field)
   })
 
 const buildScheduleDiffs = (
@@ -853,12 +949,12 @@ const buildScheduleDiffs = (
 
   return syncUpdateFields
     .filter((field) => field in payload)
-    .filter((field) => normalizeSyncValue(existing[field]) !== normalizeSyncValue(payload[field]))
+    .filter((field) => normalizeSyncValue(existing[field], field) !== normalizeSyncValue(payload[field], field))
     .map((field) => ({
       field,
       label: scheduleFieldLabels[field] || String(field),
-      before: formatSyncValue(existing[field]),
-      after: formatSyncValue(payload[field])
+      before: formatSyncValue(existing[field], field),
+      after: formatSyncValue(payload[field], field)
     }))
 }
 
@@ -933,10 +1029,11 @@ export const planCalendarSync = (
     .filter((parsedMatch) => parsedMatch.date >= minimumMatchDate)
     .map((parsedMatch) => {
       const playerCheck = checkCalendarPlayersAgainstRoster(parsedMatch.players, options.rosterMembers)
+      const payloadPlayers = getPayloadPlayers(parsedMatch, playerCheck)
       const createPayload = createMatchRecordInput(parsedMatch, {
-        players: getPayloadPlayers(parsedMatch, playerCheck)
+        players: payloadPlayers
       })
-      const updatePayload = createMatchScheduleUpdateInput(parsedMatch)
+      const schedulePayload = createMatchScheduleUpdateInput(parsedMatch)
 
       const matchedByUid =
         parsedMatch.id
@@ -944,6 +1041,10 @@ export const planCalendarSync = (
           : null
 
       const existingMatch = matchedByUid || findFallbackExistingMatch(existingMatches, parsedMatch)
+      const updatePayload = {
+        ...schedulePayload,
+        ...createMatchParticipantUpdateInput(parsedMatch, payloadPlayers, existingMatch)
+      }
       const validationIssues = buildValidationIssues(parsedMatch, playerCheck, existingMatch, updatePayload)
       const isBlocked = validationIssues.some((issue) => issue.severity === 'blocking')
 
