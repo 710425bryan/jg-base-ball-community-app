@@ -128,6 +128,15 @@ const unassignedRoster = computed(() =>
   filteredRoster.value.filter((member) => !assignedMemberIds.value.has(member.member_id))
 )
 
+const unassignedRosterIds = computed(() =>
+  unassignedRoster.value.map((member) => member.member_id)
+)
+
+const isAllPoolMembersSelected = computed(() =>
+  unassignedRosterIds.value.length > 0 &&
+  unassignedRosterIds.value.every((memberId) => selectedPoolMemberIds.value.includes(memberId))
+)
+
 const selectedVenue = computed(() => form.venues[selectedVenueIndex.value] || form.venues[0] || null)
 
 const getStatusMeta = (status: TrainingLocationSessionStatus) =>
@@ -334,6 +343,22 @@ const setPoolMemberSelected = (memberId: string, checked: unknown) => {
 
 const togglePoolMemberSelection = (memberId: string) => {
   setPoolMemberSelected(memberId, !isPoolMemberSelected(memberId))
+}
+
+const selectAllPoolMembers = () => {
+  if (unassignedRosterIds.value.length === 0) {
+    ElMessage.warning('目前沒有可選球員')
+    return
+  }
+
+  selectedPoolMemberIds.value = Array.from(new Set([
+    ...selectedPoolMemberIds.value,
+    ...unassignedRosterIds.value
+  ]))
+}
+
+const clearPoolMemberSelection = () => {
+  selectedPoolMemberIds.value = []
 }
 
 const moveSelectedMembersToVenue = (venueIndex: number) => {
@@ -815,6 +840,27 @@ onMounted(() => {
               </div>
 
               <el-input v-model="searchQuery" class="mt-3" size="large" placeholder="搜尋姓名、組別、背號" clearable />
+
+              <div class="mt-3 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  class="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-primary/20 bg-white px-3 text-sm font-black text-primary transition-colors hover:bg-primary hover:text-white disabled:cursor-not-allowed disabled:border-slate-100 disabled:bg-slate-100 disabled:text-slate-400"
+                  :disabled="unassignedRosterIds.length === 0 || isAllPoolMembersSelected"
+                  @click="selectAllPoolMembers"
+                >
+                  <el-icon><Checked /></el-icon>
+                  全選目前列表
+                </button>
+                <button
+                  type="button"
+                  class="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-600 transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                  :disabled="selectedPoolMemberIds.length === 0"
+                  @click="clearPoolMemberSelection"
+                >
+                  <el-icon><Refresh /></el-icon>
+                  清除選取
+                </button>
+              </div>
 
               <button
                 type="button"
