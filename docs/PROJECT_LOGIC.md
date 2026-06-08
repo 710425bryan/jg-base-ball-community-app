@@ -65,6 +65,7 @@ UI 約定：
 - `/match-records`：`matches`
 - `/fees`：`fees`
 - `/equipment`：`equipment`
+- `/vendors`：`vendors`
 - `/baseball-ability`、`/baseball-ability/:memberId`：`baseball_ability`
 - `/physical-tests`、`/physical-tests/:memberId`：`physical_tests`
 
@@ -272,7 +273,7 @@ UI 約定：
 資料流：
 
 - `matchesApi` 封裝 `matches` CRUD。
-- Google Calendar / iCal parser 負責把外部日曆轉成 match payload。
+- Google Calendar / iCal parser 負責把外部日曆轉成 match payload；手動同步預覽優先走 `sync-match-calendar` Edge Function dry-run，瀏覽器第三方 CORS proxy 只作 fallback。
 - 同步規劃維持 `create`、`update`、`skip` 三種結果。
 - 比賽紀錄元件處理陣容、照片、出席統計、賽事細節與 live controller。
 - `/calendar?match_id=...` 會開啟 `MatchDetailDialog`；推播與通知的比賽詳情 URL 統一導向這條路徑。
@@ -503,7 +504,41 @@ UI 約定：
 - 裝備圖片與處理照片可多張上傳，使用 `equipments` bucket，前端顯示需支援左右滑動。
 - 不要把來源專案的 `fee_records` 或月結模型搬進本專案。
 
-## 15. 棒球能力與體能測驗
+## 15. 廠商名單
+
+主要檔案：
+
+- `src/views/VendorsView.vue`
+- `src/components/vendors/VendorFormDialog.vue`
+- `src/components/vendors/VendorPhotoGallery.vue`
+- `src/types/vendor.ts`
+- `src/services/vendorsApi.ts`
+- `src/stores/vendors.ts`
+- `src/utils/vendors.ts`
+
+主要資料：
+
+- `vendors`
+- `vendor_trade_categories`
+- Storage bucket：`vendors`，private
+
+資料流：
+
+- 後台在 `/vendors` 管理採購相關廠商，feature key 為 `vendors`，actions 為 `VIEW / CREATE / EDIT / DELETE`。
+- 列表預設表格檢視，也可切換卡片檢視；兩種檢視都依 `trade_category` 分組。列表使用 Supabase range 分頁，進頁載入第一頁，捲動接近底部才載入下一頁。
+- 搜尋會比對廠商名稱、交易類別、聯絡人、電話、採購價備註、地址與官網；交易類別 filter 可縮小到單一類別，並重新從第一頁抓取。
+- 新增 / 編輯廠商時會先確保 `vendor_trade_categories.name` 存在；使用者自行輸入的類別會保留為之後可選選項，刪除廠商不刪類別。
+- 廠商照片可多張上傳，前端使用 `compressImage(file, 1600, 1200, 0.82, 900_000)` 壓縮後寫入 private `vendors` bucket；資料表保存 storage path，讀取列表時由 `vendorsApi` 產生短效 signed URL。
+
+重要規則：
+
+- 廠商名單獨立於裝備與收費，不複製 `equipment` 或 `fees` 權限。
+- migration 只預設建立 `ADMIN` 的 `vendors` 權限列；其他角色由「角色與權限設定」手動開啟。
+- 前端新增、編輯、刪除按鈕只做 UX 控制；`vendors`、`vendor_trade_categories` 與 `vendors` bucket 都必須由 RLS / storage policy 檢查 `vendors:*` 權限。
+- 官網連結顯示前必須用 `normalizeExternalUrl()`；無效網址不產生外連。
+- 採購價目前是自由文字 `purchase_price_note`，不參與金額計算、付款或排序。
+
+## 16. 棒球能力與體能測驗
 
 主要檔案：
 
@@ -537,7 +572,7 @@ UI 約定：
 - RPC 不得回傳敏感欄位。
 - 新增欄位需同步 table、RPC return shape、types、表單、列表、詳情頁與圖表設定。
 
-## 16. 節日主題
+## 17. 節日主題
 
 主要檔案：
 
@@ -565,7 +600,7 @@ UI 約定：
 - 手動補送 event key：`holiday_theme:manual:<activityId>:<requestKey>`。
 - 節日通知 feature/action：`holiday_theme:VIEW`。
 
-## 17. 推播與通知中心
+## 18. 推播與通知中心
 
 主要檔案：
 
@@ -605,7 +640,7 @@ UI 約定：
 - 賽事提醒 URL 統一使用 `/calendar?match_id=<id>`；舊 `/match-records?match_id=<id>` 必須正規化到 `/calendar`，由 `CalendarView` 開啟 `MatchDetailDialog`。
 - 推播 click target 不可只靠 hash route、search param、IndexedDB 或 `postMessage`，避免 iOS PWA 關閉啟動時只開 root 或持久化延遲造成導向遺失。
 
-## 18. PWA、版本與更新
+## 19. PWA、版本與更新
 
 主要檔案：
 
@@ -628,7 +663,7 @@ UI 約定：
 - 一般功能開發不手動改 `public/version.json`。
 - 修改 router / PWA / build 時要確認更新列與 chunk error recovery。
 
-## 19. 維護本文件
+## 20. 維護本文件
 
 下列情況需要同步更新本檔：
 

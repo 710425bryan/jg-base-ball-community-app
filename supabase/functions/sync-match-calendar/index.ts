@@ -10,6 +10,7 @@ import type { MatchRecord, MatchRecordInput } from "../../../src/types/match.ts"
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
 const MATCH_CALENDAR_SYNC_SECRET = Deno.env.get("MATCH_CALENDAR_SYNC_SECRET") || "";
 
 const DEFAULT_CALENDAR_URL = Deno.env.get("MATCH_CALENDAR_ICAL_URL") ||
@@ -17,10 +18,17 @@ const DEFAULT_CALENDAR_URL = Deno.env.get("MATCH_CALENDAR_ICAL_URL") ||
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-sync-secret",
 };
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+const jsonResponse = (body: Record<string, unknown>, status = 200) =>
+  new Response(JSON.stringify(body), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    status,
+  });
 
 type OptionalSyncColumn = "google_calendar_event_id" | "tournament_name" | "match_fee_amount";
 
@@ -170,23 +178,83 @@ const parsePayload = async (req: Request) => {
   }
 };
 
-const assertAuthorized = (req: Request, payload: any) => {
-  if (!MATCH_CALENDAR_SYNC_SECRET) {
-    throw new Response(JSON.stringify({ error: "MATCH_CALENDAR_SYNC_SECRET is not configured" }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
-    });
-  }
-
+const isSecretAuthorized = (req: Request, payload: any) => {
   const headerSecret = req.headers.get("x-sync-secret") || "";
   const payloadSecret = typeof payload?.sync_secret === "string" ? payload.sync_secret : "";
+  return Boolean(MATCH_CALENDAR_SYNC_SECRET) &&
+    (headerSecret === MATCH_CALENDAR_SYNC_SECRET || payloadSecret === MATCH_CALENDAR_SYNC_SECRET);
+};
 
-  if (headerSecret !== MATCH_CALENDAR_SYNC_SECRET && payloadSecret !== MATCH_CALENDAR_SYNC_SECRET) {
-    throw new Response(JSON.stringify({ error: "unauthorized calendar sync request" }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 401,
-    });
+const assertUserCanPreviewSync = async (req: Request) => {
+  const authHeader = req.headers.get("Authorization") || "";
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+
+  if (!token) {
+    throw jsonResponse({ error: "missing authorization token" }, 401);
   }
+
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data?.user?.id) {
+    throw jsonResponse({ error: "invalid authorization token" }, 401);
+  }
+
+  if (!SUPABASE_ANON_KEY) {
+    throw jsonResponse({ error: "SUPABASE_ANON_KEY is not configured" }, 500);
+  }
+
+  const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  });
+
+  const [createPermission, editPermission] = await Promise.all([
+    userClient.rpc("has_app_permission", { p_feature: "matches", p_action: "CREATE" }),
+    userClient.rpc("has_app_permission", { p_feature: "matches", p_action: "EDIT" }),
+  ]);
+
+  if (createPermission.error) throw createPermission.error;
+  if (editPermission.error) throw editPermission.error;
+
+  if (createPermission.data !== true && editPermission.data !== true) {
+    throw jsonResponse({ error: "missing matches permission" }, 403);
+  }
+};
+
+const assertAllowedUserCalendarUrl = (calendarUrl: string) => {
+  try {
+    const parsedUrl = new URL(calendarUrl);
+    if (
+      parsedUrl.protocol === "https:" &&
+      parsedUrl.hostname === "calendar.google.com" &&
+      parsedUrl.pathname.startsWith("/calendar/ical/")
+    ) {
+      return;
+    }
+  } catch {
+    // Fall through to the shared error response below.
+  }
+
+  throw jsonResponse({ error: "calendar URL is not allowed for user preview" }, 400);
+};
+
+const assertAuthorized = async (req: Request, payload: any) => {
+  if (isSecretAuthorized(req, payload)) {
+    return "secret" as const;
+  }
+
+  if (payload?.dry_run === true) {
+    await assertUserCanPreviewSync(req);
+    return "user-preview" as const;
+  }
+
+  if (!MATCH_CALENDAR_SYNC_SECRET) {
+    throw jsonResponse({ error: "MATCH_CALENDAR_SYNC_SECRET is not configured" }, 500);
+  }
+
+  throw jsonResponse({ error: "unauthorized calendar sync request" }, 401);
 };
 
 serve(async (req) => {
@@ -203,15 +271,20 @@ serve(async (req) => {
 
   try {
     const payload = await parsePayload(req);
-    assertAuthorized(req, payload);
+    const authMode = await assertAuthorized(req, payload);
 
     const calendarUrl = typeof payload.calendar_url === "string" && payload.calendar_url.trim()
       ? payload.calendar_url.trim()
       : DEFAULT_CALENDAR_URL;
+    if (authMode === "user-preview") {
+      assertAllowedUserCalendarUrl(calendarUrl);
+    }
+
     const minimumMatchDate = typeof payload.minimum_match_date === "string" && payload.minimum_match_date.trim()
       ? payload.minimum_match_date.trim()
       : undefined;
     const dryRun = payload.dry_run === true;
+    const includeItems = dryRun && payload.include_items === true;
 
     const [calendarText, existingMatches, rosterMembers] = await Promise.all([
       fetchICalText(calendarUrl),
@@ -271,6 +344,7 @@ serve(async (req) => {
       skipped_count: planned.skip,
       blocked_count: planned.blocked,
       optional_column_support: optionalColumnSupport,
+      ...(includeItems ? { sync_items: syncItems } : {}),
     };
 
     console.log("Match calendar sync summary:", summary);

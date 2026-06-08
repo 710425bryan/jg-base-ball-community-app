@@ -59,6 +59,7 @@
                     <el-dropdown-item v-if="permissionsStore.can('training_locations', 'VIEW')" @click="router.push('/training-locations')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">場地配置</el-dropdown-item>
                     <el-dropdown-item v-if="permissionsStore.can('fees', 'VIEW')" @click="router.push('/fees')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">收費管理</el-dropdown-item>
                     <el-dropdown-item v-if="permissionsStore.can('equipment', 'VIEW')" @click="router.push('/equipment')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">裝備管理</el-dropdown-item>
+                    <el-dropdown-item v-if="permissionsStore.can('vendors', 'VIEW')" @click="router.push('/vendors')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">廠商名單</el-dropdown-item>
                     <el-dropdown-item v-if="permissionsStore.can('users', 'VIEW')" @click="router.push('/users')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5" divided>使用者名單</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
@@ -653,6 +654,7 @@ const adminDesktopNavItems = computed<DesktopNavItem[]>(() => [
   { label: '場地配置', to: '/training-locations', visible: permissionsStore.can('training_locations', 'VIEW') },
   { label: '收費管理', to: '/fees', visible: permissionsStore.can('fees', 'VIEW') },
   { label: '裝備管理', to: '/equipment', visible: permissionsStore.can('equipment', 'VIEW') },
+  { label: '廠商名單', to: '/vendors', visible: permissionsStore.can('vendors', 'VIEW') },
   { label: '使用者名單', to: '/users', visible: permissionsStore.can('users', 'VIEW') }
 ].filter(isVisibleDesktopNavItem));
 
@@ -709,6 +711,7 @@ const mobileMenuGroups = computed<MobileMenuGroup[]>(() => [
       { label: '訓練日期', to: '/training-dates', visible: permissionsStore.can('training_dates', 'VIEW') },
       { label: '收費管理', to: '/fees', visible: permissionsStore.can('fees', 'VIEW') },
       { label: '裝備管理', to: '/equipment', visible: permissionsStore.can('equipment', 'VIEW') },
+      { label: '廠商名單', to: '/vendors', visible: permissionsStore.can('vendors', 'VIEW') },
       { label: '使用者名單', to: '/users', visible: permissionsStore.can('users', 'VIEW') }
     ].filter(isVisibleMobileMenuItem)
   }

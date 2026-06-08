@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   checkCalendarPlayersAgainstRoster,
   createMatchRecordInput,
+  fetchAndParseICal,
   parseICalText,
   parseMatchRecord,
   planCalendarSync
@@ -14,6 +15,10 @@ const buildExistingMatch = (id: string, payload: ReturnType<typeof createMatchRe
 })
 
 describe('googleCalendarParser', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
   it('parses the final Google Calendar format into display-ready match data', () => {
     const parsed = parseMatchRecord({
       id: 'uid-final@google.com',
@@ -64,6 +69,40 @@ describe('googleCalendarParser', () => {
     expect(parsed.players.at(-1)).toEqual({ number: '8', name: '謝準' })
 
     expect(createMatchRecordInput(parsed).tournament_name).toBe('就是棒春季聯賽')
+  })
+
+  it('decodes allOrigins data URI responses when fetching iCal text', async () => {
+    const icalText = `BEGIN:VCALENDAR
+BEGIN:VEVENT
+DTSTART:20260607T010000Z
+DTEND:20260607T040000Z
+UID:proxy-uid@google.com
+SUMMARY:U8 Friendly 中港熊戰 vs Test Team
+END:VEVENT
+END:VCALENDAR`
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 522
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          contents: `data:text/calendar; charset=utf-8;base64,${btoa(String.fromCharCode(...new TextEncoder().encode(icalText)))}`
+        })
+      })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const parsed = await fetchAndParseICal('https://calendar.google.com/calendar/ical/team/public/basic.ics')
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(parsed).toHaveLength(1)
+    expect(parsed[0]).toEqual(expect.objectContaining({
+      id: 'proxy-uid@google.com',
+      opponent: 'Test Team',
+      date: '2026-06-07'
+    }))
   })
 
   it('parses dynamic match fee amounts from calendar descriptions', () => {

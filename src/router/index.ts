@@ -215,6 +215,12 @@ const router = createRouter({
           name: 'Equipment',
           component: () => import('../views/EquipmentView.vue'),
           meta: { feature: 'equipment' }
+        },
+        {
+          path: 'vendors',
+          name: 'Vendors',
+          component: () => import('../views/VendorsView.vue'),
+          meta: { feature: 'vendors' }
         }
       ]
     },

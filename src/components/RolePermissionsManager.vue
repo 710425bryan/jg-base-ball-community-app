@@ -385,6 +385,12 @@ const systemFeatures = [
     name: '裝備管理',
     desc: '管理裝備庫存、加購申請與付款審核',
     actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
+  },
+  {
+    key: 'vendors',
+    name: '廠商名單',
+    desc: '管理採購廠商、交易類別與聯絡資訊',
+    actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
   }
 ]
 
