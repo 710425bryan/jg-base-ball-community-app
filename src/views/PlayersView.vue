@@ -121,18 +121,18 @@
               </div>
             </template>
           </el-table-column>
+          <el-table-column prop="jersey_number" label="背號" width="80" align="center" sortable :sort-method="sortJerseyNumber">
+            <template #default="{ row }">
+              <span v-if="row.jersey_number" class="text-xs font-mono font-bold bg-gray-100 px-1.5 py-0.5 rounded">#{{ row.jersey_number }}</span>
+              <span v-else class="text-gray-300">-</span>
+            </template>
+          </el-table-column>
           <el-table-column prop="birth_date" label="生日" width="115" sortable>
             <template #default="{ row }">
               <div v-if="row.birth_date" class="flex flex-col leading-tight">
                 <span class="font-bold text-gray-800 text-[13px] md:text-sm">{{ row.birth_date }}</span>
                 <span class="text-slate-400 font-bold text-[11px] md:text-xs tracking-wide">{{ getROCDate(row.birth_date) }}</span>
               </div>
-              <span v-else class="text-gray-300">-</span>
-            </template>
-          </el-table-column>
-          <el-table-column prop="joined_date" label="加入時間" width="115" sortable>
-            <template #default="{ row }">
-              <span v-if="row.joined_date" class="font-bold text-gray-800 text-[13px] md:text-sm">{{ row.joined_date }}</span>
               <span v-else class="text-gray-300">-</span>
             </template>
           </el-table-column>
@@ -144,7 +144,7 @@
           </el-table-column>
           <el-table-column prop="role" label="身分" width="90">
             <template #default="{ row }">
-              <span class="players-role-badge font-bold px-2 py-0.5 rounded border uppercase tracking-wider" :class="getRoleClass(row.role)">{{ row.role }}</span>
+              <span class="players-role-table-badge" :class="getRoleClass(row.role)">{{ row.role }}</span>
             </template>
           </el-table-column>
           <el-table-column prop="team_group" label="所屬群組 (熊隊)" min-width="135">
@@ -182,16 +182,16 @@
           </el-table-column>
           <el-table-column prop="guardian_name" label="法定代理人" min-width="100" />
           <el-table-column prop="guardian_phone" label="代理人(手機)" min-width="110" />
-          <el-table-column prop="jersey_number" label="背號" width="80" align="center">
-            <template #default="{ row }">
-              <span v-if="row.jersey_number" class="text-xs font-mono font-bold bg-gray-100 px-1.5 py-0.5 rounded">#{{ row.jersey_number }}</span>
-              <span v-else class="text-gray-300">-</span>
-            </template>
-          </el-table-column>
           <el-table-column prop="contact_line_id" label="LINE ID" min-width="140" />
           <el-table-column v-if="canEditPlayers" prop="national_id" label="身分證" width="130">
             <template #default="{ row }">
               <span v-if="row.national_id" class="text-xs font-mono text-gray-400">{{ row.national_id }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="joined_date" label="加入時間" width="115" sortable>
+            <template #default="{ row }">
+              <span v-if="row.joined_date" class="font-bold text-gray-800 text-[13px] md:text-sm">{{ row.joined_date }}</span>
+              <span v-else class="text-gray-300">-</span>
             </template>
           </el-table-column>
         </el-table>
@@ -1151,6 +1151,36 @@ const exportPlayerMatchCsv = () => {
   isExportDialogOpen.value = false
 }
 
+const normalizeJerseyNumberSortValue = (value: unknown) => {
+  const text = String(value ?? '').trim().replace(/^#/, '')
+
+  if (!text) {
+    return {
+      isEmpty: true,
+      numericValue: Number.POSITIVE_INFINITY,
+      text: ''
+    }
+  }
+
+  const parsedNumber = Number(text)
+
+  return {
+    isEmpty: false,
+    numericValue: Number.isFinite(parsedNumber) ? parsedNumber : Number.POSITIVE_INFINITY,
+    text
+  }
+}
+
+const sortJerseyNumber = (a: any, b: any) => {
+  const jerseyA = normalizeJerseyNumberSortValue(a.jersey_number)
+  const jerseyB = normalizeJerseyNumberSortValue(b.jersey_number)
+
+  if (jerseyA.isEmpty !== jerseyB.isEmpty) return jerseyA.isEmpty ? 1 : -1
+  if (jerseyA.numericValue !== jerseyB.numericValue) return jerseyA.numericValue - jerseyB.numericValue
+
+  return jerseyA.text.localeCompare(jerseyB.text, 'zh-TW', { numeric: true })
+}
+
 // U-level 排序邏輯
 const sortULevel = (a: any, b: any) => {
   const levelA = getULevel(a);
@@ -2093,6 +2123,23 @@ onMounted(() => {
 .players-role-badge {
   font-size: 1rem;
   line-height: 1.25rem;
+}
+.players-role-table-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  height: 26px;
+  padding: 0 0.625rem;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 9999px;
+  box-sizing: border-box;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0;
+  white-space: nowrap;
 }
 .players-card-photo {
   transition: box-shadow 180ms ease, transform 180ms ease;
