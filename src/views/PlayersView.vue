@@ -896,17 +896,16 @@ const persistNormalizedSiblingIds = async (memberList: any[]) => {
   })
 
   if (changedMembers.length > 0) {
-    const { error } = await supabase
-      .from('team_members')
-      .upsert(
-        changedMembers.map((member) => ({
-          id: member.id,
+    for (const member of changedMembers) {
+      const { error } = await supabase
+        .from('team_members')
+        .update({
           sibling_ids: Array.isArray(member.sibling_ids) ? [...member.sibling_ids] : []
-        })),
-        { onConflict: 'id' }
-      )
+        })
+        .eq('id', member.id)
 
-    if (error) throw error
+      if (error) throw error
+    }
   }
 
   return normalizedMembers
@@ -1941,10 +1940,10 @@ const submitForm = async () => {
     console.log("Submitting payload to team_members:", payload)
 
     // 3. 執行 UPSERT 或 INSERT
+    const successMessage = isEditing.value ? '更新資料成功！' : '新增隊員成功！'
     if (isEditing.value) {
       const { error } = await supabase.from('team_members').update(payload).eq('id', form.id)
       if (error) throw error
-      ElMessage.success('更新資料成功！')
     } else {
       const { data: insertedMember, error } = await supabase
         .from('team_members')
@@ -1953,7 +1952,6 @@ const submitForm = async () => {
         .single()
       if (error) throw error
       notifyInsertedMembers([insertedMember])
-      ElMessage.success('新增隊員成功！')
     }
 
     const siblingSyncMembers = await fetchMembersForSiblingSync()
@@ -1968,6 +1966,7 @@ const submitForm = async () => {
 
     isModalOpen.value = false
     await fetchData({ force: true })
+    ElMessage.success(successMessage)
   } catch (error: any) {
     console.error("Submit Error:", error)
     ElMessage.error(error.message || '發生錯誤')
