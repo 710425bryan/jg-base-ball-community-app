@@ -8,6 +8,7 @@ import type {
   MyPaymentSubmission,
   MyPaymentSubmissionItem
 } from '@/types/payments'
+import { isActiveRosterMember } from '@/utils/memberLifecycle'
 
 const unwrapRows = <T>(data: T[] | T | null | undefined) => {
   if (!data) {
@@ -49,6 +50,32 @@ const normalizeSubmission = (row: any): MyPaymentSubmission | null => {
   }
 }
 
+const filterActivePaymentMembers = async (members: MyPaymentMember[]) => {
+  const memberIds = members
+    .map((member) => member.member_id)
+    .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+
+  if (memberIds.length === 0) return members
+
+  const { data, error } = await supabase
+    .from('team_members_safe')
+    .select('id, status, is_inactive_or_graduated')
+    .in('id', memberIds)
+
+  if (error) {
+    console.warn('無法確認繳費成員是否關閉/畢業，暫以付款 RPC 回傳名單顯示。', error)
+    return members
+  }
+
+  const activeMemberIds = new Set(
+    (data || [])
+      .filter(isActiveRosterMember)
+      .map((member) => String(member.id))
+  )
+
+  return members.filter((member) => activeMemberIds.has(member.member_id))
+}
+
 export const listMyPaymentMembers = async () => {
   const { data, error } = await supabase.rpc('list_my_payment_members')
 
@@ -56,7 +83,7 @@ export const listMyPaymentMembers = async () => {
     throw error
   }
 
-  return unwrapRows<MyPaymentMember>(data)
+  return filterActivePaymentMembers(unwrapRows<MyPaymentMember>(data))
 }
 
 export const getMyPaymentRecords = async (memberId: string) => {

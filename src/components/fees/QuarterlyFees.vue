@@ -634,7 +634,7 @@ const fetchData = async () => {
   try {
     const { data: membersData, error: mErr } = await supabase
       .from('team_members')
-      .select('id, name, status, sibling_ids, is_primary_payer, is_half_price, role, fee_billing_mode')
+      .select('id, name, status, is_inactive_or_graduated, sibling_ids, is_primary_payer, is_half_price, role, fee_billing_mode')
       .in('role', ['球員'])
       
     if (mErr) throw mErr

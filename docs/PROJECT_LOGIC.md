@@ -139,6 +139,7 @@ UI 約定：
   - `list_my_leave_requests(p_member_id)`
   - `create_my_leave_requests(p_member_id, p_records)`
   - `delete_my_leave_request(p_leave_request_id)`
+  - 可新增假單的成員只包含有效 linked member；退隊、離隊、關閉 / 畢業成員不回傳，也不能透過 RPC 新增假單。
 - 我的繳費：
   - `list_my_payment_members()`
   - `get_my_payment_records(p_member_id)`
@@ -186,6 +187,7 @@ UI 約定：
 
 - 球員名單管理讀寫 `team_members`。
 - 展示型名單或非敏感選項優先使用 `team_members_safe` 或安全 RPC。
+- `status in ('退隊', '離隊')` 或 `is_inactive_or_graduated = true` 的成員視為非有效名單；比賽資料下載、後台大廳統計 / 今日請假名單、個人首頁、個人假單新增、後續繳費成員選單都不可再顯示或納入新一期計算。
 - 球員名單顯示使用 session 內記憶體快取；進頁先呼叫 `get_team_members_cache_meta()` 比對 `row_count` / `latest_changed_at`，有差異才重新抓完整名單。
 - `get_team_members_cache_meta()` 只回傳版本資訊，不回傳球員個資，且需通過 `players:VIEW`。
 - 使用者新增 / 更新 / 刪除走 admin RPC，例如 `admin_insert_profile()`、`admin_update_profile()`、`admin_delete_user()`。
@@ -224,6 +226,7 @@ UI 約定：
 資料流：
 
 - 後台請假管理讀寫 `leave_requests`。
+- 後台新增假單的成員選單只列有效成員；退隊、離隊、關閉 / 畢業成員的既有假單可保留查詢，但不可再新增。
 - 點名事件使用 `attendance_events`。
 - 單場點名紀錄使用 `attendance_records`。
 - 點名頁會參照球員名單與當日請假資料。
@@ -454,6 +457,7 @@ UI 約定：
 
 - 餘額屬於 `team_members`，不可扣成負數；家長只能看與使用自己綁定球員的餘額。
 - 修改付款或費用要檢查 sibling、primary payer、half price 與固定月繳排除規則。
+- `list_my_payment_members()` 與前端 `/my-payments` 會排除退隊、離隊、關閉 / 畢業成員；月費、季費與費用設定頁也只用有效成員建立後續繳費名單。
 - 裝備付款回報在 `/my-payments` 與 `/fees?tab=equipment` 整合，但不要混入一般月費資料模型。
 - 比賽費付款回報在 UI 上可與一般付款合併，但資料模型仍使用 `match_payment_submissions`。
 

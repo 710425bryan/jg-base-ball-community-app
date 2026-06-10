@@ -328,6 +328,7 @@ import {
   isFixedMonthlyBillingMember,
   normalizeFixedMonthlyFee
 } from '@/utils/memberBilling'
+import { isActiveRosterMember, shouldApplyManualHalfPrice } from '@/utils/memberLifecycle'
 
 const emit = defineEmits<{
   (e: 'summary-change', payload: {
@@ -591,12 +592,12 @@ const calculateFees = async () => {
     // 1. 撈取校隊與固定月繳球員名單
     const { data: membersData, error: membersErr } = await supabase
       .from('team_members')
-      .select('id, name, role, status, sibling_ids, is_primary_payer, is_half_price, fee_billing_mode')
+      .select('id, name, role, status, is_inactive_or_graduated, sibling_ids, is_primary_payer, is_half_price, fee_billing_mode')
       .in('role', ['校隊', '球員'])
     if (membersErr) throw membersErr
 
     const members = membersData?.filter(m =>
-      m.status !== '退隊' &&
+      isActiveRosterMember(m) &&
       (
         m.role === '校隊' ||
         isFixedMonthlyBillingMember(m)
@@ -687,7 +688,7 @@ const calculateFees = async () => {
       
       // 手足半價優惠處理 (直接折半單次費率)
       let isDiscounted = false
-      if (!isFixedMonthly && m.is_half_price) {
+      if (!isFixedMonthly && shouldApplyManualHalfPrice(m, members)) {
         isDiscounted = true
       } else if (!isFixedMonthly && m.sibling_ids && m.sibling_ids.length > 0) {
         if (!m.is_primary_payer) {

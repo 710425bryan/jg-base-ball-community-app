@@ -1,5 +1,6 @@
 import { getSiblingGroupIds, resolveLinkedMemberIds, type SiblingNode } from './siblingGroups'
 import { isQuarterlyBillingMember } from './memberBilling'
+import { isActiveRosterMember, shouldApplyManualHalfPrice } from './memberLifecycle'
 
 export const FULL_QUARTERLY_FEE_AMOUNT = 6000
 export const HALF_QUARTERLY_FEE_AMOUNT = 3000
@@ -9,6 +10,8 @@ export type QuarterlyPricingMember = SiblingNode & {
   fee_billing_mode?: string | null
   is_half_price?: boolean | null
   is_primary_payer?: boolean | null
+  status?: string | null
+  is_inactive_or_graduated?: boolean | null
 }
 
 export type QuarterlyFeeGroupingRecord = {
@@ -59,6 +62,10 @@ const getFamilyMembers = (
 }
 
 export const isQuarterlyPricingMember = (member: QuarterlyPricingMember) => {
+  if (!isActiveRosterMember(member)) {
+    return false
+  }
+
   if (member.role === undefined || member.role === null) {
     return member.fee_billing_mode !== 'monthly_fixed'
   }
@@ -93,7 +100,7 @@ export const getExpectedQuarterlyAmount = (
     return 0
   }
 
-  if (member.is_half_price) {
+  if (shouldApplyManualHalfPrice(member, members)) {
     return HALF_QUARTERLY_FEE_AMOUNT
   }
 

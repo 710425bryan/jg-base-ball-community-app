@@ -16,6 +16,7 @@ import {
   markSupabaseRpcUnavailable
 } from '@/utils/supabaseRpc'
 import { normalizeMyHomeNextEvent } from '@/utils/myHomeSnapshot'
+import { isActiveRosterMember } from '@/utils/memberLifecycle'
 import {
   buildTrainingMonthDateItems,
   getDefaultTrainingMonthDates,
@@ -59,6 +60,7 @@ const normalizeMember = (member: Partial<MyHomeMember> & Record<string, unknown>
   role: member.role ? String(member.role) : null,
   team_group: member.team_group ? String(member.team_group) : null,
   status: member.status ? String(member.status) : null,
+  is_inactive_or_graduated: Boolean(member.is_inactive_or_graduated),
   jersey_number: member.jersey_number === null || member.jersey_number === undefined
     ? null
     : String(member.jersey_number),
@@ -239,6 +241,65 @@ const enrichSnapshotWithMatchFees = async (snapshot: MyHomeSnapshot): Promise<My
   }
 }
 
+const filterActiveSnapshotMembers = async (snapshot: MyHomeSnapshot): Promise<MyHomeSnapshot> => {
+  const memberIds = snapshot.members
+    .map((member) => member.id)
+    .filter((id) => id.trim().length > 0)
+
+  if (memberIds.length === 0) return snapshot
+
+  const { data, error } = await supabase
+    .from('team_members_safe')
+    .select('id, status, is_inactive_or_graduated')
+    .in('id', memberIds)
+
+  if (error) {
+    console.warn('無法確認首頁關聯成員是否關閉/畢業，暫以首頁 RPC 回傳資料顯示。', error)
+    return snapshot
+  }
+
+  const activeMemberIds = new Set(
+    (data || [])
+      .filter(isActiveRosterMember)
+      .map((member) => String(member.id))
+  )
+  const hasMemberRemoved = activeMemberIds.size !== memberIds.length
+
+  if (!hasMemberRemoved) return snapshot
+
+  const nextPaymentDue = snapshot.payment_summary.next_due
+  const latestEquipmentRequest = snapshot.equipment_summary.latest_request
+  const hasActiveMembers = activeMemberIds.size > 0
+
+  return {
+    ...snapshot,
+    members: snapshot.members.filter((member) => activeMemberIds.has(member.id)),
+    today_leaves: snapshot.today_leaves.filter((leave) => activeMemberIds.has(leave.member_id)),
+    training_locations: snapshot.training_locations.filter((location) => activeMemberIds.has(location.member_id)),
+    payment_summary: {
+      ...snapshot.payment_summary,
+      unpaid_count: hasActiveMembers ? snapshot.payment_summary.unpaid_count : 0,
+      pending_review_count: hasActiveMembers ? snapshot.payment_summary.pending_review_count : 0,
+      total_unpaid_amount: hasActiveMembers ? snapshot.payment_summary.total_unpaid_amount : 0,
+      next_due: nextPaymentDue && activeMemberIds.has(nextPaymentDue.member_id) ? nextPaymentDue : null
+    },
+    equipment_summary: {
+      ...snapshot.equipment_summary,
+      active_request_count: hasActiveMembers ? snapshot.equipment_summary.active_request_count : 0,
+      ready_for_pickup_count: hasActiveMembers ? snapshot.equipment_summary.ready_for_pickup_count : 0,
+      picked_up_unpaid_count: hasActiveMembers ? snapshot.equipment_summary.picked_up_unpaid_count : 0,
+      pending_payment_count: hasActiveMembers ? snapshot.equipment_summary.pending_payment_count : 0,
+      unpaid_amount: hasActiveMembers ? snapshot.equipment_summary.unpaid_amount : 0,
+      latest_request: latestEquipmentRequest && activeMemberIds.has(latestEquipmentRequest.member_id)
+        ? latestEquipmentRequest
+        : null
+    },
+    match_fee_summary: hasActiveMembers
+      ? snapshot.match_fee_summary
+      : createEmptyMyHomeSnapshot().match_fee_summary
+  }
+}
+
 const normalizeSnapshot = (payload: Partial<MyHomeSnapshot> | null | undefined): MyHomeSnapshot => {
   return {
     members: ensureArray<MyHomeMember>(payload?.members).map(normalizeMember),
@@ -299,6 +360,7 @@ export const getMyHomeSnapshot = async (today?: string | null) => {
   const snapshot = await enrichSnapshotWithTrainingMonthDates(snapshotWithLocations, payload, today)
 
   const withTrainingPoints = await enrichMembersWithTrainingPoints(snapshot, rawMembers)
+  const activeSnapshot = await filterActiveSnapshotMembers(withTrainingPoints)
 
-  return enrichSnapshotWithMatchFees(withTrainingPoints)
+  return enrichSnapshotWithMatchFees(activeSnapshot)
 }

@@ -40,13 +40,16 @@ import {
   canShowMyHomeTrainingRegistrationAction,
   isMyHomeNextEventExpired
 } from '@/utils/myHomeSnapshot'
+import { isActiveRosterMember } from '@/utils/memberLifecycle'
 
 type WeatherStatus = 'loading' | 'success' | 'unavailable'
 type WeatherIconName = 'cloudy' | 'lightning' | 'moon-night' | 'partly-cloudy' | 'pouring' | 'sunny'
 
 type TeamMemberStatRow = {
+  id: string | null
   role: string | null
   status: string | null
+  is_inactive_or_graduated?: boolean | null
 }
 
 type LeaveRequestStatRow = {
@@ -78,7 +81,6 @@ type MyHomeSnapshotFetchOptions = {
 
 const TEAM_LABEL = '中港熊戰'
 const MEMBER_STAT_ROLES = ['球員', '校隊', '教練']
-const INACTIVE_MEMBER_STATUSES = new Set(['離隊', '退隊'])
 const DEFAULT_WEATHER_TEMP = 26
 const DEFAULT_WEATHER_RAIN = 20
 const DEFAULT_WEATHER_WIND = 2
@@ -356,7 +358,7 @@ const getAddonAvailabilityLabel = (equipment: Equipment) => {
 }
 
 const isActiveDashboardMember = (member: TeamMemberStatRow) =>
-  !INACTIVE_MEMBER_STATUSES.has(member.status || '')
+  isActiveRosterMember(member)
 
 const resetAdminStats = () => {
   Object.assign(stats, createEmptyDashboardStats())
@@ -449,7 +451,7 @@ const fetchAdminStats = async () => {
     const [membersRes, todayLeaveRequestsRes, todayAttendanceEventsRes] = await Promise.all([
       supabase
         .from('team_members')
-        .select('role, status')
+        .select('id, role, status, is_inactive_or_graduated')
         .in('role', MEMBER_STAT_ROLES),
       supabase
         .from('leave_requests')
@@ -469,6 +471,11 @@ const fetchAdminStats = async () => {
     const members = Array.isArray(membersRes.data)
       ? (membersRes.data as TeamMemberStatRow[]).filter(isActiveDashboardMember)
       : []
+    const activeMemberIds = new Set(
+      members
+        .map((member) => member.id)
+        .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+    )
     const todayLeaveRequests = Array.isArray(todayLeaveRequestsRes.data)
       ? todayLeaveRequestsRes.data as LeaveRequestStatRow[]
       : []
@@ -479,12 +486,14 @@ const fetchAdminStats = async () => {
     const attendanceLeaveMemberIds = new Set<string>()
 
     todayLeaveRequests.forEach((leave) => {
-      if (leave.user_id) leaveRequestMemberIds.add(leave.user_id)
+      if (leave.user_id && activeMemberIds.has(leave.user_id)) {
+        leaveRequestMemberIds.add(leave.user_id)
+      }
     })
 
     todayAttendanceEvents.forEach((event) => {
       event.attendance_records?.forEach((record) => {
-        if (record.status === '請假' && record.member_id) {
+        if (record.status === '請假' && record.member_id && activeMemberIds.has(record.member_id)) {
           attendanceLeaveMemberIds.add(record.member_id)
         }
       })

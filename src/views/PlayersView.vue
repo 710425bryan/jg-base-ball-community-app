@@ -111,9 +111,9 @@
             <template #default="{ row }">
               <div class="flex flex-col">
                 <span class="font-black text-gray-800 text-base leading-tight">{{ row.name }}</span>
-                <span v-if="row.sibling_ids && row.sibling_ids.length > 0 && getSiblingName(row.sibling_ids)" class="text-[10px] font-bold border px-1.5 py-0.5 rounded-sm mt-0.5 w-max inline-flex items-center gap-1" :class="row.is_primary_payer ? 'text-emerald-700 border-emerald-200 bg-emerald-50' : 'text-primary border-primary/20 bg-primary/5'">
+                <span v-if="hasActiveSiblingNames(row)" class="text-[10px] font-bold border px-1.5 py-0.5 rounded-sm mt-0.5 w-max inline-flex items-center gap-1" :class="row.is_primary_payer ? 'text-emerald-700 border-emerald-200 bg-emerald-50' : 'text-primary border-primary/20 bg-primary/5'">
                   <span class="tracking-wide">{{ row.is_primary_payer ? '主要繳費人' : '半價優惠' }}</span>
-                  <span class="opacity-80 font-medium ml-0.5">· 手足: {{ getSiblingName(row.sibling_ids) }}</span>
+                  <span class="opacity-80 font-medium ml-0.5">· 手足: {{ getActiveSiblingName(row) }}</span>
                 </span>
                 <span v-if="isFixedMonthlyMember(row)" class="text-[10px] font-bold border px-1.5 py-0.5 rounded-sm mt-0.5 w-max inline-flex items-center gap-1 text-amber-700 border-amber-200 bg-amber-50">
                   固定月繳
@@ -306,11 +306,11 @@
               </div>
 
               <div class="mt-auto pt-3 px-1 flex flex-wrap items-center gap-2">
-                <span v-if="member.sibling_ids && member.sibling_ids.length > 0 && getSiblingName(member.sibling_ids)" class="text-[10px] font-bold px-2 py-1 rounded-md border inline-flex items-center gap-1.5 max-w-full" :class="member.is_primary_payer ? 'text-emerald-700 border-emerald-200 bg-emerald-50' : 'bg-primary/5 text-primary border-primary/20'">
+                <span v-if="hasActiveSiblingNames(member)" class="text-[10px] font-bold px-2 py-1 rounded-md border inline-flex items-center gap-1.5 max-w-full" :class="member.is_primary_payer ? 'text-emerald-700 border-emerald-200 bg-emerald-50' : 'bg-primary/5 text-primary border-primary/20'">
                   <span class="shrink-0">{{ member.is_primary_payer ? '主要繳費人' : '半價優惠' }}</span>
-                  <span class="opacity-80 font-medium border-l border-current pl-1.5 text-[9px] truncate">手足: {{ getSiblingName(member.sibling_ids) }}</span>
+                  <span class="opacity-80 font-medium border-l border-current pl-1.5 text-[9px] truncate">手足: {{ getActiveSiblingName(member) }}</span>
                 </span>
-                <span v-else-if="member.is_half_price" class="text-[10px] font-bold px-2 py-1 rounded-md border bg-primary/5 text-primary border-primary/20">
+                <span v-else-if="shouldShowManualHalfPrice(member)" class="text-[10px] font-bold px-2 py-1 rounded-md border bg-primary/5 text-primary border-primary/20">
                   半價優惠
                 </span>
                 <span v-if="isFixedMonthlyMember(member)" class="text-[10px] font-bold px-2 py-1 rounded-md border bg-amber-50 text-amber-700 border-amber-200">
@@ -676,6 +676,12 @@ import {
 } from '@/utils/playerSync'
 import { normalizeSiblingIds } from '@/utils/siblingGroups'
 import {
+  buildSiblingHalfPriceCleanupIds,
+  getActiveSiblingIds,
+  isActiveRosterMember,
+  shouldApplyManualHalfPrice
+} from '@/utils/memberLifecycle'
+import {
   FIXED_MONTHLY_FEE_BILLING_MODE,
   getMemberBillingLabel,
   isFixedMonthlyBillingMember,
@@ -876,7 +882,7 @@ const hasSameSiblingIds = (left: unknown, right: unknown) => {
 const fetchMembersForSiblingSync = async () => {
   const { data, error } = await supabase
     .from('team_members')
-    .select('id, name, role, sibling_ids')
+    .select('id, name, role, status, is_inactive_or_graduated, is_half_price, sibling_ids')
     .order('name')
 
   if (error) throw error
@@ -963,6 +969,15 @@ const getSiblingName = (ids: string[] | string) => {
   return idArray.map(id => members.value.find(m => m.id === id)?.name).filter(Boolean).join(', ');
 }
 
+const getActiveSiblingName = (member: any) =>
+  getSiblingName(getActiveSiblingIds(member, members.value))
+
+const hasActiveSiblingNames = (member: any) =>
+  isActiveRosterMember(member) && getActiveSiblingName(member).length > 0
+
+const shouldShowManualHalfPrice = (member: any) =>
+  isActiveRosterMember(member) && shouldApplyManualHalfPrice(member, members.value)
+
 type ExportQuickSelect = 'all' | 'coach' | `U${number}`
 type ExportColumnPreset = 'all' | 'basic' | 'clear'
 type PlayerExportColumn = {
@@ -1038,7 +1053,7 @@ const playerExportColumns = computed<PlayerExportColumn[]>(() => [
 
 const exportMemberOptions = computed(() =>
   members.value
-    .filter((member) => member?.id && member?.name)
+    .filter((member) => member?.id && member?.name && isActiveRosterMember(member))
     .map((member) => ({ ...member, id: String(member.id) }))
 )
 
@@ -1985,13 +2000,26 @@ const submitForm = async () => {
     }
 
     const siblingSyncMembers = await fetchMembersForSiblingSync()
-    const savedMember = siblingSyncMembers.find((member) => member.name === form.name) || siblingSyncMembers.find((member) => member.id === form.id)
+    const savedMember = siblingSyncMembers.find((member) => member.id === form.id) || siblingSyncMembers.find((member) => member.name === form.name)
     if (savedMember) {
       savedMember.role = payload.role
+      savedMember.status = payload.status
+      savedMember.is_inactive_or_graduated = !!payload.is_inactive_or_graduated
+      savedMember.is_half_price = !!payload.is_half_price
       savedMember.sibling_ids = isSiblingEligibleRole(payload.role)
         ? (Array.isArray(payload.sibling_ids) ? [...payload.sibling_ids] : [])
         : []
-      await persistNormalizedSiblingIds(siblingSyncMembers)
+      const normalizedMembers = await persistNormalizedSiblingIds(siblingSyncMembers)
+      const halfPriceCleanupIds = buildSiblingHalfPriceCleanupIds(savedMember.id, normalizedMembers)
+
+      if (halfPriceCleanupIds.length > 0) {
+        const { error } = await supabase
+          .from('team_members')
+          .update({ is_half_price: false })
+          .in('id', halfPriceCleanupIds)
+
+        if (error) throw error
+      }
     }
 
     isModalOpen.value = false

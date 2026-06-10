@@ -6,6 +6,7 @@ export type MyHomeMember = {
   role: string | null
   team_group: string | null
   status: string | null
+  is_inactive_or_graduated?: boolean
   jersey_number: string | null
   avatar_url: string | null
   point_balance?: number

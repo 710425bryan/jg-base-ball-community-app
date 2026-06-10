@@ -535,6 +535,7 @@ import {
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
 import { useTeamGroupsStore } from '@/stores/teamGroups'
+import { isActiveRosterMember } from '@/utils/memberLifecycle'
 import { getUniqueTeamGroupOptions, normalizeTeamGroup } from '@/utils/teamGroups'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Loading, Memo, Plus, Setting } from '@element-plus/icons-vue'
@@ -642,7 +643,14 @@ const linkedMemberIds = computed(() => {
 })
 
 const defaultSelfMemberId = computed(() => {
-  return linkedMemberIds.value[0] || authStore.user?.id || ''
+  const linkedIdSet = new Set(linkedMemberIds.value)
+  const activeLinkedMember = team_members_list.value.find((member) => (
+    typeof member?.id === 'string' &&
+    linkedIdSet.has(member.id) &&
+    isActiveRosterMember(member)
+  ))
+
+  return activeLinkedMember?.id || ''
 })
 
 const canDeleteLeaveRecord = (memberId: string) => {
@@ -1084,8 +1092,15 @@ const fetchData = async () => {
   try {
     // 1. 撈取使用者名單 (給下拉選單用)
     if (team_members_list.value.length === 0) {
-      const { data: pData } = await supabase.from('team_members').select('*').order('role', { ascending: true }).order('name', { ascending: true })
-      team_members_list.value = pData || []
+      const { data: pData, error: memberError } = await supabase
+        .from('team_members')
+        .select('*')
+        .order('role', { ascending: true })
+        .order('name', { ascending: true })
+
+      if (memberError) throw memberError
+
+      team_members_list.value = (pData || []).filter(isActiveRosterMember)
     }
 
     // 2. 撈取請假紀錄
@@ -1136,8 +1151,14 @@ watch([isLoading, highlightLeaveId], ([newLoading, newId]) => {
 
 // --- 表單操作 ---
 const openCreateModal = () => {
+  const nextMemberId = isAdminOrManager.value ? '' : defaultSelfMemberId.value
+  if (!isAdminOrManager.value && !nextMemberId) {
+    ElMessage.warning('目前沒有可新增假單的有效關聯成員')
+    return
+  }
+
   Object.assign(form, createDefaultLeaveRequestFormState(), {
-    user_id: isAdminOrManager.value ? '' : defaultSelfMemberId.value
+    user_id: nextMemberId
   })
   if(formRef.value) formRef.value.clearValidate()
   isModalOpen.value = true
@@ -1153,6 +1174,11 @@ const submitForm = async () => {
 
   isSubmitting.value = true
   try {
+    const selectedLeaveMember = team_members_list.value.find((member) => member.id === form.user_id)
+    if (!selectedLeaveMember || !isActiveRosterMember(selectedLeaveMember)) {
+      throw new Error('此成員已關閉或畢業，不能新增假單')
+    }
+
     const recordsToInsert = buildLeaveRequestRecords({
       memberId: form.user_id,
       form

@@ -73,6 +73,66 @@ describe('quarterlyFeeFamilies', () => {
     expect(getExpectedQuarterlyAmount(members[1], members, buildSiblingGroupMap(members))).toBe(0)
   })
 
+  it('excludes inactive or graduated siblings from quarterly pricing', () => {
+    const members = [
+      {
+        id: 'active-player',
+        role: '球員',
+        status: '在隊',
+        is_inactive_or_graduated: false,
+        fee_billing_mode: 'role_default',
+        sibling_ids: ['closed-player'],
+        is_primary_payer: false,
+        is_half_price: false
+      },
+      {
+        id: 'closed-player',
+        role: '球員',
+        status: '在隊',
+        is_inactive_or_graduated: true,
+        fee_billing_mode: 'role_default',
+        sibling_ids: ['active-player'],
+        is_primary_payer: true,
+        is_half_price: false
+      }
+    ]
+    const quarterlyMembers = filterQuarterlyPricingMembers(members)
+    const quarterlySiblingGroupMap = buildSiblingGroupMap(quarterlyMembers)
+
+    expect(quarterlyMembers.map((member) => member.id)).toEqual(['active-player'])
+    expect(getExpectedQuarterlyAmount(quarterlyMembers[0], quarterlyMembers, quarterlySiblingGroupMap)).toBe(FULL_QUARTERLY_FEE_AMOUNT)
+    expect(getExpectedQuarterlyAmount(members[1], members, buildSiblingGroupMap(members))).toBe(0)
+  })
+
+  it('does not keep a stale half-price flag when the only sibling is inactive', () => {
+    const members = [
+      {
+        id: 'active-player',
+        role: '球員',
+        status: '在隊',
+        is_inactive_or_graduated: false,
+        fee_billing_mode: 'role_default',
+        sibling_ids: ['closed-player'],
+        is_primary_payer: false,
+        is_half_price: true
+      },
+      {
+        id: 'closed-player',
+        role: '球員',
+        status: '在隊',
+        is_inactive_or_graduated: true,
+        fee_billing_mode: 'role_default',
+        sibling_ids: ['active-player'],
+        is_primary_payer: true,
+        is_half_price: false
+      }
+    ]
+    const quarterlyMembers = filterQuarterlyPricingMembers(members)
+    const quarterlySiblingGroupMap = buildSiblingGroupMap(quarterlyMembers)
+
+    expect(getExpectedQuarterlyAmount(quarterlyMembers[0], quarterlyMembers, quarterlySiblingGroupMap)).toBe(FULL_QUARTERLY_FEE_AMOUNT)
+  })
+
   it('groups sibling payment rows into a single family payment summary', () => {
     const siblingGroupMap = buildSiblingGroupMap([
       { id: 'wang-1', sibling_ids: ['wang-2'] },

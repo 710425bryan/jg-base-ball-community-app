@@ -4,6 +4,7 @@ import type {
   MyLeaveMember,
   MyLeaveRequest
 } from '@/types/leaveRequests'
+import { isActiveRosterMember } from '@/utils/memberLifecycle'
 
 const unwrapRows = <T>(data: T[] | T | null | undefined) => {
   if (!data) {
@@ -13,6 +14,32 @@ const unwrapRows = <T>(data: T[] | T | null | undefined) => {
   return Array.isArray(data) ? data : [data]
 }
 
+const filterActiveLeaveMembers = async (members: MyLeaveMember[]) => {
+  const memberIds = members
+    .map((member) => member.member_id)
+    .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+
+  if (memberIds.length === 0) return members
+
+  const { data, error } = await supabase
+    .from('team_members_safe')
+    .select('id, status, is_inactive_or_graduated')
+    .in('id', memberIds)
+
+  if (error) {
+    console.warn('無法確認請假成員是否關閉/畢業，暫以假單 RPC 回傳名單顯示。', error)
+    return members
+  }
+
+  const activeMemberIds = new Set(
+    (data || [])
+      .filter(isActiveRosterMember)
+      .map((member) => String(member.id))
+  )
+
+  return members.filter((member) => activeMemberIds.has(member.member_id))
+}
+
 export const listMyLeaveMembers = async () => {
   const { data, error } = await supabase.rpc('list_my_leave_members')
 
@@ -20,7 +47,7 @@ export const listMyLeaveMembers = async () => {
     throw error
   }
 
-  return unwrapRows<MyLeaveMember>(data)
+  return filterActiveLeaveMembers(unwrapRows<MyLeaveMember>(data))
 }
 
 export const listMyLeaveRequests = async (memberId: string) => {

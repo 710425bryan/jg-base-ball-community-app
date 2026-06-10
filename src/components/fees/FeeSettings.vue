@@ -64,7 +64,7 @@
             <tr v-for="member in schoolMembers" :key="member.id" class="transition-colors hover:bg-gray-50/50">
               <td class="flex items-center gap-2 px-4 py-3">
                 <span class="font-black text-gray-800">{{ member.name }}</span>
-                <span v-if="member.sibling_ids && member.sibling_ids.length > 0" class="whitespace-nowrap rounded border px-1.5 py-0.5 text-[10px] font-bold" :class="member.is_primary_payer ? 'border-green-200 bg-green-50 text-green-600' : 'border-primary/20 bg-primary/10 text-primary'">
+                <span v-if="hasActiveFeeSibling(member)" class="whitespace-nowrap rounded border px-1.5 py-0.5 text-[10px] font-bold" :class="member.is_primary_payer ? 'border-green-200 bg-green-50 text-green-600' : 'border-primary/20 bg-primary/10 text-primary'">
                   {{ member.is_primary_payer ? '主要繳費人' : '半價優惠' }}
                 </span>
               </td>
@@ -164,6 +164,7 @@ import {
   FIXED_MONTHLY_FEE_BILLING_MODE,
   normalizeFixedMonthlyFee
 } from '@/utils/memberBilling'
+import { getActiveSiblingIds, isActiveRosterMember } from '@/utils/memberLifecycle'
 import {
   DEFAULT_QUARTERLY_COMPENSATION_DISCOUNT_DAILY_CREDIT,
   DEFAULT_QUARTERLY_COMPENSATION_REGULAR_DAILY_CREDIT,
@@ -175,6 +176,7 @@ type FeeSettingKind = 'per_session' | 'monthly_fixed'
 const DEFAULT_PER_SESSION_FEE = 500
 
 const isLoading = ref(true)
+const activeFeeMembers = ref<any[]>([])
 const schoolMembers = ref<any[]>([])
 const fixedMonthlyMembers = ref<any[]>([])
 const perSessionFeeMap = ref<Record<string, number>>({})
@@ -199,6 +201,9 @@ const isCompensationDefaultsDirty = computed(() => {
     || normalized.discountDailyCredit !== savedCompensationDefaults.value.discountDailyCredit
 })
 
+const hasActiveFeeSibling = (member: any) =>
+  getActiveSiblingIds(member, activeFeeMembers.value).length > 0
+
 const markDirty = (memberId: string, kind: FeeSettingKind) => {
   if (kind === 'per_session') {
     isPerSessionDirty.value[memberId] = true
@@ -213,15 +218,15 @@ const fetchData = async () => {
   try {
     const { data: teamMembers, error: membersError } = await supabase
       .from('team_members')
-      .select('id, name, role, status, sibling_ids, is_primary_payer, fee_billing_mode')
+      .select('id, name, role, status, is_inactive_or_graduated, sibling_ids, is_primary_payer, fee_billing_mode')
       .in('role', ['校隊', '球員'])
       .order('name')
 
     if (membersError) throw membersError
 
-    const activeMembers = (teamMembers || []).filter((member) => member.status !== '退隊')
-    schoolMembers.value = activeMembers.filter((member) => member.role === '校隊')
-    fixedMonthlyMembers.value = activeMembers.filter(
+    activeFeeMembers.value = (teamMembers || []).filter(isActiveRosterMember)
+    schoolMembers.value = activeFeeMembers.value.filter((member) => member.role === '校隊')
+    fixedMonthlyMembers.value = activeFeeMembers.value.filter(
       (member) => member.role === '球員' && member.fee_billing_mode === FIXED_MONTHLY_FEE_BILLING_MODE
     )
 
