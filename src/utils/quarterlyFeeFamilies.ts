@@ -67,7 +67,7 @@ export const isQuarterlyPricingMember = (member: QuarterlyPricingMember) => {
   }
 
   if (member.role === undefined || member.role === null) {
-    return member.fee_billing_mode !== 'monthly_fixed'
+    return member.fee_billing_mode !== 'monthly_fixed' && member.fee_billing_mode !== 'no_fee'
   }
 
   return isQuarterlyBillingMember(member)

@@ -1,4 +1,5 @@
 export type PaymentBillingMode = 'monthly' | 'quarterly'
+export type MyPaymentMemberBillingMode = PaymentBillingMode | 'none'
 export type PaymentCalculationType = 'per_session' | 'monthly_fixed'
 
 export type PaymentRecordStatus =
@@ -12,7 +13,7 @@ export type MyPaymentMember = {
   member_id: string
   name: string
   role: '校隊' | '球員'
-  billing_mode: PaymentBillingMode
+  billing_mode: MyPaymentMemberBillingMode
   is_linked?: boolean
   balance_amount?: number
 }

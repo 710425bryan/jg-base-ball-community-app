@@ -94,6 +94,7 @@
 | `supabase_quarterly_fees_migration.sql` | 季費 | sibling / family grouping 相關 |
 | `supabase_quarterly_fees_rls.sql` | 季費 RLS 修正 | 權限問題先查 |
 | `supabase_fixed_monthly_billing_migration.sql` | 社區球員固定月繳 | `fee_billing_mode` 依賴 |
+| `supabase_no_fee_billing_migration.sql` | 球員 / 校隊不收費模式 | `fee_billing_mode = no_fee`，覆寫付款 RPC、比賽費同步、首頁與收費提醒摘要 |
 | `supabase_profile_payment_submissions_migration.sql` | 個人付款回報 | `/my-payments` 主線 |
 | `supabase_profile_payment_rpc_fix_migration.sql` | 個人付款 RPC 修正 | 覆寫付款 RPC |
 | `supabase_profile_payment_review_member_id_ambiguity_fix_migration.sql` | 付款審核 member_id ambiguity 修正 | 審核流程必讀 |

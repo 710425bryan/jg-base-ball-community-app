@@ -8,6 +8,7 @@ import {
   getMemberBillingLabel,
   getMonthlyFeeCalculationType,
   isFixedMonthlyBillingMember,
+  isNoFeeBillingMember,
   normalizeFixedMonthlyFee,
   normalizeMemberFeeBillingMode
 } from './memberBilling'
@@ -17,6 +18,7 @@ describe('memberBilling', () => {
     expect(normalizeMemberFeeBillingMode(null)).toBe('role_default')
     expect(normalizeMemberFeeBillingMode('unexpected')).toBe('role_default')
     expect(normalizeMemberFeeBillingMode('monthly_fixed')).toBe('monthly_fixed')
+    expect(normalizeMemberFeeBillingMode('no_fee')).toBe('no_fee')
   })
 
   it('treats fixed monthly players as monthly billing while keeping their role as player', () => {
@@ -34,6 +36,18 @@ describe('memberBilling', () => {
     expect(isFixedMonthlyBillingMember(quarterlyPlayer)).toBe(false)
     expect(getEffectivePaymentBillingMode(quarterlyPlayer)).toBe('quarterly')
     expect(getMemberBillingLabel(quarterlyPlayer)).toBe('球員季繳')
+  })
+
+  it('treats no-fee school team members and players as non-billable', () => {
+    const noFeePlayer = { role: '球員', fee_billing_mode: 'no_fee' }
+    const noFeeSchoolMember = { role: '校隊', fee_billing_mode: 'no_fee' }
+
+    expect(isNoFeeBillingMember(noFeePlayer)).toBe(true)
+    expect(isNoFeeBillingMember(noFeeSchoolMember)).toBe(true)
+    expect(getEffectivePaymentBillingMode(noFeePlayer)).toBe('none')
+    expect(getEffectivePaymentBillingMode(noFeeSchoolMember)).toBe('none')
+    expect(getMemberBillingLabel(noFeePlayer)).toBe('不收費')
+    expect(getMemberBillingLabel(noFeeSchoolMember)).toBe('不收費')
   })
 
   it('uses 2000 as the fixed monthly default and allows explicit overrides', () => {

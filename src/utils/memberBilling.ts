@@ -1,12 +1,14 @@
 export const ROLE_DEFAULT_FEE_BILLING_MODE = 'role_default'
 export const FIXED_MONTHLY_FEE_BILLING_MODE = 'monthly_fixed'
+export const NO_FEE_BILLING_MODE = 'no_fee'
 export const DEFAULT_FIXED_MONTHLY_FEE = 2000
 
 export type MemberFeeBillingMode =
   | typeof ROLE_DEFAULT_FEE_BILLING_MODE
   | typeof FIXED_MONTHLY_FEE_BILLING_MODE
+  | typeof NO_FEE_BILLING_MODE
 
-export type EffectivePaymentBillingMode = 'monthly' | 'quarterly'
+export type EffectivePaymentBillingMode = 'monthly' | 'quarterly' | 'none'
 export type MonthlyFeeCalculationType = 'per_session' | 'monthly_fixed'
 
 export type BillingModeMember = {
@@ -15,9 +17,13 @@ export type BillingModeMember = {
 }
 
 export const normalizeMemberFeeBillingMode = (value?: string | null): MemberFeeBillingMode =>
-  value === FIXED_MONTHLY_FEE_BILLING_MODE
-    ? FIXED_MONTHLY_FEE_BILLING_MODE
+  value === FIXED_MONTHLY_FEE_BILLING_MODE || value === NO_FEE_BILLING_MODE
+    ? value
     : ROLE_DEFAULT_FEE_BILLING_MODE
+
+export const isNoFeeBillingMember = (member: BillingModeMember) =>
+  (member.role === '球員' || member.role === '校隊') &&
+  normalizeMemberFeeBillingMode(member.fee_billing_mode) === NO_FEE_BILLING_MODE
 
 export const isFixedMonthlyBillingMember = (member: BillingModeMember) =>
   member.role === '球員' && normalizeMemberFeeBillingMode(member.fee_billing_mode) === FIXED_MONTHLY_FEE_BILLING_MODE
@@ -25,6 +31,7 @@ export const isFixedMonthlyBillingMember = (member: BillingModeMember) =>
 export const getEffectivePaymentBillingMode = (
   member: BillingModeMember
 ): EffectivePaymentBillingMode | null => {
+  if (isNoFeeBillingMember(member)) return 'none'
   if (member.role === '校隊') return 'monthly'
   if (isFixedMonthlyBillingMember(member)) return 'monthly'
   if (member.role === '球員') return 'quarterly'
@@ -78,6 +85,7 @@ export const calculateDiscountedPerSessionFee = (
 }
 
 export const getMemberBillingLabel = (member: BillingModeMember) => {
+  if (isNoFeeBillingMember(member)) return '不收費'
   if (isFixedMonthlyBillingMember(member)) return '社區月繳'
   if (member.role === '校隊') return '校隊月繳'
   if (member.role === '球員') return '球員季繳'

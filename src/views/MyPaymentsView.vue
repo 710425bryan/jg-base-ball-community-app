@@ -329,7 +329,7 @@
             </span>
           </div>
 
-          <article class="rounded-2xl border border-white bg-white p-4 shadow-sm">
+          <article v-if="shouldShowMembershipSelection" class="rounded-2xl border border-white bg-white p-4 shadow-sm">
             <label
               class="flex items-start gap-3"
               :class="canSelectMembershipFee ? 'cursor-pointer' : 'cursor-not-allowed opacity-75'"
@@ -369,6 +369,13 @@
                   class="!w-full"
                   size="large"
                   placeholder="請選擇月份"
+                />
+                <el-input
+                  v-else-if="createDialogMember?.billing_mode === 'none'"
+                  v-model="submissionForm.period_key"
+                  size="large"
+                  disabled
+                  placeholder="請從既有繳費紀錄勾選"
                 />
                 <el-select
                   v-else
@@ -627,7 +634,11 @@ import {
   getExternalPaymentAmount
 } from '@/utils/playerBalance'
 import { getDefaultMonthlyFeeSettlementMonth } from '@/utils/monthlyFeeSettlement'
-import { getMemberBillingLabel } from '@/utils/memberBilling'
+import {
+  getMemberBillingLabel,
+  NO_FEE_BILLING_MODE,
+  ROLE_DEFAULT_FEE_BILLING_MODE
+} from '@/utils/memberBilling'
 import {
   canUseGroupedQuarterlyPaymentSubmission,
   isQuarterlyPeriodKey,
@@ -768,6 +779,9 @@ const createDialogMember = computed(() => {
   return members.value.find((member) => member.member_id === submissionForm.member_id) || selectedMember.value
 })
 
+const isNoFeePaymentMember = (member?: MyPaymentMember | null) => member?.billing_mode === 'none'
+const hasMembershipBilling = (member?: MyPaymentMember | null) => Boolean(member && !isNoFeePaymentMember(member))
+
 const quarterlyPaymentCandidates = computed(() =>
   linkedMembers.value.filter((member) => member.billing_mode === 'quarterly')
 )
@@ -822,12 +836,20 @@ const createDialogBillingModeLabel = computed(() => {
 })
 
 const createDialogPaymentItemLabel = computed(() =>
-  createDialogMember.value?.billing_mode === 'quarterly' ? '季費' : '月費'
+  createDialogMember.value?.billing_mode === 'quarterly'
+    ? '季費'
+    : isNoFeePaymentMember(createDialogMember.value)
+      ? (isQuarterlyPeriodKey(submissionForm.period_key) ? '既有季費' : '既有月費')
+      : '月費'
 )
 
 const createDialogMembershipPeriodKey = computed(() => {
   if (createDialogMember.value?.billing_mode === 'quarterly') {
     return submissionForm.period_key || currentFeePeriodKey.value
+  }
+
+  if (isNoFeePaymentMember(createDialogMember.value)) {
+    return submissionForm.period_key?.trim().toUpperCase() || ''
   }
 
   return currentFeePeriodKey.value
@@ -861,6 +883,10 @@ const membershipSelectionHint = computed(() => {
     return createSubmissionAccessHint.value || '目前只能替自己的關聯成員新增付款回報。'
   }
 
+  if (isNoFeePaymentMember(member)) {
+    return '這位成員已設定為不收費，不會產生新的隊費或比賽費；若有切換前既有未繳隊費，請從繳費紀錄勾選。'
+  }
+
   if (member.billing_mode === 'quarterly') {
     return '這一季沒有可新增回報的季費；已確認或待確認的項目不能重複回報。'
   }
@@ -881,6 +907,10 @@ const membershipSelectionHint = computed(() => {
 })
 
 const createDialogPeriodHint = computed(() => {
+  if (isNoFeePaymentMember(createDialogMember.value)) {
+    return '僅限既有帳款期別'
+  }
+
   return createDialogMember.value?.billing_mode === 'quarterly'
     ? '例如 2026-Q2'
     : `例如 ${getDefaultMonthlyPeriodKey()}`
@@ -889,6 +919,10 @@ const createDialogPeriodHint = computed(() => {
 const createDialogEstimateHelperText = computed(() => {
   if (!createDialogMember.value) {
     return '請先選擇成員與期別。'
+  }
+
+  if (isNoFeePaymentMember(createDialogMember.value)) {
+    return '不收費成員不會自動產生新隊費；這裡只會處理切換前已存在的未繳隊費。'
   }
 
   if (createDialogMember.value.billing_mode === 'monthly') {
@@ -905,7 +939,7 @@ const memberSelectorHelperText = computed(() => {
     return '預設會先顯示你的關聯成員；管理員也可以切換查看其他球員的繳費紀錄。'
   }
 
-  return '切換不同綁定成員時，頁面會同步改成對應的月繳或季繳模式。'
+  return '切換不同綁定成員時，頁面會同步改成對應的月繳、季繳或不收費模式。'
 })
 
 const createSubmissionAccessHint = computed(() => {
@@ -972,13 +1006,21 @@ const currentFeePeriodKey = computed(() => {
     return ''
   }
 
+  if (isNoFeePaymentMember(selectedMember.value)) {
+    return ''
+  }
+
   return selectedMember.value.billing_mode === 'quarterly'
     ? getCurrentQuarterKey()
     : getCurrentMonthlyFeePeriodKey()
 })
 
 const currentFeeBillingName = computed(() =>
-  selectedMember.value?.billing_mode === 'quarterly' ? '季費' : '月費'
+  selectedMember.value?.billing_mode === 'quarterly'
+    ? '季費'
+    : isNoFeePaymentMember(selectedMember.value)
+      ? '隊費'
+      : '月費'
 )
 
 const currentFeeOfficialRecord = computed(() =>
@@ -998,6 +1040,10 @@ const currentFeePendingSubmission = computed(() =>
 )
 
 const currentFeeDueStatus = computed<'paid' | 'pending' | 'unpaid'>(() => {
+  if (!hasMembershipBilling(selectedMember.value) && !currentFeePeriodKey.value) {
+    return 'paid'
+  }
+
   if (
     isPaidStatus(currentFeeOfficialRecord.value?.status)
     || currentFeePaidSubmission.value
@@ -1015,7 +1061,48 @@ const currentFeeDueStatus = computed<'paid' | 'pending' | 'unpaid'>(() => {
   return 'unpaid'
 })
 
+const createDialogMembershipOfficialRecord = computed(() => {
+  const periodKey = submissionForm.period_key?.trim().toUpperCase() || currentFeePeriodKey.value
+  if (!periodKey) return null
+
+  return records.value.find((record) => record.period_key === periodKey) || null
+})
+
+const createDialogMembershipActiveSubmission = computed(() => {
+  const periodKey = submissionForm.period_key?.trim().toUpperCase() || currentFeePeriodKey.value
+  if (!periodKey) return null
+
+  return submissions.value.find((submission) =>
+    submission.period_key === periodKey &&
+    (isPaidStatus(submission.status) || isPendingStatus(submission.status))
+  ) || null
+})
+
+const createDialogHasPayableLegacyMembership = computed(() => {
+  if (!isNoFeePaymentMember(createDialogMember.value)) {
+    return false
+  }
+
+  const record = createDialogMembershipOfficialRecord.value
+  if (!record || isPaidStatus(record.status) || isPendingStatus(record.status)) {
+    return false
+  }
+
+  return !createDialogMembershipActiveSubmission.value
+})
+
 const createDialogMembershipStatus = computed<'paid' | 'pending' | 'unpaid'>(() => {
+  if (isNoFeePaymentMember(createDialogMember.value)) {
+    const activeSubmission = createDialogMembershipActiveSubmission.value
+    if (isPaidStatus(createDialogMembershipOfficialRecord.value?.status) || isPaidStatus(activeSubmission?.status)) {
+      return 'paid'
+    }
+    if (isPendingStatus(createDialogMembershipOfficialRecord.value?.status) || isPendingStatus(activeSubmission?.status)) {
+      return 'pending'
+    }
+    return createDialogHasPayableLegacyMembership.value ? 'unpaid' : 'paid'
+  }
+
   if (createDialogMember.value?.billing_mode !== 'quarterly') {
     return currentFeeDueStatus.value
   }
@@ -1205,9 +1292,19 @@ const hasSelectableQuarterlyPaymentCandidate = computed(() => {
   })
 })
 
+const shouldShowMembershipSelection = computed(() =>
+  hasMembershipBilling(createDialogMember.value) ||
+  createDialogHasPayableLegacyMembership.value ||
+  includeMembershipFee.value
+)
+
 const canSelectMembershipFee = computed(() => {
   if (!canCreateSubmissionForSelectedMember.value) {
     return false
+  }
+
+  if (isNoFeePaymentMember(createDialogMember.value)) {
+    return createDialogHasPayableLegacyMembership.value
   }
 
   if (createDialogMember.value?.billing_mode === 'quarterly') {
@@ -1654,9 +1751,13 @@ const quarterPeriodOptions = computed(() => {
 const submissionRules = {
   member_id: [{ required: true, message: '請選擇成員', trigger: 'change' }],
   period_key: [
-    { required: true, message: '請輸入期別', trigger: ['blur', 'change'] },
     {
       validator: (_rule: unknown, value: string, callback: (error?: Error) => void) => {
+        if (!includeMembershipFee.value) {
+          callback()
+          return
+        }
+
         const targetMember = createDialogMember.value
 
         if (!targetMember) {
@@ -1667,10 +1768,18 @@ const submissionRules = {
         const normalizedValue = (value || '').trim().toUpperCase()
         const isValid = targetMember.billing_mode === 'quarterly'
           ? isQuarterlyPeriodKey(normalizedValue)
-          : /^[0-9]{4}-[0-9]{2}$/.test(normalizedValue)
+          : targetMember.billing_mode === 'none'
+            ? /^[0-9]{4}-[0-9]{2}$/.test(normalizedValue) || isQuarterlyPeriodKey(normalizedValue)
+            : /^[0-9]{4}-[0-9]{2}$/.test(normalizedValue)
 
         if (!isValid) {
-          callback(new Error(targetMember.billing_mode === 'quarterly' ? '請輸入 YYYY-Q1 格式' : '請輸入 YYYY-MM 格式'))
+          callback(new Error(
+            targetMember.billing_mode === 'quarterly'
+              ? '請輸入 YYYY-Q1 格式'
+              : targetMember.billing_mode === 'none'
+                ? '請輸入既有帳款期別'
+                : '請輸入 YYYY-MM 格式'
+          ))
           return
         }
 
@@ -1809,9 +1918,11 @@ const buildMemberOptionLabel = (member: MyPaymentMember) => {
 const getPaymentMemberBillingLabel = (member: MyPaymentMember) =>
   getMemberBillingLabel({
     role: member.role,
-    fee_billing_mode: member.role === '球員' && member.billing_mode === 'monthly'
-      ? 'monthly_fixed'
-      : 'role_default'
+    fee_billing_mode: member.billing_mode === 'none'
+      ? NO_FEE_BILLING_MODE
+      : member.role === '球員' && member.billing_mode === 'monthly'
+        ? 'monthly_fixed'
+        : ROLE_DEFAULT_FEE_BILLING_MODE
   })
 
 const getStatusLabel = (status?: string | null) => {
@@ -2042,6 +2153,13 @@ const refreshSubmissionEstimate = async () => {
     return
   }
 
+  if (isNoFeePaymentMember(targetMember) && !includeMembershipFee.value) {
+    currentSubmissionEstimate.value = null
+    submissionForm.amount = 0
+    syncBalanceDeductionLimit()
+    return
+  }
+
   if (targetMember.billing_mode === 'quarterly') {
     currentSubmissionEstimate.value = null
     submissionForm.amount = resolveQuarterlyAmount(normalizedPeriodKey)
@@ -2074,7 +2192,7 @@ const refreshSubmissionEstimate = async () => {
 }
 
 const refreshCurrentDueEstimate = async () => {
-  if (!selectedMember.value || !currentFeePeriodKey.value) {
+  if (!selectedMember.value || !hasMembershipBilling(selectedMember.value) || !currentFeePeriodKey.value) {
     currentDueEstimate.value = null
     return
   }
@@ -2351,6 +2469,15 @@ const submitPaymentSubmission = async () => {
 
   if (includeMembershipFee.value && membershipAmount <= 0) {
     ElMessage.warning('請確認月費 / 季費金額大於 0')
+    return
+  }
+
+  if (
+    includeMembershipFee.value &&
+    isNoFeePaymentMember(createDialogMember.value) &&
+    !createDialogHasPayableLegacyMembership.value
+  ) {
+    ElMessage.warning('不收費成員只能回報切換前已存在的未繳隊費')
     return
   }
 

@@ -47,6 +47,7 @@ description: "Finance, fees, payment submissions, player balances, match fees, r
 - 球員餘額不可扣成負數；家長自助使用餘額後仍需管理端審核才正式扣款。
 - 社區球員固定月繳以 `team_members.fee_billing_mode = 'monthly_fixed'` 表示，角色仍是 `球員`。
 - 固定月繳球員進 `monthly_fees`，排除 `quarterly_fees` 與家庭季費分組。
+- 球員 / 校隊不收費以 `team_members.fee_billing_mode = 'no_fee'` 表示；不產生新的月費、季費與比賽費，但既有帳款保留，裝備付款仍維持自費。
 - 季費補償的堂數不足只看當月週六數與 `/training-dates` 設定日期總數，補課日不限定週六。
 - `is_primary_payer`、`is_half_price`、sibling / family grouping 會影響金額，改費用時要同步檢查。
 - 比賽費付款不得混入一般月費或裝備付款資料模型；只在 UI 與付款回報流程上整合。
@@ -66,4 +67,4 @@ description: "Finance, fees, payment submissions, player balances, match fees, r
 - 基本檢查：`pnpm exec vue-tsc --noEmit`
 - 費用純邏輯：`pnpm exec vitest run src/utils/memberBilling.test.ts src/utils/monthlyFeeSettlement.test.ts src/utils/quarterlyFeeFamilies.test.ts src/utils/quarterlyFeeCompensation.test.ts src/utils/playerBalance.test.ts src/utils/feeManagementReminders.test.ts`
 - 比賽費或付款 UI 風險高時跑：`pnpm build`
-- 人工 sanity check：家長 linked member 可見性、管理端審核、餘額扣抵、固定月繳排除季費、比賽費付款、裝備付款整合。
+- 人工 sanity check：家長 linked member 可見性、管理端審核、餘額扣抵、固定月繳排除季費、不收費排除隊費與比賽費、比賽費付款、裝備付款整合。

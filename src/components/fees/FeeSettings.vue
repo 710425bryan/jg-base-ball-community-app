@@ -2,7 +2,7 @@
   <div class="mx-auto flex max-w-4xl animate-fade-in flex-col gap-5">
     <div class="flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary/10 p-4 text-sm font-bold leading-relaxed text-primary">
       <el-icon class="mt-0.5 text-lg"><InfoFilled /></el-icon>
-      <div>校隊維持計次月費；開啟固定月繳的社區球員會以這裡設定的月繳金額進入月費表，預設 2000 元，不參與堂數、請假或手足半價計算。</div>
+      <div>校隊維持計次月費；開啟固定月繳的社區球員會以這裡設定的月繳金額進入月費表。不收費成員不會產生新的隊費與比賽費，裝備加購仍依實際申請付款。</div>
     </div>
 
     <section class="overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-sm" v-loading="isCompensationDefaultsLoading">
@@ -146,6 +146,39 @@
         </table>
       </div>
     </section>
+
+    <section class="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm" v-loading="isLoading">
+      <div class="border-b border-slate-100 bg-slate-50/80 px-4 py-3">
+        <h3 class="text-base font-black text-gray-800">不收費成員</h3>
+        <p class="mt-1 text-xs font-medium text-slate-500">以下成員不會產生新的月費、季費或比賽費；既有帳款與裝備付款仍保留。</p>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[420px]">
+          <thead>
+            <tr class="border-b border-gray-100 bg-gray-50/60">
+              <th class="w-1/2 px-4 py-3 text-left text-sm font-bold text-gray-500">成員姓名</th>
+              <th class="px-4 py-3 text-left text-sm font-bold text-gray-500">身分</th>
+              <th class="px-4 py-3 text-left text-sm font-bold text-gray-500">狀態</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            <tr v-if="noFeeMembers.length === 0">
+              <td colspan="3" class="px-4 py-8 text-center text-sm font-bold text-gray-400">目前沒有不收費成員</td>
+            </tr>
+            <tr v-for="member in noFeeMembers" :key="member.id" class="transition-colors hover:bg-slate-50/60">
+              <td class="px-4 py-3">
+                <div class="flex items-center gap-2">
+                  <span class="font-black text-gray-800">{{ member.name }}</span>
+                  <span class="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">不收費</span>
+                </div>
+              </td>
+              <td class="px-4 py-3 text-sm font-bold text-slate-600">{{ member.role }}</td>
+              <td class="px-4 py-3 text-sm font-bold text-slate-500">{{ member.status || '在隊' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -162,6 +195,7 @@ import type { QuarterlyFeeCompensationDefaults } from '@/types/quarterlyFeeCompe
 import {
   DEFAULT_FIXED_MONTHLY_FEE,
   FIXED_MONTHLY_FEE_BILLING_MODE,
+  NO_FEE_BILLING_MODE,
   normalizeFixedMonthlyFee
 } from '@/utils/memberBilling'
 import { getActiveSiblingIds, isActiveRosterMember } from '@/utils/memberLifecycle'
@@ -179,6 +213,7 @@ const isLoading = ref(true)
 const activeFeeMembers = ref<any[]>([])
 const schoolMembers = ref<any[]>([])
 const fixedMonthlyMembers = ref<any[]>([])
+const noFeeMembers = ref<any[]>([])
 const perSessionFeeMap = ref<Record<string, number>>({})
 const fixedMonthlyFeeMap = ref<Record<string, number>>({})
 const isSaving = ref<Record<string, boolean>>({})
@@ -225,9 +260,16 @@ const fetchData = async () => {
     if (membersError) throw membersError
 
     activeFeeMembers.value = (teamMembers || []).filter(isActiveRosterMember)
-    schoolMembers.value = activeFeeMembers.value.filter((member) => member.role === '校隊')
+    schoolMembers.value = activeFeeMembers.value.filter(
+      (member) => member.role === '校隊' && member.fee_billing_mode !== NO_FEE_BILLING_MODE
+    )
     fixedMonthlyMembers.value = activeFeeMembers.value.filter(
       (member) => member.role === '球員' && member.fee_billing_mode === FIXED_MONTHLY_FEE_BILLING_MODE
+    )
+    noFeeMembers.value = activeFeeMembers.value.filter(
+      (member) =>
+        (member.role === '球員' || member.role === '校隊') &&
+        member.fee_billing_mode === NO_FEE_BILLING_MODE
     )
 
     schoolMembers.value.forEach((member) => {

@@ -118,6 +118,9 @@
                 <span v-if="isFixedMonthlyMember(row)" class="text-[10px] font-bold border px-1.5 py-0.5 rounded-sm mt-0.5 w-max inline-flex items-center gap-1 text-amber-700 border-amber-200 bg-amber-50">
                   固定月繳
                 </span>
+                <span v-if="isNoFeeMember(row)" class="text-[10px] font-bold border px-1.5 py-0.5 rounded-sm mt-0.5 w-max inline-flex items-center gap-1 text-slate-600 border-slate-200 bg-slate-50">
+                  不收費
+                </span>
               </div>
             </template>
           </el-table-column>
@@ -316,6 +319,9 @@
                 <span v-if="isFixedMonthlyMember(member)" class="text-[10px] font-bold px-2 py-1 rounded-md border bg-amber-50 text-amber-700 border-amber-200">
                   固定月繳
                 </span>
+                <span v-if="isNoFeeMember(member)" class="text-[10px] font-bold px-2 py-1 rounded-md border bg-slate-50 text-slate-600 border-slate-200">
+                  不收費
+                </span>
                 <span v-if="member.national_id && canEditPlayers" class="text-[10px] font-mono text-gray-400 hidden sm:inline-block">
                   ID: {{ member.national_id }}
                 </span>
@@ -437,17 +443,22 @@
               </template>
               <el-switch v-model="form.is_half_price" active-text="是" inactive-text="否" />
             </el-form-item>
-            <el-form-item prop="fee_billing_mode" class="font-bold mb-0 flex items-center h-[52px]" v-if="form.role === '球員'">
+            <el-form-item prop="fee_billing_mode" class="font-bold mb-0" v-if="form.role === '球員' || form.role === '校隊'">
               <template #label>
-                <div class="inline-flex items-center gap-1 leading-none mr-3">固定月繳 <el-tooltip content="開啟後球員身分維持球員，但收費併入月費表並自季費表排除。" placement="top"><el-icon class="text-gray-400 cursor-help"><InfoFilled /></el-icon></el-tooltip></div>
+                <div class="inline-flex items-center gap-1 leading-none mr-3">收費模式 <el-tooltip content="不收費成員不會產生新的隊費與比賽費；裝備加購仍依實際申請付款。" placement="top"><el-icon class="text-gray-400 cursor-help"><InfoFilled /></el-icon></el-tooltip></div>
               </template>
-              <el-switch
+              <el-radio-group
                 v-model="form.fee_billing_mode"
-                :active-value="FIXED_MONTHLY_FEE_BILLING_MODE"
-                :inactive-value="ROLE_DEFAULT_FEE_BILLING_MODE"
-                active-text="開啟"
-                inactive-text="關閉"
-              />
+                class="billing-mode-radio-group"
+              >
+                <el-radio-button
+                  v-for="option in billingModeOptions"
+                  :key="option.value"
+                  :label="option.value"
+                >
+                  {{ option.label }}
+                </el-radio-button>
+              </el-radio-group>
             </el-form-item>
             <el-form-item prop="sibling_ids" class="font-bold mb-0 flex flex-col h-[72px]" v-if="form.role === '球員' || form.role === '校隊'">
               <template #label>
@@ -661,7 +672,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { supabase } from '@/services/supabase'
 import { compressImage } from '@/utils/imageCompressor'
 import { buildPushEventKey, dispatchPushNotification } from '@/utils/pushNotifications'
@@ -685,6 +696,8 @@ import {
   FIXED_MONTHLY_FEE_BILLING_MODE,
   getMemberBillingLabel,
   isFixedMonthlyBillingMember,
+  isNoFeeBillingMember,
+  NO_FEE_BILLING_MODE,
   normalizeMemberFeeBillingMode,
   ROLE_DEFAULT_FEE_BILLING_MODE
 } from '@/utils/memberBilling'
@@ -780,6 +793,22 @@ const filterMemberGroup = ref('全部')
 
 const isSiblingEligibleRole = isTeamGroupEligibleRole
 const isFixedMonthlyMember = (member: any) => isFixedMonthlyBillingMember(member)
+const isNoFeeMember = (member: any) => isNoFeeBillingMember(member)
+const normalizeBillingModeForRole = (role: string | null | undefined, mode: string | null | undefined) => {
+  const normalizedMode = normalizeMemberFeeBillingMode(mode)
+
+  if (role === '球員') {
+    return normalizedMode
+  }
+
+  if (role === '校隊') {
+    return normalizedMode === NO_FEE_BILLING_MODE
+      ? NO_FEE_BILLING_MODE
+      : ROLE_DEFAULT_FEE_BILLING_MODE
+  }
+
+  return ROLE_DEFAULT_FEE_BILLING_MODE
+}
 
 type MemberGroup = {
   key: string
@@ -1318,6 +1347,29 @@ const createInitialForm = () => ({
 })
 
 const form = reactive(createInitialForm())
+const billingModeOptions = computed(() => [
+  {
+    label: form.role === '校隊' ? '校隊月繳' : '依身分收費',
+    value: ROLE_DEFAULT_FEE_BILLING_MODE
+  },
+  ...(form.role === '球員'
+    ? [{
+      label: '固定月繳',
+      value: FIXED_MONTHLY_FEE_BILLING_MODE
+    }]
+    : []),
+  {
+    label: '不收費',
+    value: NO_FEE_BILLING_MODE
+  }
+])
+
+watch(
+  () => form.role,
+  (role) => {
+    form.fee_billing_mode = normalizeBillingModeForRole(role, form.fee_billing_mode)
+  }
+)
 
 const normalizeSchoolName = (value: unknown) => String(value || '').trim()
 
@@ -1905,7 +1957,7 @@ const openEditModal = (member: any) => {
   if (!form.status) form.status = '在隊'
   if (!form.joined_date) form.joined_date = DEFAULT_EXISTING_MEMBER_JOINED_DATE
   form.is_inactive_or_graduated = !!member.is_inactive_or_graduated
-  form.fee_billing_mode = normalizeMemberFeeBillingMode(member.fee_billing_mode)
+  form.fee_billing_mode = normalizeBillingModeForRole(member.role, member.fee_billing_mode)
   if (!form.sibling_ids) form.sibling_ids = []
   previewAvatar.value = member.avatar_url || ''
   selectedFile = null
@@ -1978,9 +2030,7 @@ const submitForm = async () => {
       ? normalizeSchoolName(payload.school_name) || null
       : null
 
-    payload.fee_billing_mode = payload.role === '球員'
-      ? normalizeMemberFeeBillingMode(payload.fee_billing_mode)
-      : ROLE_DEFAULT_FEE_BILLING_MODE
+    payload.fee_billing_mode = normalizeBillingModeForRole(payload.role, payload.fee_billing_mode)
     
     console.log("Submitting payload to team_members:", payload)
 
@@ -2246,6 +2296,27 @@ onMounted(() => {
 }
 .custom-dialog .el-form-item__label {
   color: #475569 !important;
+}
+
+.billing-mode-radio-group {
+  display: inline-flex;
+  max-width: 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  row-gap: 0.5rem;
+  vertical-align: top;
+}
+.billing-mode-radio-group .el-radio-button {
+  margin: 0;
+}
+.billing-mode-radio-group .el-radio-button__inner {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .players-photo,

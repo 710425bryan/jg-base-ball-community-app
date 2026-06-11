@@ -326,6 +326,7 @@ import {
   DEFAULT_FIXED_MONTHLY_FEE,
   getMonthlyFeeCalculationType,
   isFixedMonthlyBillingMember,
+  isNoFeeBillingMember,
   normalizeFixedMonthlyFee
 } from '@/utils/memberBilling'
 import { isActiveRosterMember, shouldApplyManualHalfPrice } from '@/utils/memberLifecycle'
@@ -598,6 +599,7 @@ const calculateFees = async () => {
 
     const members = membersData?.filter(m =>
       isActiveRosterMember(m) &&
+      !isNoFeeBillingMember(m) &&
       (
         m.role === '校隊' ||
         isFixedMonthlyBillingMember(m)
