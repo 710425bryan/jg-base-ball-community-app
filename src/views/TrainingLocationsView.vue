@@ -905,9 +905,9 @@ onMounted(() => {
                   @dragover.prevent
                   @drop.prevent="onDropOnVenue(venueIndex)"
                 >
-                  <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                    <div class="min-w-0 flex-1">
-                      <div class="flex flex-wrap items-center gap-2">
+                  <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+                    <div class="min-w-0 lg:contents">
+                      <div class="flex flex-wrap items-center gap-2 lg:col-start-1 lg:row-start-1">
                         <button
                           type="button"
                           class="rounded-full px-3 py-1 text-xs font-black"
@@ -927,7 +927,7 @@ onMounted(() => {
                         </a>
                       </div>
 
-                      <div class="mt-4 grid gap-3 border-t border-slate-100 pt-4 md:grid-cols-2 xl:grid-cols-3">
+                      <div class="mt-4 grid gap-3 border-t border-slate-100 pt-4 md:grid-cols-2 lg:col-span-2 lg:row-start-2 xl:grid-cols-3">
                         <el-form-item label="訓練標題" class="mb-0 font-bold">
                           <el-input v-model="venue.title" :disabled="syncFields.title" size="large" placeholder="例如：週六訓練" />
                         </el-form-item>
@@ -945,7 +945,7 @@ onMounted(() => {
                         </el-form-item>
                       </div>
 
-                      <div class="mt-3 grid gap-3 md:grid-cols-2">
+                      <div class="mt-3 grid gap-3 md:grid-cols-2 lg:col-span-2">
                         <el-form-item label="場地名稱" class="mb-0 font-bold">
                           <el-input v-model="venue.venue_name" size="large" placeholder="例如：中港國小" />
                         </el-form-item>
@@ -954,7 +954,7 @@ onMounted(() => {
                         </el-form-item>
                       </div>
 
-                      <div v-if="venues.length > 0" class="mt-3 flex flex-wrap gap-2">
+                      <div v-if="venues.length > 0" class="mt-3 flex flex-wrap gap-2 lg:col-span-2">
                         <button
                           v-for="preset in venues"
                           :key="preset.id"
@@ -967,7 +967,7 @@ onMounted(() => {
                       </div>
                     </div>
 
-                    <div class="flex flex-wrap gap-2">
+                    <div class="flex flex-wrap gap-2 lg:col-start-2 lg:row-start-1 lg:justify-end">
                       <button
                         v-if="venue.attendance_event_id ? canOpenAttendance : canCreateAttendance"
                         type="button"
