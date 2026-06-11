@@ -73,6 +73,10 @@ const normalizeRosterMember = (row: any): TrainingLocationRosterMember => ({
 const normalizeSessionVenue = (row: any): TrainingLocationSessionVenue => ({
   id: row?.id ? String(row.id) : null,
   venue_id: row?.venue_id ? String(row.venue_id) : null,
+  title: String(row?.title || ''),
+  training_date: String(row?.training_date || ''),
+  start_time: row?.start_time ? String(row.start_time) : null,
+  end_time: row?.end_time ? String(row.end_time) : null,
   venue_name: String(row?.venue_name || ''),
   venue_address: row?.venue_address ? String(row.venue_address) : null,
   venue_maps_url: row?.venue_maps_url ? String(row.venue_maps_url) : null,

@@ -23,6 +23,10 @@ export type TrainingLocationVenueAssignment = TrainingLocationRosterMember
 export type TrainingLocationSessionVenue = {
   id: string | null
   venue_id: string | null
+  title: string
+  training_date: string
+  start_time: string | null
+  end_time: string | null
   venue_name: string
   venue_address: string | null
   venue_maps_url: string | null
@@ -51,6 +55,10 @@ export type TrainingLocationSession = {
 export type TrainingLocationSessionSaveVenue = {
   id?: string | null
   venue_id?: string | null
+  title?: string | null
+  training_date?: string | null
+  start_time?: string | null
+  end_time?: string | null
   venue_name: string
   venue_address?: string | null
   venue_maps_url?: string | null
@@ -73,7 +81,7 @@ export type TrainingLocationSessionSaveInput = {
 export type TrainingLocationDispatchResult = {
   success?: boolean
   dry_run?: boolean
-  target_date?: string
+  target_date?: string | null
   session_id?: string | null
   target_row_count?: number
   group_count?: number

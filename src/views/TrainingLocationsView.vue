@@ -32,8 +32,12 @@ type EditableVenue = TrainingLocationSessionVenue & {
   clientKey: string
 }
 
+type SyncField = 'title' | 'training_date' | 'time' | 'note'
+
+const DEFAULT_TITLE = '週六訓練'
 const DEFAULT_START_TIME = '09:00'
 const DEFAULT_END_TIME = '12:30'
+const getDefaultTrainingDate = () => dayjs().format('YYYY-MM-DD')
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -66,6 +70,10 @@ const createEmptyVenue = (): EditableVenue => ({
   clientKey: `venue-${Date.now()}-${Math.random().toString(36).slice(2)}`,
   id: null,
   venue_id: null,
+  title: DEFAULT_TITLE,
+  training_date: getDefaultTrainingDate(),
+  start_time: DEFAULT_START_TIME,
+  end_time: DEFAULT_END_TIME,
   venue_name: '',
   venue_address: null,
   venue_maps_url: null,
@@ -78,13 +86,20 @@ const createEmptyVenue = (): EditableVenue => ({
 
 const form = reactive({
   session_id: null as string | null,
-  title: '週六訓練',
-  training_date: dayjs().format('YYYY-MM-DD'),
+  title: DEFAULT_TITLE,
+  training_date: getDefaultTrainingDate(),
   start_time: DEFAULT_START_TIME,
   end_time: DEFAULT_END_TIME,
   status: 'draft' as TrainingLocationSessionStatus,
   note: '',
   venues: [createEmptyVenue()] as EditableVenue[]
+})
+
+const syncFields = reactive<Record<SyncField, boolean>>({
+  title: true,
+  training_date: true,
+  time: true,
+  note: true
 })
 
 const statusOptions: Array<{ label: string; value: TrainingLocationSessionStatus; className: string }> = [
@@ -142,6 +157,10 @@ const isAllPoolMembersSelected = computed(() =>
 )
 
 const selectedVenue = computed(() => form.venues[selectedVenueIndex.value] || form.venues[0] || null)
+
+const rosterTrainingDate = computed(() =>
+  selectedVenue.value?.training_date || form.training_date
+)
 
 const getStatusMeta = (status: TrainingLocationSessionStatus) =>
   statusOptions.find((option) => option.value === status) || statusOptions[0]
@@ -221,6 +240,56 @@ const getMapsHref = (venue: Pick<EditableVenue, 'venue_name' | 'venue_address' |
   return query ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}` : null
 }
 
+const syncVenueFieldFromForm = (venue: EditableVenue, field: SyncField) => {
+  if (field === 'title') {
+    venue.title = form.title
+    return
+  }
+
+  if (field === 'training_date') {
+    venue.training_date = form.training_date
+    return
+  }
+
+  if (field === 'time') {
+    venue.start_time = form.start_time || null
+    venue.end_time = form.end_time || null
+    return
+  }
+
+  venue.note = form.note || ''
+}
+
+const syncAllVenueFieldsFromForm = (field: SyncField) => {
+  form.venues.forEach((venue) => syncVenueFieldFromForm(venue, field))
+}
+
+const createVenueFromCurrentSettings = () => {
+  const venue = createEmptyVenue()
+  const fields: SyncField[] = ['title', 'training_date', 'time', 'note']
+  fields.forEach((field) => syncVenueFieldFromForm(venue, field))
+  return venue
+}
+
+const resetSyncFields = () => {
+  syncFields.title = true
+  syncFields.training_date = true
+  syncFields.time = true
+  syncFields.note = true
+}
+
+const sameValue = (left: unknown, right: unknown) =>
+  String(left ?? '') === String(right ?? '')
+
+const refreshSyncFieldsFromVenues = () => {
+  syncFields.title = form.venues.every((venue) => sameValue(venue.title, form.title))
+  syncFields.training_date = form.venues.every((venue) => sameValue(venue.training_date, form.training_date))
+  syncFields.time = form.venues.every((venue) =>
+    sameValue(venue.start_time, form.start_time) && sameValue(venue.end_time, form.end_time)
+  )
+  syncFields.note = form.venues.every((venue) => sameValue(venue.note, form.note))
+}
+
 const loadVenues = async () => {
   venues.value = await trainingLocationsApi.listVenues()
 }
@@ -232,7 +301,7 @@ const loadSessions = async () => {
 }
 
 const loadRoster = async () => {
-  roster.value = (await trainingLocationsApi.listRoster(form.training_date)).map((member) => ({
+  roster.value = (await trainingLocationsApi.listRoster(rosterTrainingDate.value)).map((member) => ({
     ...member,
     team_group: normalizeTeamGroup(member.team_group) || null
   }))
@@ -270,10 +339,11 @@ const resetForm = () => {
   selectedSessionId.value = null
   selectedVenueIndex.value = 0
   selectedPoolMemberIds.value = []
+  resetSyncFields()
   Object.assign(form, {
     session_id: null,
-    title: '週六訓練',
-    training_date: dayjs().format('YYYY-MM-DD'),
+    title: DEFAULT_TITLE,
+    training_date: getDefaultTrainingDate(),
     start_time: DEFAULT_START_TIME,
     end_time: DEFAULT_END_TIME,
     status: 'draft',
@@ -296,10 +366,16 @@ const hydrateSession = async (session: TrainingLocationSession) => {
     note: session.note || '',
     venues: (session.venues.length > 0 ? session.venues : [createEmptyVenue()]).map((venue, index) => ({
       ...venue,
+      title: venue.title || session.title,
+      training_date: venue.training_date || session.training_date,
+      start_time: venue.start_time ?? session.start_time ?? '',
+      end_time: venue.end_time ?? session.end_time ?? '',
+      note: venue.note ?? session.note ?? '',
       clientKey: venue.id || `venue-${session.session_id}-${index}`,
       member_ids: [...venue.member_ids]
     }))
   })
+  refreshSyncFieldsFromVenues()
   await loadRoster()
 }
 
@@ -309,7 +385,7 @@ const startCreate = async () => {
 }
 
 const addVenue = () => {
-  form.venues.push(createEmptyVenue())
+  form.venues.push(createVenueFromCurrentSettings())
   selectedVenueIndex.value = form.venues.length - 1
 }
 
@@ -444,6 +520,10 @@ const buildSavePayload = (status: TrainingLocationSessionStatus = form.status) =
   venues: form.venues.map((venue, index) => ({
     id: venue.id,
     venue_id: venue.venue_id,
+    title: venue.title,
+    training_date: venue.training_date,
+    start_time: venue.start_time || null,
+    end_time: venue.end_time || null,
     venue_name: venue.venue_name,
     venue_address: venue.venue_address,
     venue_maps_url: venue.venue_maps_url,
@@ -466,6 +546,16 @@ const validateForm = (nextStatus: TrainingLocationSessionStatus) => {
 
   if (form.venues.some((venue) => !venue.venue_name.trim())) {
     ElMessage.warning('請確認每個場地都有名稱')
+    return false
+  }
+
+  if (form.venues.some((venue) => !venue.title.trim())) {
+    ElMessage.warning('請確認每個場地都有訓練標題')
+    return false
+  }
+
+  if (form.venues.some((venue) => !venue.training_date)) {
+    ElMessage.warning('請確認每個場地都有訓練日期')
     return false
   }
 
@@ -530,7 +620,6 @@ const dispatchNotifications = async () => {
   isDispatching.value = true
   try {
     const result = await trainingLocationsApi.dispatchNotifications({
-      targetDate: form.training_date,
       sessionId
     })
     if (result?.error) throw new Error(result.error)
@@ -602,7 +691,39 @@ const openTrainingLocationAttendance = async (venueIndex: number) => {
   }
 }
 
+watch(() => form.title, () => {
+  if (syncFields.title) syncAllVenueFieldsFromForm('title')
+})
+
 watch(() => form.training_date, () => {
+  if (syncFields.training_date) syncAllVenueFieldsFromForm('training_date')
+})
+
+watch(() => [form.start_time, form.end_time], () => {
+  if (syncFields.time) syncAllVenueFieldsFromForm('time')
+})
+
+watch(() => form.note, () => {
+  if (syncFields.note) syncAllVenueFieldsFromForm('note')
+})
+
+watch(() => syncFields.title, (enabled) => {
+  if (enabled) syncAllVenueFieldsFromForm('title')
+})
+
+watch(() => syncFields.training_date, (enabled) => {
+  if (enabled) syncAllVenueFieldsFromForm('training_date')
+})
+
+watch(() => syncFields.time, (enabled) => {
+  if (enabled) syncAllVenueFieldsFromForm('time')
+})
+
+watch(() => syncFields.note, (enabled) => {
+  if (enabled) syncAllVenueFieldsFromForm('note')
+})
+
+watch(() => rosterTrainingDate.value, () => {
   void loadRoster()
 })
 
@@ -694,8 +815,18 @@ onMounted(() => {
 
         <main class="min-h-0 overflow-y-auto rounded-2xl border border-slate-100 bg-white p-4 shadow-sm custom-scrollbar md:p-5">
           <section class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-            <div class="grid gap-4">
+            <div class="flex min-h-0 flex-col gap-4">
               <section class="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+                  <div class="text-base font-black text-slate-800">共用訓練設定</div>
+                  <div class="flex flex-wrap items-center gap-3 rounded-xl bg-white px-3 py-2 text-sm font-bold text-slate-600">
+                    <span class="text-xs font-black text-slate-400">同步到場地</span>
+                    <el-checkbox v-model="syncFields.title" label="標題" />
+                    <el-checkbox v-model="syncFields.training_date" label="日期" />
+                    <el-checkbox v-model="syncFields.time" label="時間" />
+                    <el-checkbox v-model="syncFields.note" label="備註" />
+                  </div>
+                </div>
                 <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                   <el-form-item label="訓練標題" class="mb-0 font-bold xl:col-span-2">
                     <el-input v-model="form.title" size="large" placeholder="例如：週六訓練" />
@@ -796,9 +927,31 @@ onMounted(() => {
                         </a>
                       </div>
 
+                      <div class="mt-4 grid gap-3 border-t border-slate-100 pt-4 md:grid-cols-2 xl:grid-cols-3">
+                        <el-form-item label="訓練標題" class="mb-0 font-bold">
+                          <el-input v-model="venue.title" :disabled="syncFields.title" size="large" placeholder="例如：週六訓練" />
+                        </el-form-item>
+                        <el-form-item label="訓練日期" class="mb-0 font-bold">
+                          <el-date-picker v-model="venue.training_date" :disabled="syncFields.training_date" type="date" value-format="YYYY-MM-DD" format="YYYY-MM-DD" class="!w-full" size="large" />
+                        </el-form-item>
+                        <el-form-item label="開始時間" class="mb-0 font-bold">
+                          <el-time-picker v-model="venue.start_time" :disabled="syncFields.time" value-format="HH:mm" format="HH:mm" placeholder="開始" class="!w-full" size="large" />
+                        </el-form-item>
+                        <el-form-item label="結束時間" class="mb-0 font-bold">
+                          <el-time-picker v-model="venue.end_time" :disabled="syncFields.time" value-format="HH:mm" format="HH:mm" placeholder="結束" class="!w-full" size="large" />
+                        </el-form-item>
+                        <el-form-item label="備註" class="mb-0 font-bold md:col-span-2">
+                          <el-input v-model="venue.note" :disabled="syncFields.note" size="large" placeholder="選填，例如集合提醒" />
+                        </el-form-item>
+                      </div>
+
                       <div class="mt-3 grid gap-3 md:grid-cols-2">
-                        <el-input v-model="venue.venue_name" size="large" placeholder="場地名稱，例如中港國小" />
-                        <el-input v-model="venue.venue_address" size="large" placeholder="地址或導航關鍵字" />
+                        <el-form-item label="場地名稱" class="mb-0 font-bold">
+                          <el-input v-model="venue.venue_name" size="large" placeholder="例如：中港國小" />
+                        </el-form-item>
+                        <el-form-item label="地址 / 導航" class="mb-0 font-bold">
+                          <el-input v-model="venue.venue_address" size="large" placeholder="地址或導航關鍵字" />
+                        </el-form-item>
                       </div>
 
                       <div v-if="venues.length > 0" class="mt-3 flex flex-wrap gap-2">

@@ -86,15 +86,26 @@ export const groupTrainingLocationNotificationTargets = (
   for (const target of filterTrainingLocationNotificationTargets(targets)) {
     if (!target.user_id || !target.session_id || !target.member_id) continue
 
-    const key = `${target.user_id}:${target.session_id}`
+    const title = normalizeDisplayValue(target.title)
+    const trainingDate = normalizeDisplayValue(target.training_date)
+    const startTime = target.start_time || null
+    const endTime = target.end_time || null
+    const key = [
+      target.user_id,
+      target.session_id,
+      title,
+      trainingDate,
+      startTime || '',
+      endTime || ''
+    ].join(':')
     const group = groups.get(key) || {
       userId: target.user_id,
       sessionId: target.session_id,
       sessionUpdatedAt: target.session_updated_at || null,
-      title: normalizeDisplayValue(target.title),
-      trainingDate: normalizeDisplayValue(target.training_date),
-      startTime: target.start_time || null,
-      endTime: target.end_time || null,
+      title,
+      trainingDate,
+      startTime,
+      endTime,
       assignments: []
     }
 
@@ -120,8 +131,17 @@ export const groupTrainingLocationNotificationTargets = (
 }
 
 export const buildTrainingLocationNotificationEventKey = (
-  group: Pick<TrainingLocationNotificationGroup, 'sessionId' | 'userId' | 'sessionUpdatedAt'>
-) => `training_location:${group.sessionId}:${group.userId}:${group.sessionUpdatedAt || 'no-updated-at'}`
+  group: Pick<TrainingLocationNotificationGroup, 'sessionId' | 'userId' | 'sessionUpdatedAt' | 'trainingDate' | 'title' | 'startTime' | 'endTime'>
+) => [
+  'training_location',
+  group.sessionId,
+  group.userId,
+  encodeURIComponent(group.trainingDate || EMPTY_VALUE),
+  encodeURIComponent(group.title || EMPTY_VALUE),
+  group.startTime || 'no-start',
+  group.endTime || 'no-end',
+  group.sessionUpdatedAt || 'no-updated-at'
+].join(':')
 
 export const buildTrainingLocationNotificationUrl = (
   group: Pick<TrainingLocationNotificationGroup, 'trainingDate'>

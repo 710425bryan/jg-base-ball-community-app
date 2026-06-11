@@ -113,7 +113,7 @@ const assertAuthorized = async (req: Request, payload: any) => {
   throw jsonResponse({ error: "unauthorized training location notification request" }, 401);
 };
 
-const fetchTargets = async (targetDate: string, sessionId: string | null) => {
+const fetchTargets = async (targetDate: string | null, sessionId: string | null) => {
   const { data, error } = await supabase.rpc("list_training_location_notification_targets", {
     p_target_date: targetDate,
     p_session_id: sessionId,
@@ -155,10 +155,12 @@ serve(async (req) => {
       return jsonResponse({ success: false, error: "now must be a valid date" }, 400);
     }
 
+    const sessionId = normalizeUuid(payload.session_id);
     const targetDate = typeof payload.target_date === "string" && payload.target_date.trim()
       ? payload.target_date.trim()
-      : getTrainingLocationTargetDateInTaipei(now);
-    const sessionId = normalizeUuid(payload.session_id);
+      : sessionId
+        ? null
+        : getTrainingLocationTargetDateInTaipei(now);
     const dryRun = payload.dry_run === true;
     const targets = await fetchTargets(targetDate, sessionId);
     const groups = groupTrainingLocationNotificationTargets(targets);

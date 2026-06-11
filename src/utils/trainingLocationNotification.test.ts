@@ -55,6 +55,22 @@ describe('trainingLocationNotification', () => {
     })
   })
 
+  it('keeps different venue schedules in separate notification groups', () => {
+    const groups = groupTrainingLocationNotificationTargets([
+      buildTarget(),
+      buildTarget({
+        member_id: 'member-2',
+        member_name: '林小安',
+        title: '下午訓練',
+        start_time: '13:00',
+        end_time: '15:00'
+      })
+    ])
+
+    expect(groups).toHaveLength(2)
+    expect(groups.map((group) => group.title)).toEqual(['週六訓練', '下午訓練'])
+  })
+
   it('excludes players that are marked as on leave', () => {
     const groups = groupTrainingLocationNotificationTargets([
       buildTarget({ member_id: 'member-1', is_on_leave: true }),
@@ -78,7 +94,7 @@ describe('trainingLocationNotification', () => {
     ])[0]
 
     expect(buildTrainingLocationNotificationEventKey(group))
-      .toBe('training_location:session-1:user-1:2026-05-01T08:00:00.000Z')
+      .toBe('training_location:session-1:user-1:2026-05-02:%E9%80%B1%E5%85%AD%E8%A8%93%E7%B7%B4:09:00:11:00:2026-05-01T08:00:00.000Z')
     expect(buildTrainingLocationNotificationUrl(group)).toBe('/dashboard?training_date=2026-05-02')
     expect(buildTrainingLocationNotificationTitle(group)).toBe('訓練場地通知：2026-05-02 週六訓練')
     expect(buildTrainingLocationNotificationBody(group)).toBe([

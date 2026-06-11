@@ -385,11 +385,11 @@ UI 約定：
 
 資料流：
 
-- 教練在 `/training-locations` 建立某天訓練配置，可設定多場地區塊，用全隊、角色或 `team_group` 快速帶入球員，再拖曳或勾選微調。
+- 教練在 `/training-locations` 建立某天訓練配置，可設定多場地區塊；每個場地區塊可個別保存訓練標題、日期、開始 / 結束時間與備註，必要時可由前端同步共用設定。球員可用全隊、角色或 `team_group` 快速帶入，再拖曳或勾選微調。
 - `save_training_location_session()` 會重建該訓練的場地與指派；DB 以 `(session_id, member_id)` 確保同一球員只在一個場地。
 - `create_training_location_venue_attendance_event()` 會為單一場地區塊建立或重用一張點名單，並由 `sync_training_location_attendance_records()` 自動同步該場地最新配置球員。
-- 個人首頁透過 `get_my_home_snapshot()` 的 `training_locations` 或 `list_my_week_training_locations()` fallback 顯示 linked member 本週場地，已請假時標示但不通知。
-- `send-training-location-notifications` 每日台灣時間 20:10 檢查隔天已發布配置，也可由設定頁手動觸發；同一使用者綁多名球員時合併成一則通知。
+- 個人首頁透過 `get_my_home_snapshot()` 的 `training_locations` 或 `list_my_week_training_locations()` fallback 顯示 linked member 本週場地；標題、日期與時間以場地區塊設定優先，未設定才回退 session 共用值，已請假時標示但不通知。
+- `send-training-location-notifications` 每日台灣時間 20:10 檢查隔天已發布配置，也可由設定頁手動觸發；通知標題、日期與時間以場地區塊設定優先，同一使用者綁多名且同訓練資訊的球員時合併成一則通知。
 
 重要規則：
 
