@@ -434,6 +434,11 @@ export const fetchEquipmentTransactions = async (equipmentId: string) => {
       paid_by,
       created_at,
       updated_at,
+      request_item:request_item_id (
+        request:request_id (
+          notes
+        )
+      ),
       team_members ( name, role )
     `)
     .eq('equipment_id', equipmentId)
@@ -504,6 +509,7 @@ export const fetchEquipmentRequestHistoryItems = async (equipmentId: string) => 
       id,
       member_id,
       status,
+      notes,
       requested_at,
       approved_at,
       ready_at,
@@ -541,6 +547,7 @@ export const fetchEquipmentRequestHistoryItems = async (equipmentId: string) => 
         quantity,
         unit_price: unitPrice,
         total_amount: unitPrice * quantity,
+        notes: request.notes || null,
         request_status: requestStatus,
         requested_at: request.requested_at,
         approved_at: request.approved_at,

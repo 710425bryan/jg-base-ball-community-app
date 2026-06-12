@@ -73,6 +73,11 @@ export type EquipmentTransaction = {
     name?: string | null
     role?: string | null
   } | null
+  request_item?: {
+    request?: {
+      notes?: string | null
+    } | null
+  } | null
 }
 
 export type EquipmentInventoryAdjustment = {
@@ -295,6 +300,7 @@ export type EquipmentRequestHistoryItem = {
   quantity: number
   unit_price: number
   total_amount: number
+  notes: string | null
   request_status: EquipmentRequestStatus | string
   requested_at: string
   approved_at: string | null

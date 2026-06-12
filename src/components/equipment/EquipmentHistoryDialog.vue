@@ -127,6 +127,11 @@ const getTransactionSourceDetail = (transaction: EquipmentTransaction) => {
   return null
 }
 
+const getTransactionNotes = (transaction: EquipmentTransaction) =>
+  transaction.request_item?.request?.notes?.trim()
+  || transaction.notes
+  || null
+
 const getRequestHistoryTime = (item: EquipmentRequestHistoryItem) =>
   item.picked_up_at || item.rejected_at || item.cancelled_at || item.ready_at || item.approved_at || item.requested_at
 
@@ -161,7 +166,7 @@ const mapTransactionHistoryItem = (transaction: EquipmentTransaction): HistoryIt
   amount: transaction.transaction_type === 'purchase'
     ? getEquipmentTransactionTotalPrice(transaction, displayEquipment.value)
     : null,
-  notes: transaction.notes || null,
+  notes: getTransactionNotes(transaction),
   transaction
 })
 
@@ -195,7 +200,7 @@ const mapRequestHistoryItem = (item: EquipmentRequestHistoryItem): HistoryItem =
     unit_price_snapshot: item.unit_price,
     quantity: item.quantity
   }),
-  notes: `申請 ${String(item.request_id).slice(0, 8)}`,
+  notes: item.notes?.trim() || `申請 ${item.request_id}`,
   requestItem: item
 })
 
@@ -254,8 +259,8 @@ watch(() => props.modelValue, (value) => {
   <el-dialog
     v-model="isOpen"
     title="裝備交易紀錄"
-    width="94%"
-    style="max-width: 860px; border-radius: 16px;"
+    width="96%"
+    style="max-width: 1180px; border-radius: 16px;"
   >
     <div v-if="displayEquipment" class="mb-4 rounded-2xl border border-gray-100 bg-gray-50/80 px-4 py-3">
       <div class="text-lg font-black text-slate-800">{{ displayEquipment.name }}</div>
@@ -268,55 +273,127 @@ watch(() => props.modelValue, (value) => {
       目前尚無紀錄。
     </div>
 
-    <div v-else class="overflow-x-auto">
-      <table class="w-full min-w-[980px] text-left">
-        <thead>
-          <tr class="border-b border-gray-100 bg-gray-50 text-sm text-gray-500">
-            <th class="px-4 py-3 font-bold">時間</th>
-            <th class="px-4 py-3 font-bold">紀錄</th>
-            <th class="px-4 py-3 font-bold">來源</th>
-            <th class="px-4 py-3 font-bold">人員</th>
-            <th class="px-4 py-3 font-bold">規格 / 號碼</th>
-            <th class="px-4 py-3 font-bold">庫存異動</th>
-            <th class="px-4 py-3 font-bold">金額</th>
-            <th class="px-4 py-3 font-bold">備註</th>
-            <th v-if="canDelete" class="px-4 py-3 font-bold text-right">操作</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-100">
-          <tr v-for="item in historyItems" :key="item.id" class="hover:bg-gray-50/60">
-            <td class="px-4 py-3 text-sm font-bold text-slate-700">{{ formatDateTime(item.time) }}</td>
-            <td class="px-4 py-3">
-              <span :class="typeClass(item.recordType)" class="rounded-full border px-3 py-1 text-xs font-bold">
+    <div v-else class="space-y-3">
+      <div class="space-y-3 xl:hidden">
+        <article
+          v-for="item in historyItems"
+          :key="item.id"
+          class="rounded-lg border border-gray-100 bg-white p-4 shadow-sm"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <div class="text-xs font-bold text-gray-400">{{ formatDateTime(item.time) }}</div>
+              <span :class="typeClass(item.recordType)" class="mt-2 inline-flex rounded-full border px-3 py-1 text-xs font-bold">
                 {{ typeLabel(item.recordType) }}
               </span>
-            </td>
-            <td class="px-4 py-3 text-sm text-gray-600">
-              <div class="font-black text-slate-700">{{ item.source }}</div>
-              <div v-if="item.sourceDetail" class="mt-0.5 text-xs font-bold text-gray-400">{{ item.sourceDetail }}</div>
-            </td>
-            <td class="px-4 py-3 text-sm text-gray-600">{{ item.person || '未指定' }}</td>
-            <td class="px-4 py-3 text-sm text-gray-600">{{ item.variantLabel }}</td>
-            <td class="px-4 py-3 font-black" :class="quantityClass(item)">{{ item.quantityLabel }}</td>
-            <td class="px-4 py-3 font-black text-primary">
-              {{ item.amount !== null ? formatCurrency(item.amount) : '-' }}
-            </td>
-            <td class="px-4 py-3 text-sm text-gray-500 max-w-[14rem] truncate">{{ item.notes || '-' }}</td>
-            <td v-if="canDelete" class="px-4 py-3 text-right">
-              <button
-                v-if="item.kind === 'transaction' && item.transaction"
-                type="button"
-                class="rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-red-500 hover:bg-red-100 transition-colors"
-                title="刪除交易"
-                @click="removeTransaction(item.transaction)"
-              >
-                <el-icon><Delete /></el-icon>
-              </button>
-              <span v-else class="text-xs text-gray-300">-</span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+            </div>
+            <button
+              v-if="canDelete && item.kind === 'transaction' && item.transaction"
+              type="button"
+              class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-red-100 bg-red-50 text-red-500 transition-colors hover:bg-red-100"
+              title="刪除交易"
+              @click="removeTransaction(item.transaction)"
+            >
+              <el-icon><Delete /></el-icon>
+            </button>
+          </div>
+
+          <div class="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
+            <div class="min-w-0">
+              <div class="text-xs font-bold text-gray-400">來源</div>
+              <div class="mt-1 break-words font-black text-slate-700">{{ item.source }}</div>
+              <div v-if="item.sourceDetail" class="mt-0.5 break-words text-xs font-bold text-gray-400">{{ item.sourceDetail }}</div>
+            </div>
+            <div class="min-w-0">
+              <div class="text-xs font-bold text-gray-400">人員</div>
+              <div class="mt-1 break-words text-gray-600">{{ item.person || '未指定' }}</div>
+            </div>
+            <div class="min-w-0">
+              <div class="text-xs font-bold text-gray-400">規格 / 號碼</div>
+              <div class="mt-1 break-words text-gray-600">{{ item.variantLabel }}</div>
+            </div>
+            <div class="min-w-0">
+              <div class="text-xs font-bold text-gray-400">庫存異動</div>
+              <div class="mt-1 font-black" :class="quantityClass(item)">{{ item.quantityLabel }}</div>
+            </div>
+            <div class="min-w-0">
+              <div class="text-xs font-bold text-gray-400">金額</div>
+              <div class="mt-1 font-black text-primary">
+                {{ item.amount !== null ? formatCurrency(item.amount) : '-' }}
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-4 border-t border-gray-100 pt-3">
+            <div class="text-xs font-bold text-gray-400">備註</div>
+            <p class="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-600">
+              {{ item.notes || '-' }}
+            </p>
+          </div>
+        </article>
+      </div>
+
+      <div class="hidden overflow-x-auto rounded-lg border border-gray-100 xl:block">
+        <table class="w-full min-w-[1100px] table-fixed text-left">
+          <colgroup>
+            <col class="w-[9rem]">
+            <col class="w-[6rem]">
+            <col class="w-[9rem]">
+            <col class="w-[5rem]">
+            <col class="w-[7rem]">
+            <col class="w-[6rem]">
+            <col class="w-[6.5rem]">
+            <col>
+            <col v-if="canDelete" class="w-[5rem]">
+          </colgroup>
+          <thead>
+            <tr class="border-b border-gray-100 bg-gray-50 text-sm text-gray-500">
+              <th class="px-4 py-3 font-bold whitespace-nowrap">時間</th>
+              <th class="px-4 py-3 font-bold whitespace-nowrap">紀錄</th>
+              <th class="px-4 py-3 font-bold whitespace-nowrap">來源</th>
+              <th class="px-4 py-3 font-bold whitespace-nowrap">人員</th>
+              <th class="px-4 py-3 font-bold whitespace-nowrap">規格 / 號碼</th>
+              <th class="px-4 py-3 font-bold whitespace-nowrap">庫存異動</th>
+              <th class="px-4 py-3 font-bold whitespace-nowrap">金額</th>
+              <th class="px-4 py-3 font-bold whitespace-nowrap">備註</th>
+              <th v-if="canDelete" class="sticky right-0 bg-gray-50 px-4 py-3 font-bold text-right whitespace-nowrap">操作</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            <tr v-for="item in historyItems" :key="item.id" class="group hover:bg-gray-50/60">
+              <td class="px-4 py-3 align-top text-sm font-bold text-slate-700 whitespace-nowrap">{{ formatDateTime(item.time) }}</td>
+              <td class="px-4 py-3 align-top">
+                <span :class="typeClass(item.recordType)" class="inline-flex rounded-full border px-3 py-1 text-xs font-bold whitespace-nowrap">
+                  {{ typeLabel(item.recordType) }}
+                </span>
+              </td>
+              <td class="px-4 py-3 align-top text-sm text-gray-600">
+                <div class="break-words font-black text-slate-700">{{ item.source }}</div>
+                <div v-if="item.sourceDetail" class="mt-0.5 break-words text-xs font-bold text-gray-400">{{ item.sourceDetail }}</div>
+              </td>
+              <td class="px-4 py-3 align-top text-sm text-gray-600 break-words">{{ item.person || '未指定' }}</td>
+              <td class="px-4 py-3 align-top text-sm text-gray-600 break-words">{{ item.variantLabel }}</td>
+              <td class="px-4 py-3 align-top font-black whitespace-nowrap" :class="quantityClass(item)">{{ item.quantityLabel }}</td>
+              <td class="px-4 py-3 align-top font-black text-primary whitespace-nowrap">
+                {{ item.amount !== null ? formatCurrency(item.amount) : '-' }}
+              </td>
+              <td class="px-4 py-3 align-top text-sm leading-relaxed text-gray-500 whitespace-pre-wrap break-words">{{ item.notes || '-' }}</td>
+              <td v-if="canDelete" class="sticky right-0 bg-white px-4 py-3 text-right align-top transition-colors group-hover:bg-gray-50/60">
+                <button
+                  v-if="item.kind === 'transaction' && item.transaction"
+                  type="button"
+                  class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-red-100 bg-red-50 text-red-500 transition-colors hover:bg-red-100"
+                  title="刪除交易"
+                  @click="removeTransaction(item.transaction)"
+                >
+                  <el-icon><Delete /></el-icon>
+                </button>
+                <span v-else class="text-xs text-gray-300">-</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </el-dialog>
 </template>
