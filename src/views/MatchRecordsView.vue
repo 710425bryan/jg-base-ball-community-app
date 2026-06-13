@@ -13,6 +13,8 @@ import SyncCalendarDialog from '@/components/match-records/SyncCalendarDialog.vu
 import MatchTournamentStatsTab from '@/components/match-records/MatchTournamentStatsTab.vue'
 import MatchAttendanceStatsTab from '@/components/match-records/MatchAttendanceStatsTab.vue'
 import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
+import { sendMatchReminderNotification } from '@/services/matchReminderNotifications'
+import { describePushDispatchIssue } from '@/utils/pushNotifications'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { MatchRecord } from '@/types/match'
@@ -74,11 +76,13 @@ const formDialogVisible = ref(false)
 const syncDialogVisible = ref(false)
 const selectedMatchId = ref<string | null>(null)
 const formMode = ref<'add' | 'edit'>('add')
+const notifyingMatchId = ref<string | null>(null)
 
 const canCreateMatches = computed(() => permissionsStore.can('matches', 'CREATE'))
 const canEditMatches = computed(() => permissionsStore.can('matches', 'EDIT'))
 const canDeleteMatches = computed(() => permissionsStore.can('matches', 'DELETE'))
 const canSyncMatches = computed(() => canCreateMatches.value || canEditMatches.value)
+const canNotifyMatches = computed(() => activeMainTab.value === 'future' && canEditMatches.value)
 
 const getRouteMatchId = () => {
   const rawMatchId = route.query.match_id
@@ -286,6 +290,73 @@ const handleDeleteMatch = async (id: string) => {
 const handleSyncCalendar = () => {
   syncDialogVisible.value = true
 }
+
+const getMatchNotificationIssue = (result: Awaited<ReturnType<typeof sendMatchReminderNotification>> | null | undefined) => {
+  if (!result) {
+    return '通知派送結果不明，請稍後再確認接收裝置。'
+  }
+
+  if ((result.match_count ?? 0) === 0) {
+    return '找不到可發送通知的賽事。'
+  }
+
+  if ((result.created_count ?? 0) === 0 && (result.duplicate_count ?? 0) > 0) {
+    return '這場賽事通知已發送過，系統略過重複推播。'
+  }
+
+  return describePushDispatchIssue(result)
+}
+
+const handleNotifyMatch = async (id: string) => {
+  if (!canEditMatches.value) {
+    ElMessage.warning('需要比賽紀錄編輯權限才能發送通知')
+    return
+  }
+
+  const targetMatch = matchesStore.matches.find((match) => match.id === id)
+  if (!targetMatch) {
+    ElMessage.warning('找不到這筆比賽資料')
+    return
+  }
+
+  if (!targetMatch.match_date || !dayjs(targetMatch.match_date).isAfter(dayjs().startOf('day'), 'day')) {
+    ElMessage.warning('只有未來賽事可以手動發送通知')
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `確定要發送「${targetMatch.match_name}」的賽事通知嗎？`,
+      '發送賽事通知',
+      {
+        type: 'warning',
+        confirmButtonText: '發送',
+        cancelButtonText: '取消'
+      }
+    )
+
+    notifyingMatchId.value = id
+    const result = await sendMatchReminderNotification(id)
+    const issue = getMatchNotificationIssue(result)
+
+    if (issue) {
+      ElMessage.warning(issue)
+      return
+    }
+
+    ElMessage.success(`已發送賽事通知：${targetMatch.match_name}`)
+  } catch (error: any) {
+    if (error === 'cancel' || error === 'close') {
+      return
+    }
+
+    ElMessage.error(`通知發送失敗：${error?.message || '請稍後再試'}`)
+  } finally {
+    if (notifyingMatchId.value === id) {
+      notifyingMatchId.value = null
+    }
+  }
+}
 </script>
 
 <template>
@@ -444,8 +515,11 @@ const handleSyncCalendar = () => {
           :sort-direction="activeMainTab === 'future' ? 'asc' : 'desc'"
           :can-edit="canEditMatches"
           :can-delete="canDeleteMatches"
+          :can-notify="canNotifyMatches"
+          :notifying-match-id="notifyingMatchId"
           @view="handleViewMatch" 
           @edit="handleEditMatch" 
+          @notify="handleNotifyMatch"
           @delete="handleDeleteMatch"
         />
         <MatchesTable 
@@ -453,9 +527,11 @@ const handleSyncCalendar = () => {
           :matches="filteredMatches" 
           :can-edit="canEditMatches"
           :can-delete="canDeleteMatches"
-          :can-notify="canSyncMatches"
+          :can-notify="canNotifyMatches"
+          :notifying-match-id="notifyingMatchId"
           @view="handleViewMatch" 
           @edit="handleEditMatch" 
+          @notify="handleNotifyMatch"
           @delete="handleDeleteMatch"
         />
       </template>

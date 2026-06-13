@@ -26,6 +26,7 @@ description: "Push notification workflow for jg-base-ball-community-app. Use whe
 - 排程型通知可用專屬 Edge Function，但仍必須寫入 `push_dispatch_events`，並確認 `get_notification_feed()` 可顯示對應 source。
 - 通知 click deep link 不可只靠單一 hash、search、IndexedDB 或 `postMessage`。`public/push-sw.js` 必須同步啟動 client 導向，並把 target 寫入 IndexedDB `jg-baseball-push-deeplink/pendingTargets/latest` 與 Cache Storage `jg-baseball-push-deeplink-cache`；前端統一透過 `src/utils/pushDeepLink.ts` 正規化、短時間重試 consume target，推播設定需保留可供 iPhone 截圖的 click 診斷資訊。
 - 賽事提醒或舊 `/match-records?match_id=...` 連結都要導到 `/calendar?match_id=...`，讓「賽程與行事曆」負責開啟比賽詳情 dialog。
+- `/match-records` 未來賽事的手動通知走 `send-match-reminders`，由 bearer user 的 `matches:EDIT` 權限控制，通知中心事件使用 `matches` + `REMINDER`。
 
 ## 工作流程
 

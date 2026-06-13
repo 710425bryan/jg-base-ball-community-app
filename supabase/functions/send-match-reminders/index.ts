@@ -5,6 +5,8 @@ import {
   sendPushToSubscriptions,
 } from "../_shared/push.ts";
 import {
+  buildManualMatchReminderEventKey,
+  buildMatchNotificationTitle,
   buildMatchReminderBody,
   buildMatchReminderEventKey,
   buildMatchReminderTitle,
@@ -15,6 +17,7 @@ import type { MatchRecord } from "../../../src/types/match.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
 const MATCH_REMINDER_SECRET = Deno.env.get("MATCH_REMINDER_SECRET") || "";
 
 const corsHeaders = {
@@ -32,6 +35,14 @@ type ActiveProfileRow = {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+const jsonResponse = (body: Record<string, unknown>, status = 200) =>
+  new Response(JSON.stringify(body), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    status,
+  });
+
+const normalizeString = (value: unknown) => typeof value === "string" ? value.trim() : "";
+
 const parsePayload = async (req: Request) => {
   try {
     return await req.json();
@@ -40,23 +51,64 @@ const parsePayload = async (req: Request) => {
   }
 };
 
-const assertAuthorized = (req: Request, payload: any) => {
-  if (!MATCH_REMINDER_SECRET) {
-    throw new Response(JSON.stringify({ error: "MATCH_REMINDER_SECRET is not configured" }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
-    });
-  }
-
+const isSecretAuthorized = (req: Request, payload: any) => {
   const headerSecret = req.headers.get("x-sync-secret") || "";
   const payloadSecret = typeof payload?.sync_secret === "string" ? payload.sync_secret : "";
 
-  if (headerSecret !== MATCH_REMINDER_SECRET && payloadSecret !== MATCH_REMINDER_SECRET) {
-    throw new Response(JSON.stringify({ error: "unauthorized match reminder request" }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 401,
-    });
+  return Boolean(MATCH_REMINDER_SECRET) &&
+    (headerSecret === MATCH_REMINDER_SECRET || payloadSecret === MATCH_REMINDER_SECRET);
+};
+
+const assertUserCanSendMatchReminder = async (req: Request) => {
+  const authHeader = req.headers.get("Authorization") || "";
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+
+  if (!token) {
+    if (!MATCH_REMINDER_SECRET) {
+      throw jsonResponse({ error: "MATCH_REMINDER_SECRET is not configured" }, 500);
+    }
+
+    throw jsonResponse({ error: "missing authorization token" }, 401);
   }
+
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data?.user?.id) {
+    throw jsonResponse({ error: "invalid authorization token" }, 401);
+  }
+
+  if (!SUPABASE_ANON_KEY) {
+    throw jsonResponse({ error: "SUPABASE_ANON_KEY is not configured" }, 500);
+  }
+
+  const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  });
+
+  const { data: canEditMatches, error: permissionError } = await userClient.rpc("has_app_permission", {
+    p_feature: "matches",
+    p_action: "EDIT",
+  });
+
+  if (permissionError) {
+    throw permissionError;
+  }
+
+  if (canEditMatches !== true) {
+    throw jsonResponse({ error: "missing matches edit permission" }, 403);
+  }
+};
+
+const assertAuthorized = async (req: Request, payload: any) => {
+  if (isSecretAuthorized(req, payload)) {
+    return "secret" as const;
+  }
+
+  await assertUserCanSendMatchReminder(req);
+  return "user" as const;
 };
 
 const fetchTomorrowMatches = async (targetDate: string) => {
@@ -65,6 +117,17 @@ const fetchTomorrowMatches = async (targetDate: string) => {
     .select("*")
     .eq("match_date", targetDate)
     .order("match_time", { ascending: true });
+
+  if (error) throw error;
+  return (data || []) as MatchRecord[];
+};
+
+const fetchMatchById = async (matchId: string) => {
+  const { data, error } = await supabase
+    .from("matches")
+    .select("*")
+    .eq("id", matchId)
+    .limit(1);
 
   if (error) throw error;
   return (data || []) as MatchRecord[];
@@ -96,11 +159,11 @@ const fetchActiveUserIds = async (now: Date) => {
     .map((profile) => profile.id);
 };
 
-const createReminderEvent = async (match: MatchRecord, title: string, body: string, url: string) => {
+const createReminderEvent = async (match: MatchRecord, title: string, body: string, url: string, eventKey: string) => {
   const { data, error } = await supabase
     .from("push_dispatch_events")
     .insert({
-      event_key: buildMatchReminderEventKey(match),
+      event_key: eventKey,
       feature: "matches",
       action: "REMINDER",
       title,
@@ -128,36 +191,38 @@ serve(async (req) => {
   }
 
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "method not allowed" }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 405,
-    });
+    return jsonResponse({ error: "method not allowed" }, 405);
   }
 
   try {
     const payload = await parsePayload(req);
-    assertAuthorized(req, payload);
+    const authorizationMode = await assertAuthorized(req, payload);
 
     const now = payload.now ? new Date(String(payload.now)) : new Date();
+    const targetMatchId = normalizeString(payload.match_id);
+    if (authorizationMode === "user" && !targetMatchId) {
+      throw jsonResponse({ error: "match_id is required for manual match reminder" }, 400);
+    }
+
     const targetDate = typeof payload.target_date === "string" && payload.target_date.trim()
       ? payload.target_date.trim()
       : getTomorrowDateInTaipei(now);
     const dryRun = payload.dry_run === true;
 
-    const matches = await fetchTomorrowMatches(targetDate);
+    const matches = targetMatchId
+      ? await fetchMatchById(targetMatchId)
+      : await fetchTomorrowMatches(targetDate);
 
     if (matches.length === 0) {
-      return new Response(JSON.stringify({
+      return jsonResponse({
         success: true,
-        target_date: targetDate,
+        target_date: targetMatchId ? null : targetDate,
+        target_match_id: targetMatchId || null,
         match_count: 0,
         created_count: 0,
         duplicate_count: 0,
         dispatched_count: 0,
         total_targets: 0,
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
       });
     }
 
@@ -173,13 +238,19 @@ serve(async (req) => {
     const matchResults: Array<Record<string, unknown>> = [];
 
     for (const match of matches) {
-      const title = buildMatchReminderTitle(match);
+      const title = targetMatchId
+        ? buildMatchNotificationTitle(match)
+        : buildMatchReminderTitle(match);
       const body = buildMatchReminderBody(match);
       const url = buildMatchReminderUrl(match);
+      const eventKey = targetMatchId
+        ? buildManualMatchReminderEventKey(match)
+        : buildMatchReminderEventKey(match);
 
       if (dryRun) {
         matchResults.push({
           match_id: match.id,
+          event_key: eventKey,
           title,
           body,
           url,
@@ -189,7 +260,7 @@ serve(async (req) => {
         continue;
       }
 
-      const reminderEvent = await createReminderEvent(match, title, body, url);
+      const reminderEvent = await createReminderEvent(match, title, body, url, eventKey);
 
       if (!reminderEvent.created) {
         duplicateCount += 1;
@@ -225,10 +296,11 @@ serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({
+    return jsonResponse({
       success: true,
       dry_run: dryRun,
-      target_date: targetDate,
+      target_date: targetMatchId ? null : targetDate,
+      target_match_id: targetMatchId || null,
       match_count: matches.length,
       active_user_count: activeUserIds.length,
       total_targets: subscriptions.length,
@@ -239,17 +311,11 @@ serve(async (req) => {
       failed_count: failedCount,
       provider_counts: providerCounts,
       matches: matchResults,
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200,
     });
   } catch (error: any) {
     if (error instanceof Response) return error;
 
     console.error("Match reminder dispatch failed:", error);
-    return new Response(JSON.stringify({ success: false, error: error.message || String(error) }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
-    });
+    return jsonResponse({ success: false, error: error.message || String(error) }, 500);
   }
 });

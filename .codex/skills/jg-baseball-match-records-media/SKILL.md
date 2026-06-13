@@ -34,6 +34,7 @@ description: "Match records, schedule detail, lineup, media, live controller, au
 - `matchesApi` 封裝 `matches` CRUD，保留 schema cache 欄位缺失 fallback。
 - `/calendar` 顯示賽程並用 `?match_id=` 開啟 `MatchDetailDialog`。
 - `/match-records` 是後台比賽紀錄管理，feature key 為 `matches`。
+- `/match-records` 的「未來賽事」手動通知只顯示給 `matches:EDIT` 使用者，前端走 `src/services/matchReminderNotifications.ts` 呼叫 `send-match-reminders`。
 - `/my-records` 透過 `myPlayerRecords` RPC 讀 linked member 可見紀錄，不直接使用後台 `matchesApi` 列表。
 - 比賽照片使用 `matches-photos` bucket。
 - 陣容照片解析走 `parse-lineup` Edge Function 與 `lineupPhotoParser` 前處理。
@@ -43,6 +44,7 @@ description: "Match records, schedule detail, lineup, media, live controller, au
 ## 不可破壞規則
 
 - 賽事提醒 URL 統一使用 `/calendar?match_id=<id>`；舊 `/match-records?match_id=...` 要由 push deep link 正規化到 `/calendar`。
+- 手動賽事通知的通知中心事件仍使用 `matches` + `REMINDER`，但 event key 要與每日排程提醒分開，避免手動通知擋掉隔天自動提醒。
 - `matches:VIEW` 只代表後台紀錄可見性；個人成績頁可見性由 linked member RPC 控制。
 - 上傳照片、語音檔或 AI 解析結果時，不要繞過使用者權限檢查。
 - `parse-lineup` 與 `transcribe-match-audio` 使用 service role 時，要先驗證 bearer token 使用者，再以 user scoped client 檢查 `matches:CREATE` 或 `matches:EDIT`。

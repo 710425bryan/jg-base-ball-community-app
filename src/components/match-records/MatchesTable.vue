@@ -11,12 +11,14 @@ const props = defineProps<{
   canEdit?: boolean
   canDelete?: boolean
   canNotify?: boolean
+  notifyingMatchId?: string | null
 }>()
 
 const emit = defineEmits<{
   (e: 'view', id: string): void
   (e: 'edit', id: string): void
   (e: 'delete', id: string): void
+  (e: 'notify', id: string): void
 }>()
 
 const isFuture = (date: string) => dayjs(date).isAfter(dayjs(), 'day')
@@ -36,11 +38,6 @@ const copyMatchInfo = (m: MatchRecord) => {
   }).catch(() => {
     ElMessage.error('複製失敗，請手動複製')
   })
-}
-
-const handleNotifyLine = (m: MatchRecord) => {
-  // Mock notify
-  ElMessage.success(`已發送推播通知：${m.match_name}`)
 }
 
 const openVideo = (url?: string | null) => {
@@ -112,9 +109,16 @@ const openVideo = (url?: string | null) => {
       <el-table-column label="操作" width="180" align="right" fixed="right">
         <template #default="{ row }">
           <div class="flex items-center justify-end space-x-1" @click.stop>
-             <el-tooltip v-if="props.canNotify !== false" content="發送推播通知" placement="top">
-               <el-button @click.stop="handleNotifyLine(row)" circle size="small" class="!border-none hover:!bg-blue-50 hover:!text-blue-500 text-gray-400">
-                 <el-icon><Bell /></el-icon>
+             <el-tooltip v-if="props.canNotify === true" content="發送賽事通知" placement="top">
+               <el-button
+                 @click.stop="emit('notify', row.id)"
+                 circle
+                 size="small"
+                 :loading="props.notifyingMatchId === row.id"
+                 :disabled="Boolean(props.notifyingMatchId && props.notifyingMatchId !== row.id)"
+                 class="!border-none hover:!bg-blue-50 hover:!text-blue-500 text-gray-400"
+               >
+                 <el-icon v-if="props.notifyingMatchId !== row.id"><Bell /></el-icon>
                </el-button>
              </el-tooltip>
              <el-tooltip content="複製 Google 行事曆格式" placement="top">

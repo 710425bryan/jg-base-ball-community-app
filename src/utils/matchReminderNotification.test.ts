@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildManualMatchReminderEventKey,
+  buildMatchNotificationTitle,
   buildMatchReminderBody,
   buildMatchReminderEventKey,
+  buildMatchReminderTitle,
   buildMatchReminderUrl,
   extractMatchGatherTime,
   getTomorrowDateInTaipei
@@ -62,6 +65,14 @@ describe('matchReminderNotification', () => {
     const match = buildMatch()
 
     expect(buildMatchReminderEventKey(match)).toBe('match_reminder:match-1:2026-05-02')
+    expect(buildManualMatchReminderEventKey(match)).toBe('match_reminder_manual:match-1:2026-05-02')
     expect(buildMatchReminderUrl(match)).toBe('/calendar?match_id=match-1')
+  })
+
+  it('uses distinct titles for scheduled reminders and manual notifications', () => {
+    const match = buildMatch()
+
+    expect(buildMatchReminderTitle(match)).toBe('明日賽事提醒：春季聯賽 U12')
+    expect(buildMatchNotificationTitle(match)).toBe('賽事通知：春季聯賽 U12')
   })
 })

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { MatchRecord } from '@/types/match'
-import { Calendar, Delete, DocumentCopy, Location, Operation, Trophy, VideoCamera } from '@element-plus/icons-vue'
+import { Bell, Calendar, Delete, DocumentCopy, Location, Operation, Trophy, VideoCamera } from '@element-plus/icons-vue'
 import { normalizeExternalUrl } from '@/utils/externalUrl'
 import { formatMatchRecordForGoogleCalendar } from '@/utils/matchCalendarCopy'
 import dayjs from 'dayjs'
@@ -14,16 +14,21 @@ const props = withDefaults(defineProps<{
   sortDirection?: 'asc' | 'desc'
   canEdit?: boolean
   canDelete?: boolean
+  canNotify?: boolean
+  notifyingMatchId?: string | null
 }>(), {
   sortDirection: 'desc',
   canEdit: true,
-  canDelete: true
+  canDelete: true,
+  canNotify: false,
+  notifyingMatchId: null
 })
 
 const emit = defineEmits<{
   (e: 'view', id: string): void
   (e: 'edit', id: string): void
   (e: 'delete', id: string): void
+  (e: 'notify', id: string): void
 }>()
 
 const getMonthKey = (match: MatchRecord) => {
@@ -170,6 +175,18 @@ const copyMatchInfo = (match: MatchRecord) => {
                 <el-tooltip content="複製 Google 行事曆格式" placement="top">
                   <el-button circle size="small" class="!border-slate-200 !bg-white/80 !text-slate-500 hover:!border-emerald-200 hover:!text-emerald-600" @click.stop="copyMatchInfo(match)">
                     <el-icon><DocumentCopy /></el-icon>
+                  </el-button>
+                </el-tooltip>
+                <el-tooltip v-if="props.canNotify" content="發送賽事通知" placement="top">
+                  <el-button
+                    circle
+                    size="small"
+                    :loading="props.notifyingMatchId === match.id"
+                    :disabled="Boolean(props.notifyingMatchId && props.notifyingMatchId !== match.id)"
+                    class="!border-slate-200 !bg-white/80 !text-slate-500 hover:!border-sky-200 hover:!text-sky-600"
+                    @click.stop="emit('notify', match.id)"
+                  >
+                    <el-icon v-if="props.notifyingMatchId !== match.id"><Bell /></el-icon>
                   </el-button>
                 </el-tooltip>
                 <el-tooltip v-if="props.canEdit" content="編輯" placement="top">

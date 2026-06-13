@@ -17,7 +17,7 @@
 | --- | --- | --- |
 | `SUPABASE_URL` | Edge Function 建立 Supabase client | 多數 Edge Functions |
 | `SUPABASE_SERVICE_ROLE_KEY` | service role client | 多數 Edge Functions |
-| `SUPABASE_ANON_KEY` | user scoped client 權限檢查 | `sync-match-calendar`、`parse-lineup`、`transcribe-match-audio` |
+| `SUPABASE_ANON_KEY` | user scoped client 權限檢查 | `sync-match-calendar`、`send-match-reminders`、`parse-lineup`、`transcribe-match-audio` |
 
 ## Function 專用環境變數
 
@@ -46,7 +46,7 @@
 | `supabase/functions/_shared/push.ts` | 推播共用 helper | 權限查詢、subscription 讀取、過期 subscription 清理 |
 | `supabase/functions/notify-holiday-theme/index.ts` | 節日主題通知 | 手動需使用者權限，自動需 secret |
 | `supabase/functions/notify-holiday-theme/logic.ts` | 節日通知純邏輯 | 有 Vitest coverage |
-| `supabase/functions/send-match-reminders/index.ts` | 賽事提醒 | URL 使用 `/calendar?match_id=...` |
+| `supabase/functions/send-match-reminders/index.ts` | 賽事提醒 | 排程走 `MATCH_REMINDER_SECRET`；手動單場發送需 bearer user 具 `matches:EDIT`；URL 使用 `/calendar?match_id=...` |
 | `supabase/functions/send-training-registration-notifications/index.ts` | 特訓報名開始 / 截止前提醒 | event key 必須穩定 |
 | `supabase/functions/send-training-registration-status-notifications/index.ts` | 單筆特訓報名完成 / 錄取通知 | bearer user 驗證，`submitted` 給 `training:EDIT` 管理者，`selected` 給報名使用者 |
 | `supabase/functions/send-training-selection-notifications/index.ts` | 特訓錄取名單公布通知 | 手動觸發需檢查使用者權限 |

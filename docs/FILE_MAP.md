@@ -81,6 +81,7 @@
 | `src/services/playerRosterApi.ts` | 球員名單查詢與 cache meta RPC | `team_members` / `team_members_safe` / `get_team_members_cache_meta()` |
 | `src/services/teamGroupsApi.ts` | team group 設定 RPC | `team_group_settings` 相關 RPC |
 | `src/services/matchesApi.ts` | 賽事 CRUD | `matches` |
+| `src/services/matchReminderNotifications.ts` | 未來賽事手動通知呼叫 | `send-match-reminders` Edge Function |
 | `src/services/matchCalendarSync.ts` | Google Calendar 手動同步預覽 | `sync-match-calendar` Edge Function、瀏覽器 proxy fallback |
 | `src/services/matchAudioApi.ts` | 比賽語音轉紀錄 Edge Function 呼叫 | `transcribe-match-audio` |
 | `src/services/matchFees.ts` | 比賽費付款與審核 RPC | `match_fee_items` / `match_payment_submissions` |
@@ -317,7 +318,7 @@
 | `supabase/functions/_shared/push.ts` | 推播共用權限與 subscription helper |
 | `supabase/functions/notify-holiday-theme/index.ts` | 節日主題通知 |
 | `supabase/functions/notify-holiday-theme/logic.ts` | 節日通知邏輯 |
-| `supabase/functions/send-match-reminders/index.ts` | 賽事提醒 |
+| `supabase/functions/send-match-reminders/index.ts` | 賽事提醒與未來賽事手動通知 |
 | `supabase/functions/send-training-registration-notifications/index.ts` | 特訓報名開始 / 截止前提醒通知 |
 | `supabase/functions/send-training-registration-status-notifications/index.ts` | 單筆特訓報名完成 / 錄取通知 |
 | `supabase/functions/send-training-selection-notifications/index.ts` | 特訓錄取名單公布通知 |

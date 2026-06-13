@@ -183,6 +183,7 @@
 - `matchesApi` 保留 `google_calendar_event_id` 欄位缺失 / schema cache 尚未更新時的 fallback。
 - Google Calendar / iCal parsing 與同步規劃在 `src/utils/googleCalendarParser.ts`，UI 在 `SyncCalendarDialog.vue`。
 - 比賽紀錄相關元件在 `src/components/match-records/*`，照片使用 `matches-photos` bucket。
+- `/match-records` 的「未來賽事」可由具 `matches:EDIT` 的使用者手動發送單場賽事通知；前端走 `src/services/matchReminderNotifications.ts` 呼叫 `send-match-reminders`，通知 URL 仍使用 `/calendar?match_id=...`。
 - 陣容照片解析走 `src/utils/lineupPhotoParser.ts` 與 `supabase/functions/parse-lineup/index.ts`；比賽語音轉紀錄走 `MatchAudioRecorder`、`src/services/matchAudioApi.ts`、`src/utils/matchAudioTranscription.ts` 與 `supabase/functions/transcribe-match-audio/index.ts`。
 - 賽事天氣走 `src/services/weatherApi.ts`，地點解析優先透過 `supabase/functions/resolve-location`，失敗時保留前端 fallback。
 

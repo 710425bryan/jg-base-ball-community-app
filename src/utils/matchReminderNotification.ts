@@ -41,11 +41,17 @@ export const extractMatchGatherTime = (note?: string | null) => {
 export const buildMatchReminderEventKey = (match: Pick<MatchRecord, 'id' | 'match_date'>) =>
   `match_reminder:${match.id}:${match.match_date}`
 
+export const buildManualMatchReminderEventKey = (match: Pick<MatchRecord, 'id' | 'match_date'>) =>
+  `match_reminder_manual:${match.id}:${match.match_date}`
+
 export const buildMatchReminderUrl = (match: Pick<MatchRecord, 'id'>) =>
   `/calendar?match_id=${encodeURIComponent(match.id)}`
 
 export const buildMatchReminderTitle = (match: Pick<MatchRecord, 'match_name'>) =>
   `明日賽事提醒：${normalizeDisplayValue(match.match_name)}`
+
+export const buildMatchNotificationTitle = (match: Pick<MatchRecord, 'match_name'>) =>
+  `賽事通知：${normalizeDisplayValue(match.match_name)}`
 
 export const buildMatchReminderBody = (match: Pick<
   MatchRecord,
