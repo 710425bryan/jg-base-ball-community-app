@@ -23,7 +23,7 @@ description: "Match records, schedule detail, lineup, media, live controller, au
 10. `src/services/weatherApi.ts`
 11. `src/stores/matches.ts`
 12. `src/types/match.ts`
-13. `src/utils/matchRecordStats.ts`、`src/utils/matchFieldEditor.ts`、`src/utils/liveMatchScoreboard.ts`、`src/utils/matchAudioTranscription.ts`、`src/utils/matchAudioDraftStore.ts`、`src/utils/lineupPhotoParser.ts`、`src/utils/matchReminderNotification.ts`、`src/utils/matchCalendarCopy.ts`
+13. `src/utils/matchRecordStats.ts`、`src/utils/matchFieldEditor.ts`、`src/utils/liveMatchScoreboard.ts`、`src/utils/matchAudioTranscription.ts`、`src/utils/matchAudioDraftStore.ts`、`src/utils/lineupPhotoParser.ts`、`src/utils/matchReminderNotification.ts`、`src/utils/matchReminderSchedule.ts`、`src/utils/matchCalendarCopy.ts`
 14. `src/components/match-records/*`
 15. `supabase/functions/parse-lineup/index.ts`、`supabase/functions/transcribe-match-audio/index.ts`、`supabase/functions/resolve-location/*`、`supabase/functions/send-match-reminders/index.ts`
 16. 若改 Google Calendar / iCal parser，再讀 `jg-baseball-match-calendar-sync` skill
@@ -34,7 +34,8 @@ description: "Match records, schedule detail, lineup, media, live controller, au
 - `matchesApi` 封裝 `matches` CRUD，保留 schema cache 欄位缺失 fallback。
 - `/calendar` 顯示賽程並用 `?match_id=` 開啟 `MatchDetailDialog`。
 - `/match-records` 是後台比賽紀錄管理，feature key 為 `matches`。
-- `/match-records` 的「未來賽事」手動通知只顯示給 `matches:EDIT` 使用者，前端走 `src/services/matchReminderNotifications.ts` 呼叫 `send-match-reminders`。
+- `/match-records` 的「未來賽事」手動通知與「提醒排程」只顯示給 `matches:EDIT` 使用者，前端走 `src/services/matchReminderNotifications.ts` 呼叫 `send-match-reminders` 或提醒排程 RPC。
+- 賽事提醒排程是全站共用多組規則，設定存在 `system_settings.match_reminder_schedule_config`，自動排程由 `send-match-reminders` 每分鐘依 Asia/Taipei 判斷到期規則。
 - `/my-records` 透過 `myPlayerRecords` RPC 讀 linked member 可見紀錄，不直接使用後台 `matchesApi` 列表。
 - 比賽照片使用 `matches-photos` bucket。
 - 陣容照片解析走 `parse-lineup` Edge Function 與 `lineupPhotoParser` 前處理。

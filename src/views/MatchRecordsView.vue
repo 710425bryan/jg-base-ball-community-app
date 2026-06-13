@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Search, Filter, Calendar, Plus, Trophy } from '@element-plus/icons-vue'
+import { Search, Filter, Calendar, Plus, Trophy, Bell } from '@element-plus/icons-vue'
 import { useMatchesStore } from '@/stores/matches'
 import { usePermissionsStore } from '@/stores/permissions'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
@@ -10,6 +10,7 @@ import MatchesTable from '@/components/match-records/MatchesTable.vue'
 import MatchDetailDialog from '@/components/match-records/MatchDetailDialog.vue'
 import MatchFormDialog from '@/components/match-records/MatchFormDialog.vue'
 import SyncCalendarDialog from '@/components/match-records/SyncCalendarDialog.vue'
+import MatchReminderScheduleDialog from '@/components/match-records/MatchReminderScheduleDialog.vue'
 import MatchTournamentStatsTab from '@/components/match-records/MatchTournamentStatsTab.vue'
 import MatchAttendanceStatsTab from '@/components/match-records/MatchAttendanceStatsTab.vue'
 import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
@@ -74,6 +75,7 @@ const viewMode = ref<'table' | 'grid'>('grid')
 const detailDialogVisible = ref(false)
 const formDialogVisible = ref(false)
 const syncDialogVisible = ref(false)
+const reminderScheduleDialogVisible = ref(false)
 const selectedMatchId = ref<string | null>(null)
 const formMode = ref<'add' | 'edit'>('add')
 const notifyingMatchId = ref<string | null>(null)
@@ -83,6 +85,7 @@ const canEditMatches = computed(() => permissionsStore.can('matches', 'EDIT'))
 const canDeleteMatches = computed(() => permissionsStore.can('matches', 'DELETE'))
 const canSyncMatches = computed(() => canCreateMatches.value || canEditMatches.value)
 const canNotifyMatches = computed(() => activeMainTab.value === 'future' && canEditMatches.value)
+const canManageReminderSchedule = computed(() => canEditMatches.value)
 
 const getRouteMatchId = () => {
   const rawMatchId = route.query.match_id
@@ -291,6 +294,10 @@ const handleSyncCalendar = () => {
   syncDialogVisible.value = true
 }
 
+const handleOpenReminderSchedule = () => {
+  reminderScheduleDialogVisible.value = true
+}
+
 const getMatchNotificationIssue = (result: Awaited<ReturnType<typeof sendMatchReminderNotification>> | null | undefined) => {
   if (!result) {
     return '通知派送結果不明，請稍後再確認接收裝置。'
@@ -435,9 +442,13 @@ const handleNotifyMatch = async (id: string) => {
         <ViewModeSwitch v-if="isListTab" v-model="viewMode" class="shrink-0" />
 
         <!-- Tool Buttons -->
-        <div v-if="isListTab && (canSyncMatches || canCreateMatches)" class="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+        <div v-if="isListTab && (canSyncMatches || canCreateMatches || canManageReminderSchedule)" class="flex flex-wrap gap-2 w-full sm:w-auto mt-2 sm:mt-0">
           <el-button v-if="canSyncMatches" @click="handleSyncCalendar" class="flex-1 sm:flex-none !rounded-xl text-gray-700 bg-white hover:bg-gray-50 border-gray-200">
             <el-icon class="mr-1.5 text-blue-500"><Calendar /></el-icon>同步行事曆
+          </el-button>
+
+          <el-button v-if="canManageReminderSchedule" @click="handleOpenReminderSchedule" class="flex-1 sm:flex-none !rounded-xl text-gray-700 bg-white hover:bg-gray-50 border-gray-200">
+            <el-icon class="mr-1.5 text-primary"><Bell /></el-icon>提醒排程
           </el-button>
           
           <el-button v-if="canCreateMatches" @click="handleAddMatch" type="primary" class="flex-1 sm:flex-none !rounded-xl !bg-primary !border-primary hover:!bg-primary/90 !text-white shadow-sm shadow-primary/20 px-5 font-bold">
@@ -549,6 +560,7 @@ const handleNotifyMatch = async (id: string) => {
     <MatchDetailDialog v-model="detailDialogVisible" :match-id="selectedMatchId" :readonly="!canEditMatches" @edit="handleEditMatch(selectedMatchId!)" />
     <MatchFormDialog v-model="formDialogVisible" :match-id="selectedMatchId" :mode="formMode" />
     <SyncCalendarDialog v-model="syncDialogVisible" />
+    <MatchReminderScheduleDialog v-model="reminderScheduleDialogVisible" />
 
   </div>
 </template>

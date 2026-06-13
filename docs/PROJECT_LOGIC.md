@@ -259,6 +259,7 @@ UI 約定：
 - `src/utils/matchAudioTranscription.ts`
 - `src/utils/matchAudioDraftStore.ts`
 - `src/utils/matchReminderNotification.ts`
+- `src/utils/matchReminderSchedule.ts`
 - `src/components/match-records/*`
 - `supabase/functions/parse-lineup/index.ts`
 - `supabase/functions/transcribe-match-audio/index.ts`
@@ -280,7 +281,8 @@ UI 約定：
 - 同步規劃維持 `create`、`update`、`skip` 三種結果。
 - 比賽紀錄元件處理陣容、照片、出席統計、賽事細節與 live controller。
 - `/calendar?match_id=...` 會開啟 `MatchDetailDialog`；推播與通知的比賽詳情 URL 統一導向這條路徑。
-- `/match-records` 的「未來賽事」可由具 `matches:EDIT` 的使用者手動發送單場賽事通知；前端呼叫 `src/services/matchReminderNotifications.ts`，Edge Function `send-match-reminders` 會驗證 bearer user 權限、寫入 `push_dispatch_events` 並發送 Web Push。
+- `/match-records` 的「未來賽事」可由具 `matches:EDIT` 的使用者手動發送單場賽事通知；「提醒排程」同樣只給 `matches:EDIT` 使用者管理，設定存在 `system_settings.match_reminder_schedule_config`，透過 `get_match_reminder_schedule_config()` / `save_match_reminder_schedule_config(jsonb)` 讀寫全站共用多組規則。
+- Edge Function `send-match-reminders` 會驗證手動 bearer user 權限或排程 secret；自動排程每分鐘以 Asia/Taipei 判斷到期規則，寫入 `push_dispatch_events` 並發送 Web Push，通知 URL 統一導向 `/calendar?match_id=...`。
 - 陣容照片解析會先在前端壓縮 / 轉 data URL，再呼叫 `parse-lineup`，AI 結果需要 normalize 與 unresolved flow。
 - 比賽語音轉紀錄使用 IndexedDB 保存草稿與音檔 chunks，再呼叫 `transcribe-match-audio` 產生結構化事件。
 - 天氣預報優先透過 `resolve-location` 解析場地座標，外部 API 失敗時回到前端 fallback。

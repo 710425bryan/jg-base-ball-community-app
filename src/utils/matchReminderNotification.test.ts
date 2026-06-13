@@ -5,6 +5,7 @@ import {
   buildMatchReminderBody,
   buildMatchReminderEventKey,
   buildMatchReminderTitle,
+  buildMatchReminderTitleForDaysBefore,
   buildMatchReminderUrl,
   extractMatchGatherTime,
   getTomorrowDateInTaipei
@@ -73,6 +74,9 @@ describe('matchReminderNotification', () => {
     const match = buildMatch()
 
     expect(buildMatchReminderTitle(match)).toBe('明日賽事提醒：春季聯賽 U12')
+    expect(buildMatchReminderTitleForDaysBefore(match, 0)).toBe('今日賽事提醒：春季聯賽 U12')
+    expect(buildMatchReminderTitleForDaysBefore(match, 1)).toBe('明日賽事提醒：春季聯賽 U12')
+    expect(buildMatchReminderTitleForDaysBefore(match, 3)).toBe('賽前 3 天提醒：春季聯賽 U12')
     expect(buildMatchNotificationTitle(match)).toBe('賽事通知：春季聯賽 U12')
   })
 })

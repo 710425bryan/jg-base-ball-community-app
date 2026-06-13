@@ -81,7 +81,7 @@
 | `src/services/playerRosterApi.ts` | 球員名單查詢與 cache meta RPC | `team_members` / `team_members_safe` / `get_team_members_cache_meta()` |
 | `src/services/teamGroupsApi.ts` | team group 設定 RPC | `team_group_settings` 相關 RPC |
 | `src/services/matchesApi.ts` | 賽事 CRUD | `matches` |
-| `src/services/matchReminderNotifications.ts` | 未來賽事手動通知呼叫 | `send-match-reminders` Edge Function |
+| `src/services/matchReminderNotifications.ts` | 未來賽事手動通知與提醒排程設定 RPC | `send-match-reminders` Edge Function、`system_settings.match_reminder_schedule_config` |
 | `src/services/matchCalendarSync.ts` | Google Calendar 手動同步預覽 | `sync-match-calendar` Edge Function、瀏覽器 proxy fallback |
 | `src/services/matchAudioApi.ts` | 比賽語音轉紀錄 Edge Function 呼叫 | `transcribe-match-audio` |
 | `src/services/matchFees.ts` | 比賽費付款與審核 RPC | `match_fee_items` / `match_payment_submissions` |
@@ -116,6 +116,7 @@
 | `src/utils/googleCalendarParser.ts` | Google Calendar / iCal parser 與同步規劃 |
 | `src/utils/matchCalendarCopy.ts` | Google Calendar / 賽事複製文字 |
 | `src/utils/matchReminderNotification.ts` | 賽事提醒文案、URL、event key |
+| `src/utils/matchReminderSchedule.ts` | 賽事提醒排程設定 normalize / validation / 到期規則 |
 | `src/utils/matchFieldEditor.ts` | 陣容守位 normalize、拖曳與隱藏名單 |
 | `src/utils/lineupPhotoParser.ts` | 陣容照片壓縮 / data URL 前處理 |
 | `src/utils/liveMatchScoreboard.ts` | 即時比賽記分板狀態 |
@@ -241,6 +242,7 @@
 | `src/components/match-records/VisualField.vue` | 視覺化球場 |
 | `src/components/match-records/MatchesGrid.vue` | 賽事卡片列表 |
 | `src/components/match-records/MatchesTable.vue` | 賽事表格 |
+| `src/components/match-records/MatchReminderScheduleDialog.vue` | 賽事提醒排程設定 |
 
 ### Performance
 
@@ -305,7 +307,7 @@
 | 訓練日期設定 / 換月預設排程 | `supabase_training_dates_migration.sql` |
 | 場地與人員配置 | `supabase_training_locations_migration.sql`、`supabase_zzzzzzzzz_training_location_attendance_migration.sql`、`supabase_zzzzzzzzzz_training_location_venue_settings_migration.sql` |
 | 賽事同步 | `supabase_matches_google_calendar_sync_migration.sql`、`supabase_match_calendar_daily_sync_schedule.sql` |
-| 推播 | `supabase_web_push_subscriptions_migration.sql`、`supabase_push_dispatch_events_migration.sql`、`supabase_match_reminder_notifications_migration.sql` |
+| 推播 | `supabase_web_push_subscriptions_migration.sql`、`supabase_push_dispatch_events_migration.sql`、`supabase_match_reminder_notifications_migration.sql`、`supabase_match_reminder_schedule_config_migration.sql` |
 | 節日主題 | `supabase_holiday_theme_migration.sql` |
 
 完整 migration / hotfix / repair 索引請讀 `docs/MIGRATIONS.md`。注意：同一 function / policy 可能在後續 migration 被覆寫。修改 DB 規則前要用 `rg` 查所有同名 function / policy。

@@ -8,11 +8,16 @@ import {
   buildManualMatchReminderEventKey,
   buildMatchNotificationTitle,
   buildMatchReminderBody,
-  buildMatchReminderEventKey,
-  buildMatchReminderTitle,
+  buildMatchReminderTitleForDaysBefore,
   buildMatchReminderUrl,
-  getTomorrowDateInTaipei,
 } from "../../../src/utils/matchReminderNotification.ts";
+import {
+  MATCH_REMINDER_SCHEDULE_CONFIG_KEY,
+  buildMatchReminderScheduleEventKey,
+  getDueMatchReminderRules,
+  normalizeMatchReminderScheduleConfig,
+  type DueMatchReminderScheduleRule,
+} from "../../../src/utils/matchReminderSchedule.ts";
 import type { MatchRecord } from "../../../src/types/match.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -31,6 +36,11 @@ type ActiveProfileRow = {
   is_active?: boolean | null;
   access_start?: string | null;
   access_end?: string | null;
+};
+
+type ScheduledMatchReminderJob = {
+  match: MatchRecord;
+  rule: DueMatchReminderScheduleRule | null;
 };
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -111,7 +121,18 @@ const assertAuthorized = async (req: Request, payload: any) => {
   return "user" as const;
 };
 
-const fetchTomorrowMatches = async (targetDate: string) => {
+const fetchScheduleConfig = async () => {
+  const { data, error } = await supabase
+    .from("system_settings")
+    .select("value")
+    .eq("key", MATCH_REMINDER_SCHEDULE_CONFIG_KEY)
+    .maybeSingle();
+
+  if (error) throw error;
+  return normalizeMatchReminderScheduleConfig(data?.value);
+};
+
+const fetchMatchesByDate = async (targetDate: string) => {
   const { data, error } = await supabase
     .from("matches")
     .select("*")
@@ -185,6 +206,25 @@ const createReminderEvent = async (match: MatchRecord, title: string, body: stri
   return { created: true, id: data?.id || null };
 };
 
+const buildScheduledJobs = async (now: Date) => {
+  const scheduleConfig = await fetchScheduleConfig();
+  const dueRules = getDueMatchReminderRules(scheduleConfig, now);
+  const jobs: ScheduledMatchReminderJob[] = [];
+
+  for (const rule of dueRules) {
+    const matches = await fetchMatchesByDate(rule.target_date);
+    for (const match of matches) {
+      jobs.push({ match, rule });
+    }
+  }
+
+  return { dueRules, jobs };
+};
+
+const getTargetDates = (dueRules: DueMatchReminderScheduleRule[]) => [
+  ...new Set(dueRules.map((rule) => rule.target_date)),
+];
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -204,20 +244,30 @@ serve(async (req) => {
       throw jsonResponse({ error: "match_id is required for manual match reminder" }, 400);
     }
 
-    const targetDate = typeof payload.target_date === "string" && payload.target_date.trim()
-      ? payload.target_date.trim()
-      : getTomorrowDateInTaipei(now);
     const dryRun = payload.dry_run === true;
 
-    const matches = targetMatchId
-      ? await fetchMatchById(targetMatchId)
-      : await fetchTomorrowMatches(targetDate);
+    const dueRules: DueMatchReminderScheduleRule[] = [];
+    let jobs: ScheduledMatchReminderJob[] = [];
 
-    if (matches.length === 0) {
+    if (targetMatchId) {
+      jobs = (await fetchMatchById(targetMatchId)).map((match) => ({ match, rule: null }));
+    } else {
+      const scheduledResult = await buildScheduledJobs(now);
+      dueRules.push(...scheduledResult.dueRules);
+      jobs = scheduledResult.jobs;
+    }
+
+    if (jobs.length === 0) {
+      const targetDates = getTargetDates(dueRules);
+
       return jsonResponse({
         success: true,
-        target_date: targetMatchId ? null : targetDate,
+        dry_run: dryRun,
+        target_date: targetMatchId || targetDates.length !== 1 ? null : targetDates[0],
+        target_dates: targetDates,
         target_match_id: targetMatchId || null,
+        rule_count: dueRules.length,
+        due_rules: dueRules,
         match_count: 0,
         created_count: 0,
         duplicate_count: 0,
@@ -237,19 +287,23 @@ serve(async (req) => {
     const providerCounts: Record<string, number> = {};
     const matchResults: Array<Record<string, unknown>> = [];
 
-    for (const match of matches) {
+    for (const job of jobs) {
+      const match = job.match;
       const title = targetMatchId
         ? buildMatchNotificationTitle(match)
-        : buildMatchReminderTitle(match);
+        : buildMatchReminderTitleForDaysBefore(match, job.rule?.days_before ?? 1);
       const body = buildMatchReminderBody(match);
       const url = buildMatchReminderUrl(match);
       const eventKey = targetMatchId
         ? buildManualMatchReminderEventKey(match)
-        : buildMatchReminderEventKey(match);
+        : buildMatchReminderScheduleEventKey(match, job.rule!);
 
       if (dryRun) {
         matchResults.push({
           match_id: match.id,
+          rule_id: job.rule?.id || null,
+          scheduled_date: job.rule?.scheduled_date || null,
+          target_date: job.rule?.target_date || null,
           event_key: eventKey,
           title,
           body,
@@ -266,6 +320,10 @@ serve(async (req) => {
         duplicateCount += 1;
         matchResults.push({
           match_id: match.id,
+          rule_id: job.rule?.id || null,
+          scheduled_date: job.rule?.scheduled_date || null,
+          target_date: job.rule?.target_date || null,
+          event_key: eventKey,
           created: false,
           skipped: true,
           reason: "duplicate_event",
@@ -290,18 +348,27 @@ serve(async (req) => {
 
       matchResults.push({
         match_id: match.id,
+        rule_id: job.rule?.id || null,
+        scheduled_date: job.rule?.scheduled_date || null,
+        target_date: job.rule?.target_date || null,
+        event_key: eventKey,
         event_id: reminderEvent.id,
         created: true,
         ...pushSummary,
       });
     }
 
+    const targetDates = getTargetDates(dueRules);
+
     return jsonResponse({
       success: true,
       dry_run: dryRun,
-      target_date: targetMatchId ? null : targetDate,
+      target_date: targetMatchId || targetDates.length !== 1 ? null : targetDates[0],
+      target_dates: targetDates,
       target_match_id: targetMatchId || null,
-      match_count: matches.length,
+      rule_count: dueRules.length,
+      due_rules: dueRules,
+      match_count: jobs.length,
       active_user_count: activeUserIds.length,
       total_targets: subscriptions.length,
       created_count: createdCount,

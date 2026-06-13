@@ -84,6 +84,7 @@
 | `supabase_match_tournament_name_migration.sql` | 盃賽名稱欄位 | 統計與篩選使用 |
 | `supabase_match_video_url_migration.sql` | 比賽影片欄位 | media UI 使用 |
 | `supabase_match_reminder_notifications_migration.sql` | 賽事提醒通知 | 覆寫 `get_notification_feed()` 可能性 |
+| `supabase_match_reminder_schedule_config_migration.sql` | 賽事提醒排程設定 | `system_settings.match_reminder_schedule_config`、每分鐘 cron checker |
 | `supabase_location_geocoding_cache_migration.sql` | 地點 geocoding cache | `resolve-location` Edge Function 使用 |
 
 ## 收費、付款、餘額與比賽費

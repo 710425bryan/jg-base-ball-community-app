@@ -1,10 +1,19 @@
 import { supabase } from '@/services/supabase'
+import {
+  normalizeMatchReminderScheduleConfig,
+  validateMatchReminderScheduleConfig,
+  type DueMatchReminderScheduleRule,
+  type MatchReminderScheduleConfig
+} from '@/utils/matchReminderSchedule'
 
 export type MatchReminderDispatchResult = {
   success?: boolean
   dry_run?: boolean
   target_date?: string | null
+  target_dates?: string[]
   target_match_id?: string | null
+  rule_count?: number
+  due_rules?: DueMatchReminderScheduleRule[]
   match_count?: number
   active_user_count?: number
   total_targets?: number
@@ -38,4 +47,34 @@ export const sendMatchReminderNotification = async (matchId: string) => {
   }
 
   return data
+}
+
+export const getMatchReminderScheduleConfig = async (): Promise<MatchReminderScheduleConfig> => {
+  const { data, error } = await supabase.rpc('get_match_reminder_schedule_config')
+
+  if (error) {
+    throw error
+  }
+
+  return normalizeMatchReminderScheduleConfig(data)
+}
+
+export const saveMatchReminderScheduleConfig = async (
+  config: MatchReminderScheduleConfig
+): Promise<MatchReminderScheduleConfig> => {
+  const errors = validateMatchReminderScheduleConfig(config)
+  if (errors.length > 0) {
+    throw new Error(errors[0])
+  }
+
+  const normalizedConfig = normalizeMatchReminderScheduleConfig(config)
+  const { data, error } = await supabase.rpc('save_match_reminder_schedule_config', {
+    p_config: normalizedConfig
+  })
+
+  if (error) {
+    throw error
+  }
+
+  return normalizeMatchReminderScheduleConfig(data)
 }

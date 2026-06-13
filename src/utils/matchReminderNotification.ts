@@ -50,6 +50,21 @@ export const buildMatchReminderUrl = (match: Pick<MatchRecord, 'id'>) =>
 export const buildMatchReminderTitle = (match: Pick<MatchRecord, 'match_name'>) =>
   `明日賽事提醒：${normalizeDisplayValue(match.match_name)}`
 
+export const buildMatchReminderTitleForDaysBefore = (
+  match: Pick<MatchRecord, 'match_name'>,
+  daysBefore: number
+) => {
+  if (daysBefore === 0) {
+    return `今日賽事提醒：${normalizeDisplayValue(match.match_name)}`
+  }
+
+  if (daysBefore === 1) {
+    return buildMatchReminderTitle(match)
+  }
+
+  return `賽前 ${daysBefore} 天提醒：${normalizeDisplayValue(match.match_name)}`
+}
+
 export const buildMatchNotificationTitle = (match: Pick<MatchRecord, 'match_name'>) =>
   `賽事通知：${normalizeDisplayValue(match.match_name)}`
 
