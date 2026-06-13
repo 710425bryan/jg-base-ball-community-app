@@ -131,7 +131,7 @@ const handleSave = async () => {
     destroy-on-close
     class="match-reminder-schedule-dialog"
   >
-    <div v-loading="isLoading" class="space-y-4">
+    <div v-loading="isLoading" class="match-reminder-schedule-content space-y-4">
       <div class="flex flex-col gap-3 rounded-lg border border-gray-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
         <div class="min-w-0">
           <div class="flex items-center gap-2 text-base font-bold text-gray-800">
@@ -170,7 +170,7 @@ const handleSave = async () => {
         <div
           v-for="(rule, index) in draftConfig.rules"
           :key="rule.id"
-          class="rounded-lg border border-gray-200 bg-gray-50/70 p-4"
+          class="match-reminder-rule-card rounded-lg border border-gray-200 bg-gray-50/70 p-4"
         >
           <div class="mb-3 flex items-center justify-between gap-3">
             <el-switch
@@ -184,6 +184,7 @@ const handleSave = async () => {
               type="danger"
               :icon="Delete"
               :disabled="draftConfig.rules.length <= 1"
+              class="match-reminder-rule-delete"
               @click="handleRemoveRule(index)"
             />
           </div>
@@ -216,16 +217,80 @@ const handleSave = async () => {
     </div>
 
     <template #footer>
-      <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
-        <el-button plain @click="handleResetDefault">
+      <div class="match-reminder-schedule-footer flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+        <el-button plain class="match-reminder-footer-button" @click="handleResetDefault">
           <el-icon class="mr-1.5"><RefreshLeft /></el-icon>
           還原預設
         </el-button>
-        <div class="flex flex-col-reverse gap-2 sm:flex-row">
-          <el-button @click="visible = false">取消</el-button>
-          <el-button type="primary" :loading="isSaving" @click="handleSave">儲存</el-button>
+        <div class="match-reminder-schedule-actions flex flex-col-reverse gap-2 sm:flex-row">
+          <el-button class="match-reminder-footer-button" @click="visible = false">取消</el-button>
+          <el-button class="match-reminder-footer-button" type="primary" :loading="isSaving" @click="handleSave">儲存</el-button>
         </div>
       </div>
     </template>
   </el-dialog>
 </template>
+
+<style scoped>
+:deep(.match-reminder-schedule-dialog .el-dialog__body) {
+  overflow-x: hidden;
+}
+
+.match-reminder-schedule-content,
+.match-reminder-rule-card,
+.match-reminder-schedule-footer,
+.match-reminder-schedule-actions {
+  min-width: 0;
+}
+
+.match-reminder-rule-card {
+  overflow-x: hidden;
+}
+
+:deep(.match-reminder-schedule-content .el-input-number),
+:deep(.match-reminder-schedule-content .el-date-editor) {
+  max-width: 100%;
+}
+
+.match-reminder-footer-button {
+  box-sizing: border-box;
+  justify-content: center;
+  margin-left: 0 !important;
+}
+
+.match-reminder-rule-delete {
+  flex: 0 0 44px;
+  height: 44px !important;
+  min-height: 44px !important;
+  min-width: 44px !important;
+  padding: 0 !important;
+  width: 44px !important;
+}
+
+:deep(.match-reminder-rule-delete.el-button.is-circle) {
+  border-radius: 9999px !important;
+}
+
+@media (max-width: 639px) {
+  :deep(.match-reminder-schedule-dialog .el-dialog__body),
+  :deep(.match-reminder-schedule-dialog .el-dialog__footer) {
+    overflow-x: hidden !important;
+  }
+
+  .match-reminder-schedule-content {
+    overflow-x: hidden;
+  }
+
+  .match-reminder-schedule-footer,
+  .match-reminder-schedule-actions,
+  .match-reminder-footer-button {
+    align-self: stretch;
+    width: 100%;
+  }
+
+  :deep(.match-reminder-schedule-footer .el-button + .el-button),
+  :deep(.match-reminder-schedule-footer .el-button) {
+    margin-left: 0 !important;
+  }
+}
+</style>
