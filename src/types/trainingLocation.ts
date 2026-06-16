@@ -83,6 +83,7 @@ export type TrainingLocationDispatchResult = {
   dry_run?: boolean
   target_date?: string | null
   session_id?: string | null
+  fallback_to_session_scope?: boolean
   target_row_count?: number
   group_count?: number
   active_user_count?: number

@@ -21,6 +21,7 @@ import { usePermissionsStore } from '@/stores/permissions'
 import { useTeamGroupsStore } from '@/stores/teamGroups'
 import { getUniqueTeamGroupOptions, normalizeTeamGroup } from '@/utils/teamGroups'
 import type {
+  TrainingLocationDispatchResult,
   TrainingLocationRosterMember,
   TrainingLocationSession,
   TrainingLocationSessionStatus,
@@ -33,6 +34,9 @@ type EditableVenue = TrainingLocationSessionVenue & {
 }
 
 type SyncField = 'title' | 'training_date' | 'time' | 'note'
+type SaveSessionOptions = {
+  dispatchAfterPublish?: boolean
+}
 
 const DEFAULT_TITLE = '週六訓練'
 const DEFAULT_START_TIME = '09:00'
@@ -567,7 +571,120 @@ const validateForm = (nextStatus: TrainingLocationSessionStatus) => {
   return true
 }
 
-const saveSession = async (status: TrainingLocationSessionStatus = form.status) => {
+const getNotificationTargetDates = () => {
+  const venueDates = form.venues
+    .map((venue) => venue.training_date)
+    .filter((date): date is string => Boolean(date))
+  const uniqueDates = [...new Set(venueDates)]
+
+  if (uniqueDates.length > 0) return uniqueDates
+  return form.training_date ? [form.training_date] : []
+}
+
+const mergeDispatchResults = (results: Array<TrainingLocationDispatchResult | null | undefined>) => {
+  const validResults = results.filter((result): result is TrainingLocationDispatchResult => Boolean(result))
+  if (validResults.length === 0) return null
+
+  return validResults.reduce<TrainingLocationDispatchResult>((summary, result) => ({
+    success: summary.success !== false && result.success !== false,
+    target_row_count: (summary.target_row_count ?? 0) + (result.target_row_count ?? 0),
+    group_count: (summary.group_count ?? 0) + (result.group_count ?? 0),
+    active_user_count: (summary.active_user_count ?? 0) + (result.active_user_count ?? 0),
+    total_targets: (summary.total_targets ?? 0) + (result.total_targets ?? 0),
+    created_count: (summary.created_count ?? 0) + (result.created_count ?? 0),
+    duplicate_count: (summary.duplicate_count ?? 0) + (result.duplicate_count ?? 0),
+    dispatched_count: (summary.dispatched_count ?? 0) + (result.dispatched_count ?? 0),
+    expired_count: (summary.expired_count ?? 0) + (result.expired_count ?? 0),
+    failed_count: (summary.failed_count ?? 0) + (result.failed_count ?? 0),
+    error: summary.error || result.error
+  }), { success: true })
+}
+
+const getDispatchResultMessage = (result?: TrainingLocationDispatchResult | null) => {
+  if (!result) {
+    return {
+      type: 'warning' as const,
+      message: '場地通知處理結果不明，請稍後再確認通知中心或接收裝置。'
+    }
+  }
+
+  const createdCount = result.created_count ?? 0
+  const duplicateCount = result.duplicate_count ?? 0
+  const dispatchedCount = result.dispatched_count ?? 0
+  const targetRowCount = result.target_row_count ?? 0
+  const totalTargets = result.total_targets ?? 0
+  const failedCount = result.failed_count ?? 0
+  const expiredCount = result.expired_count ?? 0
+
+  if (createdCount === 0 && duplicateCount > 0) {
+    return {
+      type: 'warning' as const,
+      message: `這批場地通知先前已處理過，系統略過 ${duplicateCount} 筆重複通知。`
+    }
+  }
+
+  if (typeof result.target_row_count === 'number' && targetRowCount === 0) {
+    return {
+      type: 'warning' as const,
+      message: '沒有符合通知條件的收件人，請確認場地配置已有球員、球員未請假，且家長或球員帳號已綁定該球員。'
+    }
+  }
+
+  if (totalTargets === 0) {
+    return {
+      type: 'warning' as const,
+      message: `已建立 ${createdCount} 筆通知中心事件，但沒有已啟用瀏覽器推播的裝置。請接收人到「個人設定」開啟系統推播通知。`
+    }
+  }
+
+  if (dispatchedCount === 0 && (failedCount > 0 || expiredCount > 0)) {
+    return {
+      type: 'warning' as const,
+      message: `已建立 ${createdCount} 筆通知，但這次沒有裝置成功接收。失效 ${expiredCount} 台，失敗 ${failedCount} 台。`
+    }
+  }
+
+  return {
+    type: 'success' as const,
+    message: `通知處理完成：新增 ${createdCount} 筆，重複略過 ${duplicateCount} 筆，推播 ${dispatchedCount} 台裝置`
+  }
+}
+
+const showDispatchResultMessage = (result?: TrainingLocationDispatchResult | null) => {
+  const { type, message } = getDispatchResultMessage(result)
+  if (type === 'success') {
+    ElMessage.success(message)
+    return
+  }
+  ElMessage.warning(message)
+}
+
+const dispatchNotificationsForSession = async (sessionId: string, targetDates = getNotificationTargetDates()) => {
+  isDispatching.value = true
+  try {
+    const dates = targetDates.length > 0 ? targetDates : [null]
+    const results = await Promise.all(dates.map((targetDate) =>
+      trainingLocationsApi.dispatchNotifications({
+        sessionId,
+        targetDate
+      })
+    ))
+    const result = mergeDispatchResults(results)
+    if (result?.error) throw new Error(result.error)
+    showDispatchResultMessage(result)
+    return result
+  } catch (error: any) {
+    await handleTrainingLocationError(error, '發送場地通知失敗')
+    return null
+  } finally {
+    isDispatching.value = false
+  }
+}
+
+const saveSession = async (
+  status: TrainingLocationSessionStatus = form.status,
+  options: SaveSessionOptions = {}
+) => {
   pruneUnavailableVenueMembers()
   if (!validateForm(status)) return null
 
@@ -580,6 +697,9 @@ const saveSession = async (status: TrainingLocationSessionStatus = form.status) 
     const saved = sessions.value.find((session) => session.session_id === sessionId)
     if (saved) await hydrateSession(saved)
     ElMessage.success(status === 'published' ? '場地配置已發布' : '場地配置已儲存')
+    if (status === 'published' && options.dispatchAfterPublish) {
+      await dispatchNotificationsForSession(sessionId, getNotificationTargetDates())
+    }
     return sessionId
   } catch (error: any) {
     await handleTrainingLocationError(error, '儲存場地配置失敗')
@@ -617,21 +737,7 @@ const dispatchNotifications = async () => {
   const sessionId = form.session_id || await saveSession('published')
   if (!sessionId) return
 
-  isDispatching.value = true
-  try {
-    const result = await trainingLocationsApi.dispatchNotifications({
-      sessionId
-    })
-    if (result?.error) throw new Error(result.error)
-
-    ElMessage.success(
-      `通知處理完成：新增 ${result?.created_count ?? 0} 筆，重複略過 ${result?.duplicate_count ?? 0} 筆，推播 ${result?.dispatched_count ?? 0} 台裝置`
-    )
-  } catch (error: any) {
-    await handleTrainingLocationError(error, '發送場地通知失敗')
-  } finally {
-    isDispatching.value = false
-  }
+  await dispatchNotificationsForSession(sessionId)
 }
 
 const openTrainingLocationAttendance = async (venueIndex: number) => {
@@ -864,10 +970,10 @@ onMounted(() => {
                     type="button"
                     class="inline-flex min-h-10 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
                     :disabled="isSaving || !canSave"
-                    @click="saveSession('published')"
+                    @click="saveSession('published', { dispatchAfterPublish: true })"
                   >
                     <el-icon><Check /></el-icon>
-                    儲存並發布
+                    儲存、發布並通知
                   </button>
                   <button
                     type="button"

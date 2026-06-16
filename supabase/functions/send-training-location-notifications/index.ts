@@ -162,7 +162,12 @@ serve(async (req) => {
         ? null
         : getTrainingLocationTargetDateInTaipei(now);
     const dryRun = payload.dry_run === true;
-    const targets = await fetchTargets(targetDate, sessionId);
+    let targets = await fetchTargets(targetDate, sessionId);
+    let fallbackToSessionScope = false;
+    if (targets.length === 0 && sessionId && targetDate) {
+      targets = await fetchTargets(null, sessionId);
+      fallbackToSessionScope = targets.length > 0;
+    }
     const groups = groupTrainingLocationNotificationTargets(targets);
     const targetUserIds = [...new Set(groups.map((group) => group.userId))];
     const subscriptions = dryRun ? [] : await fetchEnabledPushSubscriptions(supabase, targetUserIds);
@@ -258,6 +263,7 @@ serve(async (req) => {
       dry_run: dryRun,
       target_date: targetDate,
       session_id: sessionId,
+      fallback_to_session_scope: fallbackToSessionScope,
       target_row_count: targets.length,
       group_count: groups.length,
       active_user_count: targetUserIds.length,
