@@ -125,7 +125,7 @@
                   <div class="text-xs font-black uppercase tracking-[0.14em] text-slate-400">目前需要處理</div>
                   <div class="mt-2 flex flex-wrap items-center gap-2 text-sm font-black text-slate-700">
                     <span class="rounded-full bg-white px-3 py-1 text-red-600">待付款 {{ unifiedPaymentCounts.unpaid }} 筆</span>
-                    <span class="rounded-full bg-white px-3 py-1 text-amber-600">待確認 {{ unifiedPaymentCounts.pending }} 筆</span>
+                    <span class="rounded-full bg-white px-3 py-1 text-amber-600">待審核 {{ unifiedPaymentCounts.pending }} 筆</span>
                   </div>
                 </div>
                 <div class="rounded-2xl bg-white px-4 py-3 text-right shadow-sm">
@@ -158,7 +158,7 @@
               <div v-if="selectedMember" class="flex flex-wrap items-center gap-2 text-xs font-black text-slate-500">
                 <span class="rounded-full bg-slate-100 px-3 py-1">{{ getPaymentMemberBillingLabel(selectedMember) }}</span>
                 <span class="rounded-full bg-red-50 px-3 py-1 text-red-600">待付款 {{ unifiedPaymentCounts.unpaid }}</span>
-                <span class="rounded-full bg-amber-50 px-3 py-1 text-amber-600">待確認 {{ unifiedPaymentCounts.pending }}</span>
+                <span class="rounded-full bg-amber-50 px-3 py-1 text-amber-600">待審核 {{ unifiedPaymentCounts.pending }}</span>
               </div>
             </div>
 
@@ -212,6 +212,13 @@
                               </span>
                               <span :class="getStatusPillClass(item.status)" class="rounded-full border px-2.5 py-1 text-xs font-bold">
                                 {{ item.statusLabel }}
+                              </span>
+                              <span
+                                v-if="item.fulfillmentStatusLabel"
+                                :class="item.fulfillmentStatusClass"
+                                class="rounded-full border px-2.5 py-1 text-xs font-bold"
+                              >
+                                {{ item.fulfillmentStatusLabel }}
                               </span>
                             </div>
                             <div class="mt-2 font-black text-slate-800">{{ item.title }}</div>
@@ -649,7 +656,9 @@ import {
 } from '@/utils/quarterlyPaymentSubmissions'
 import { formatEquipmentVariantLabel } from '@/utils/equipmentPricing'
 import {
-  getEquipmentRequestStatusLabel,
+  EQUIPMENT_REQUEST_STATUS,
+  getEquipmentFulfillmentStatusLabel,
+  getEquipmentPaymentFulfillmentNote,
   isEquipmentPaymentPayableRequestStatus
 } from '@/utils/equipmentRequestStatus'
 import { buildGroupedPushEventKey, buildPushEventKey, dispatchPushNotification } from '@/utils/pushNotifications'
@@ -700,6 +709,8 @@ type UnifiedPaymentRecord = {
   meta: string
   status: string
   statusLabel: string
+  fulfillmentStatusLabel?: string | null
+  fulfillmentStatusClass?: string | null
   amount: number
   amountClass: string
   dateKey: string
@@ -1486,6 +1497,12 @@ const getUnifiedStatusLabel = (
   status?: string | null,
   kind?: UnifiedPaymentRecordKind
 ) => {
+  if (kind === 'equipment') {
+    if (status === 'paid') return '已收款完成'
+    if (status === 'pending_review') return '待審核'
+    if (status === 'refunded') return '已退款'
+  }
+
   if (
     (kind === 'equipment-request' || kind === 'equipment')
     && (status === 'ready_for_pickup' || status === 'approved_request' || status === 'pending')
@@ -1496,6 +1513,7 @@ const getUnifiedStatusLabel = (
   }
 
   if (status === 'unpaid') return '待付款'
+  if (status === 'refunded') return '已退款'
   if (status === 'cancelled') return '已取消'
   return getStatusLabel(status)
 }
@@ -1637,11 +1655,13 @@ const unifiedPaymentRecords = computed<UnifiedPaymentRecord[]>(() => {
       meta: `${item.member_name}｜${getEquipmentVariantLabel(item)}｜${item.quantity} 件｜${formatDate(item.transaction_date)}`,
       status,
       statusLabel: getUnifiedStatusLabel(status, 'equipment'),
+      fulfillmentStatusLabel: getEquipmentFulfillmentStatusLabel(item.request_status),
+      fulfillmentStatusClass: getEquipmentFulfillmentStatusClass(item.request_status),
       amount: Number(item.total_amount) || 0,
       amountClass: getUnifiedAmountClass(status),
       dateKey: item.picked_up_at || item.transaction_date,
       selectable: status === 'unpaid' && isEquipmentPaymentItemPayable(item),
-      note: item.request_status ? `申請狀態：${getEquipmentRequestStatusLabel(item.request_status)}` : null
+      note: getEquipmentPaymentFulfillmentNote(item.request_status, status)
     })
   })
 
@@ -1695,9 +1715,9 @@ const unifiedPaymentRecordGroups = computed(() => {
     titleClass: string
   }> = [
     { key: 'unpaid', title: '待付款', className: 'border-red-100 bg-red-50/40', titleClass: 'text-red-700' },
-    { key: 'pending', title: '待確認 / 處理中', className: 'border-amber-100 bg-amber-50/50', titleClass: 'text-amber-700' },
-    { key: 'confirmed', title: '已確認', className: 'border-emerald-100 bg-emerald-50/50', titleClass: 'text-emerald-700' },
-    { key: 'closed', title: '已退回 / 已取消', className: 'border-slate-100 bg-slate-50/70', titleClass: 'text-slate-600' }
+    { key: 'pending', title: '待審核 / 處理中', className: 'border-amber-100 bg-amber-50/50', titleClass: 'text-amber-700' },
+    { key: 'confirmed', title: '已確認 / 已收款', className: 'border-emerald-100 bg-emerald-50/50', titleClass: 'text-emerald-700' },
+    { key: 'closed', title: '已退回 / 已退款 / 已取消', className: 'border-slate-100 bg-slate-50/70', titleClass: 'text-slate-600' }
   ]
 
   return groupMeta
@@ -1929,6 +1949,7 @@ const getStatusLabel = (status?: string | null) => {
   if (status === 'paid' || status === 'approved') return '已確認'
   if (status === 'pending_review' || status === 'pending') return '待確認'
   if (status === 'rejected') return '已退回'
+  if (status === 'refunded') return '已退款'
   return '未繳 / 未確認'
 }
 
@@ -1945,6 +1966,10 @@ const getStatusPillClass = (status?: string | null) => {
     return 'bg-red-50 border-red-200 text-red-700'
   }
 
+  if (status === 'refunded') {
+    return 'bg-slate-100 border-slate-200 text-slate-600'
+  }
+
   if (status === 'unpaid') {
     return 'bg-red-50 border-red-100 text-red-600'
   }
@@ -1954,6 +1979,22 @@ const getStatusPillClass = (status?: string | null) => {
   }
 
   return 'bg-gray-50 border-gray-200 text-gray-600'
+}
+
+const getEquipmentFulfillmentStatusClass = (status?: string | null) => {
+  if (status === EQUIPMENT_REQUEST_STATUS.PICKED_UP) {
+    return 'bg-emerald-50 border-emerald-200 text-emerald-700'
+  }
+
+  if (status === EQUIPMENT_REQUEST_STATUS.READY_FOR_PICKUP) {
+    return 'bg-sky-50 border-sky-200 text-sky-700'
+  }
+
+  if (status === EQUIPMENT_REQUEST_STATUS.APPROVED) {
+    return 'bg-orange-50 border-orange-200 text-orange-700'
+  }
+
+  return 'bg-slate-50 border-slate-200 text-slate-600'
 }
 
 const isPaidStatus = (status?: string | null) => status === 'paid' || status === 'approved'

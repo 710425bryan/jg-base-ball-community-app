@@ -1300,6 +1300,13 @@ export const listEquipmentUnpaidPaymentItems = async () => {
   return listEquipmentUnpaidPaymentItemsFromTables()
 }
 
+export const listEquipmentRefundableDirectPaymentItems = async () => {
+  const { data, error } = await supabase.rpc('list_equipment_refundable_direct_payment_items')
+
+  if (error) throw error
+  return unwrapRows<any>(data).map(normalizeEquipmentPaymentItem)
+}
+
 export const listMyEquipmentPendingRequestPaymentItems = async (memberId?: string | null) => {
   const { data, error } = await supabase.rpc('list_my_equipment_pending_request_payment_items', {
     p_member_id: memberId || null
@@ -1344,6 +1351,32 @@ export const reviewEquipmentPaymentSubmission = async (
 
   if (error) throw error
   return normalizePaymentSubmission(unwrapRows<any>(data)[0])
+}
+
+export const refundEquipmentPaymentSubmission = async (
+  submissionId: string,
+  note?: string | null
+) => {
+  const { data, error } = await supabase.rpc('refund_equipment_payment_submission', {
+    p_submission_id: submissionId,
+    p_note: note || null
+  })
+
+  if (error) throw error
+  return normalizePaymentSubmission(unwrapRows<any>(data)[0])
+}
+
+export const refundEquipmentTransactions = async (
+  transactionIds: string[],
+  note?: string | null
+) => {
+  const { data, error } = await supabase.rpc('refund_equipment_transactions', {
+    p_transaction_ids: transactionIds,
+    p_note: note || null
+  })
+
+  if (error) throw error
+  return Number(data) || 0
 }
 
 export const markEquipmentTransactionsPaid = async (transactionIds: string[]) => {

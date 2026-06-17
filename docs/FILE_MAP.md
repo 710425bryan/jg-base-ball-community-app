@@ -33,6 +33,7 @@
 | `docs/FILE_MAP.md` | 重要檔案地圖 |
 | `docs/MIGRATIONS.md` | migration、hotfix、repair 索引 |
 | `docs/EDGE_FUNCTIONS.md` | Edge Functions、外部服務與環境變數索引 |
+| `docs/EQUIPMENT_REFUND_FLOW.md` | 裝備退款 / 作廢收款流程 |
 
 規則：新增 route-level 頁面時，要同步更新本檔 Views、Services / Types / Utils 對照、`docs/PROJECT_LOGIC.md` 功能邏輯，以及對應 `.codex/skills/<feature>/SKILL.md`；若沒有對應 skill，需建立或說明併入既有 skill 的理由。
 
@@ -300,7 +301,7 @@
 | 假單 | `supabase_my_leave_requests_migration.sql` |
 | 個人成績 | `supabase_my_player_records_migration.sql` |
 | 收費 / 付款 | `supabase_fees_migration.sql`、`supabase_quarterly_fees_migration.sql`、`supabase_profile_payment_submissions_migration.sql`、`supabase_player_balance_transactions_migration.sql`、`supabase_fixed_monthly_billing_migration.sql`、`supabase_quarterly_fee_compensation_migration.sql`、`supabase_match_fees_migration.sql`、`supabase_fee_management_reminders_migration.sql` |
-| 裝備 | `supabase_equipment_management_migration.sql`、`supabase_equipment_inventory_adjustments_migration.sql`、`supabase_equipment_manual_purchase_records_migration.sql`、`supabase_equipment_multiple_photos_migration.sql`、`supabase_zzzzzz_equipment_inventory_snapshot_rpc_migration.sql`、`supabase_zzzzzzzz_equipment_ready_for_pickup_payment_scope_migration.sql`、`supabase_zzzzzzzzz_equipment_custom_order_migration.sql` |
+| 裝備 | `supabase_equipment_management_migration.sql`、`supabase_equipment_inventory_adjustments_migration.sql`、`supabase_equipment_manual_purchase_records_migration.sql`、`supabase_equipment_multiple_photos_migration.sql`、`supabase_zzzzzz_equipment_inventory_snapshot_rpc_migration.sql`、`supabase_zzzzzzzz_equipment_ready_for_pickup_payment_scope_migration.sql`、`supabase_zzzzzzzzz_equipment_custom_order_migration.sql`、`supabase_zzzzzzzzzz_equipment_approved_payment_scope_migration.sql`、`supabase_zzzzzzzzzzz_equipment_payment_refund_migration.sql` |
 | 廠商 | `supabase_vendor_management_migration.sql` |
 | 能力 / 體測 | `supabase_performance_data_migration.sql`、`supabase_performance_view_scope_migration.sql` |
 | 特訓 / 點數 | `supabase_training_points_migration.sql`、`supabase_zz_training_point_transaction_delete_migration.sql`、`supabase_zz_training_registration_notifications_migration.sql`、`supabase_zzzzzzzz_training_auto_select_notifications_migration.sql` |

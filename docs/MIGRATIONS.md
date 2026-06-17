@@ -132,9 +132,11 @@
 | `supabase_zzzzzz_equipment_payment_submission_status_fix_migration.sql` | 裝備付款狀態 RPC 覆寫 | 裝備付款最新狀態 |
 | `supabase_zzzzzz_equipment_inventory_snapshot_rpc_migration.sql` | 庫存 snapshot RPC | 家長端剩餘量顯示 |
 | `supabase_zzzzzz_li_jinyi_equipment_payment_repair.sql` | 特定付款資料修復 | 資料修復，不當成通用 schema |
-| `supabase_zzzzzzz_equipment_payment_payable_scope_fix_migration.sql` | 裝備付款可付範圍修正 | 最新付款 scope |
+| `supabase_zzzzzzz_equipment_payment_payable_scope_fix_migration.sql` | 裝備付款可付範圍修正 | 早期付款 scope，後續仍有覆寫 |
 | `supabase_zzzzzzzz_equipment_ready_for_pickup_payment_scope_migration.sql` | 裝備已備貨即可付款 | 覆寫裝備付款 scope，`ready_for_pickup` / `picked_up` 皆可付款 |
 | `supabase_zzzzzzzzz_equipment_custom_order_migration.sql` | 裝備訂製品欄位 / snapshot RPC 覆寫 | 家長端等待提示 |
+| `supabase_zzzzzzzzzz_equipment_approved_payment_scope_migration.sql` | 裝備已核准即可付款 | 覆寫裝備付款 scope，`approved` / `ready_for_pickup` / `picked_up` 皆可付款 |
+| `supabase_zzzzzzzzzzz_equipment_payment_refund_migration.sql` | 裝備退款 / 作廢收款 | 新增 `refunded` 狀態、餘額反向流水與刪除 guard 放行 |
 
 ## 廠商
 

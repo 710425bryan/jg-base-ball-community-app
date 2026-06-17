@@ -24,9 +24,11 @@ description: "Equipment management workflow for jg-base-ball-community-app. Use 
 - 家長加購路由 `/equipment-addons` 不加 `equipment` feature；一般家長靠登入與 `linked_team_member_ids` 存取自己的資料。
 - 權限 action 使用本專案標準 `VIEW / CREATE / EDIT / DELETE`，不要使用來源專案的 `ADD`。
 - 裝備流程不直接接來源專案的 `fee_records`、月結關帳或收支報表；本專案以 `equipment_payment_submissions` 接到 `/my-payments` 與 `/fees?tab=equipment`。
-- 加購申請到 `ready_for_pickup`（備貨完成 / 可取貨）後即可進行裝備付款回報；`picked_up` 只代表實際領取完成，不可再把付款入口限制成必須已領取。
+- 加購申請到 `approved`（已核准）後即可進行裝備付款回報；`ready_for_pickup` 與 `picked_up` 只代表備貨 / 領取進度，不可作為付款入口前置條件。
 - 裝備圖片與請購處理照片使用 `equipments` storage bucket；多圖清單為 `image_urls`、`ready_image_urls`、`pickup_image_urls`，並保留單圖欄位作為首圖相容。
-- 裝備主檔的 `is_custom_order` 用來標記訂製品；家長端必須顯示需等待備貨提示，但不得因此改變原本加購審核、庫存或付款可付範圍。
+- 裝備主檔的 `is_custom_order` 用來標記訂製品；家長端必須顯示需等待備貨提示，但不得因此改變加購審核、庫存或 `approved` 後即可付款的可付範圍。
+- 裝備付款狀態與商品履約狀態分離；付款確認只代表已收款完成，不可自動把申請寫成 `picked_up`。
+- 已確認收款後若要刪除測試請購或取消請購，必須先走退款 / 作廢收款：有付款單時付款單與交易標記 `refunded`，球員餘額扣抵加回、溢繳轉入反向扣回；直接標記已收款且無付款單時作廢交易收款狀態，之後才可刪除交易回補庫存。
 - 新增推播要提供穩定 `eventKey`；通知管理者用 feature/action，通知特定申請人時只能透過已授權的 `target_user_ids` 流程。
 - 新增 Element Plus 按鈕不要使用 `size="small"`，保持手機觸控操作。
 - 裝備頁面若變大，要拆到 components/stores/services/utils，不要集中成單一長檔。

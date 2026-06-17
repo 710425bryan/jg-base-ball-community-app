@@ -2,11 +2,14 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import {
   createEquipmentPaymentSubmission,
+  listEquipmentRefundableDirectPaymentItems,
   listEquipmentUnpaidPaymentItems,
   listMyEquipmentPendingRequestPaymentItems,
   listEquipmentPaymentSubmissions,
   listMyEquipmentPaymentItems,
   markEquipmentTransactionsPaid,
+  refundEquipmentPaymentSubmission,
+  refundEquipmentTransactions,
   reviewEquipmentPaymentSubmission
 } from '@/services/equipmentApi'
 import type {
@@ -21,6 +24,7 @@ export const useEquipmentPaymentsStore = defineStore('equipmentPayments', () => 
   const myPendingRequestItems = ref<EquipmentPendingRequestPaymentItem[]>([])
   const reviewSubmissions = ref<EquipmentPaymentSubmission[]>([])
   const adminUnpaidItems = ref<EquipmentPaymentItem[]>([])
+  const adminRefundableDirectItems = ref<EquipmentPaymentItem[]>([])
   const isLoading = ref(false)
   const isSaving = ref(false)
   const error = ref<string | null>(null)
@@ -100,6 +104,21 @@ export const useEquipmentPaymentsStore = defineStore('equipmentPayments', () => 
     }
   }
 
+  const loadAdminRefundableDirectItems = async () => {
+    isLoading.value = true
+    error.value = null
+
+    try {
+      adminRefundableDirectItems.value = await listEquipmentRefundableDirectPaymentItems()
+      return adminRefundableDirectItems.value
+    } catch (err: any) {
+      error.value = err?.message || '無法載入可作廢收款裝備款項'
+      throw err
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   const reviewSubmission = async (
     submissionId: string,
     status: 'approved' | 'rejected',
@@ -110,6 +129,21 @@ export const useEquipmentPaymentsStore = defineStore('equipmentPayments', () => 
       submission.id === updated.id ? updated : submission
     )
     return updated
+  }
+
+  const refundSubmission = async (submissionId: string, note?: string | null) => {
+    const updated = await refundEquipmentPaymentSubmission(submissionId, note)
+    reviewSubmissions.value = reviewSubmissions.value.map((submission) =>
+      submission.id === updated.id ? updated : submission
+    )
+    return updated
+  }
+
+  const refundDirectTransactions = async (transactionIds: string[], note?: string | null) => {
+    const updatedCount = await refundEquipmentTransactions(transactionIds, note)
+    const updatedIds = new Set(transactionIds)
+    adminRefundableDirectItems.value = adminRefundableDirectItems.value.filter((item) => !updatedIds.has(item.transaction_id))
+    return updatedCount
   }
 
   const markPaid = async (transactionIds: string[]) => {
@@ -124,6 +158,7 @@ export const useEquipmentPaymentsStore = defineStore('equipmentPayments', () => 
     myPendingRequestItems,
     reviewSubmissions,
     adminUnpaidItems,
+    adminRefundableDirectItems,
     isLoading,
     isSaving,
     error,
@@ -131,7 +166,10 @@ export const useEquipmentPaymentsStore = defineStore('equipmentPayments', () => 
     submitPayment,
     loadReviewSubmissions,
     loadAdminUnpaidItems,
+    loadAdminRefundableDirectItems,
     reviewSubmission,
+    refundSubmission,
+    refundDirectTransactions,
     markPaid
   }
 })

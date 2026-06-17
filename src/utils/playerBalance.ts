@@ -20,6 +20,7 @@ export const formatPlayerBalanceSource = (source?: string | null) => {
   if (source === 'payment_deduction') return '餘額扣抵'
   if (source === 'overpayment') return '溢繳入帳'
   if (source === 'quarterly_compensation') return '季費補償'
+  if (source === 'refund') return '退款沖回'
   return '手動調整'
 }
 

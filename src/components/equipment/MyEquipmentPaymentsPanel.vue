@@ -11,6 +11,8 @@ import { useEquipmentPaymentsStore } from '@/stores/equipmentPayments'
 import { getPlayerBalance } from '@/services/playerBalances'
 import {
   EQUIPMENT_REQUEST_STATUS,
+  getEquipmentFulfillmentStatusLabel,
+  getEquipmentPaymentFulfillmentNote,
   getEquipmentRequestStatusLabel,
   isEquipmentPaymentPayableRequestStatus
 } from '@/utils/equipmentRequestStatus'
@@ -107,6 +109,10 @@ const pendingItems = computed(() =>
 
 const paidItems = computed(() =>
   paymentsStore.myItems.filter((item) => item.payment_status === 'paid')
+)
+
+const refundedItems = computed(() =>
+  paymentsStore.myItems.filter((item) => item.payment_status === 'refunded')
 )
 
 const summary = computed<PaymentPanelSummary>(() => ({
@@ -216,8 +222,9 @@ const formatDate = (value?: string | null) => {
 }
 
 const getPaymentStatusLabel = (status?: string | null) => {
-  if (status === 'paid') return '已確認'
-  if (status === 'pending_review') return '待確認'
+  if (status === 'paid') return '已收款完成'
+  if (status === 'pending_review') return '待審核'
+  if (status === 'refunded') return '已退款'
   if (status === 'cancelled') return '已取消'
   return '待付款'
 }
@@ -225,6 +232,7 @@ const getPaymentStatusLabel = (status?: string | null) => {
 const getPaymentStatusClass = (status?: string | null) => {
   if (status === 'paid') return 'bg-emerald-50 border-emerald-200 text-emerald-700'
   if (status === 'pending_review') return 'bg-amber-50 border-amber-200 text-amber-700'
+  if (status === 'refunded') return 'bg-slate-100 border-slate-200 text-slate-600'
   if (status === 'cancelled') return 'bg-gray-100 border-gray-200 text-gray-500'
   return 'bg-red-50 border-red-100 text-red-600'
 }
@@ -242,6 +250,22 @@ const getRequestStatusClass = (status?: string | null) => {
   }
 
   return 'bg-blue-50 border-blue-200 text-blue-700'
+}
+
+const getFulfillmentStatusClass = (status?: string | null) => {
+  if (status === EQUIPMENT_REQUEST_STATUS.PICKED_UP) {
+    return 'bg-emerald-50 border-emerald-200 text-emerald-700'
+  }
+
+  if (status === EQUIPMENT_REQUEST_STATUS.READY_FOR_PICKUP) {
+    return 'bg-sky-50 border-sky-200 text-sky-700'
+  }
+
+  if (status === EQUIPMENT_REQUEST_STATUS.APPROVED) {
+    return 'bg-orange-50 border-orange-200 text-orange-700'
+  }
+
+  return 'bg-slate-50 border-slate-200 text-slate-600'
 }
 
 const loadItems = async () => {
@@ -399,7 +423,7 @@ defineExpose({
     <div class="px-5 md:px-6 py-4 border-b border-gray-100 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <div>
         <h3 class="text-lg font-black text-slate-800">裝備待付款</h3>
-        <p class="text-xs text-gray-400 mt-1">已備貨 / 可取貨的裝備加購與管理員新增的購買項目會列在這裡，可勾選後送出付款回報。</p>
+        <p class="text-xs text-gray-400 mt-1">已核准、可取貨、已領取的裝備加購與管理員新增的購買項目會列在這裡，可勾選後送出付款回報。</p>
       </div>
       <div class="flex items-center gap-2">
         <button
@@ -437,8 +461,8 @@ defineExpose({
     <div v-else class="p-4 md:p-5 space-y-4">
       <div v-if="pendingRequestItems.length > 0" class="rounded-2xl border border-blue-100 bg-blue-50/50 p-4">
         <div class="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-          <div class="font-black text-blue-700">待審核 / 尚未可付款</div>
-          <div class="text-xs font-bold text-blue-500">備貨完成後會移到待付款，可再送出付款回報</div>
+          <div class="font-black text-blue-700">待審核 / 處理中</div>
+          <div class="text-xs font-bold text-blue-500">核准後會移到待付款，再送出付款回報</div>
         </div>
         <div class="grid gap-3 md:grid-cols-2">
           <article
@@ -488,10 +512,10 @@ defineExpose({
                 <div class="flex shrink-0 flex-wrap justify-end gap-1.5">
                   <span
                     v-if="item.request_status"
-                    :class="getRequestStatusClass(item.request_status)"
+                    :class="getFulfillmentStatusClass(item.request_status)"
                     class="rounded-full border px-2.5 py-1 text-xs font-bold"
                   >
-                    {{ getEquipmentRequestStatusLabel(item.request_status) }}
+                    {{ getEquipmentFulfillmentStatusLabel(item.request_status) }}
                   </span>
                   <span :class="getPaymentStatusClass(item.payment_status)" class="rounded-full border px-2.5 py-1 text-xs font-bold">
                     {{ getPaymentStatusLabel(item.payment_status) }}
@@ -509,7 +533,7 @@ defineExpose({
       </div>
 
       <div v-if="pendingItems.length > 0" class="rounded-2xl border border-amber-100 bg-amber-50/60 p-4">
-        <div class="mb-3 font-black text-amber-700">待確認</div>
+        <div class="mb-3 font-black text-amber-700">待審核</div>
         <div class="grid gap-3 md:grid-cols-2">
           <article
             v-for="item in pendingItems"
@@ -521,17 +545,20 @@ defineExpose({
             <div class="font-black text-slate-800">{{ item.equipment_name }}</div>
             <p class="mt-1 text-xs text-gray-400">{{ item.member_name }}｜{{ getVariantLabel(item) }}｜{{ item.quantity }} 件</p>
             <div v-if="item.request_status" class="mt-3">
-              <span :class="getRequestStatusClass(item.request_status)" class="rounded-full border px-2.5 py-1 text-xs font-bold">
-                {{ getEquipmentRequestStatusLabel(item.request_status) }}
+              <span :class="getFulfillmentStatusClass(item.request_status)" class="rounded-full border px-2.5 py-1 text-xs font-bold">
+                {{ getEquipmentFulfillmentStatusLabel(item.request_status) }}
               </span>
             </div>
+            <p v-if="getEquipmentPaymentFulfillmentNote(item.request_status, item.payment_status)" class="mt-3 text-sm font-semibold leading-relaxed text-amber-700">
+              {{ getEquipmentPaymentFulfillmentNote(item.request_status, item.payment_status) }}
+            </p>
             <p class="mt-3 font-black text-primary">{{ formatCurrency(item.total_amount) }}</p>
           </article>
         </div>
       </div>
 
       <div v-if="paidItems.length > 0" class="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
-        <div class="mb-3 font-black text-emerald-700">已確認</div>
+        <div class="mb-3 font-black text-emerald-700">已收款完成</div>
         <div class="grid gap-3 md:grid-cols-2">
           <article
             v-for="item in paidItems.slice(0, 6)"
@@ -543,11 +570,39 @@ defineExpose({
             <div class="font-black text-slate-800">{{ item.equipment_name }}</div>
             <p class="mt-1 text-xs text-gray-400">{{ item.member_name }}｜{{ getVariantLabel(item) }}｜{{ item.quantity }} 件</p>
             <div v-if="item.request_status" class="mt-3">
-              <span :class="getRequestStatusClass(item.request_status)" class="rounded-full border px-2.5 py-1 text-xs font-bold">
-                {{ getEquipmentRequestStatusLabel(item.request_status) }}
+              <span :class="getFulfillmentStatusClass(item.request_status)" class="rounded-full border px-2.5 py-1 text-xs font-bold">
+                {{ getEquipmentFulfillmentStatusLabel(item.request_status) }}
               </span>
             </div>
+            <p v-if="getEquipmentPaymentFulfillmentNote(item.request_status, item.payment_status)" class="mt-3 text-sm font-semibold leading-relaxed text-emerald-800">
+              {{ getEquipmentPaymentFulfillmentNote(item.request_status, item.payment_status) }}
+            </p>
             <p class="mt-3 font-black text-emerald-700">{{ formatCurrency(item.total_amount) }}</p>
+          </article>
+        </div>
+      </div>
+
+      <div v-if="refundedItems.length > 0" class="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+        <div class="mb-3 font-black text-slate-600">已退款</div>
+        <div class="grid gap-3 md:grid-cols-2">
+          <article
+            v-for="item in refundedItems.slice(0, 6)"
+            :key="item.transaction_id"
+            :data-equipment-submission-id="item.payment_submission_id || undefined"
+            :data-equipment-transaction-id="item.transaction_id"
+            class="rounded-2xl border border-white bg-white/90 p-4 shadow-sm"
+          >
+            <div class="font-black text-slate-800">{{ item.equipment_name }}</div>
+            <p class="mt-1 text-xs text-gray-400">{{ item.member_name }}｜{{ getVariantLabel(item) }}｜{{ item.quantity }} 件</p>
+            <div v-if="item.request_status" class="mt-3">
+              <span :class="getFulfillmentStatusClass(item.request_status)" class="rounded-full border px-2.5 py-1 text-xs font-bold">
+                {{ getEquipmentFulfillmentStatusLabel(item.request_status) }}
+              </span>
+            </div>
+            <p v-if="getEquipmentPaymentFulfillmentNote(item.request_status, item.payment_status)" class="mt-3 text-sm font-semibold leading-relaxed text-slate-600">
+              {{ getEquipmentPaymentFulfillmentNote(item.request_status, item.payment_status) }}
+            </p>
+            <p class="mt-3 font-black text-slate-600">{{ formatCurrency(item.total_amount) }}</p>
           </article>
         </div>
       </div>

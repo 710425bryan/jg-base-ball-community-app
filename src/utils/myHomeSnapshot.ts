@@ -229,7 +229,7 @@ const buildEquipmentTodo = (equipment: MyHomeEquipmentSummary): MyHomeTodoItem |
     return {
       key: 'equipment-ready',
       title: '裝備已備貨',
-      body: `${equipment.ready_for_pickup_count} 筆裝備已備貨完成，可以領取，也可以先回報付款。`,
+      body: `${equipment.ready_for_pickup_count} 筆裝備已備貨完成，可以領取；若尚未付款，也可先回報付款。`,
       severity: 'success',
       actionLabel: '前往繳費',
       route: '/my-payments'
@@ -240,7 +240,7 @@ const buildEquipmentTodo = (equipment: MyHomeEquipmentSummary): MyHomeTodoItem |
     return {
       key: 'equipment-payment',
       title: '裝備付款待回報',
-      body: `${equipment.picked_up_unpaid_count} 筆已備貨或已領取裝備尚未完成付款，金額約 ${formatMyHomeCurrency(equipment.unpaid_amount)}。`,
+      body: `${equipment.picked_up_unpaid_count} 筆已核准、可取貨或已領取裝備尚未完成付款，金額約 ${formatMyHomeCurrency(equipment.unpaid_amount)}。`,
       severity: 'warning',
       actionLabel: '前往繳費',
       route: '/my-payments'
@@ -251,7 +251,7 @@ const buildEquipmentTodo = (equipment: MyHomeEquipmentSummary): MyHomeTodoItem |
     return {
       key: 'equipment-review',
       title: '裝備付款審核中',
-      body: `${equipment.pending_payment_count} 筆裝備付款正在等待確認。`,
+      body: `${equipment.pending_payment_count} 筆裝備付款正在等待審核。`,
       severity: 'info',
       actionLabel: '查看繳費',
       route: '/my-payments'

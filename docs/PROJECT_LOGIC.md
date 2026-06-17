@@ -451,7 +451,7 @@ UI 約定：
 - 固定月繳預設金額存在 `fee_settings.monthly_fixed_fee`，正式月費紀錄會在 `monthly_fees.calculation_type` / `monthly_fees.fixed_monthly_fee` 保留當月計算方式與金額快照。
 - 季費堂數不足補償依當月週六數與 `/training-dates` 訓練日期設定總天數計算；週五、週日或其他補課日都算一堂，設定天數達當月週六數即不補償。補償預設每日折抵為一般 500 元、半價 / 手足折扣 250 元，可在收費設定調整。系統只產生 `quarterly_fee_compensation_items` 待審核單，管理員核准後才以 `quarterly_compensation` source 寫入 `player_balance_transactions`。
 - 個人付款回報由 `myPayments` RPC 建立，可選用球員餘額；一般繳費與裝備付款都在管理端確認時才正式扣餘額。
-- 球員餘額以 `player_balance_transactions` 流水帳計算，管理員可手動調整，付款審核時可把溢繳轉入餘額。
+- 球員餘額以 `player_balance_transactions` 流水帳計算，管理員可手動調整，付款審核時可把溢繳轉入餘額；退款 / 作廢收款必須以反向流水退回餘額扣抵或沖回溢繳轉入。
 - sibling / family grouping 與季費家庭金額計算在 utils。
 - 比賽費由 `matches.match_fee_amount` 產生 `match_fee_items`，家長可在 `/my-payments` 合併回報，管理端在 `/fees` 審核。
 - 費用提醒由 `get_fee_management_reminders()` 與 `get_notification_feed()` 整合進通知中心。
@@ -492,23 +492,26 @@ UI 約定：
 - `equipment_payment_submission_items`
 - Storage bucket：`equipments`
 - 裝備主檔保留 `image_url` 作為首圖相容欄位，實際多圖清單使用 `image_urls`。
-- 裝備主檔可用 `is_custom_order` 標記訂製品；家長加購頁與首頁預覽會顯示需等待備貨提示，但不改變庫存、審核或付款狀態規則。
+- 裝備主檔可用 `is_custom_order` 標記訂製品；家長加購頁與首頁預覽會顯示需等待備貨提示，但不改變庫存、審核或付款可付範圍，所有已核准加購都可先回報付款。
 - 加購備貨 / 領取處理照片保留 `ready_image_url`、`pickup_image_url` 作為首圖相容欄位，實際多圖清單使用 `ready_image_urls`、`pickup_image_urls`。
 
 流程：
 
 1. 家長 / 管理端建立加購申請：`pending`。
-2. 管理端審核：`approved` 或 `rejected`。
-3. 備貨完成 / 可取貨：`ready_for_pickup`，此時即可在 `/my-payments` 回報裝備付款。
-4. 領取裝備：`picked_up`，只代表實際取貨完成，不再作為付款回報前置條件。
-5. 家長在 `/my-payments` 回報裝備付款，資料走 `equipment_payment_submissions`。
-6. 管理端在 `/fees?tab=equipment` 審核付款回報：`approved` 或 `rejected`。
+2. 管理端審核：`approved` 或 `rejected`；`approved` 後即產生 purchase transaction，家長可在 `/my-payments` 回報裝備付款。
+3. 家長在 `/my-payments` 回報裝備付款，資料走 `equipment_payment_submissions`，付款紀錄顯示 `pending_review` / 待審核。
+4. 管理端在 `/fees?tab=equipment` 審核付款回報：`approved` / 已收款完成或 `rejected`；已收款完成不代表商品已領取。
+5. 若已確認收款後要作廢或退款，有付款回報單走 `refund_equipment_payment_submission()`：付款單與交易標記 `refunded`，球員餘額扣抵加回，溢繳轉入反向扣回；管理端直接標記已收款且無付款單的交易走 `refund_equipment_transactions()`，只作廢交易收款狀態。
+6. 備貨完成 / 可取貨：`ready_for_pickup`，只代表商品履約進度。
+7. 領取裝備：`picked_up`，只代表實際取貨完成，不再作為付款回報前置條件。
 
 重要規則：
 
 - `/equipment` 需要 `equipment:VIEW`。
 - `/equipment-addons` 只要求登入，資料安全靠 `linked_team_member_ids` 與 DB RLS。
-- 裝備付款可付範圍包含管理員新增購買項目，以及加購申請狀態為 `ready_for_pickup` 或 `picked_up` 且付款狀態仍為 `unpaid` 的 purchase transaction；前端可勾選狀態與 RPC 檢查必須一致。
+- 裝備付款可付範圍包含管理員新增購買項目，以及加購申請狀態為 `approved`、`ready_for_pickup` 或 `picked_up` 且付款狀態仍為 `unpaid` 的 purchase transaction；前端可勾選狀態與 RPC 檢查必須一致。
+- 裝備付款狀態與商品履約狀態分離：`equipment_transactions.payment_status = paid` / 付款回報 `approved` 只代表已收款完成，不可自動把加購申請改成 `picked_up`。
+- 已付款裝備請購不可直接刪除；先退款 / 作廢收款，讓付款單與 / 或 `equipment_transactions.payment_status` 變成 `refunded`，再允許刪除交易並回補庫存。詳細流程見 `docs/EQUIPMENT_REFUND_FLOW.md`。
 - 裝備剩餘量顯示優先走 `list_equipments_with_inventory_snapshot()`，只回傳匿名化聚合庫存快照，避免一般會員因 RLS 看不到其他人的交易 / 已保留申請而高估可用量。
 - `list_equipments_with_inventory_snapshot()` 必須回傳 `is_custom_order`，避免家長端走 snapshot RPC 時遺失訂製品提示。
 - 裝備圖片與處理照片可多張上傳，使用 `equipments` bucket，前端顯示需支援左右滑動。

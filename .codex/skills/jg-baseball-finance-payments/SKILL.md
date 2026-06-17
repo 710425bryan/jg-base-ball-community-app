@@ -37,7 +37,9 @@ description: "Finance, fees, payment submissions, player balances, match fees, r
 - 季費堂數不足補償使用 `quarterly_fee_compensation_items`，只產生待審核單；核准後才寫入 `player_balance_transactions`。
 - 比賽費使用 `match_fee_items`、`match_payment_submissions`、`match_payment_submission_items`。
 - 裝備付款使用 `equipment_payment_submissions`，但在 `/fees?tab=equipment` 與 `/my-payments` 整合顯示。
-- 裝備加購申請只要到 `ready_for_pickup`（備貨完成 / 可取貨）即可回報付款，不需要等到 `picked_up`；調整裝備付款時要同步前端可勾選條件與 RPC 可付範圍。
+- 裝備加購申請只要到 `approved`（已核准）即可回報付款，不需要等到 `ready_for_pickup` 或 `picked_up`；調整裝備付款時要同步前端可勾選條件與 RPC 可付範圍。
+- 裝備付款確認只代表已收款完成，不代表商品已備貨或已領取；不要把付款 `approved` 自動同步成申請 `picked_up`。
+- 裝備付款退款 / 作廢收款要走 `refunded` 狀態；有付款單時需建立反向 `player_balance_transactions`，直接標記已收款且無付款單時只作廢交易收款狀態。不可直接刪 paid 交易；退款後才允許刪除測試請購或取消請購。
 - 費用提醒進通知中心時要確認 `get_notification_feed()` 是否包含對應 source。
 
 ## 不可破壞規則

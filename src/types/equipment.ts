@@ -10,9 +10,9 @@ export type EquipmentRequestStatus =
   | 'rejected'
   | 'cancelled'
 
-export type EquipmentPaymentStatus = 'unpaid' | 'pending_review' | 'paid' | 'cancelled'
+export type EquipmentPaymentStatus = 'unpaid' | 'pending_review' | 'paid' | 'cancelled' | 'refunded'
 
-export type EquipmentPaymentSubmissionStatus = 'pending_review' | 'approved' | 'rejected'
+export type EquipmentPaymentSubmissionStatus = 'pending_review' | 'approved' | 'rejected' | 'refunded'
 
 export type EquipmentSizeStock = {
   size: string
@@ -328,6 +328,9 @@ export type EquipmentPaymentSubmission = {
   status: EquipmentPaymentSubmissionStatus
   reviewed_at: string | null
   reviewed_by: string | null
+  refunded_at?: string | null
+  refunded_by?: string | null
+  refund_note?: string | null
   created_at: string
   updated_at: string
   items: EquipmentPaymentItem[]

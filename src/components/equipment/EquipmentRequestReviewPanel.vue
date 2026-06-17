@@ -122,7 +122,7 @@ const approve = async (request: EquipmentPurchaseRequest) => {
       await notifyRequester(
         updated,
         '裝備加購已核准',
-        `${updated.member?.name || '成員'} 的裝備加購申請已核准，待管理員備貨。`,
+        `${updated.member?.name || '成員'} 的裝備加購申請已核准，可至繳費資訊回報付款，商品仍會依備貨進度通知。`,
         `/equipment-addons?tab=requests&highlight_id=${updated.id}`,
         'equipment-request-approved'
       )
@@ -299,7 +299,7 @@ watch(() => route.query.highlight_id, () => {
         <div>
           <h3 class="text-lg font-black text-slate-800">裝備請購審核</h3>
           <p class="mt-1 text-xs md:text-sm text-gray-500">
-            處理家長送出的加購申請，完成領取後會進入裝備付款流程。
+            處理家長送出的加購申請；核准後即可付款，備貨與領取另外更新。
           </p>
         </div>
         <div class="flex flex-wrap items-center gap-2">

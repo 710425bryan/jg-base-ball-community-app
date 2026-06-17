@@ -373,8 +373,9 @@ const getMemberNameById = (memberId: string) =>
   members.value.find((member) => member.member_id === memberId)?.name || ''
 
 const getManualPurchaseStatusLabel = (status?: string | null) => {
-  if (status === 'paid') return '已確認付款'
-  if (status === 'pending_review') return '付款待確認'
+  if (status === 'paid') return '已收款完成'
+  if (status === 'pending_review') return '付款待審核'
+  if (status === 'refunded') return '已退款'
   if (status === 'cancelled') return '已取消'
   return '待付款'
 }
@@ -382,6 +383,7 @@ const getManualPurchaseStatusLabel = (status?: string | null) => {
 const getManualPurchaseStatusTagType = (status?: string | null) => {
   if (status === 'paid') return 'success'
   if (status === 'pending_review') return 'warning'
+  if (status === 'refunded') return 'info'
   if (status === 'cancelled') return 'info'
   return 'danger'
 }
@@ -402,6 +404,7 @@ const getRequestPaymentStatus = (request: EquipmentPurchaseRequest) => {
 
   if (statuses.length < request.items.length) return 'unpaid'
   if (statuses.every((status) => status === 'paid')) return 'paid'
+  if (statuses.every((status) => status === 'refunded')) return 'refunded'
   if (statuses.some((status) => status === 'pending_review')) return 'pending_review'
   if (statuses.some((status) => status === 'unpaid')) return 'unpaid'
   if (statuses.every((status) => status === 'cancelled')) return 'cancelled'
@@ -730,7 +733,7 @@ onMounted(() => {
         <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <AppPageHeader
             title="裝備加購"
-            subtitle="為已綁定成員申請裝備加購，管理員備貨完成後即可回報付款"
+            subtitle="為已綁定成員申請裝備加購，管理員核准後即可回報付款"
             :icon="ShoppingCart"
             as="h2"
           >

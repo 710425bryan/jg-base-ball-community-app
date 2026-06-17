@@ -220,6 +220,7 @@
 - 球員餘額以 `player_balance_transactions` 流水帳管理，餘額屬於 `team_members`；管理員可手動調整與確認溢繳入帳，家長自助使用餘額後仍需管理端確認才正式扣款。
 - 社區球員固定月繳用 `team_members.fee_billing_mode = 'monthly_fixed'` 表示；球員身分仍是 `球員`，但併入 `monthly_fees`、排除 `quarterly_fees`，金額從 `fee_settings.monthly_fixed_fee` 帶入並在 `monthly_fees.fixed_monthly_fee` 留快照。
 - 球員 / 校隊不收費用 `team_members.fee_billing_mode = 'no_fee'` 表示；不產生新的月費、季費與比賽費，切換前既有帳款保留，裝備加購付款仍維持自費。
+- 裝備付款在加購申請 `approved` 後即可回報，費用端確認收款只代表款項已完成，不代表商品已備貨或已領取；若要刪除已收款測試請購，必須先走退款 / 作廢收款，並反向處理球員餘額。
 - 季費堂數不足補償以當月週六數對比 `/training-dates` 訓練日期設定總天數；任何設定日期都算一堂，達當月週六數就不補償。補償先產生 `quarterly_fee_compensation_items` 待審核單，核准後才用 `quarterly_compensation` source 寫入 `player_balance_transactions`。
 - sibling / quarter fee / monthly settlement 等邏輯已拆在 `src/utils/*fee*` 與相關測試。
 - 比賽費走 `src/services/matchFees.ts`、`match_fee_items`、`match_payment_submissions`、`match_payment_submission_items`，可在 `/my-payments` 合併回報，在 `/fees` 審核。
@@ -232,7 +233,7 @@
 - 家長加購路由 `/equipment-addons`，只要求登入；資料安全由 `linked_team_member_ids` 與 DB RLS 限制，不要改成需要 `equipment:VIEW`。
 - 裝備資料流集中在 `src/types/equipment.ts`、`src/services/equipmentApi.ts`、`src/stores/equipment*.ts`、`src/components/equipment/*`。
 - 主要資料表包含 `equipment`、`equipment_transactions`、`equipment_inventory_adjustments`、`equipment_purchase_requests`、`equipment_purchase_request_items`、`equipment_payment_submissions`、`equipment_payment_submission_items`。
-- 裝備流程：加購申請 `pending` -> 審核 `approved` -> 備貨 / 可取貨 `ready_for_pickup` 後即可進行裝備付款回報 `pending_review`；領取 `picked_up` 是後續取貨狀態，不再作為付款回報的前置條件；費用端確認付款後為 `approved`，也可退回 `rejected`。
+- 裝備流程：加購申請 `pending` -> 審核 `approved` 後即可進行裝備付款回報 `pending_review`；備貨 / 可取貨 `ready_for_pickup` 與領取 `picked_up` 是後續履約狀態，不作為付款回報前置條件；費用端確認付款後為 `approved` / 已收款完成，也可退回 `rejected`，已收款測試或取消需求需改走 `refunded` 退款 / 作廢收款流程。
 - 裝備圖片與處理照片使用 `equipments` bucket；主檔 / 備貨 / 領取照片可多張，並保留 `image_url`、`ready_image_url`、`pickup_image_url` 首圖相容欄位。
 - 裝備交易 `purchase` 產生後才進入付款回報；不要把來源專案的 `fee_records` 或月結關帳模型直接搬進本專案。
 

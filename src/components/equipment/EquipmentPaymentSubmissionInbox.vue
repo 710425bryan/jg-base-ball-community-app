@@ -6,7 +6,10 @@ import { ArrowDown, ArrowRight, Loading, Refresh } from '@element-plus/icons-vue
 import { useRoute } from 'vue-router'
 import { useEquipmentPaymentsStore } from '@/stores/equipmentPayments'
 import type { EquipmentPaymentSubmission } from '@/types/equipment'
-import { getEquipmentRequestStatusLabel } from '@/utils/equipmentRequestStatus'
+import {
+  EQUIPMENT_REQUEST_STATUS,
+  getEquipmentFulfillmentStatusLabel
+} from '@/utils/equipmentRequestStatus'
 import { formatEquipmentVariantLabel } from '@/utils/equipmentPricing'
 import { buildPaymentBreakdownText } from '@/utils/playerBalance'
 import { buildPushEventKey, dispatchPushNotification } from '@/utils/pushNotifications'
@@ -17,18 +20,29 @@ const processingIds = ref(new Set<string>())
 const isRefreshing = ref(false)
 const unpaidPaymentError = ref('')
 const reviewSubmissionError = ref('')
+const refundablePaymentError = ref('')
 const isUnpaidSectionCollapsed = ref(false)
 const isReviewSectionCollapsed = ref(false)
+const isRefundableSectionCollapsed = ref(false)
 
 const pendingSubmissions = computed(() =>
   paymentsStore.reviewSubmissions.filter((submission) => submission.status === 'pending_review')
 )
 
+const approvedSubmissions = computed(() =>
+  paymentsStore.reviewSubmissions.filter((submission) => submission.status === 'approved')
+)
+
 const unpaidPaymentItems = computed(() => paymentsStore.adminUnpaidItems)
+const refundableDirectPaymentItems = computed(() => paymentsStore.adminRefundableDirectItems)
 const unpaidPaymentTotal = computed(() =>
   unpaidPaymentItems.value.reduce((total, item) => total + Number(item.total_amount || 0), 0)
 )
 const visibleSubmissions = computed(() => pendingSubmissions.value.slice(0, 8))
+const visibleRefundableSubmissions = computed(() => approvedSubmissions.value)
+const hasRefundablePayments = computed(() =>
+  visibleRefundableSubmissions.value.length > 0 || refundableDirectPaymentItems.value.length > 0
+)
 const visibleUnpaidPaymentItems = computed(() => unpaidPaymentItems.value)
 
 const formatCurrency = (amount: number) => new Intl.NumberFormat('en-US', {
@@ -59,6 +73,22 @@ const formatBreakdown = (submission: EquipmentPaymentSubmission) =>
 const getVariantLabel = (item: { size?: string | null; jersey_number?: number | string | null }) =>
   formatEquipmentVariantLabel(item, '')
 
+const getFulfillmentStatusClass = (status?: string | null) => {
+  if (status === EQUIPMENT_REQUEST_STATUS.PICKED_UP) {
+    return 'border-emerald-200 bg-emerald-50 text-emerald-700'
+  }
+
+  if (status === EQUIPMENT_REQUEST_STATUS.READY_FOR_PICKUP) {
+    return 'border-sky-200 bg-sky-50 text-sky-700'
+  }
+
+  if (status === EQUIPMENT_REQUEST_STATUS.APPROVED) {
+    return 'border-orange-200 bg-orange-50 text-orange-700'
+  }
+
+  return 'border-gray-200 bg-gray-50 text-gray-500'
+}
+
 const getErrorMessage = (error: unknown, fallback: string) => {
   if (error && typeof error === 'object' && 'message' in error) {
     const message = String((error as { message?: unknown }).message || '').trim()
@@ -75,13 +105,19 @@ const setProcessing = (id: string, value: boolean) => {
   processingIds.value = next
 }
 
-const notifySubmitter = async (submission: EquipmentPaymentSubmission, status: 'approved' | 'rejected') => {
+const notifySubmitter = async (submission: EquipmentPaymentSubmission, status: 'approved' | 'rejected' | 'refunded') => {
   try {
     await dispatchPushNotification({
-      title: status === 'approved' ? '裝備付款已確認' : '裝備付款已退回',
+      title: status === 'approved'
+        ? '裝備付款已收款完成'
+        : status === 'refunded'
+          ? '裝備付款已退款'
+          : '裝備付款已退回',
       body: status === 'approved'
-        ? `${submission.member_name} 的裝備付款已確認。`
-        : `${submission.member_name} 的裝備付款回報已退回，請至繳費資訊查看。`,
+        ? `${submission.member_name} 的裝備付款已收款完成。`
+        : status === 'refunded'
+          ? `${submission.member_name} 的裝備付款已退款，請至繳費資訊查看。`
+          : `${submission.member_name} 的裝備付款回報已退回，請至繳費資訊查看。`,
       url: `/my-payments?view=equipment&highlight_equipment_submission_id=${submission.id}`,
       feature: 'equipment',
       action: 'VIEW',
@@ -93,12 +129,65 @@ const notifySubmitter = async (submission: EquipmentPaymentSubmission, status: '
   }
 }
 
+const refund = async (submission: EquipmentPaymentSubmission) => {
+  try {
+    const { value } = await ElMessageBox.prompt(
+      '退款會將付款單標記為已退款，並把已收款交易改為已退款；若曾使用球員餘額或溢繳入帳，系統會建立反向餘額流水。請輸入退款 / 作廢原因（可留空）。',
+      '退款 / 作廢收款',
+      {
+        confirmButtonText: '確認退款',
+        cancelButtonText: '取消',
+        inputType: 'textarea',
+        inputPlaceholder: '例如：測試請購作廢、家長取消加購'
+      }
+    )
+
+    setProcessing(submission.id, true)
+    const updated = await paymentsStore.refundSubmission(submission.id, String(value || '').trim() || null)
+    ElMessage.success('已標記裝備付款為已退款')
+    await notifySubmitter(updated, 'refunded')
+    await refresh()
+  } catch (error: any) {
+    if (error !== 'cancel' && error !== 'close') {
+      ElMessage.error(error?.message || '退款 / 作廢收款失敗')
+    }
+  } finally {
+    setProcessing(submission.id, false)
+  }
+}
+
+const refundDirectPayment = async (item: { transaction_id: string; member_name: string; equipment_name: string; total_amount: number }) => {
+  try {
+    const { value } = await ElMessageBox.prompt(
+      `這會將 ${item.member_name} 的 ${item.equipment_name} ${formatCurrency(item.total_amount)} 改為已退款，之後即可刪除測試請購或取消請購。請輸入作廢原因（可留空）。`,
+      '作廢直接收款',
+      {
+        confirmButtonText: '確認作廢',
+        cancelButtonText: '取消',
+        inputType: 'textarea',
+        inputPlaceholder: '例如：測試請購作廢、誤按標記已收款'
+      }
+    )
+
+    setProcessing(item.transaction_id, true)
+    await paymentsStore.refundDirectTransactions([item.transaction_id], String(value || '').trim() || null)
+    ElMessage.success('已作廢這筆裝備收款')
+    await refresh()
+  } catch (error: any) {
+    if (error !== 'cancel' && error !== 'close') {
+      ElMessage.error(error?.message || '作廢裝備收款失敗')
+    }
+  } finally {
+    setProcessing(item.transaction_id, false)
+  }
+}
+
 const resolveOverpaymentAmount = async (status: 'approved' | 'rejected') => {
   if (status !== 'approved') return 0
 
   const { value } = await ElMessageBox.prompt(
     '若這筆裝備付款有多收並要轉入球員餘額，請輸入金額；沒有則填 0。',
-    '確認裝備付款',
+    '確認裝備收款',
     {
       confirmButtonText: '確認',
       cancelButtonText: '取消',
@@ -116,7 +205,7 @@ const review = async (submission: EquipmentPaymentSubmission, status: 'approved'
   try {
     const overpaymentAmount = await resolveOverpaymentAmount(status)
     const updated = await paymentsStore.reviewSubmission(submission.id, status, overpaymentAmount)
-    ElMessage.success(status === 'approved' ? '已確認裝備付款' : '已退回裝備付款')
+    ElMessage.success(status === 'approved' ? '已確認裝備收款' : '已退回裝備付款')
     await notifySubmitter(updated, status)
   } catch (error: any) {
     if (error !== 'cancel') {
@@ -131,9 +220,9 @@ const markPaid = async (item: { transaction_id: string; member_name: string; equ
   try {
     await ElMessageBox.confirm(
       `確認 ${item.member_name} 的 ${item.equipment_name} 已收款 ${formatCurrency(item.total_amount)}？`,
-      '標記裝備已付款',
+      '標記裝備已收款',
       {
-        confirmButtonText: '標記已付款',
+        confirmButtonText: '標記已收款',
         cancelButtonText: '取消',
         type: 'warning'
       }
@@ -141,7 +230,7 @@ const markPaid = async (item: { transaction_id: string; member_name: string; equ
 
     setProcessing(item.transaction_id, true)
     await paymentsStore.markPaid([item.transaction_id])
-    ElMessage.success('已標記裝備款項為已付款')
+    ElMessage.success('已標記裝備款項為已收款')
     await refresh()
   } catch (error: any) {
     if (error !== 'cancel' && error !== 'close') {
@@ -172,6 +261,7 @@ const highlightFromRoute = async () => {
   if (!id) return
 
   isReviewSectionCollapsed.value = false
+  isRefundableSectionCollapsed.value = false
   await nextTick()
   const target = document.getElementById(`equipment-payment-submission-${id}`)
   if (!target) return
@@ -185,19 +275,25 @@ const refresh = async () => {
   isRefreshing.value = true
   unpaidPaymentError.value = ''
   reviewSubmissionError.value = ''
+  refundablePaymentError.value = ''
 
   try {
-    const [reviewResult, unpaidResult] = await Promise.allSettled([
+    const [reviewResult, unpaidResult, refundableResult] = await Promise.allSettled([
       paymentsStore.loadReviewSubmissions(),
-      paymentsStore.loadAdminUnpaidItems()
+      paymentsStore.loadAdminUnpaidItems(),
+      paymentsStore.loadAdminRefundableDirectItems()
     ])
 
     if (reviewResult.status === 'rejected') {
-      reviewSubmissionError.value = getErrorMessage(reviewResult.reason, '無法載入待確認裝備付款')
+      reviewSubmissionError.value = getErrorMessage(reviewResult.reason, '無法載入待審核裝備付款')
     }
 
     if (unpaidResult.status === 'rejected') {
       unpaidPaymentError.value = getErrorMessage(unpaidResult.reason, '無法載入尚未付款裝備款項')
+    }
+
+    if (refundableResult.status === 'rejected') {
+      refundablePaymentError.value = getErrorMessage(refundableResult.reason, '無法載入可作廢收款裝備款項')
     }
 
     await highlightFromRoute()
@@ -230,7 +326,7 @@ watch(() => route.query.section, () => {
       <div>
         <h3 class="text-lg font-black text-sky-900">裝備款項 / 尚未付款</h3>
         <p class="mt-1 text-xs md:text-sm text-sky-700/80">
-          列出已領取或管理員新增、目前仍標記為尚未付款的裝備交易；若已收款可直接標記為已付款。
+          列出已核准、可取貨、已領取或管理員新增，且目前仍標記為尚未付款的裝備交易；若已收款可直接標記為已付款。
         </p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
@@ -284,9 +380,10 @@ watch(() => route.query.section, () => {
               </span>
               <span
                 v-if="item.request_status"
-                class="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-[11px] font-bold text-gray-500"
+                :class="getFulfillmentStatusClass(item.request_status)"
+                class="rounded-full border px-2.5 py-1 text-[11px] font-bold"
               >
-                {{ getEquipmentRequestStatusLabel(item.request_status) }}
+                {{ getEquipmentFulfillmentStatusLabel(item.request_status) }}
               </span>
             </div>
             <div class="mt-3 grid gap-2 text-sm text-gray-600 md:grid-cols-4">
@@ -325,17 +422,172 @@ watch(() => route.query.section, () => {
     </div>
   </section>
 
+  <section v-if="hasRefundablePayments" class="rounded-2xl border border-orange-100 bg-orange-50/70 p-4 md:p-5 shadow-sm">
+    <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div>
+        <h3 class="text-lg font-black text-orange-900">裝備付款 / 已收款可退款</h3>
+        <p class="mt-1 text-xs md:text-sm text-orange-700/80">
+          已確認收款但需要作廢或退款時，先退款再刪除測試請購；退款不會自動把商品狀態改成已領取。
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="rounded-full bg-white/80 border border-orange-200 px-3 py-1 text-xs font-black text-orange-700">
+          可退款 {{ approvedSubmissions.length + refundableDirectPaymentItems.length }} 筆
+        </span>
+        <button
+          type="button"
+          class="inline-flex items-center justify-center gap-1.5 rounded-xl border border-orange-200 bg-white/80 px-3 py-1.5 text-xs font-black text-orange-700 transition-colors hover:bg-white"
+          :aria-expanded="!isRefundableSectionCollapsed"
+          @click="isRefundableSectionCollapsed = !isRefundableSectionCollapsed"
+        >
+          <el-icon>
+            <ArrowRight v-if="isRefundableSectionCollapsed" />
+            <ArrowDown v-else />
+          </el-icon>
+          {{ isRefundableSectionCollapsed ? '展開' : '收合' }}
+        </button>
+      </div>
+    </div>
+
+    <div v-show="!isRefundableSectionCollapsed">
+    <div v-if="refundablePaymentError" class="mt-4 rounded-2xl bg-red-50/80 border border-red-100 px-4 py-5 text-sm text-red-600 font-bold">
+      {{ refundablePaymentError }}
+    </div>
+
+    <div v-if="visibleRefundableSubmissions.length > 0" class="mt-4 grid gap-3">
+      <article
+        v-for="submission in visibleRefundableSubmissions"
+        :id="`equipment-payment-submission-${submission.id}`"
+        :key="submission.id"
+        class="rounded-2xl border border-white bg-white/90 p-4 shadow-sm transition-all"
+      >
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <div class="text-base md:text-lg font-black text-slate-800">{{ submission.member_name }}</div>
+              <span class="rounded-full bg-emerald-50 border border-emerald-100 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
+                已收款完成
+              </span>
+            </div>
+
+            <div class="mt-3 grid gap-2 text-sm text-gray-600 md:grid-cols-2 xl:grid-cols-4">
+              <div>
+                <div class="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">金額</div>
+                <div class="mt-1 font-black text-primary">{{ formatCurrency(submission.amount) }}</div>
+                <div class="mt-0.5 text-xs font-bold text-gray-400">{{ formatBreakdown(submission) }}</div>
+              </div>
+              <div>
+                <div class="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">收款確認</div>
+                <div class="mt-1 font-medium text-slate-700">{{ formatDateTime(submission.reviewed_at) }}</div>
+              </div>
+              <div>
+                <div class="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">匯款資訊</div>
+                <div class="mt-1 font-bold text-slate-700">{{ paymentInfo(submission) }}</div>
+              </div>
+              <div>
+                <div class="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">項目</div>
+                <div class="mt-1 font-black text-slate-700">{{ submission.items.length }} 筆</div>
+              </div>
+            </div>
+
+            <div class="mt-3 grid gap-1 text-sm text-gray-500">
+              <div v-for="item in submission.items" :key="item.transaction_id" class="flex items-center justify-between gap-3">
+                <span>
+                  {{ item.equipment_name }} <span class="text-gray-400">{{ getVariantLabel(item) }}</span>
+                  <span
+                    v-if="item.request_status"
+                    :class="getFulfillmentStatusClass(item.request_status)"
+                    class="ml-2 inline-flex rounded-full border px-2 py-0.5 text-[11px] font-bold"
+                  >
+                    {{ getEquipmentFulfillmentStatusLabel(item.request_status) }}
+                  </span>
+                </span>
+                <span class="font-bold text-primary">{{ item.quantity }} 件 / {{ formatCurrency(item.total_amount) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            class="shrink-0 rounded-xl border border-orange-200 bg-orange-50 px-4 py-2 text-sm font-bold text-orange-700 transition-colors hover:bg-orange-100 disabled:opacity-70"
+            :disabled="processingIds.has(submission.id)"
+            @click="refund(submission)"
+          >
+            退款 / 作廢收款
+          </button>
+        </div>
+      </article>
+    </div>
+
+    <div v-if="refundableDirectPaymentItems.length > 0" class="mt-4 grid gap-3">
+      <article
+        v-for="item in refundableDirectPaymentItems"
+        :key="item.transaction_id"
+        class="rounded-2xl border border-white bg-white/90 p-4 shadow-sm transition-all"
+      >
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <div class="text-base md:text-lg font-black text-slate-800">{{ item.member_name }}</div>
+              <span class="rounded-full bg-orange-50 border border-orange-100 px-2.5 py-1 text-[11px] font-bold text-orange-700">
+                直接標記已收款
+              </span>
+              <span
+                v-if="item.request_status"
+                :class="getFulfillmentStatusClass(item.request_status)"
+                class="rounded-full border px-2.5 py-1 text-[11px] font-bold"
+              >
+                {{ getEquipmentFulfillmentStatusLabel(item.request_status) }}
+              </span>
+            </div>
+
+            <div class="mt-3 grid gap-2 text-sm text-gray-600 md:grid-cols-4">
+              <div>
+                <div class="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">項目</div>
+                <div class="mt-1 font-bold text-slate-700">
+                  {{ item.equipment_name }} <span class="text-gray-400">{{ getVariantLabel(item) }}</span>
+                </div>
+              </div>
+              <div>
+                <div class="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">數量</div>
+                <div class="mt-1 font-black text-primary">{{ item.quantity }} 件</div>
+              </div>
+              <div>
+                <div class="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">金額</div>
+                <div class="mt-1 font-black text-primary">{{ formatCurrency(item.total_amount) }}</div>
+              </div>
+              <div>
+                <div class="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">日期</div>
+                <div class="mt-1 font-medium text-slate-700">{{ formatDate(item.picked_up_at || item.transaction_date) }}</div>
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            class="shrink-0 rounded-xl border border-orange-200 bg-orange-50 px-4 py-2 text-sm font-bold text-orange-700 transition-colors hover:bg-orange-100 disabled:opacity-70"
+            :disabled="processingIds.has(item.transaction_id)"
+            @click="refundDirectPayment(item)"
+          >
+            作廢收款
+          </button>
+        </div>
+      </article>
+    </div>
+    </div>
+  </section>
+
   <section class="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4 md:p-5 shadow-sm">
     <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <div>
-        <h3 class="text-lg font-black text-emerald-900">裝備付款 / 待確認</h3>
+        <h3 class="text-lg font-black text-emerald-900">裝備付款 / 待審核</h3>
         <p class="mt-1 text-xs md:text-sm text-emerald-700/80">
-          家長在繳費資訊送出的裝備付款回報，確認後會同步把對應裝備交易標記為已付款。
+          家長在繳費資訊送出的裝備付款回報，確認後會同步把對應裝備交易標記為已收款完成，不代表商品已領取。
         </p>
       </div>
       <div class="flex items-center gap-2">
         <span class="rounded-full bg-white/80 border border-emerald-200 px-3 py-1 text-xs font-black text-emerald-700">
-          待確認 {{ pendingSubmissions.length }} 筆
+          待審核 {{ pendingSubmissions.length }} 筆
         </span>
         <button
           type="button"
@@ -372,7 +624,7 @@ watch(() => route.query.section, () => {
     </div>
 
     <div v-else-if="pendingSubmissions.length === 0" class="mt-4 rounded-2xl bg-white/70 border border-white px-4 py-5 text-sm text-emerald-700/70 font-bold">
-      目前沒有待確認的裝備付款回報。
+      目前沒有待審核的裝備付款回報。
     </div>
 
     <div v-else class="mt-4 grid gap-3">
@@ -417,9 +669,10 @@ watch(() => route.query.section, () => {
                   {{ item.equipment_name }} <span class="text-gray-400">{{ getVariantLabel(item) }}</span>
                   <span
                     v-if="item.request_status"
-                    class="ml-2 inline-flex rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] font-bold text-gray-500"
+                    :class="getFulfillmentStatusClass(item.request_status)"
+                    class="ml-2 inline-flex rounded-full border px-2 py-0.5 text-[11px] font-bold"
                   >
-                    {{ getEquipmentRequestStatusLabel(item.request_status) }}
+                    {{ getEquipmentFulfillmentStatusLabel(item.request_status) }}
                   </span>
                 </span>
                 <span class="font-bold text-primary">{{ item.quantity }} 件 / {{ formatCurrency(item.total_amount) }}</span>

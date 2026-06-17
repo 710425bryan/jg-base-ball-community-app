@@ -21,6 +21,7 @@ export const EQUIPMENT_REQUEST_HISTORY_STATUSES: EquipmentRequestStatus[] = [
 ]
 
 export const EQUIPMENT_PAYMENT_PAYABLE_REQUEST_STATUSES: EquipmentRequestStatus[] = [
+  EQUIPMENT_REQUEST_STATUS.APPROVED,
   EQUIPMENT_REQUEST_STATUS.READY_FOR_PICKUP,
   EQUIPMENT_REQUEST_STATUS.PICKED_UP
 ]
@@ -47,6 +48,55 @@ export const getEquipmentRequestStatusLabel = (status?: string | null) => {
       return '已取消'
     default:
       return '未知狀態'
+  }
+}
+
+export const getEquipmentFulfillmentStatusLabel = (status?: string | null) => {
+  switch (status) {
+    case EQUIPMENT_REQUEST_STATUS.APPROVED:
+      return '商品未發放'
+    case EQUIPMENT_REQUEST_STATUS.READY_FOR_PICKUP:
+      return '可取貨，未領取'
+    case EQUIPMENT_REQUEST_STATUS.PICKED_UP:
+      return '已領取'
+    case EQUIPMENT_REQUEST_STATUS.PENDING:
+      return '待審核'
+    case EQUIPMENT_REQUEST_STATUS.REJECTED:
+      return '已退回'
+    case EQUIPMENT_REQUEST_STATUS.CANCELLED:
+      return '已取消'
+    default:
+      return ''
+  }
+}
+
+export const getEquipmentPaymentFulfillmentNote = (
+  requestStatus?: string | null,
+  paymentStatus?: string | null
+) => {
+  const paymentPrefix = paymentStatus === 'paid'
+    ? '收款已完成，'
+    : paymentStatus === 'pending_review'
+      ? '付款回報待審核，'
+      : paymentStatus === 'refunded'
+        ? '付款已退款，'
+        : ''
+
+  switch (requestStatus) {
+    case EQUIPMENT_REQUEST_STATUS.APPROVED:
+      return `${paymentPrefix}商品尚未發放（已核准 / 待備貨）。`
+    case EQUIPMENT_REQUEST_STATUS.READY_FOR_PICKUP:
+      return `${paymentPrefix}商品可取貨，尚未標記已領取。`
+    case EQUIPMENT_REQUEST_STATUS.PICKED_UP:
+      return `${paymentPrefix}商品已領取。`
+    case EQUIPMENT_REQUEST_STATUS.PENDING:
+      return `${paymentPrefix}加購申請仍在待審核。`
+    case EQUIPMENT_REQUEST_STATUS.REJECTED:
+      return '加購申請已退回。'
+    case EQUIPMENT_REQUEST_STATUS.CANCELLED:
+      return '加購申請已取消。'
+    default:
+      return null
   }
 }
 
