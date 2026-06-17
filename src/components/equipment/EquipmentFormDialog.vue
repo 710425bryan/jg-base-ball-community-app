@@ -35,6 +35,7 @@ const form = reactive<EquipmentFormPayload>({
   image_urls: [],
   purchase_price: 0,
   quick_purchase_enabled: false,
+  is_custom_order: false,
   requires_jersey_number: false,
   jersey_number_min: 0,
   jersey_number_max: 99,
@@ -122,6 +123,7 @@ const resetForm = () => {
   form.image_urls = [...existingImageUrls.value]
   form.purchase_price = Number(props.equipment?.purchase_price || 0)
   form.quick_purchase_enabled = Boolean(props.equipment?.quick_purchase_enabled)
+  form.is_custom_order = Boolean(props.equipment?.is_custom_order)
   form.requires_jersey_number = Boolean(props.equipment?.requires_jersey_number)
   form.jersey_number_min = Number(props.equipment?.jersey_number_min ?? 0)
   form.jersey_number_max = Number(props.equipment?.jersey_number_max ?? 99)
@@ -186,6 +188,7 @@ const submit = async () => {
         image_url: existingImageUrls.value[0] || null,
         image_urls: [...existingImageUrls.value],
         purchase_price: Math.max(Number(form.purchase_price || 0), 0),
+        is_custom_order: Boolean(form.is_custom_order),
         requires_jersey_number: Boolean(form.requires_jersey_number),
         jersey_number_min: Math.max(Number(form.jersey_number_min ?? 0), 0),
         jersey_number_max: Math.max(Number(form.jersey_number_max ?? 99), Math.max(Number(form.jersey_number_min ?? 0), 0)),
@@ -352,12 +355,24 @@ onBeforeUnmount(() => {
           </el-upload>
         </el-form-item>
 
-        <el-switch
-          v-model="form.quick_purchase_enabled"
-          active-text="開放加購"
-          inactive-text="不開放加購"
-          class="md:justify-self-end"
-        />
+        <div class="flex flex-col gap-3 md:justify-self-end">
+          <el-switch
+            v-model="form.quick_purchase_enabled"
+            active-text="開放加購"
+            inactive-text="不開放加購"
+            class="md:justify-self-end"
+          />
+          <div class="rounded-2xl border border-amber-100 bg-amber-50/70 px-3 py-2">
+            <el-switch
+              v-model="form.is_custom_order"
+              active-text="訂製品"
+              inactive-text="一般商品"
+            />
+            <p class="mt-1 text-xs font-bold text-amber-700">
+              訂製品會在家長加購頁標示需等待備貨。
+            </p>
+          </div>
+        </div>
       </div>
 
       <EquipmentPhotoCarousel

@@ -111,6 +111,7 @@ export type Equipment = {
   image_urls: string[]
   purchase_price: number
   quick_purchase_enabled: boolean
+  is_custom_order: boolean
   requires_jersey_number: boolean
   jersey_number_min: number
   jersey_number_max: number
@@ -135,6 +136,7 @@ export type EquipmentFormPayload = {
   image_urls?: string[]
   purchase_price: number
   quick_purchase_enabled: boolean
+  is_custom_order: boolean
   requires_jersey_number: boolean
   jersey_number_min: number
   jersey_number_max: number

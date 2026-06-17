@@ -172,6 +172,10 @@ const hasInvalidCartQuantity = computed(() =>
   cart.value.some((item) => !isValidQuantity(item.quantity))
 )
 
+const hasCustomOrderCartItems = computed(() =>
+  cartItemsWithEquipment.value.some((item) => Boolean(item.equipment?.is_custom_order))
+)
+
 const getCartJerseyNumberFailure = () => {
   for (const item of cart.value) {
     const equipment = equipmentStore.equipmentById.get(item.equipment_id)
@@ -820,6 +824,9 @@ onMounted(() => {
                       <div class="text-xs font-black text-gray-400">品項 {{ index + 1 }}</div>
                       <div class="mt-1 font-black text-slate-800">{{ item.equipment?.name || '未知裝備' }}</div>
                       <p class="mt-1 text-xs text-gray-400">{{ getVariantLabel(item) }}</p>
+                      <p v-if="item.equipment?.is_custom_order" class="mt-2 text-xs font-black text-amber-700">
+                        訂製品｜需等待備貨
+                      </p>
                     </div>
 
                     <div class="md:w-40">
@@ -879,6 +886,9 @@ onMounted(() => {
                 </div>
                 <div v-else-if="hasUnavailableCartItems" class="mt-3 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-sm font-bold text-red-600">
                   {{ cartAvailabilityFailures[0]?.reason || '部分裝備庫存不足，請調整請購數量。' }}
+                </div>
+                <div v-if="hasCustomOrderCartItems" class="mt-3 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-700">
+                  清單含訂製品，送出後需等待管理員通知備貨狀態。
                 </div>
 
                 <div class="mt-4 flex justify-end">
@@ -954,6 +964,12 @@ onMounted(() => {
                           :class="getEquipmentInventoryPillClass(equipment)"
                         >
                           {{ getEquipmentInventoryLabel(equipment) }}
+                        </span>
+                        <span
+                          v-if="equipment.is_custom_order"
+                          class="rounded-full border border-amber-100 bg-amber-50 px-2.5 py-1 text-xs font-black text-amber-700"
+                        >
+                          訂製品｜需等待
                         </span>
                       </div>
 
@@ -1079,6 +1095,12 @@ onMounted(() => {
                       <span class="font-bold text-gray-700">
                         {{ item.equipment_name_snapshot }}
                         <span class="text-gray-400">{{ getVariantLabel(item) }}</span>
+                        <span
+                          v-if="item.equipment?.is_custom_order"
+                          class="ml-2 rounded-full border border-amber-100 bg-amber-50 px-2 py-0.5 text-[11px] font-black text-amber-700"
+                        >
+                          訂製品
+                        </span>
                       </span>
                       <span class="font-black text-primary">{{ item.quantity }} 件 / {{ formatCurrency(getEquipmentRequestItemTotalPrice(item)) }}</span>
                     </div>

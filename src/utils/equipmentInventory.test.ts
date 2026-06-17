@@ -23,6 +23,7 @@ const createEquipment = (overrides: Partial<Equipment> = {}): Equipment => ({
   image_urls: [],
   purchase_price: 500,
   quick_purchase_enabled: true,
+  is_custom_order: false,
   requires_jersey_number: false,
   jersey_number_min: 0,
   jersey_number_max: 99,

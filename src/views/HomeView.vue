@@ -353,8 +353,10 @@ const getTodayAttendanceEventMeta = (event: DashboardTodayAttendanceEvent) => {
 
 const getAddonAvailabilityLabel = (equipment: Equipment) => {
   const availableSizes = getEquipmentSizeInventoryList(equipment).filter((item) => item.remaining > 0)
-  if (availableSizes.length > 0) return `${availableSizes.length} 個尺寸可選`
-  return `可用 ${getEquipmentRemainingOverallQuantity(equipment)} 件`
+  const baseLabel = availableSizes.length > 0
+    ? `${availableSizes.length} 個尺寸可選`
+    : `可用 ${getEquipmentRemainingOverallQuantity(equipment)} 件`
+  return equipment.is_custom_order ? `${baseLabel}｜訂製品` : baseLabel
 }
 
 const isActiveDashboardMember = (member: TeamMemberStatRow) =>
@@ -1350,6 +1352,12 @@ onUnmounted(() => {
               <p class="mt-3 line-clamp-2 text-sm font-semibold leading-6 text-slate-500">
                 {{ featuredAddonEquipment?.specs || featuredAddonEquipment?.notes || '查看目前開放申請的裝備商品，送出後由管理員審核與備貨。' }}
               </p>
+              <div
+                v-if="featuredAddonEquipment?.is_custom_order"
+                class="mt-3 inline-flex rounded-full border border-amber-100 bg-amber-50 px-3 py-1 text-xs font-black text-amber-700"
+              >
+                訂製品，送出後需等待備貨通知
+              </div>
 
               <div v-if="isEquipmentAddonLoading" class="mt-5 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm font-bold text-slate-400">
                 讀取加購商品中...

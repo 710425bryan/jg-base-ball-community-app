@@ -492,6 +492,7 @@ UI 約定：
 - `equipment_payment_submission_items`
 - Storage bucket：`equipments`
 - 裝備主檔保留 `image_url` 作為首圖相容欄位，實際多圖清單使用 `image_urls`。
+- 裝備主檔可用 `is_custom_order` 標記訂製品；家長加購頁與首頁預覽會顯示需等待備貨提示，但不改變庫存、審核或付款狀態規則。
 - 加購備貨 / 領取處理照片保留 `ready_image_url`、`pickup_image_url` 作為首圖相容欄位，實際多圖清單使用 `ready_image_urls`、`pickup_image_urls`。
 
 流程：
@@ -509,6 +510,7 @@ UI 約定：
 - `/equipment-addons` 只要求登入，資料安全靠 `linked_team_member_ids` 與 DB RLS。
 - 裝備付款可付範圍包含管理員新增購買項目，以及加購申請狀態為 `ready_for_pickup` 或 `picked_up` 且付款狀態仍為 `unpaid` 的 purchase transaction；前端可勾選狀態與 RPC 檢查必須一致。
 - 裝備剩餘量顯示優先走 `list_equipments_with_inventory_snapshot()`，只回傳匿名化聚合庫存快照，避免一般會員因 RLS 看不到其他人的交易 / 已保留申請而高估可用量。
+- `list_equipments_with_inventory_snapshot()` 必須回傳 `is_custom_order`，避免家長端走 snapshot RPC 時遺失訂製品提示。
 - 裝備圖片與處理照片可多張上傳，使用 `equipments` bucket，前端顯示需支援左右滑動。
 - 不要把來源專案的 `fee_records` 或月結模型搬進本專案。
 

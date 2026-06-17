@@ -327,12 +327,20 @@ onMounted(() => {
                   <h3 class="truncate text-lg font-black text-slate-800">{{ equipment.name }}</h3>
                   <p class="mt-1 text-xs font-bold text-gray-400">{{ equipment.category }}</p>
                 </div>
-                <span
-                  class="rounded-full px-3 py-1 text-xs font-bold"
-                  :class="equipment.quick_purchase_enabled ? 'bg-primary/10 text-primary' : 'bg-gray-100 text-gray-400'"
-                >
-                  {{ equipment.quick_purchase_enabled ? '可加購' : '庫存品' }}
-                </span>
+                <div class="flex shrink-0 flex-col items-end gap-2">
+                  <span
+                    class="rounded-full px-3 py-1 text-xs font-bold"
+                    :class="equipment.quick_purchase_enabled ? 'bg-primary/10 text-primary' : 'bg-gray-100 text-gray-400'"
+                  >
+                    {{ equipment.quick_purchase_enabled ? '可加購' : '庫存品' }}
+                  </span>
+                  <span
+                    v-if="equipment.is_custom_order"
+                    class="rounded-full border border-amber-100 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700"
+                  >
+                    訂製品
+                  </span>
+                </div>
               </div>
 
               <div class="mt-4 grid grid-cols-3 gap-2 text-center">
@@ -468,6 +476,12 @@ onMounted(() => {
                       <div>
                         <div class="font-black text-slate-800">{{ equipment.name }}</div>
                         <div class="mt-1 text-xs text-gray-400">{{ equipment.specs || equipment.notes || '-' }}</div>
+                        <div
+                          v-if="equipment.is_custom_order"
+                          class="mt-1 text-xs font-bold text-amber-600"
+                        >
+                          訂製品，家長端會顯示需等待備貨
+                        </div>
                       </div>
                     </div>
                   </td>
