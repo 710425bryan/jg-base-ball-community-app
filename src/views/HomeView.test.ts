@@ -198,6 +198,15 @@ const sampleAttendanceEvents = [
   }
 ]
 
+const sampleTeamMembers = [
+  { id: 'school-1', role: '校隊', status: '在隊' },
+  { id: 'community-1', role: '球員', status: '在隊' },
+  { id: 'leave-only-1', role: '球員', status: '在隊' },
+  { id: 'coach-1', role: '教練', status: '在隊' },
+  { id: 'inactive-community-1', role: '球員', status: '離隊' },
+  { id: 'inactive-coach-1', role: '教練', status: '退隊' }
+]
+
 const sampleTodayAttendanceStatus = {
   todayEvent: {
     id: 'attendance-1',
@@ -281,6 +290,7 @@ const mountHomeView = async ({
   announcements = sampleAnnouncements,
   attendanceEvents = sampleAttendanceEvents,
   todayAttendanceStatus = sampleTodayAttendanceStatus,
+  teamMembers = sampleTeamMembers,
   equipments = sampleEquipments
 } = {}) => {
   setActivePinia(createPinia())
@@ -314,13 +324,7 @@ const mountHomeView = async ({
   })
 
   teamMembersInMock.mockResolvedValue({
-    data: [
-      { role: '校隊', status: '在隊' },
-      { role: '球員', status: '在隊' },
-      { role: '教練', status: '在隊' },
-      { role: '球員', status: '離隊' },
-      { role: '教練', status: '退隊' }
-    ],
+    data: teamMembers,
     error: null
   })
   leaveRequestsGteMock.mockResolvedValue({
@@ -400,7 +404,7 @@ describe('HomeView dashboard redesign', () => {
     expect(wrapper.text()).toContain('Today Leaves')
     expect(wrapper.find('[data-test="team-members-total"]').text()).toContain('3')
     expect(wrapper.find('[data-test="school-team-count"]').text()).toContain('校隊 1')
-    expect(wrapper.find('[data-test="community-members-count"]').text()).toContain('社區 1')
+    expect(wrapper.find('[data-test="community-members-count"]').text()).toContain('社區 2')
     expect(wrapper.find('[data-test="coach-members-count"]').text()).toContain('教練 1')
     expect(wrapper.find('[data-test="today-leaves-total"]').text()).toContain('3')
     expect(wrapper.find('[data-test="today-leave-requests-count"]').text()).toContain('請假系統 2')
@@ -416,6 +420,24 @@ describe('HomeView dashboard redesign', () => {
     )
   })
 
+  it('excludes coaches from the Team Members total while keeping the coach count visible', async () => {
+    const teamMembers = [
+      ...Array.from({ length: 16 }, (_, index) => ({ id: `school-${index}`, role: '校隊', status: '在隊' })),
+      ...Array.from({ length: 60 }, (_, index) => ({ id: `community-${index}`, role: '球員', status: '在隊' })),
+      ...Array.from({ length: 6 }, (_, index) => ({ id: `coach-${index}`, role: '教練', status: '在隊' }))
+    ]
+
+    const { wrapper } = await mountHomeView({
+      role: 'ADMIN',
+      teamMembers
+    })
+
+    expect(wrapper.find('[data-test="team-members-total"]').text()).toContain('76')
+    expect(wrapper.find('[data-test="school-team-count"]').text()).toContain('校隊 16')
+    expect(wrapper.find('[data-test="community-members-count"]').text()).toContain('社區 60')
+    expect(wrapper.find('[data-test="coach-members-count"]').text()).toContain('教練 6')
+  })
+
   it('refreshes admin stats when team member rows change', async () => {
     const { wrapper } = await mountHomeView({
       role: 'ADMIN'
@@ -426,10 +448,11 @@ describe('HomeView dashboard redesign', () => {
 
     teamMembersInMock.mockResolvedValueOnce({
       data: [
-        { role: '校隊', status: '在隊' },
-        { role: '球員', status: '在隊' },
-        { role: '球員', status: '在隊' },
-        { role: '教練', status: '在隊' }
+        { id: 'school-1', role: '校隊', status: '在隊' },
+        { id: 'community-1', role: '球員', status: '在隊' },
+        { id: 'community-2', role: '球員', status: '在隊' },
+        { id: 'community-3', role: '球員', status: '在隊' },
+        { id: 'coach-1', role: '教練', status: '在隊' }
       ],
       error: null
     })
@@ -438,7 +461,7 @@ describe('HomeView dashboard redesign', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-test="team-members-total"]').text()).toContain('4')
-    expect(wrapper.find('[data-test="community-members-count"]').text()).toContain('社區 2')
+    expect(wrapper.find('[data-test="community-members-count"]').text()).toContain('社區 3')
   })
 
   it('hides the admin stats cards for non-admin users', async () => {

@@ -1,6 +1,6 @@
 {
   "name": "web",
-  "version": "1.0.115",
+  "version": "1.0.116",
   "private": true,
   "type": "module",
   "scripts": {
@@ -34,6 +34,8 @@
     "@vitejs/plugin-legacy": "7.2.1",
     "@vitejs/plugin-vue": "^5.0.0",
     "@vue/test-utils": "2.4.6",
+
+
     "autoprefixer": "10.4.27",
     "core-js": "3.48.0",
     "jsdom": "26.1.0",

@@ -80,7 +80,8 @@ type MyHomeSnapshotFetchOptions = {
 }
 
 const TEAM_LABEL = '中港熊戰'
-const MEMBER_STAT_ROLES = ['球員', '校隊', '教練']
+const PLAYER_MEMBER_STAT_ROLES = ['球員', '校隊']
+const MEMBER_STAT_ROLES = [...PLAYER_MEMBER_STAT_ROLES, '教練']
 const DEFAULT_WEATHER_TEMP = 26
 const DEFAULT_WEATHER_RAIN = 20
 const DEFAULT_WEATHER_WIND = 2
@@ -503,10 +504,14 @@ const fetchAdminStats = async () => {
 
     const todayLeaveMemberIds = new Set([...leaveRequestMemberIds, ...attendanceLeaveMemberIds])
 
-    stats.totalMembers = members.length
-    stats.schoolTeamMembers = members.filter((member) => member.role === '校隊').length
-    stats.communityMembers = members.filter((member) => member.role === '球員').length
-    stats.coachMembers = members.filter((member) => member.role === '教練').length
+    const schoolTeamMembers = members.filter((member) => member.role === '校隊').length
+    const communityMembers = members.filter((member) => member.role === '球員').length
+    const coachMembers = members.filter((member) => member.role === '教練').length
+
+    stats.totalMembers = schoolTeamMembers + communityMembers
+    stats.schoolTeamMembers = schoolTeamMembers
+    stats.communityMembers = communityMembers
+    stats.coachMembers = coachMembers
     stats.todayLeaves = todayLeaveMemberIds.size
     stats.todayLeaveRequests = leaveRequestMemberIds.size
     stats.todayAttendanceLeaves = attendanceLeaveMemberIds.size
