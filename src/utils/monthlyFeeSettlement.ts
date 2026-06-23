@@ -42,13 +42,18 @@ const addLeaveDate = (
 export const buildMonthlyFeeLeaveDateMap = ({
   leaveRequests,
   monthStart,
-  monthEnd
+  monthEnd,
+  trainingDates
 }: {
   leaveRequests: MonthlyFeeLeaveRequestSource[]
   monthStart: string
   monthEnd: string
+  trainingDates?: readonly string[] | null
 }) => {
   const leaveDateMap = new Map<string, Set<string>>()
+  const trainingDateSet = Array.isArray(trainingDates)
+    ? new Set(trainingDates.map(normalizeDateText).filter(Boolean))
+    : null
 
   leaveRequests.forEach((leave) => {
     const rawStart = normalizeDateText(leave.startDate)
@@ -62,7 +67,9 @@ export const buildMonthlyFeeLeaveDateMap = ({
 
     while (cursor.isValid() && end.isValid() && !cursor.isAfter(end, 'day')) {
       const date = cursor.format('YYYY-MM-DD')
-      addLeaveDate(leaveDateMap, leave.memberId, date)
+      if (!trainingDateSet || trainingDateSet.has(date)) {
+        addLeaveDate(leaveDateMap, leave.memberId, date)
+      }
       cursor = cursor.add(1, 'day')
     }
   })

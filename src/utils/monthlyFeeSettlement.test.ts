@@ -48,4 +48,19 @@ describe('monthlyFeeSettlement', () => {
     expect(leaveDateMap.get('member-1')).not.toContain('2026-05-16')
     expect(leaveDateMap.get('member-2')).toEqual(['2026-05-03'])
   })
+
+  it('counts only leave dates that are configured training dates when provided', () => {
+    const leaveDateMap = buildMonthlyFeeLeaveDateMap({
+      monthStart: '2026-06-01',
+      monthEnd: '2026-06-30',
+      trainingDates: ['2026-06-14', '2026-06-27'],
+      leaveRequests: [
+        { memberId: 'member-1', startDate: '2026-06-14', endDate: '2026-06-14' },
+        { memberId: 'member-1', startDate: '2026-06-27', endDate: '2026-06-28' }
+      ]
+    })
+
+    expect(leaveDateMap.get('member-1')).toEqual(['2026-06-14', '2026-06-27'])
+    expect(leaveDateMap.get('member-1')).not.toContain('2026-06-28')
+  })
 })

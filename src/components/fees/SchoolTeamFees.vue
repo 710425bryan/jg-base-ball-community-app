@@ -30,7 +30,7 @@
       <div class="w-full sm:w-auto flex flex-col gap-1.5 border-l-0 sm:border-l border-gray-200 pl-0 sm:pl-4">
         <span class="text-xs font-bold text-gray-500">月份統計說明</span>
         <p class="text-xs text-gray-500 leading-relaxed max-w-sm">
-          本月堂數依訓練日期設定自動計算；請假天數只依所選月份的假單日期統計。
+          本月堂數依訓練日期設定自動計算；請假天數只統計落在本月訓練日期內的假單日期。
         </p>
         <p class="text-[11px] text-gray-400 leading-relaxed max-w-sm">
           {{ trainingMonthDateSummary }}
@@ -205,7 +205,7 @@
     <!-- Data Table -->
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden" v-loading="isLoading">
       <div class="px-4 py-3 text-xs text-gray-400 border-b border-gray-100 bg-gray-50/60">
-        請假天數會依照所選月份統計假單日期；本月堂數依訓練日期設定自動計算。社區月繳列不參與堂數、請假或單堂費率計算。
+        請假天數只統計落在本月訓練日期內的假單日期；本月堂數依訓練日期設定自動計算。社區月繳列不參與堂數、請假或單堂費率計算。
       </div>
       <div class="overflow-x-auto">
         <table class="w-full min-w-[900px]">
@@ -656,7 +656,8 @@ const calculateFees = async () => {
         endDate: leave.end_date
       })),
       monthStart: startOfMonth,
-      monthEnd: endOfMonth
+      monthEnd: endOfMonth,
+      trainingDates: monthDateSettings.training_dates
     })
 
 
