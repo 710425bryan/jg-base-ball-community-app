@@ -1,13 +1,16 @@
 // @vitest-environment jsdom
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import MatchFormDialog from '../MatchFormDialog.vue'
+import { previewMatchLeaveAbsences } from '@/services/matchLeaveAbsences'
 
 vi.mock('@/stores/matches', () => ({
   useMatchesStore: () => ({
+    matches: [],
+    loading: false,
     fetchMatch: vi.fn(),
-    addMatch: vi.fn(),
+    createMatch: vi.fn(),
     updateMatch: vi.fn(),
     deleteMatch: vi.fn()
   })
@@ -42,6 +45,10 @@ vi.mock('@/utils/imageCompressor', () => ({
   compressImage: vi.fn()
 }))
 
+vi.mock('@/services/matchLeaveAbsences', () => ({
+  previewMatchLeaveAbsences: vi.fn(async () => [])
+}))
+
 vi.mock('@/utils/matchAudioDraftStore', () => ({
   listMatchAudioDrafts: vi.fn(async () => []),
   getMatchAudioDraftChunks: vi.fn(async () => []),
@@ -56,6 +63,11 @@ const ElButtonStub = {
   emits: ['click'],
   template: '<button :disabled="disabled || loading" @click="$emit(\'click\')"><slot /></button>'
 }
+
+beforeEach(() => {
+  vi.mocked(previewMatchLeaveAbsences).mockReset()
+  vi.mocked(previewMatchLeaveAbsences).mockResolvedValue([])
+})
 
 const mountDialog = async () => {
   const wrapper = mount(MatchFormDialog, {
@@ -149,5 +161,86 @@ describe('MatchFormDialog sync current lineup editor', () => {
       name: '王大雷',
       number: '18'
     })
+  })
+})
+
+describe('MatchFormDialog leave request absence sync', () => {
+  it('adds leave request absences for selected future match players', async () => {
+    const wrapper = await mountDialog()
+    const vm = wrapper.vm as any
+
+    vm.formData.match_date = '2099-06-28'
+    vm.formData.players = '王小明,李小華'
+    await nextTick()
+    vi.mocked(previewMatchLeaveAbsences).mockClear()
+    vi.mocked(previewMatchLeaveAbsences).mockResolvedValueOnce([
+      {
+        name: '王小明',
+        type: '事假',
+        source: 'leave_request',
+        member_id: 'member-1',
+        leave_request_ids: ['leave-1'],
+        start_date: '2099-06-28',
+        end_date: '2099-06-28'
+      }
+    ])
+    await vm.syncLeaveRequestAbsences()
+
+    expect(previewMatchLeaveAbsences).toHaveBeenLastCalledWith('2099-06-28', ['王小明', '李小華'])
+    expect(vm.formData.absent_players).toEqual([
+      expect.objectContaining({
+        name: '王小明',
+        type: '事假',
+        source: 'leave_request',
+        member_id: 'member-1',
+        leave_request_ids: ['leave-1']
+      })
+    ])
+  })
+
+  it('removes stale leave request absences while preserving manual absences', async () => {
+    const wrapper = await mountDialog()
+    const vm = wrapper.vm as any
+
+    vm.formData.match_date = '2099-06-28'
+    vm.formData.players = '王小明'
+    vm.formData.absent_players = [
+      {
+        name: '王小明',
+        type: '事假',
+        source: 'leave_request',
+        member_id: 'member-1',
+        leave_request_ids: ['leave-1']
+      },
+      { name: '手動球員', type: '病假' }
+    ]
+
+    await vm.syncLeaveRequestAbsences()
+
+    expect(vm.formData.absent_players).toEqual([{ name: '手動球員', type: '病假' }])
+  })
+
+  it('does not remove manual absences when no selected players can match leave requests', async () => {
+    const wrapper = await mountDialog()
+    const vm = wrapper.vm as any
+
+    vi.mocked(previewMatchLeaveAbsences).mockClear()
+    vm.formData.match_date = '2099-06-28'
+    vm.formData.players = ''
+    vm.formData.absent_players = [
+      {
+        name: '舊假單球員',
+        type: '事假',
+        source: 'leave_request',
+        member_id: 'member-1',
+        leave_request_ids: ['leave-1']
+      },
+      { name: '手動球員', type: '病假' }
+    ]
+
+    await vm.syncLeaveRequestAbsences()
+
+    expect(previewMatchLeaveAbsences).not.toHaveBeenCalled()
+    expect(vm.formData.absent_players).toEqual([{ name: '手動球員', type: '病假' }])
   })
 })

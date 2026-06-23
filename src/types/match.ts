@@ -6,6 +6,11 @@ export interface PlayerRef {
 export interface AbsentPlayer {
   name: string;
   type: string;
+  source?: 'leave_request' | string;
+  member_id?: string | null;
+  leave_request_ids?: string[];
+  start_date?: string | null;
+  end_date?: string | null;
 }
 
 export interface LineupEntry {

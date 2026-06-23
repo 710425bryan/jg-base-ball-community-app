@@ -19,15 +19,16 @@ description: "Match records, schedule detail, lineup, media, live controller, au
 6. `src/views/MatchRecordsView.vue`
 7. `src/views/MyPlayerRecordsView.vue`
 8. `src/services/matchesApi.ts`
-9. `src/services/matchAudioApi.ts`
-10. `src/services/weatherApi.ts`
-11. `src/stores/matches.ts`
-12. `src/types/match.ts`
-13. `src/utils/matchRecordStats.ts`、`src/utils/matchFieldEditor.ts`、`src/utils/liveMatchScoreboard.ts`、`src/utils/matchAudioTranscription.ts`、`src/utils/matchAudioDraftStore.ts`、`src/utils/lineupPhotoParser.ts`、`src/utils/matchReminderNotification.ts`、`src/utils/matchReminderSchedule.ts`、`src/utils/matchCalendarCopy.ts`
-14. `src/components/match-records/*`
-15. `supabase/functions/parse-lineup/index.ts`、`supabase/functions/transcribe-match-audio/index.ts`、`supabase/functions/resolve-location/*`、`supabase/functions/send-match-reminders/index.ts`
-16. 若改 Google Calendar / iCal parser，再讀 `jg-baseball-match-calendar-sync` skill
-17. 若改比賽費金額、付款或 `match_fee_items`，再讀 `jg-baseball-finance-payments` skill
+9. `src/services/matchLeaveAbsences.ts`
+10. `src/services/matchAudioApi.ts`
+11. `src/services/weatherApi.ts`
+12. `src/stores/matches.ts`
+13. `src/types/match.ts`
+14. `src/utils/matchRecordStats.ts`、`src/utils/matchFieldEditor.ts`、`src/utils/liveMatchScoreboard.ts`、`src/utils/matchAudioTranscription.ts`、`src/utils/matchAudioDraftStore.ts`、`src/utils/lineupPhotoParser.ts`、`src/utils/matchReminderNotification.ts`、`src/utils/matchReminderSchedule.ts`、`src/utils/matchCalendarCopy.ts`、`src/utils/matchLeaveAbsences.ts`
+15. `src/components/match-records/*`
+16. `supabase/functions/parse-lineup/index.ts`、`supabase/functions/transcribe-match-audio/index.ts`、`supabase/functions/resolve-location/*`、`supabase/functions/send-match-reminders/index.ts`
+17. 若改 Google Calendar / iCal parser，再讀 `jg-baseball-match-calendar-sync` skill
+18. 若改比賽費金額、付款或 `match_fee_items`，再讀 `jg-baseball-finance-payments` skill
 
 ## 功能邊界
 
@@ -38,6 +39,7 @@ description: "Match records, schedule detail, lineup, media, live controller, au
 - 賽事提醒排程是全站共用多組規則，設定存在 `system_settings.match_reminder_schedule_config`，自動排程由 `send-match-reminders` 每分鐘依 Asia/Taipei 判斷到期規則。
 - `/my-records` 透過 `myPlayerRecords` RPC 讀 linked member 可見紀錄，不直接使用後台 `matchesApi` 列表。
 - 比賽照片使用 `matches-photos` bucket。
+- 今日 / 未來賽事的假單同步請假列走 `matchLeaveAbsences` service 與 `supabase_match_leave_absences_migration.sql`，只管理 `matches.absent_players` 中 `source = 'leave_request'` 的列。
 - 陣容照片解析走 `parse-lineup` Edge Function 與 `lineupPhotoParser` 前處理。
 - 比賽語音轉紀錄走 `transcribe-match-audio` Edge Function、`matchAudioApi`、`matchAudioTranscription` 與 IndexedDB draft store。
 - 天氣預報走 `weatherApi`，地點解析優先呼叫 `resolve-location` Edge Function，再使用本地 fallback。
@@ -50,6 +52,7 @@ description: "Match records, schedule detail, lineup, media, live controller, au
 - 上傳照片、語音檔或 AI 解析結果時，不要繞過使用者權限檢查。
 - `parse-lineup` 與 `transcribe-match-audio` 使用 service role 時，要先驗證 bearer token 使用者，再以 user scoped client 檢查 `matches:CREATE` 或 `matches:EDIT`。
 - AI 解析不可把未在照片或語音中明確出現的球員硬塞進結果；未匹配球員要走 unresolved flow。
+- 假單同步請假列不可刪除手動請假列；刪除 / 修改假單後，今日與未來賽事的自動列必須可移除並讓比賽費重算。
 - 修改 `matches` 欄位時，同步更新 type、service select / payload、form dialog、grid/table/detail、相關 test 與 migration。
 - 修改天氣或地點解析時，避免讓外部 API 失敗造成首頁或賽程頁崩潰；保留 fallback。
 

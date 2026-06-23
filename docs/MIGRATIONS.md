@@ -85,6 +85,7 @@
 | `supabase_match_video_url_migration.sql` | 比賽影片欄位 | media UI 使用 |
 | `supabase_match_reminder_notifications_migration.sql` | 賽事提醒通知 | 覆寫 `get_notification_feed()` 可能性 |
 | `supabase_match_reminder_schedule_config_migration.sql` | 賽事提醒排程設定 | `system_settings.match_reminder_schedule_config`、每分鐘 cron checker |
+| `supabase_match_leave_absences_migration.sql` | 未來賽事假單請假同步 | `preview_match_leave_absences()`、`get_match_leave_absences()`、`leave_requests` / `matches` trigger，只管理 `source = 'leave_request'` 的 `matches.absent_players` |
 | `supabase_location_geocoding_cache_migration.sql` | 地點 geocoding cache | `resolve-location` Edge Function 使用 |
 
 ## 收費、付款、餘額與比賽費

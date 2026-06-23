@@ -66,6 +66,8 @@ const MATCH_SUMMARY_SELECT = `
   opponent_score,
   coaches,
   players,
+  absent_players,
+  note,
   photo_url,
   video_url,
   created_at,

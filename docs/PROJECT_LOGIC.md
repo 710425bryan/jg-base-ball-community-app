@@ -214,6 +214,8 @@ UI 約定：
 - `src/services/myLeaveRequests.ts`
 - `src/services/dashboardAttendance.ts`
 - `src/utils/leaveRequests.ts`
+- `src/services/matchLeaveAbsences.ts`
+- `src/utils/matchLeaveAbsences.ts`
 - `supabase/functions/leave-webhook/index.ts`
 
 主要資料：
@@ -233,6 +235,7 @@ UI 約定：
 - 場地配置點名單透過 `attendance_events.training_location_session_id` / `training_location_session_venue_id` 連回場地配置；每個場地區塊各自一張點名單，名單只取該場地最新 assignments。
 - 外部請假 webhook 會處理 member match、建立假單與通知，必須檢查 secret、payload normalize 與推播 target。
 - 今日訓練點名摘要走 `get_dashboard_today_attendance_status()`，會回傳今日所有點名單與請假名單，只顯示給 `leave_requests:VIEW`。
+- `leave_requests` 新增 / 更新 / 刪除會透過 `supabase_match_leave_absences_migration.sql` 的 trigger 重算今日與未來賽事中 `source = 'leave_request'` 的 `matches.absent_players`；手動請假列不會被假單同步刪除。
 
 重要規則：
 
@@ -247,6 +250,7 @@ UI 約定：
 - `src/views/CalendarView.vue`
 - `src/views/MatchRecordsView.vue`
 - `src/services/matchesApi.ts`
+- `src/services/matchLeaveAbsences.ts`
 - `src/services/matchAudioApi.ts`
 - `src/services/weatherApi.ts`
 - `src/stores/matches.ts`
@@ -260,6 +264,7 @@ UI 約定：
 - `src/utils/matchAudioDraftStore.ts`
 - `src/utils/matchReminderNotification.ts`
 - `src/utils/matchReminderSchedule.ts`
+- `src/utils/matchLeaveAbsences.ts`
 - `src/components/match-records/*`
 - `supabase/functions/parse-lineup/index.ts`
 - `supabase/functions/transcribe-match-audio/index.ts`
@@ -269,6 +274,7 @@ UI 約定：
 主要資料：
 
 - `matches`
+- `leave_requests`
 - `attendance_records`
 - `team_members_safe`
 - `location_geocoding_cache`
@@ -281,6 +287,8 @@ UI 約定：
 - 同步規劃維持 `create`、`update`、`skip` 三種結果。
 - 比賽紀錄元件處理陣容、照片、出席統計、賽事細節與 live controller。
 - `/calendar?match_id=...` 會開啟 `MatchDetailDialog`；推播與通知的比賽詳情 URL 統一導向這條路徑。
+- `MatchFormDialog` 會用 `preview_match_leave_absences(p_match_date, p_player_names)` 預覽出賽名單內、假單日期涵蓋比賽日的球員，顯示成不可手動改名的 `source = 'leave_request'` 請假列。
+- `MatchDetailDialog` 的「賽事備註」卡會合併已儲存手動請假列與 `get_match_leave_absences(p_match_id)` 的最新假單同步列；今日 / 未來賽事中已刪除假單留下的舊自動列不再顯示。
 - `/match-records` 的「未來賽事」可由具 `matches:EDIT` 的使用者手動發送單場賽事通知；「提醒排程」同樣只給 `matches:EDIT` 使用者管理，設定存在 `system_settings.match_reminder_schedule_config`，透過 `get_match_reminder_schedule_config()` / `save_match_reminder_schedule_config(jsonb)` 讀寫全站共用多組規則。
 - Edge Function `send-match-reminders` 會驗證手動 bearer user 權限或排程 secret；自動排程每分鐘以 Asia/Taipei 判斷到期規則，寫入 `push_dispatch_events` 並發送 Web Push，通知 URL 統一導向 `/calendar?match_id=...`。
 - 陣容照片解析會先在前端壓縮 / 轉 data URL，再呼叫 `parse-lineup`，AI 結果需要 normalize 與 unresolved flow。
@@ -291,6 +299,8 @@ UI 約定：
 
 - 保留 `google_calendar_event_id` 欄位缺失時的 fallback。
 - 同步比對先用 `google_calendar_event_id`，再用日期 + 時間 + 標題 fallback。
+- 自動假單同步只新增 / 更新 / 刪除 `matches.absent_players` 中 `source = 'leave_request'` 的列；手動列與 Google Calendar 匯入既有列不得被 trigger 移除。
+- 假單同步只作用於今日與未來賽事，且只比對該場 `players` 出賽名單內的球員；刪除假單後既有比賽費 trigger 需跟著重算。
 - `parse-lineup` 與 `transcribe-match-audio` 使用 service role 時，必須先驗證 bearer user，再用 user scoped client 檢查 `matches:CREATE` 或 `matches:EDIT`。
 - AI 不可把沒有在照片 / 語音中明確出現的球員硬塞進陣容或紀錄。
 

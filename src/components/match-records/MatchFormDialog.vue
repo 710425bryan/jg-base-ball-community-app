@@ -21,6 +21,12 @@ import MatchFieldEditor from './MatchFieldEditor.vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import { cloneLineScoreData, createDefaultLineScoreData, finalizeInningScore, getNextInning } from '@/utils/liveMatchScoreboard'
 import { buildMatchAudioRoster } from '@/utils/matchAudioTranscription'
+import { previewMatchLeaveAbsences } from '@/services/matchLeaveAbsences'
+import {
+  isLeaveRequestAbsentPlayer,
+  mergeManualAndLeaveAbsences,
+  withoutLeaveRequestAbsentPlayers
+} from '@/utils/matchLeaveAbsences'
 
 const props = defineProps<{
   modelValue: boolean
@@ -35,6 +41,9 @@ const emit = defineEmits<{
 const matchesStore = useMatchesStore()
 const activeTab = ref('basic')
 const submitting = ref(false)
+const syncingLeaveAbsences = ref(false)
+const leaveAbsenceSyncError = ref('')
+let leaveAbsenceSyncRunId = 0
 
 interface TeamMemberOption {
   id: string
@@ -263,8 +272,50 @@ const addAbsent = () => {
   formData.value.absent_players.push({ name: '', type: '事假' })
 }
 const removeAbsent = (index: number) => {
+  if (isLeaveRequestAbsentPlayer(formData.value.absent_players[index])) return
   formData.value.absent_players.splice(index, 1)
 }
+
+const isPastMatchDate = (matchDate: string | null | undefined) => {
+  if (!matchDate) return false
+  return dayjs(matchDate).isBefore(dayjs(), 'day')
+}
+
+const syncLeaveRequestAbsences = async () => {
+  const runId = ++leaveAbsenceSyncRunId
+  const matchDate = formData.value.match_date
+  const playerNames = selectedPlayers.value
+
+  leaveAbsenceSyncError.value = ''
+
+  if (!visible.value || !matchDate || !playerNames.length || isPastMatchDate(matchDate)) {
+    formData.value.absent_players = withoutLeaveRequestAbsentPlayers(formData.value.absent_players)
+    return
+  }
+
+  syncingLeaveAbsences.value = true
+  try {
+    const leaveAbsences = await previewMatchLeaveAbsences(matchDate, playerNames)
+    if (runId !== leaveAbsenceSyncRunId) return
+    formData.value.absent_players = mergeManualAndLeaveAbsences(formData.value.absent_players, leaveAbsences)
+  } catch (error: any) {
+    if (runId !== leaveAbsenceSyncRunId) return
+    leaveAbsenceSyncError.value = error?.message || '假單同步失敗'
+    console.error('Unable to preview match leave absences:', error)
+  } finally {
+    if (runId === leaveAbsenceSyncRunId) {
+      syncingLeaveAbsences.value = false
+    }
+  }
+}
+
+watch(
+  () => [visible.value, formData.value.match_date, formData.value.players] as const,
+  () => {
+    void syncLeaveRequestAbsences()
+  },
+  { flush: 'post' }
+)
 
 // === TAB 2: LINEUP ===
 const posOptions = [
@@ -994,6 +1045,7 @@ const handleSave = async () => {
   
   submitting.value = true
   try {
+    await syncLeaveRequestAbsences()
     if (!lineupHasNamedPlayers(formData.value.current_lineup)) {
       formData.value.current_lineup = cloneLineup(formData.value.lineup)
     }
@@ -1259,19 +1311,29 @@ const handlePhotoUpload = async (event: Event) => {
           <!-- Absent Players Dynamic List -->
           <div>
             <div class="flex items-center justify-between mb-2">
-              <label class="text-xs font-bold text-gray-500 block">請假球員紀錄</label>
+              <div class="flex flex-col gap-1">
+                <label class="text-xs font-bold text-gray-500 block">請假球員紀錄</label>
+                <span v-if="syncingLeaveAbsences" class="text-[11px] font-semibold text-amber-600">假單同步檢查中...</span>
+                <span v-else-if="leaveAbsenceSyncError" class="text-[11px] font-semibold text-red-500">{{ leaveAbsenceSyncError }}</span>
+              </div>
               <el-button size="small" type="primary" plain @click="addAbsent"><el-icon><Plus /></el-icon>新增請假人員</el-button>
             </div>
             <div class="space-y-2">
-              <div v-for="(abs, i) in formData.absent_players" :key="i" class="flex items-center gap-2">
-                <el-input v-model="abs.name" placeholder="球員名稱" class="w-1/3" />
-                <el-select v-model="abs.type" placeholder="假別" class="w-1/4">
+              <div
+                v-for="(abs, i) in formData.absent_players"
+                :key="`${abs.source || 'manual'}-${abs.member_id || abs.name || i}`"
+                class="flex items-center gap-2"
+                :class="isLeaveRequestAbsentPlayer(abs) ? 'rounded-lg border border-amber-100 bg-amber-50/70 p-2' : ''"
+              >
+                <el-input v-model="abs.name" placeholder="球員名稱" class="w-1/3" :disabled="isLeaveRequestAbsentPlayer(abs)" />
+                <el-select v-model="abs.type" placeholder="假別" class="w-1/4" :disabled="isLeaveRequestAbsentPlayer(abs)">
                   <el-option value="事假" label="事假" />
                   <el-option value="病假" label="病假" />
                   <el-option value="公假" label="公假" />
                   <el-option value="未到" label="曠課/未到" />
                 </el-select>
-                <el-button type="danger" circle size="small" plain @click="removeAbsent(i)"><el-icon><Minus /></el-icon></el-button>
+                <el-tag v-if="isLeaveRequestAbsentPlayer(abs)" size="small" type="warning" effect="plain">假單同步</el-tag>
+                <el-button v-else type="danger" circle size="small" plain @click="removeAbsent(i)"><el-icon><Minus /></el-icon></el-button>
               </div>
               <div v-if="!formData.absent_players.length" class="text-xs text-gray-400 p-3 bg-gray-50 rounded-lg text-center border border-dashed border-gray-200">
                 本場賽事無人請假

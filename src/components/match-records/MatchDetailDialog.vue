@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Trophy, Location, Calendar, Position, Avatar, WarnTriangleFilled, ArrowLeft, ArrowRight, Delete, Edit, Document, Timer, DataAnalysis, VideoCamera, Money, DocumentCopy } from '@element-plus/icons-vue'
 import { useMatchesStore } from '@/stores/matches'
 import type { MatchRecord } from '@/types/match'
@@ -7,6 +7,11 @@ import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import VisualField from '@/components/match-records/VisualField.vue'
 import { normalizeExternalUrl } from '@/utils/externalUrl'
 import { formatMatchRecordForGoogleCalendar } from '@/utils/matchCalendarCopy'
+import { getMatchLeaveAbsences } from '@/services/matchLeaveAbsences'
+import {
+  isLeaveRequestAbsentPlayer,
+  mergeManualAndLeaveAbsences
+} from '@/utils/matchLeaveAbsences'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -29,6 +34,9 @@ const visible = computed({
 
 const matchesStore = useMatchesStore()
 const loading = computed(() => matchesStore.loading)
+const liveLeaveAbsences = ref<MatchRecord['absent_players']>([])
+const liveLeaveAbsencesLoaded = ref(false)
+let liveLeaveAbsenceRunId = 0
 
 const matchData = computed(() => {
   if (props.matchRecord && props.matchRecord.id === props.matchId) return props.matchRecord
@@ -61,6 +69,49 @@ const isFuture = computed(() => {
   if (!matchData.value?.match_date) return false
   return dayjs(matchData.value.match_date).isAfter(dayjs(), 'day')
 })
+
+const shouldRefreshLeaveAbsences = computed(() => {
+  if (!matchData.value?.match_date) return false
+  return !dayjs(matchData.value.match_date).isBefore(dayjs(), 'day')
+})
+
+const displayAbsentPlayers = computed(() => {
+  const savedPlayers = matchData.value?.absent_players || []
+  if (!shouldRefreshLeaveAbsences.value || !liveLeaveAbsencesLoaded.value) return savedPlayers
+  return mergeManualAndLeaveAbsences(savedPlayers, liveLeaveAbsences.value)
+})
+
+const refreshLiveLeaveAbsences = async () => {
+  const runId = ++liveLeaveAbsenceRunId
+  liveLeaveAbsencesLoaded.value = false
+  liveLeaveAbsences.value = []
+
+  if (!visible.value || !props.matchId || !shouldRefreshLeaveAbsences.value) return
+
+  try {
+    const rows = await getMatchLeaveAbsences(props.matchId)
+    if (runId !== liveLeaveAbsenceRunId) return
+    liveLeaveAbsences.value = rows
+    liveLeaveAbsencesLoaded.value = true
+  } catch (error) {
+    if (runId !== liveLeaveAbsenceRunId) return
+    console.error('Unable to load match leave absences:', error)
+  }
+}
+
+watch(
+  () => [
+    visible.value,
+    props.matchId,
+    matchData.value?.match_date,
+    matchData.value?.players,
+    matchData.value?.updated_at
+  ] as const,
+  () => {
+    void refreshLiveLeaveAbsences()
+  },
+  { immediate: true }
+)
 
 const matchDateLabel = computed(() => {
   if (!matchData.value?.match_date) return '未設定日期'
@@ -294,11 +345,17 @@ const pitchingTeamStats = computed(() => {
                        <span>觀看影片</span>
                      </a>
                    </div>
-                   <div v-if="matchData.absent_players?.length" class="flex flex-col">
+                   <div v-if="displayAbsentPlayers.length" class="flex flex-col">
                      <span class="text-gray-500 font-bold text-xs mb-1">請假球員</span>
                      <div class="flex flex-wrap gap-2">
-                       <span v-for="(p, i) in matchData.absent_players" :key="i" class="bg-gray-100 text-gray-600 px-2 py-0.5 rounded text-xs">
+                       <span
+                         v-for="(p, i) in displayAbsentPlayers"
+                         :key="`${p.source || 'manual'}-${p.member_id || p.name || i}`"
+                         class="px-2 py-0.5 rounded text-xs"
+                         :class="isLeaveRequestAbsentPlayer(p) ? 'bg-amber-50 text-amber-700 border border-amber-100' : 'bg-gray-100 text-gray-600'"
+                       >
                          <span class="font-bold">{{ p.name }}</span> <span class="text-[10px] bg-white border border-gray-200 px-1 rounded">{{ p.type }}</span>
+                         <span v-if="isLeaveRequestAbsentPlayer(p)" class="ml-1 text-[10px] font-bold">假單同步</span>
                        </span>
                      </div>
                    </div>
