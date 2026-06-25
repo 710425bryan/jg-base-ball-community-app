@@ -5,10 +5,12 @@ import dayjs, { type Dayjs } from 'dayjs'
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import HomeHolidayHeroOverlay from '@/components/home/HomeHolidayHeroOverlay.vue'
+import CoachScheduleDashboardPanel from '@/components/home/CoachScheduleDashboardPanel.vue'
 import MyHomeTodayPanel from '@/components/home/MyHomeTodayPanel.vue'
 import MatchDetailDialog from '@/components/match-records/MatchDetailDialog.vue'
 import FeeManagementReminderPanel from '@/components/fees/FeeManagementReminderPanel.vue'
 import EquipmentPhotoCarousel from '@/components/equipment/EquipmentPhotoCarousel.vue'
+import { listCoachScheduleDashboardMonth } from '@/services/coachSchedulesApi'
 import { getDashboardTodayAttendanceStatus } from '@/services/dashboardAttendance'
 import { getMyHomeSnapshot } from '@/services/myHome'
 import { supabase } from '@/services/supabase'
@@ -23,6 +25,7 @@ import type { Equipment } from '@/types/equipment'
 import type { MatchRecord } from '@/types/match'
 import { createEmptyMyHomeSnapshot } from '@/types/myHome'
 import type { TrainingSession } from '@/types/training'
+import type { CoachScheduleMonthPayload } from '@/types/coachSchedule'
 import {
   getEquipmentRemainingOverallQuantity,
   getEquipmentSizeInventoryList
@@ -138,6 +141,8 @@ const isTodayAttendanceLoading = ref(false)
 const todayAttendanceEvents = ref<DashboardTodayAttendanceEvent[]>([])
 const todayAttendanceLeaveNames = ref<string[]>([])
 const todayAttendanceLeaveCount = ref(0)
+const coachSchedulePayload = ref<CoachScheduleMonthPayload | null>(null)
+const isCoachScheduleLoading = ref(false)
 
 let clockId: ReturnType<typeof setInterval> | null = null
 let myHomeTrainingSessionsRequestId = 0
@@ -149,7 +154,9 @@ const canViewMatches = computed(() => permissionsStore.can('matches', 'VIEW'))
 const canViewAnnouncements = computed(() => permissionsStore.can('announcements', 'VIEW'))
 const canViewFees = computed(() => permissionsStore.can('fees', 'VIEW'))
 const canViewLeaveRequests = computed(() => permissionsStore.can('leave_requests', 'VIEW'))
+const canViewCoachSchedules = computed(() => permissionsStore.can('coach_schedules', 'VIEW'))
 const isAdmin = computed(() => permissionsStore.currentRole === 'ADMIN')
+const isCoachProfile = computed(() => ['HEAD_COACH', 'COACH'].includes(String(authStore.profile?.role || '')))
 const hasLinkedTeamMembers = computed(() => {
   const linkedIds = authStore.profile?.linked_team_member_ids
   return Array.isArray(linkedIds) && linkedIds.length > 0
@@ -158,6 +165,7 @@ const shouldShowMyHomePanel = computed(() => {
   const role = authStore.profile?.role
   return role === 'MEMBER' || role === 'PARENT' || hasLinkedTeamMembers.value
 })
+const shouldShowCoachSchedulePanel = computed(() => canViewCoachSchedules.value || isCoachProfile.value)
 const isMyHomeNextTrainingEvent = computed(() =>
   myHomeSnapshot.value.next_event?.match_level === '特訓課'
 )
@@ -566,6 +574,32 @@ const fetchTodayAttendanceStatus = async () => {
   }
 }
 
+const fetchCoachScheduleDashboard = async (options: { silent?: boolean } = {}) => {
+  if (!shouldShowCoachSchedulePanel.value) {
+    coachSchedulePayload.value = null
+    return
+  }
+
+  if (!options.silent) {
+    isCoachScheduleLoading.value = true
+  }
+
+  try {
+    coachSchedulePayload.value = await listCoachScheduleDashboardMonth(now.value.format('YYYY-MM'))
+  } catch (error) {
+    console.error('Error fetching coach schedule dashboard:', error)
+    coachSchedulePayload.value = {
+      month_start: now.value.startOf('month').format('YYYY-MM-DD'),
+      scope: canViewCoachSchedules.value ? 'all' : 'own',
+      events: []
+    }
+  } finally {
+    if (!options.silent) {
+      isCoachScheduleLoading.value = false
+    }
+  }
+}
+
 const fetchAnnouncementsData = async () => {
   if (!canViewAnnouncements.value) {
     latestAnnouncements.value = []
@@ -681,6 +715,13 @@ const refreshMyHomeSnapshotWhenScheduleMoves = (currentNow: Dayjs, previousNow: 
   }
 }
 
+const refreshCoachScheduleWhenMonthMoves = (currentNow: Dayjs, previousNow: Dayjs) => {
+  if (!shouldShowCoachSchedulePanel.value) return
+  if (currentNow.format('YYYY-MM') !== previousNow.format('YYYY-MM')) {
+    void fetchCoachScheduleDashboard({ silent: true })
+  }
+}
+
 const openMatchDetail = async (matchId: string) => {
   selectedMatchId.value = matchId
   detailVisible.value = true
@@ -734,6 +775,7 @@ onMounted(() => {
     const currentNow = dayjs()
     now.value = currentNow
     refreshMyHomeSnapshotWhenScheduleMoves(currentNow, previousNow)
+    refreshCoachScheduleWhenMonthMoves(currentNow, previousNow)
   }, 60_000)
 
   const myHomePromise = fetchMyHomeSnapshotData()
@@ -742,6 +784,7 @@ onMounted(() => {
   void Promise.allSettled([
     Promise.allSettled([myHomePromise, matchesPromise]).then(() => fetchWeatherData()),
     fetchTodayAttendanceStatus(),
+    fetchCoachScheduleDashboard(),
     fetchAdminStats(),
     fetchAnnouncementsData(),
     fetchEquipmentAddonData()
@@ -1119,6 +1162,13 @@ onUnmounted(() => {
       :show-training-registration-action="showMyHomeTrainingRegistrationAction"
       :weather="myHomeWeatherCard"
       @refresh="fetchMyHomeSnapshotData"
+    />
+
+    <CoachScheduleDashboardPanel
+      v-if="shouldShowCoachSchedulePanel"
+      :payload="coachSchedulePayload"
+      :is-loading="isCoachScheduleLoading"
+      :can-manage="canViewCoachSchedules"
     />
 
     <section

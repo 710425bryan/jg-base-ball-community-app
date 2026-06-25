@@ -46,6 +46,7 @@
 | 特訓報名、球員點數、特訓點名 | `jg-baseball-training` | `src/views/TrainingView.vue`、`src/services/trainingApi.ts`、`src/utils/training.ts`、`supabase_training_points_migration.sql` |
 | 每月訓練日期、日期異動通知 | `jg-baseball-training-dates` | `src/views/TrainingDatesView.vue`、`src/services/trainingDatesApi.ts`、`src/utils/trainingMonthDates.ts`、`supabase_training_dates_migration.sql` |
 | 場地與人員配置 | `jg-baseball-training-locations` | `src/views/TrainingLocationsView.vue`、`src/services/trainingLocationsApi.ts`、`src/utils/trainingLocationNotification.ts`、`supabase_training_locations_migration.sql` |
+| 教練排班表、教練上課日 | `jg-baseball-coach-schedules` | `src/views/CoachSchedulesView.vue`、`src/services/coachSchedulesApi.ts`、`src/utils/coachSchedules.ts`、`supabase_coach_schedules_migration.sql` |
 | 收費、付款、球員餘額、比賽費、匯款匯入 | `jg-baseball-finance-payments` | `FeesView.vue`、`MyPaymentsView.vue`、`src/services/myPayments.ts`、`src/services/matchFees.ts`、`src/services/playerBalances.ts` |
 | 裝備管理、加購、庫存、裝備付款 | `jg-baseball-equipment-management` | `src/types/equipment.ts`、`src/services/equipmentApi.ts`、`src/stores/equipment*.ts`、`src/components/equipment/*` |
 | 廠商名單、交易類別、廠商照片 | `jg-baseball-vendors` | `src/views/VendorsView.vue`、`src/services/vendorsApi.ts`、`src/stores/vendors.ts`、`src/components/vendors/*` |
@@ -118,7 +119,7 @@
 登入後頁面掛在 `MainLayout`，父層 `meta.requiresAuth = true`。
 
 - 不需額外 feature 的登入頁：`/dashboard`、`/calendar`、`/profile`、`/my-records`、`/my-payments`、`/equipment-addons`、`/my-leave-requests`。
-- 需要 `meta.feature` 的後台頁：`leave_requests`、`players`、`users`、`join_inquiries`、`announcements`、`holiday_theme_settings`、`attendance`、`training`、`training_dates`、`training_locations`、`matches`、`fees`、`baseball_ability`、`physical_tests`、`equipment`、`vendors`。
+- 需要 `meta.feature` 的後台頁：`leave_requests`、`players`、`users`、`join_inquiries`、`announcements`、`holiday_theme_settings`、`attendance`、`training`、`training_dates`、`training_locations`、`coach_schedules`、`matches`、`fees`、`baseball_ability`、`physical_tests`、`equipment`、`vendors`。
 - `baseball_ability` 與 `physical_tests` 有 `allowLinkedMemberView` 例外：有綁定球員者可唯讀自己的資料；管理權限者可看全隊。
 - 無權限時導回 `/dashboard`。
 
@@ -211,6 +212,15 @@
 - 場地配置的每個場地區塊可各自建立一張連動點名單；建立需 `training_locations:EDIT` + `attendance:CREATE`，開啟與操作仍走既有 `attendance:VIEW / EDIT / DELETE`。配置儲存後若場地已有連動點名單，DB 會同步該場地最新球員名單，移除已不在該場地內的點名紀錄。
 - 個人首頁透過 `get_my_home_snapshot()` 或 `list_my_week_training_locations()` 顯示 linked member 本週訓練場地；已請假球員仍可看到配置，但標示已請假。
 - `send-training-location-notifications` 於台灣時間前一天 20:10 或手動觸發，僅通知該球員綁定的有效使用者，且排除該訓練日已請假的球員；通知事件寫入 `push_dispatch_events.target_user_id` / `target_member_ids`，通知中心只顯示自己的場地通知。
+
+### 教練排班表
+
+- 後台路由 `/coach-schedules`，feature key 為 `coach_schedules`，actions：`VIEW / CREATE / EDIT / DELETE`。
+- 資料表為 `coach_schedule_events`、`coach_schedule_assignments`；排班對象綁定 `profiles.id`，候選教練只列 active 且可登入期間內的 `HEAD_COACH`、`COACH`。
+- 候選活動由 `list_coach_schedule_admin_month()` 產生：場地配置區塊優先，其次 `/training-dates` 的訓練日期；同月 `matches.match_level = '特訓課'` 顯示特訓，其餘 `matches` 顯示比賽。
+- `/training-dates` 只決定訓練日；教練上課日與指派在 `/coach-schedules` 設定，並可由訓練日期設定頁帶同月份跳轉。
+- Dashboard 走 `list_coach_schedule_dashboard()`；具 `coach_schedules:VIEW` 者看全體教練排班，`HEAD_COACH` / `COACH` 只看自己被指派的排班，一般使用者不顯示。
+- `matches.coaches` 只作比賽原始教練文字參考，不作個人權限或 Dashboard 可見性判斷。
 
 ### 收費與付款
 
@@ -328,6 +338,7 @@
 - 收費 / 付款：`pnpm exec vitest run src/utils/memberBilling.test.ts src/utils/monthlyFeeSettlement.test.ts src/utils/quarterlyFeeFamilies.test.ts src/utils/quarterlyFeeCompensation.test.ts src/utils/playerBalance.test.ts src/utils/feeManagementReminders.test.ts`
 - 請假 / 點名：`pnpm exec vitest run src/utils/leaveRequests.test.ts src/utils/dashboardHome.test.ts`
 - 訓練日期設定：`pnpm exec vitest run src/utils/trainingMonthDates.test.ts src/components/home/MyHomeTodayPanel.test.ts src/composables/useNotificationFeed.test.ts`
+- 教練排班表：`pnpm exec vitest run src/utils/coachSchedules.test.ts src/views/HomeView.test.ts`
 - 名單 / 使用者 / 組別：`pnpm exec vitest run src/utils/playerSync.test.ts src/stores/playerRoster.test.ts src/stores/teamGroups.test.ts src/utils/profileAccess.test.ts`
 - 球員同步：`pnpm exec vitest run src/utils/playerSync.test.ts`
 - 廠商名單：`pnpm exec vitest run src/utils/vendors.test.ts`

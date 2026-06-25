@@ -2,12 +2,14 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
+import { useRouter } from 'vue-router'
 import {
   Calendar,
   Check,
   Loading,
   MagicStick,
-  Refresh
+  Refresh,
+  UserFilled
 } from '@element-plus/icons-vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
@@ -32,7 +34,9 @@ type CalendarDay = {
 }
 
 const permissionsStore = usePermissionsStore()
+const router = useRouter()
 const canEdit = computed(() => permissionsStore.can('training_dates', 'EDIT'))
+const canOpenCoachSchedules = computed(() => permissionsStore.can('coach_schedules', 'VIEW'))
 const selectedMonth = ref(dayjs().format('YYYY-MM'))
 const monthDates = ref<TrainingMonthDates | null>(null)
 const selectedDates = ref<string[]>([])
@@ -162,6 +166,13 @@ const saveMonthDates = async () => {
   }
 }
 
+const openCoachSchedules = () => {
+  router.push({
+    path: '/coach-schedules',
+    query: { month: selectedMonth.value }
+  })
+}
+
 watch(selectedMonth, () => {
   void loadMonthDates()
 })
@@ -194,6 +205,15 @@ onMounted(() => {
           >
             <el-icon :class="{ 'is-loading': isLoading }"><Refresh /></el-icon>
             重新整理
+          </button>
+          <button
+            v-if="canOpenCoachSchedules"
+            type="button"
+            class="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-black text-slate-600 transition-colors hover:border-primary hover:text-primary"
+            @click="openCoachSchedules"
+          >
+            <el-icon><UserFilled /></el-icon>
+            設定教練排班
           </button>
           <button
             v-if="canEdit"

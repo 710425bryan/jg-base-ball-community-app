@@ -8,6 +8,7 @@ import dayjs from 'dayjs'
 const pushMock = vi.fn()
 const fetchMock = vi.fn()
 const fetchEquipmentsMock = vi.fn()
+const listCoachScheduleDashboardMonthMock = vi.fn()
 const rpcMock = vi.fn()
 let latestTeamMembersRealtimeHandler: (() => void) | null = null
 
@@ -108,6 +109,10 @@ vi.mock('@/services/equipmentApi', () => ({
   deleteEquipment: vi.fn(),
   createEquipmentTransaction: vi.fn(),
   deleteEquipmentTransaction: vi.fn()
+}))
+
+vi.mock('@/services/coachSchedulesApi', () => ({
+  listCoachScheduleDashboardMonth: listCoachScheduleDashboardMonthMock
 }))
 
 vi.mock('@/components/match-records/MatchDetailDialog.vue', () => ({
@@ -281,6 +286,34 @@ const sampleEquipments = [
   }
 ]
 
+const sampleCoachSchedulePayload = {
+  month_start: dayjs().startOf('month').format('YYYY-MM-DD'),
+  scope: 'own',
+  events: [
+    {
+      id: 'coach-schedule-1',
+      is_persisted: true,
+      is_candidate: false,
+      source_type: 'training_date',
+      source_id: null,
+      source_venue_id: null,
+      schedule_date: dayjs().format('YYYY-MM-DD'),
+      start_time: '09:00',
+      end_time: '12:30',
+      title: '週六訓練',
+      location: '中港國小',
+      location_url: null,
+      legacy_coaches: null,
+      status: 'scheduled',
+      note: null,
+      coach_profile_ids: ['user-1'],
+      assignments: [],
+      created_at: null,
+      updated_at: null
+    }
+  ]
+}
+
 vi.stubGlobal('fetch', fetchMock)
 
 const mountHomeView = async ({
@@ -291,7 +324,8 @@ const mountHomeView = async ({
   attendanceEvents = sampleAttendanceEvents,
   todayAttendanceStatus = sampleTodayAttendanceStatus,
   teamMembers = sampleTeamMembers,
-  equipments = sampleEquipments
+  equipments = sampleEquipments,
+  coachSchedulePayload = sampleCoachSchedulePayload
 } = {}) => {
   setActivePinia(createPinia())
 
@@ -346,6 +380,7 @@ const mountHomeView = async ({
     data: todayAttendanceStatus,
     error: null
   })
+  listCoachScheduleDashboardMonthMock.mockResolvedValue(coachSchedulePayload)
   fetchEquipmentsMock.mockResolvedValue(equipments)
   fetchMock.mockResolvedValue({
     ok: true,
@@ -371,6 +406,10 @@ const mountHomeView = async ({
       stubs: {
         RouterLink: RouterLinkStub,
         MatchDetailDialog: true,
+        CoachScheduleDashboardPanel: {
+          props: ['payload', 'isLoading', 'canManage'],
+          template: '<section data-test="coach-schedule-dashboard-stub">{{ payload?.scope }} {{ payload?.events?.length || 0 }} {{ canManage ? "manage" : "own" }}</section>'
+        },
         'el-icon': true
       }
     }
@@ -471,6 +510,45 @@ describe('HomeView dashboard redesign', () => {
     })
 
     expect(wrapper.find('[data-test="admin-stats"]').exists()).toBe(false)
+  })
+
+  it('shows this month coach schedule for coach users', async () => {
+    const { wrapper } = await mountHomeView({
+      role: 'COACH',
+      permissions: []
+    })
+
+    const panel = wrapper.find('[data-test="coach-schedule-dashboard-stub"]')
+
+    expect(panel.exists()).toBe(true)
+    expect(panel.text()).toContain('own 1 own')
+    expect(listCoachScheduleDashboardMonthMock).toHaveBeenCalledWith(dayjs().format('YYYY-MM'))
+  })
+
+  it('shows all coach schedules for coach schedule viewers', async () => {
+    const { wrapper } = await mountHomeView({
+      role: 'MANAGER',
+      permissions: ['coach_schedules'],
+      coachSchedulePayload: {
+        ...sampleCoachSchedulePayload,
+        scope: 'all'
+      }
+    })
+
+    const panel = wrapper.find('[data-test="coach-schedule-dashboard-stub"]')
+
+    expect(panel.exists()).toBe(true)
+    expect(panel.text()).toContain('all 1 manage')
+  })
+
+  it('hides coach schedule dashboard for users without coach role or permission', async () => {
+    const { wrapper } = await mountHomeView({
+      role: 'MANAGER',
+      permissions: ['matches', 'announcements']
+    })
+
+    expect(wrapper.find('[data-test="coach-schedule-dashboard-stub"]').exists()).toBe(false)
+    expect(listCoachScheduleDashboardMonthMock).not.toHaveBeenCalled()
   })
 
   it('shows the collapsible today attendance status for leave request viewers', async () => {

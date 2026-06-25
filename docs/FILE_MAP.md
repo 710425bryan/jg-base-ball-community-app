@@ -91,6 +91,7 @@
 | `src/services/trainingApi.ts` | 特訓報名、點數、特訓點名 RPC 與單筆報名 / 錄取通知呼叫 | `training_*` / `player_point_transactions` / `attendance_events.training_session_id` |
 | `src/services/trainingDatesApi.ts` | 每月訓練日期設定與日期異動通知呼叫 | `training_month_date_settings` / `get_training_month_dates()` / `save_training_month_dates()` / `send-training-date-notifications` |
 | `src/services/trainingLocationsApi.ts` | 場地與人員配置、連動點名 RPC | `training_location_*` / `training_venues` / `attendance_events.training_location_session_id` / `training_location_session_venue_id` |
+| `src/services/coachSchedulesApi.ts` | 教練排班候選、Dashboard 摘要與指派儲存 RPC | `coach_schedule_events` / `coach_schedule_assignments` / `list_coach_schedule_*` |
 | `src/services/equipmentApi.ts` | 裝備、加購、付款、庫存 API | 裝備 tables / RPC / `equipments` bucket |
 | `src/services/vendorsApi.ts` | 廠商名單、交易類別與照片 signed URL API | `vendors` / `vendor_trade_categories` / `vendors` bucket |
 | `src/services/performanceApi.ts` | 棒球能力 / 體測 API | performance tables / RPC |
@@ -115,6 +116,7 @@
 | `src/utils/pushDeepLink.ts` | Web Push 點擊 target 正規化、IndexedDB / Cache Storage pending target、iOS PWA deep link fallback 與診斷 |
 | `src/utils/trainingRegistrationNotification.ts` | 特訓報名開始 / 截止前提醒與單筆報名 / 錄取通知文案、URL、event key |
 | `src/utils/trainingLocationNotification.ts` | 場地通知文案、URL、event key、收件分組 |
+| `src/utils/coachSchedules.ts` | 教練排班來源 label、月份 normalize、候選 / 已儲存事件合併與排序 |
 | `src/utils/googleCalendarParser.ts` | Google Calendar / iCal parser 與同步規劃 |
 | `src/utils/matchCalendarCopy.ts` | Google Calendar / 賽事複製文字 |
 | `src/utils/matchReminderNotification.ts` | 賽事提醒文案、URL、event key |
@@ -175,6 +177,7 @@
 | `/training` | `src/views/TrainingView.vue` | `training` + linked member exception |
 | `/training-dates` | `src/views/TrainingDatesView.vue` | `training_dates:VIEW` |
 | `/training-locations` | `src/views/TrainingLocationsView.vue` | `training_locations:VIEW` |
+| `/coach-schedules` | `src/views/CoachSchedulesView.vue` | `coach_schedules:VIEW` |
 | `/match-records` | `src/views/MatchRecordsView.vue` | `matches:VIEW` |
 | `/fees` | `src/views/FeesView.vue` | `fees:VIEW` |
 | `/equipment` | `src/views/EquipmentView.vue` | `equipment:VIEW` |
@@ -291,6 +294,7 @@
 | `src/types/teamGroup.ts` | team group 設定型別 |
 | `src/types/training.ts` | 特訓報名、點數、管理審核型別 |
 | `src/types/trainingLocation.ts` | 場地與人員配置型別 |
+| `src/types/coachSchedule.ts` | 教練排班、教練指派與 Dashboard 排班型別 |
 | `src/types/feeManagementReminders.ts` | 費用提醒型別 |
 
 ## 11. Supabase Migrations
@@ -309,6 +313,7 @@
 | 特訓 / 點數 | `supabase_training_points_migration.sql`、`supabase_zz_training_point_transaction_delete_migration.sql`、`supabase_zz_training_registration_notifications_migration.sql`、`supabase_zzzzzzzz_training_auto_select_notifications_migration.sql` |
 | 訓練日期設定 / 換月預設排程 | `supabase_training_dates_migration.sql` |
 | 場地與人員配置 | `supabase_training_locations_migration.sql`、`supabase_zzzzzzzzz_training_location_attendance_migration.sql`、`supabase_zzzzzzzzzz_training_location_venue_settings_migration.sql` |
+| 教練排班表 | `supabase_coach_schedules_migration.sql`、`supabase_coach_schedules_schedulable_coaches_hotfix.sql` |
 | 賽事同步 | `supabase_matches_google_calendar_sync_migration.sql`、`supabase_match_calendar_daily_sync_schedule.sql`、`supabase_match_leave_absences_migration.sql` |
 | 推播 | `supabase_web_push_subscriptions_migration.sql`、`supabase_push_dispatch_events_migration.sql`、`supabase_match_reminder_notifications_migration.sql`、`supabase_match_reminder_schedule_config_migration.sql` |
 | 節日主題 | `supabase_holiday_theme_migration.sql` |

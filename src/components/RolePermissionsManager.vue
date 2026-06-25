@@ -369,6 +369,12 @@ const systemFeatures = [
     actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
   },
   {
+    key: 'coach_schedules',
+    name: '教練排班表',
+    desc: '依訓練日期、場地、比賽與特訓課指定教練',
+    actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
+  },
+  {
     key: 'matches',
     name: '比賽紀錄',
     desc: '新增編輯賽事成績、先發名單',

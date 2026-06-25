@@ -71,6 +71,8 @@
 | `supabase_training_locations_assignment_schema_hotfix.sql` | 場地指派 schema hotfix | 修改 assignment 前讀 |
 | `supabase_zzzzzzzzz_training_location_attendance_migration.sql` | 場地配置連動點名 | 覆寫場地列表 / 儲存 RPC，新增 `attendance_events.training_location_session_id` / `training_location_session_venue_id` |
 | `supabase_zzzzzzzzzz_training_location_venue_settings_migration.sql` | 場地區塊訓練設定 | 新增 `training_location_session_venues` 的標題 / 日期 / 時間欄位，覆寫場地列表、儲存、通知、個人首頁與連動點名 RPC |
+| `supabase_coach_schedules_migration.sql` | 教練排班表 | 新增 `coach_schedule_events` / `coach_schedule_assignments`、`coach_schedules` 權限與 Dashboard / 管理頁 RPC；候選日需搭配 `/training-dates` 與場地配置 |
+| `supabase_coach_schedules_schedulable_coaches_hotfix.sql` | 可排班教練清單 hotfix | 覆寫 `list_schedulable_coaches()`，放寬 role 空白 / 中文歷史值並維持 active access 檢查 |
 | `supabase_training_sessions_location_assignment_hotfix.sql` | 特訓 session 場地指派 hotfix | 串 training session 時讀 |
 | `supabase_training_admin_registrations_location_assignment_hotfix.sql` | 管理端報名與場地指派 hotfix | 教練管理流程讀 |
 

@@ -83,6 +83,12 @@
 - 用途：每月訓練日期設定、個人首頁本月訓練日、換月預設日期排程、日期異動通知。
 - 典型情境：修改 `/training-dates`、`training_month_date_settings`、`get_training_month_dates()`、`save_training_month_dates()`、`ensure_training_month_date_setting()`、`send-training-date-notifications`、或 `training_dates` 權限。
 
+### `jg-baseball-coach-schedules`
+
+- 路徑：`.codex/skills/jg-baseball-coach-schedules/SKILL.md`
+- 用途：教練排班表、教練上課日、Dashboard 教練排班摘要，以及訓練日期 / 場地 / 比賽 / 特訓候選活動。
+- 典型情境：修改 `/coach-schedules`、`coach_schedule_events`、`coach_schedule_assignments`、`list_coach_schedule_admin_month()`、`list_coach_schedule_dashboard()`、`list_schedulable_coaches()`、或 `coach_schedules` 權限。
+
 ### `jg-baseball-finance-payments`
 
 - 路徑：`.codex/skills/jg-baseball-finance-payments/SKILL.md`
