@@ -7,6 +7,7 @@ import {
   normalizeCoachScheduleEvent,
   normalizeCoachScheduleMonthPayload,
   normalizeSchedulableCoaches,
+  prioritizeCoachScheduleEventsByToday,
   sortCoachScheduleEvents
 } from './coachSchedules'
 import type { CoachScheduleEvent } from '@/types/coachSchedule'
@@ -100,6 +101,22 @@ describe('coachSchedules utilities', () => {
       '2026-04-04:training_class:特訓課',
       '2026-04-04:match:比賽',
       '2026-04-11:training_date:週六訓練'
+    ])
+  })
+
+  it('prioritizes today and upcoming events before recent past events', () => {
+    const sorted = prioritizeCoachScheduleEventsByToday([
+      makeEvent({ schedule_date: '2026-06-13', start_time: '09:00', title: '較早訓練' }),
+      makeEvent({ schedule_date: '2026-07-04', start_time: '09:00', title: '下週訓練' }),
+      makeEvent({ schedule_date: '2026-06-20', start_time: '09:00', title: '上週訓練' }),
+      makeEvent({ schedule_date: '2026-06-27', start_time: '09:00', title: '今日訓練' })
+    ], '2026-06-27')
+
+    expect(sorted.map((event) => event.schedule_date)).toEqual([
+      '2026-06-27',
+      '2026-07-04',
+      '2026-06-20',
+      '2026-06-13'
     ])
   })
 

@@ -44,6 +44,7 @@ Use this skill when adding or changing 教練排班表、教練上課日、`/coa
 
 - Training date candidates come from `get_training_month_dates()`, so `/training-dates` remains the source of truth for which dates are training days.
 - If a date has `training_location_session_venues`, those venue blocks are the candidates for that day; do not also show the generic `週六訓練` candidate.
+- Saved `training_location` schedule events keep coach assignments and schedule notes, but source fields (`schedule_date`, time range, title, location, and location URL) must stay synced from `training_location_session_venues` / `training_location_sessions`.
 - `matches.match_level = '特訓課'` is shown as `training_class`; other `matches` rows are shown as `match`.
 - `matches.coaches` is only reference text for admins. Do not use it for Dashboard ownership or permission checks.
 - Manual schedule events are allowed for exceptions, but should still save through the RPC and assign profile IDs.

@@ -1,4 +1,4 @@
-import dayjs from 'dayjs'
+import dayjs, { type ConfigType } from 'dayjs'
 import type {
   CoachScheduleAssignment,
   CoachScheduleDashboardScope,
@@ -170,6 +170,45 @@ export const sortCoachScheduleEvents = (events: CoachScheduleEvent[]) =>
 
     return left.title.localeCompare(right.title, 'zh-Hant')
   })
+
+export const prioritizeCoachScheduleEventsByToday = (
+  events: CoachScheduleEvent[],
+  referenceDate: ConfigType = dayjs()
+) => {
+  const today = dayjs(referenceDate).startOf('day')
+
+  return [...events].sort((left, right) => {
+    const leftDay = dayjs(left.schedule_date).startOf('day')
+    const rightDay = dayjs(right.schedule_date).startOf('day')
+
+    if (!leftDay.isValid() || !rightDay.isValid()) {
+      return left.schedule_date.localeCompare(right.schedule_date)
+    }
+
+    const leftDiff = leftDay.diff(today, 'day')
+    const rightDiff = rightDay.diff(today, 'day')
+    const leftUpcoming = leftDiff >= 0
+    const rightUpcoming = rightDiff >= 0
+
+    if (leftUpcoming !== rightUpcoming) return leftUpcoming ? -1 : 1
+
+    const dateCompare = leftUpcoming
+      ? leftDay.valueOf() - rightDay.valueOf()
+      : rightDay.valueOf() - leftDay.valueOf()
+    if (dateCompare !== 0) return dateCompare
+
+    const leftTime = left.start_time || '23:59'
+    const rightTime = right.start_time || '23:59'
+    const timeCompare = leftTime.localeCompare(rightTime)
+    if (timeCompare !== 0) return timeCompare
+
+    const sourceCompare =
+      COACH_SCHEDULE_SOURCE_ORDER[left.source_type] - COACH_SCHEDULE_SOURCE_ORDER[right.source_type]
+    if (sourceCompare !== 0) return sourceCompare
+
+    return left.title.localeCompare(right.title, 'zh-Hant')
+  })
+}
 
 export const mergeCoachScheduleEvents = (events: CoachScheduleEvent[]) => {
   const byKey = new Map<string, CoachScheduleEvent>()

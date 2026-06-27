@@ -8,7 +8,8 @@ import {
   formatCoachScheduleMonthLabel,
   formatCoachScheduleTimeRange,
   getCoachScheduleDisplayCoachNames,
-  getCoachScheduleSourceLabel
+  getCoachScheduleSourceLabel,
+  prioritizeCoachScheduleEventsByToday
 } from '@/utils/coachSchedules'
 
 const props = defineProps<{
@@ -25,27 +26,7 @@ const monthLabel = computed(() =>
 const panelSubtitle = computed(() =>
   isAllScope.value ? '所有教練本月排班' : '我的本月上課日'
 )
-const prioritizedEvents = computed(() => {
-  const today = dayjs().startOf('day')
-
-  return [...events.value].sort((a, b) => {
-    const aDay = dayjs(a.schedule_date).startOf('day')
-    const bDay = dayjs(b.schedule_date).startOf('day')
-    const aDiff = aDay.diff(today, 'day')
-    const bDiff = bDay.diff(today, 'day')
-    const aUpcoming = aDiff >= 0
-    const bUpcoming = bDiff >= 0
-
-    if (aUpcoming !== bUpcoming) return aUpcoming ? -1 : 1
-
-    const dateDiff = aUpcoming
-      ? aDay.valueOf() - bDay.valueOf()
-      : bDay.valueOf() - aDay.valueOf()
-    if (dateDiff !== 0) return dateDiff
-
-    return (a.start_time || '23:59').localeCompare(b.start_time || '23:59')
-  })
-})
+const prioritizedEvents = computed(() => prioritizeCoachScheduleEventsByToday(events.value))
 const displayedEvents = computed(() => prioritizedEvents.value.slice(0, 6))
 const hiddenEventCount = computed(() => Math.max(0, prioritizedEvents.value.length - displayedEvents.value.length))
 

@@ -433,6 +433,7 @@ UI 約定：
 
 - 管理者在 `/coach-schedules` 依月份載入候選活動，來源包含場地訓練區塊、訓練日期設定、比賽、特訓課與手動排班。
 - 訓練日期候選由 `get_training_month_dates()` 取得；若同一天已有 `training_location_session_venues`，以場地區塊為候選，不再顯示泛用的「週六訓練」候選。
+- 已儲存的場地訓練排班會保留教練指派與排班備註，但日期、時間、標題、地點與地圖連結需跟著 `training_location_session_venues` / `training_location_sessions` 同步，避免場地配置改了但教練排班仍顯示舊場地。
 - `matches.match_level = '特訓課'` 顯示為特訓，其餘 `matches` 顯示為比賽；`matches.coaches` 只在管理頁當原始參考文字，不用於個人 Dashboard 可見性。
 - `/training-dates` 只管理「哪些日期上課」；教練上課日與指派由 `/coach-schedules` 儲存，訓練日期設定頁可帶同月份跳轉到教練排班。
 - Dashboard 透過 `list_coach_schedule_dashboard(p_month)` 顯示本月排班；具 `coach_schedules:VIEW` 者看到所有教練，`HEAD_COACH` / `COACH` 只看到自己被指派的事件。

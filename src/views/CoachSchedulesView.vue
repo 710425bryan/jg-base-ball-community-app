@@ -33,7 +33,7 @@ import {
   getCoachScheduleMonthStart,
   getCoachScheduleSourceLabel,
   normalizeCoachScheduleMonth,
-  sortCoachScheduleEvents
+  prioritizeCoachScheduleEventsByToday
 } from '@/utils/coachSchedules'
 
 type SourceFilter = 'all' | CoachScheduleSourceType
@@ -98,7 +98,7 @@ const visibleEvents = computed(() => {
     ? events.value
     : events.value.filter((event) => event.source_type === sourceFilter.value)
 
-  return sortCoachScheduleEvents(filtered)
+  return prioritizeCoachScheduleEventsByToday(filtered)
 })
 
 const monthLabel = computed(() => formatCoachScheduleMonthLabel(getCoachScheduleMonthStart(selectedMonth.value)))
