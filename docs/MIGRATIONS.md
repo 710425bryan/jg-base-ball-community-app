@@ -110,6 +110,7 @@
 | `supabase_player_balance_transactions_migration.sql` | 球員餘額流水帳與付款 RPC 覆寫 | 餘額權威主線 |
 | `supabase_inactive_member_visibility_migration.sql` | 關閉 / 畢業成員繳費名單修正 | `list_my_payment_members()` 不回傳退隊、離隊、關閉 / 畢業成員 |
 | `supabase_quarterly_fee_compensation_migration.sql` | 季費堂數不足補償 | 產生待審核補償單，核准後寫入球員餘額 |
+| `supabase_zzzzzzzzzzzz_quarterly_payment_open_period_migration.sql` | 季繳付款回報開放期別 | 每季最後一個月 25 日起開放下一季；覆寫付款估算 RPC，新增付款回報 trigger 防止未開放未來季寫入 |
 | `supabase_match_fees_migration.sql` | 比賽費 items / submissions | 比賽費與餘額整合 |
 | `supabase_fee_management_reminders_migration.sql` | 費用提醒與通知中心 | 覆寫 `get_notification_feed()` |
 

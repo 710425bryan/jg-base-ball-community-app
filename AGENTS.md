@@ -231,6 +231,7 @@
 - 球員餘額以 `player_balance_transactions` 流水帳管理，餘額屬於 `team_members`；管理員可手動調整與確認溢繳入帳，家長自助使用餘額後仍需管理端確認才正式扣款。
 - 社區球員固定月繳用 `team_members.fee_billing_mode = 'monthly_fixed'` 表示；球員身分仍是 `球員`，但併入 `monthly_fees`、排除 `quarterly_fees`，金額從 `fee_settings.monthly_fixed_fee` 帶入並在 `monthly_fees.fixed_monthly_fee` 留快照。
 - 球員 / 校隊不收費用 `team_members.fee_billing_mode = 'no_fee'` 表示；不產生新的月費、季費與比賽費，切換前既有帳款保留，裝備加購付款仍維持自費。
+- 季繳球員付款回報以台灣日期判斷開放期別：每季最後一個月 25 日起開放下一季，開放前不可新增未來季付款回報；過去未繳季度仍可補繳。
 - 裝備付款在加購申請 `approved` 後即可回報，費用端確認收款只代表款項已完成，不代表商品已備貨或已領取；若要刪除已收款測試請購，必須先走退款 / 作廢收款，並反向處理球員餘額。
 - 季費堂數不足補償以當月週六數對比 `/training-dates` 訓練日期設定總天數；任何設定日期都算一堂，達當月週六數就不補償。補償先產生 `quarterly_fee_compensation_items` 待審核單，核准後才用 `quarterly_compensation` source 寫入 `player_balance_transactions`。
 - sibling / quarter fee / monthly settlement 等邏輯已拆在 `src/utils/*fee*` 與相關測試。

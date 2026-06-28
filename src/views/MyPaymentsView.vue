@@ -648,7 +648,10 @@ import {
 } from '@/utils/memberBilling'
 import {
   canUseGroupedQuarterlyPaymentSubmission,
+  getQuarterlyPaymentOpenPeriodKey,
+  getQuarterlyPeriodKey,
   isQuarterlyPeriodKey,
+  isQuarterlyPaymentPeriodOpen,
   normalizeQuarterlyPeriodKey,
   resolveQuarterlyDefaultPeriodKey,
   summarizeQuarterlyPaymentSubmissionItems,
@@ -755,6 +758,20 @@ const matchFeeItems = ref<MatchFeeItem[]>([])
 const createDialogBalanceOverride = ref<number | null>(null)
 
 const paymentMethodOptions = PAYMENT_METHOD_OPTIONS
+
+const formatPaymentSubmissionError = (error: any, fallback = '送出失敗') => {
+  const message = String(error?.message || fallback)
+
+  if (message.includes('quarterly period') && message.includes('not open yet')) {
+    return `這個季費期別尚未開放回報；目前只能新增 ${getQuarterlyPaymentOpenPeriodKey()} 或更早的季度。`
+  }
+
+  if (message.includes('quarterly period_key must look like')) {
+    return '季費期別格式需為 YYYY-Q1，例如 2026-Q3。'
+  }
+
+  return message
+}
 
 const createEmptyPaymentPanelSummary = (): PaymentPanelSummary => ({
   unpaidCount: 0,
@@ -899,7 +916,8 @@ const membershipSelectionHint = computed(() => {
   }
 
   if (member.billing_mode === 'quarterly') {
-    return '這一季沒有可新增回報的季費；已確認或待確認的項目不能重複回報。'
+    const periodKey = createDialogMembershipPeriodKey.value || getQuarterlyPaymentOpenPeriodKey()
+    return `目前開放的 ${periodKey} 季費沒有可新增回報的項目；已確認或待確認的項目不能重複回報。`
   }
 
   const periodKey = currentFeePeriodKey.value
@@ -1022,7 +1040,7 @@ const currentFeePeriodKey = computed(() => {
   }
 
   return selectedMember.value.billing_mode === 'quarterly'
-    ? getCurrentQuarterKey()
+    ? getQuarterlyPaymentOpenPeriodKey()
     : getCurrentMonthlyFeePeriodKey()
 })
 
@@ -1615,7 +1633,9 @@ const unifiedPaymentRecords = computed<UnifiedPaymentRecord[]>(() => {
       amount: Number(record.amount) || 0,
       amountClass: getUnifiedAmountClass(status),
       dateKey: record.updated_at || record.period_key,
-      selectable: status === 'unpaid' && canCreateSubmissionForSelectedMember.value,
+      selectable: status === 'unpaid'
+        && canCreateSubmissionForSelectedMember.value
+        && (record.billing_mode !== 'quarterly' || isQuarterlyPaymentPeriodOpen(record.period_key)),
       periodKey: record.period_key,
       breakdown: buildPaymentBreakdownText(record.amount, record.balance_amount, formatCurrency)
     })
@@ -1745,18 +1765,23 @@ const quarterPeriodOptions = computed(() => {
 
   for (let offset = -4; offset <= 4; offset += 1) {
     const cursor = now.add(offset * 3, 'month')
-    quarterKeys.add(getCurrentQuarterKey(cursor))
+    const periodKey = getQuarterlyPeriodKey(cursor)
+    if (isQuarterlyPaymentPeriodOpen(periodKey, now)) {
+      quarterKeys.add(periodKey)
+    }
   }
 
   records.value.forEach((record) => {
-    if (record.billing_mode === 'quarterly' && isQuarterlyPeriodKey(record.period_key)) {
-      quarterKeys.add(normalizeQuarterlyPeriodKey(record.period_key))
+    const periodKey = normalizeQuarterlyPeriodKey(record.period_key)
+    if (record.billing_mode === 'quarterly' && isQuarterlyPaymentPeriodOpen(periodKey, now)) {
+      quarterKeys.add(periodKey)
     }
   })
 
   submissions.value.forEach((submission) => {
-    if (submission.billing_mode === 'quarterly' && isQuarterlyPeriodKey(submission.period_key)) {
-      quarterKeys.add(normalizeQuarterlyPeriodKey(submission.period_key))
+    const periodKey = normalizeQuarterlyPeriodKey(submission.period_key)
+    if (submission.billing_mode === 'quarterly' && isQuarterlyPaymentPeriodOpen(periodKey, now)) {
+      quarterKeys.add(periodKey)
     }
   })
 
@@ -1800,6 +1825,14 @@ const submissionRules = {
                 ? '請輸入既有帳款期別'
                 : '請輸入 YYYY-MM 格式'
           ))
+          return
+        }
+
+        if (
+          (targetMember.billing_mode === 'quarterly' || isQuarterlyPeriodKey(normalizedValue))
+          && !isQuarterlyPaymentPeriodOpen(normalizedValue)
+        ) {
+          callback(new Error(`目前只能新增 ${getQuarterlyPaymentOpenPeriodKey()} 或更早的季度`))
           return
         }
 
@@ -1904,18 +1937,24 @@ const submissionRules = {
   ]
 }
 
-const getCurrentQuarterKey = (date = dayjs()) => {
-  const quarter = Math.floor(date.month() / 3) + 1
-  return `${date.year()}-Q${quarter}`
-}
-
 const getCurrentMonthlyFeePeriodKey = (date = dayjs()) =>
   getDefaultMonthlyFeeSettlementMonth(date)
 
 const getDefaultMonthlyPeriodKey = () => getCurrentMonthlyFeePeriodKey()
 
-const getDefaultQuarterlyPeriodKey = (preferredPeriodKey?: string | null) =>
-  resolveQuarterlyDefaultPeriodKey(preferredPeriodKey, getCurrentQuarterKey())
+const getDefaultQuarterlyPeriodKey = (preferredPeriodKey?: string | null) => {
+  const fallbackPeriodKey = getQuarterlyPaymentOpenPeriodKey()
+  const normalizedPreferredPeriodKey = normalizeQuarterlyPeriodKey(preferredPeriodKey)
+
+  if (
+    isQuarterlyPeriodKey(normalizedPreferredPeriodKey)
+    && isQuarterlyPaymentPeriodOpen(normalizedPreferredPeriodKey)
+  ) {
+    return normalizedPreferredPeriodKey
+  }
+
+  return resolveQuarterlyDefaultPeriodKey(null, fallbackPeriodKey)
+}
 
 const getDefaultSubmissionPeriodKey = (
   targetMember: MyPaymentMember | null | undefined,
@@ -2597,7 +2636,7 @@ const submitPaymentSubmission = async () => {
           })
         }
       } catch (error: any) {
-        failureLabels.push(`月費 / 季費：${error?.message || '送出失敗'}`)
+        failureLabels.push(`月費 / 季費：${formatPaymentSubmissionError(error)}`)
       }
     }
 
@@ -2627,7 +2666,7 @@ const submitPaymentSubmission = async () => {
           console.warn('裝備付款回報通知發送失敗', pushError)
         })
       } catch (error: any) {
-        failureLabels.push(`裝備：${error?.message || '送出失敗'}`)
+        failureLabels.push(`裝備：${formatPaymentSubmissionError(error)}`)
       }
     }
 
@@ -2654,7 +2693,7 @@ const submitPaymentSubmission = async () => {
           console.warn('比賽費用付款回報通知發送失敗', pushError)
         })
       } catch (error: any) {
-        failureLabels.push(`比賽費用：${error?.message || '送出失敗'}`)
+        failureLabels.push(`比賽費用：${formatPaymentSubmissionError(error)}`)
       }
     }
 

@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
+import dayjs from 'dayjs'
 import {
   canUseGroupedQuarterlyPaymentSubmission,
+  getQuarterlyPaymentOpenPeriodKey,
+  getQuarterlyPeriodIndex,
   isQuarterlyPeriodKey,
+  isQuarterlyPaymentPeriodOpen,
   resolveQuarterlyDefaultPeriodKey,
   summarizeQuarterlyPaymentSubmissionItems,
   validateQuarterlyPaymentSubmissionItems
@@ -58,6 +62,20 @@ describe('quarterlyPaymentSubmissions', () => {
   it('falls back to the current quarter when a preferred quarterly period is invalid', () => {
     expect(resolveQuarterlyDefaultPeriodKey('2026-04', '2026-Q2')).toBe('2026-Q2')
     expect(resolveQuarterlyDefaultPeriodKey('2026-q3', '2026-Q2')).toBe('2026-Q3')
+  })
+
+  it('opens the next quarter from the 25th of the last quarter month', () => {
+    expect(getQuarterlyPaymentOpenPeriodKey(dayjs('2026-06-24'))).toBe('2026-Q2')
+    expect(getQuarterlyPaymentOpenPeriodKey(dayjs('2026-06-25'))).toBe('2026-Q3')
+    expect(getQuarterlyPaymentOpenPeriodKey(dayjs('2026-12-25'))).toBe('2027-Q1')
+  })
+
+  it('keeps past quarters payable but blocks unopened future quarters', () => {
+    expect(getQuarterlyPeriodIndex('2026-Q3')).toBe(8107)
+    expect(isQuarterlyPaymentPeriodOpen('2026-Q2', dayjs('2026-06-24'))).toBe(true)
+    expect(isQuarterlyPaymentPeriodOpen('2026-Q3', dayjs('2026-06-24'))).toBe(false)
+    expect(isQuarterlyPaymentPeriodOpen('2026-Q3', dayjs('2026-06-25'))).toBe(true)
+    expect(isQuarterlyPaymentPeriodOpen('2026-Q4', dayjs('2026-06-25'))).toBe(false)
   })
 
   it('does not allow grouped quarterly submissions to mix with other payment types', () => {

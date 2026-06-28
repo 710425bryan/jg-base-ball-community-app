@@ -1,3 +1,5 @@
+import dayjs, { type Dayjs } from 'dayjs'
+
 export type QuarterlyPaymentSubmissionItemDraft = {
   member_id: string
   period_key: string
@@ -17,12 +19,43 @@ const normalizeMoney = (value: unknown) => {
 }
 
 const QUARTERLY_PERIOD_KEY_PATTERN = /^[0-9]{4}-Q[1-4]$/
+export const QUARTERLY_PAYMENT_NEXT_PERIOD_SWITCH_DAY = 25
 
 export const normalizeQuarterlyPeriodKey = (value: unknown) =>
   typeof value === 'string' ? value.trim().toUpperCase() : ''
 
 export const isQuarterlyPeriodKey = (value: unknown) =>
   QUARTERLY_PERIOD_KEY_PATTERN.test(normalizeQuarterlyPeriodKey(value))
+
+export const getQuarterlyPeriodKey = (baseDate: Dayjs = dayjs()) => {
+  const date = dayjs(baseDate)
+  const quarter = Math.floor(date.month() / 3) + 1
+  return `${date.year()}-Q${quarter}`
+}
+
+export const getQuarterlyPaymentOpenPeriodKey = (baseDate: Dayjs = dayjs()) => {
+  const date = dayjs(baseDate)
+  const isLastMonthOfQuarter = date.month() % 3 === 2
+  const targetDate = isLastMonthOfQuarter && date.date() >= QUARTERLY_PAYMENT_NEXT_PERIOD_SWITCH_DAY
+    ? date.add(1, 'month')
+    : date
+
+  return getQuarterlyPeriodKey(targetDate)
+}
+
+export const getQuarterlyPeriodIndex = (value: unknown) => {
+  const periodKey = normalizeQuarterlyPeriodKey(value)
+  if (!isQuarterlyPeriodKey(periodKey)) return null
+
+  return Number(periodKey.slice(0, 4)) * 4 + Number(periodKey.slice(6, 7))
+}
+
+export const isQuarterlyPaymentPeriodOpen = (periodKey: unknown, baseDate: Dayjs = dayjs()) => {
+  const periodIndex = getQuarterlyPeriodIndex(periodKey)
+  const openPeriodIndex = getQuarterlyPeriodIndex(getQuarterlyPaymentOpenPeriodKey(baseDate))
+
+  return periodIndex !== null && openPeriodIndex !== null && periodIndex <= openPeriodIndex
+}
 
 export const resolveQuarterlyDefaultPeriodKey = (preferredPeriodKey: unknown, fallbackPeriodKey: string) => {
   const normalizedPreferredPeriodKey = normalizeQuarterlyPeriodKey(preferredPeriodKey)

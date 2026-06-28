@@ -50,6 +50,7 @@ description: "Finance, fees, payment submissions, player balances, match fees, r
 - 社區球員固定月繳以 `team_members.fee_billing_mode = 'monthly_fixed'` 表示，角色仍是 `球員`。
 - 固定月繳球員進 `monthly_fees`，排除 `quarterly_fees` 與家庭季費分組。
 - 球員 / 校隊不收費以 `team_members.fee_billing_mode = 'no_fee'` 表示；不產生新的月費、季費與比賽費，但既有帳款保留，裝備付款仍維持自費。
+- 季繳付款回報的開放期別以台灣日期為準，每季最後一個月 25 日起開放下一季；前端 helper 與 DB helper / trigger 必須同步，未開放的未來季不可新增付款回報，過去未繳季度可補繳。
 - 季費補償的堂數不足只看當月週六數與 `/training-dates` 設定日期總數，補課日不限定週六。
 - `is_primary_payer`、`is_half_price`、sibling / family grouping 會影響金額，改費用時要同步檢查。
 - 比賽費付款不得混入一般月費或裝備付款資料模型；只在 UI 與付款回報流程上整合。
