@@ -143,6 +143,7 @@
 | `supabase_zzzzzzzzz_equipment_custom_order_migration.sql` | 裝備訂製品欄位 / snapshot RPC 覆寫 | 家長端等待提示 |
 | `supabase_zzzzzzzzzz_equipment_approved_payment_scope_migration.sql` | 裝備已核准即可付款 | 覆寫裝備付款 scope，`approved` / `ready_for_pickup` / `picked_up` 皆可付款 |
 | `supabase_zzzzzzzzzzz_equipment_payment_refund_migration.sql` | 裝備退款 / 作廢收款 | 新增 `refunded` 狀態、餘額反向流水與刪除 guard 放行 |
+| `supabase_zzzzzzzzzzzz_equipment_create_request_inventory_guard_transaction_fix_migration.sql` | 建立申請庫存 guard 交易扣庫存修正 | 建立請購時，已轉成 `equipment_transactions` 的請購項目不可再被當保留庫存扣一次 |
 
 ## 廠商
 
