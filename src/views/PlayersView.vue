@@ -166,6 +166,14 @@
               <span v-else class="text-gray-300">-</span>
             </template>
           </el-table-column>
+          <el-table-column prop="grade" label="年級" width="115" sortable>
+            <template #default="{ row }">
+              <span v-if="row.grade" class="text-[10px] md:text-xs font-bold px-2 py-0.5 rounded border bg-emerald-50 text-emerald-700 border-emerald-100">
+                {{ row.grade }}
+              </span>
+              <span v-else class="text-gray-300">-</span>
+            </template>
+          </el-table-column>
           <el-table-column label="打/投" width="100" align="center">
             <template #default="{ row }">
               <span v-if="row.throwing_hand && row.batting_hand" class="text-xs font-mono font-bold text-gray-500 bg-gray-100 border border-gray-200 rounded px-1.5 py-0.5">
@@ -260,6 +268,9 @@
                   <span v-if="getULevel(member)" class="text-[10px] md:text-xs font-black px-2 py-0.5 rounded-md uppercase bg-sky-50 text-sky-700 border border-sky-100">
                     {{ getULevel(member) }}
                   </span>
+                  <span v-if="member.grade" class="text-[10px] md:text-xs font-black px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-100">
+                    {{ member.grade }}
+                  </span>
                 </div>
               </div>
 
@@ -268,6 +279,13 @@
                   <span class="block text-[10px] font-bold text-slate-400 mb-0.5">生日</span>
                   <span v-if="member.birth_date" class="block font-bold text-slate-800 truncate">
                     {{ member.birth_date }}
+                  </span>
+                  <span v-else class="text-gray-300">-</span>
+                </div>
+                <div class="min-w-0">
+                  <span class="block text-[10px] font-bold text-slate-400 mb-0.5">年級</span>
+                  <span v-if="member.grade" class="block font-bold text-slate-800 truncate">
+                    {{ member.grade }}
                   </span>
                   <span v-else class="text-gray-300">-</span>
                 </div>
@@ -402,6 +420,17 @@
             </el-form-item>
             <el-form-item label="生日 (西元年)" prop="birth_date" class="font-bold mb-0">
               <el-date-picker v-model="form.birth_date" type="date" placeholder="選擇生日" format="YYYY-MM-DD" value-format="YYYY-MM-DD" class="!w-full" />
+            </el-form-item>
+            <el-form-item label="年級" prop="grade" class="font-bold mb-0" v-if="form.role === '球員' || form.role === '校隊'">
+              <el-select
+                v-model="form.grade"
+                class="w-full"
+                filterable
+                clearable
+                placeholder="依生日自動帶入，可手動調整"
+              >
+                <el-option v-for="option in PLAYER_GRADE_OPTIONS" :key="option.value" :label="option.label" :value="option.value" />
+              </el-select>
             </el-form-item>
             <el-form-item label="加入時間" prop="joined_date" class="font-bold mb-0">
               <el-date-picker v-model="form.joined_date" type="date" placeholder="選擇加入時間" format="YYYY-MM-DD" value-format="YYYY-MM-DD" class="!w-full" />
@@ -701,6 +730,11 @@ import {
   normalizeMemberFeeBillingMode,
   ROLE_DEFAULT_FEE_BILLING_MODE
 } from '@/utils/memberBilling'
+import {
+  PLAYER_GRADE_OPTIONS,
+  inferPlayerGradeFromBirthDate,
+  normalizePlayerGrade
+} from '@/utils/playerGrade'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
 import { usePlayerRosterStore } from '@/stores/playerRoster'
@@ -778,6 +812,9 @@ const members = computed(() =>
     ...m,
     team_group: isTeamGroupEligibleRole(m.role) ? normalizeTeamGroup(m.team_group) : null,
     joined_date: m.joined_date || DEFAULT_EXISTING_MEMBER_JOINED_DATE,
+    grade: isTeamGroupEligibleRole(m.role)
+      ? normalizePlayerGrade(m.grade) || inferPlayerGradeFromBirthDate(m.birth_date, { isEarlyEnrollment: !!m.is_early_enrollment })
+      : '',
     is_inactive_or_graduated: !!m.is_inactive_or_graduated,
     is_primary_payer: !!m.is_primary_payer,
     is_half_price: !!m.is_half_price,
@@ -1053,7 +1090,8 @@ const playerExportColumns = computed<PlayerExportColumn[]>(() => [
   { key: 'status', label: '在隊狀態', basic: true, sourceKeys: ['status'], getValue: (member) => member.status || '在隊' },
   { key: 'is_inactive_or_graduated', label: '關閉球員/畢業', basic: true, sourceKeys: ['is_inactive_or_graduated'], getValue: (member) => formatBoolean(member.is_inactive_or_graduated) },
   { key: 'team_group', label: '所屬群組 (熊隊)', basic: true, sourceKeys: ['team_group'], getValue: (member) => member.team_group },
-  { key: 'u_level', label: '年級類別', basic: true, getValue: (member) => getULevel(member) },
+  { key: 'u_level', label: '年齡組', basic: true, getValue: (member) => getULevel(member) },
+  { key: 'grade', label: '年級', basic: true, sourceKeys: ['grade'], getValue: (member) => member.grade },
   { key: 'jersey_number', label: '背號', basic: true, sourceKeys: ['jersey_number'], getValue: (member) => member.jersey_number },
   { key: 'jersey_name', label: '球衣名字', sourceKeys: ['jersey_name'], getValue: (member) => member.jersey_name },
   { key: 'jersey_size', label: '球衣尺寸', sourceKeys: ['jersey_size'], getValue: (member) => member.jersey_size },
@@ -1123,7 +1161,7 @@ const canExportPlayerCsv = computed(() =>
 )
 
 const getExportMemberOptionLabel = (member: any) => {
-  const tags = [member.role, getULevel(member), member.team_group]
+  const tags = [member.role, member.grade, getULevel(member), member.team_group]
     .filter(Boolean)
     .join(' / ')
 
@@ -1263,7 +1301,8 @@ const filteredMembers = computed(() => {
     result = result.filter((m) => {
       const name = String(m.name || '').toLowerCase()
       const schoolName = String(m.school_name || '').toLowerCase()
-      return name.includes(q) || schoolName.includes(q)
+      const grade = String(m.grade || '').toLowerCase()
+      return name.includes(q) || schoolName.includes(q) || grade.includes(q)
     })
   }
   
@@ -1325,6 +1364,7 @@ const createInitialForm = () => ({
   jersey_name: '',
   jersey_size: '',
   birth_date: '',
+  grade: '',
   joined_date: getTodayDateInputValue(),
   school_name: '',
   is_early_enrollment: false,
@@ -1347,6 +1387,7 @@ const createInitialForm = () => ({
 })
 
 const form = reactive(createInitialForm())
+const lastAutoGrade = ref('')
 const billingModeOptions = computed(() => [
   {
     label: form.role === '校隊' ? '校隊月繳' : '依身分收費',
@@ -1369,6 +1410,36 @@ watch(
   (role) => {
     form.fee_billing_mode = normalizeBillingModeForRole(role, form.fee_billing_mode)
   }
+)
+
+const getInferredGrade = (
+  role: string | null | undefined,
+  birthDate: string | null | undefined,
+  isEarlyEnrollment: boolean | null | undefined
+) =>
+  isTeamGroupEligibleRole(role)
+    ? inferPlayerGradeFromBirthDate(birthDate, { isEarlyEnrollment: !!isEarlyEnrollment })
+    : ''
+
+const syncFormGradeFromBirthDate = () => {
+  const nextAutoGrade = getInferredGrade(form.role, form.birth_date, form.is_early_enrollment)
+
+  if (!isTeamGroupEligibleRole(form.role)) {
+    form.grade = ''
+    lastAutoGrade.value = ''
+    return
+  }
+
+  if (!form.grade || form.grade === lastAutoGrade.value || form.grade === nextAutoGrade) {
+    form.grade = nextAutoGrade
+  }
+
+  lastAutoGrade.value = nextAutoGrade
+}
+
+watch(
+  [() => form.birth_date, () => form.is_early_enrollment, () => form.role],
+  syncFormGradeFromBirthDate
 )
 
 const normalizeSchoolName = (value: unknown) => String(value || '').trim()
@@ -1774,6 +1845,10 @@ const syncFromGoogleSheet = async () => {
       }
       
       const is_early_enrollment = readCell(row, '提早入學') === '有';
+      const sourceGrade = normalizePlayerGrade(readCell(row, '年級', '就讀年級', '目前年級'));
+      const inferredGrade = isSiblingEligibleRole(roleMapped)
+        ? inferPlayerGradeFromBirthDate(birth_date, { isEarlyEnrollment: is_early_enrollment })
+        : '';
       const national_id = readCell(row, '身分證字號') || null;
       const throwing_hand = readCell(row, '投球慣用手') || null;
       const batting_hand = readCell(row, '打擊慣用方向') || null;
@@ -1806,6 +1881,11 @@ const syncFromGoogleSheet = async () => {
         portrait_auth
       };
 
+      const getSyncGrade = (existingMember?: any) =>
+        isSiblingEligibleRole(roleMapped)
+          ? sourceGrade || normalizePlayerGrade(existingMember?.grade) || inferredGrade || null
+          : null
+
       syncRows.push({
         name,
         siblingNames,
@@ -1826,6 +1906,7 @@ const syncFromGoogleSheet = async () => {
         const payload = {
           ...basePayload,
           id: existingMember.id,
+          grade: getSyncGrade(existingMember),
           ...getProtectedFeeFlagsPayloadForGoogleFormSync(true)
         };
         updates.push(payload);
@@ -1833,6 +1914,7 @@ const syncFromGoogleSheet = async () => {
         // 新增時：主要繳費人與半價優惠都維持系統預設，後續再由系統內手動調整。
         inserts.push({
           ...basePayload,
+          grade: getSyncGrade(),
           ...getProtectedFeeFlagsPayloadForGoogleFormSync(false)
         });
       }
@@ -1942,6 +2024,7 @@ const fetchData = async (options: { force?: boolean } = {}) => {
 const openCreateModal = () => {
   isEditing.value = false
   Object.assign(form, createInitialForm())
+  lastAutoGrade.value = ''
   previewAvatar.value = ''
   selectedFile = null
   if(formRef.value) formRef.value.clearValidate()
@@ -1956,9 +2039,12 @@ const openEditModal = (member: any) => {
   Object.assign(form, member)
   if (!form.status) form.status = '在隊'
   if (!form.joined_date) form.joined_date = DEFAULT_EXISTING_MEMBER_JOINED_DATE
+  form.grade = normalizePlayerGrade(member.grade) || ''
   form.is_inactive_or_graduated = !!member.is_inactive_or_graduated
   form.fee_billing_mode = normalizeBillingModeForRole(member.role, member.fee_billing_mode)
   if (!form.sibling_ids) form.sibling_ids = []
+  lastAutoGrade.value = getInferredGrade(form.role, form.birth_date, form.is_early_enrollment)
+  if (!form.grade) form.grade = lastAutoGrade.value
   previewAvatar.value = member.avatar_url || ''
   selectedFile = null
   if(formRef.value) formRef.value.clearValidate()
@@ -2028,6 +2114,10 @@ const submitForm = async () => {
 
     payload.school_name = isTeamGroupEligibleRole(payload.role)
       ? normalizeSchoolName(payload.school_name) || null
+      : null
+
+    payload.grade = isTeamGroupEligibleRole(payload.role)
+      ? normalizePlayerGrade(payload.grade) || inferPlayerGradeFromBirthDate(payload.birth_date, { isEarlyEnrollment: !!payload.is_early_enrollment }) || null
       : null
 
     payload.fee_billing_mode = normalizeBillingModeForRole(payload.role, payload.fee_billing_mode)

@@ -37,13 +37,14 @@ description: "Player roster, users, profile binding, team groups, roster cache, 
 - 使用者新增 / 更新 / 刪除優先走 `admin_insert_profile()`、`admin_update_profile()`、`admin_delete_user()`。
 - team group 設定透過 `team_group_settings` 與 `teamGroupsApi` RPC 管理，前端共用 `teamGroups` store。
 - team group 只適用在 eligible role，非球員類角色不應保留無效分組。
+- 球員年級存在 `team_members.grade`；新增 / 空值時依 `birth_date` 與 9 月 1 日學年度切分預設，表單可手動調整。
 
 ## 不可破壞規則
 
 - 敏感欄位包含 `national_id`、`guardian_phone`、`contact_line_id`；除非流程需要完整個資且 DB 權限一致，否則不直接擴散。
 - `team_members_safe` 是預設展示來源；不要為了表格方便改回 raw `team_members`。
 - linked member 綁定會影響 `/my-records`、`/my-payments`、`/my-leave-requests`、`/training`、`/equipment-addons` 與個人首頁。
-- Google 同步不得覆蓋人工維護欄位：`is_primary_payer`、`is_half_price`、`fee_billing_mode`、既有 `joined_date`。
+- Google 同步不得覆蓋人工維護欄位：`is_primary_payer`、`is_half_price`、`fee_billing_mode`、既有 `joined_date`、既有 `grade`。
 - `fee_billing_mode` 可為 `role_default`、`monthly_fixed`、`no_fee`；新增球員預設 `role_default`，既有球員同步不得覆蓋人工設定。
 - 刪除或改名 team group 前要確認轉移規則，避免球員留在不存在的組別。
 - 角色權限 UI 與 roster/users 管理要保持 `app_roles`、`app_role_permissions` 一致。

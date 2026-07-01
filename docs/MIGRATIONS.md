@@ -28,6 +28,7 @@
 | `supabase_team_members_cache_meta_migration.sql` | 名單 cache meta 與 updated_at trigger | `playerRoster` store 依賴 |
 | `supabase_team_members_joined_date_migration.sql` | 球員加入日期 | Google sync 不覆蓋既有值 |
 | `supabase_team_members_inactive_graduated_migration.sql` | inactive / graduated 狀態 | 影響名單篩選 |
+| `supabase_zz_team_members_grade_migration.sql` | 球員年級欄位與生日預設回填 | 9/1 學年度切分；Google sync 不覆蓋既有人工年級 |
 | `supabase_primary_payer_migration.sql` | 主要繳費人旗標 | 影響費用計算 |
 | `supabase_half_price_migration.sql` | 半價旗標 | 影響費用計算與同步保護 |
 | `supabase_sibling_migration.sql` | sibling / family grouping | 影響季費家庭金額 |

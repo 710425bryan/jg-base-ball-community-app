@@ -194,6 +194,7 @@ UI 約定：
 - 使用者新增 / 更新 / 刪除走 admin RPC，例如 `admin_insert_profile()`、`admin_update_profile()`、`admin_delete_user()`。
 - 角色權限 UI 讀寫 `app_roles`、`app_role_permissions`。
 - `team_members.joined_date` 記錄球員加入時間；既有名單無歷史資料時回填 `2026-02-01`，新建資料預設為台灣當天日期。
+- `team_members.grade` 記錄球員年級；新增 / 空值時依 `birth_date` 與 9 月 1 日學年度切分自動帶入，可由名單表單下拉選單手動調整。
 - team group 設定使用 `teamGroups` store 與 `teamGroupsApi`；新增、改名、排序、刪除轉移都要同步影響 `PlayersView`、`TrainingView`、`TrainingLocationsView`、`LeaveRequestsView`、`RollCallView` 的組別選項。
 - 非 eligible role 不應保留 team group；刪除組別時要有轉移或清理策略。
 
@@ -202,6 +203,7 @@ UI 約定：
 - Google Form / Sheet 同步使用 `src/utils/playerSync.ts`。
 - 既有球員同步不得覆蓋 `is_primary_payer`、`is_half_price` 與 `fee_billing_mode`。
 - Google Form / Sheet 未提供加入時間來源時，不覆蓋既有 `joined_date`；新增球員交由 DB 預設台灣當天日期。
+- Google Form / Sheet 未提供年級來源時，不覆蓋既有 `grade`；新增球員或既有空值才依生日預設年級。
 - 新增球員時主要繳費人 / 半價預設為 `false`，收費模式預設 `role_default`。
 - dedupe key 空白時不可把多筆資料合併成同一人。
 
