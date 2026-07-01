@@ -641,10 +641,16 @@ import {
   getExternalPaymentAmount
 } from '@/utils/playerBalance'
 import {
+  FIXED_MONTHLY_FEE_BILLING_MODE,
   getMemberBillingLabel,
   NO_FEE_BILLING_MODE,
   ROLE_DEFAULT_FEE_BILLING_MODE
 } from '@/utils/memberBilling'
+import {
+  getMonthlyPaymentOpenPeriodKey,
+  getNextMonthlyPaymentPeriodInfo,
+  isMonthlyPaymentPeriodOpen
+} from '@/utils/monthlyPaymentPeriods'
 import {
   canUseGroupedQuarterlyPaymentSubmission,
   getQuarterlyPaymentOpenPeriodKey,
@@ -769,6 +775,10 @@ const formatPaymentSubmissionError = (error: any, fallback = '送出失敗') => 
     return '季費期別格式需為 YYYY-Q1，例如 2026-Q3。'
   }
 
+  if (message.includes('monthly period') && message.includes('not open yet')) {
+    return '這個月費期別尚未開放回報，請改選目前已開放的月份。'
+  }
+
   return message
 }
 
@@ -808,6 +818,14 @@ const createDialogMember = computed(() => {
 
 const isNoFeePaymentMember = (member?: MyPaymentMember | null) => member?.billing_mode === 'none'
 const hasMembershipBilling = (member?: MyPaymentMember | null) => Boolean(member && !isNoFeePaymentMember(member))
+const getPaymentMemberBillingConfig = (member?: MyPaymentMember | null) => ({
+  role: member?.role,
+  fee_billing_mode: member?.billing_mode === 'none'
+    ? NO_FEE_BILLING_MODE
+    : member?.role === '球員' && member.billing_mode === 'monthly'
+      ? FIXED_MONTHLY_FEE_BILLING_MODE
+      : ROLE_DEFAULT_FEE_BILLING_MODE
+})
 
 const quarterlyPaymentCandidates = computed(() =>
   linkedMembers.value.filter((member) => member.billing_mode === 'quarterly')
@@ -894,10 +912,6 @@ const createDialogMembershipMetaText = computed(() => {
   return parts.join('｜')
 })
 
-const nextMonthlyFeePeriod = computed(() => {
-  return dayjs().add(1, 'month')
-})
-
 const membershipSelectionHint = computed(() => {
   const member = createDialogMember.value
 
@@ -919,11 +933,10 @@ const membershipSelectionHint = computed(() => {
   }
 
   const periodKey = currentFeePeriodKey.value
-  const nextPeriodKey = nextMonthlyFeePeriod.value.format('YYYY-MM')
-  const nextOpenDate = nextMonthlyFeePeriod.value.startOf('month').format('YYYY-MM-DD')
+  const nextPeriod = getNextMonthlyPaymentPeriodInfo(getPaymentMemberBillingConfig(member))
 
   if (currentFeeDueStatus.value === 'paid') {
-    return `目前可回報的 ${periodKey} 月費已確認；${nextPeriodKey} 月費預計 ${nextOpenDate} 起開放回報。`
+    return `目前可回報的 ${periodKey} 月費已確認；${nextPeriod.periodKey} 月費預計 ${nextPeriod.openDate} 起開放回報。`
   }
 
   if (currentFeeDueStatus.value === 'pending') {
@@ -940,7 +953,7 @@ const createDialogPeriodHint = computed(() => {
 
   return createDialogMember.value?.billing_mode === 'quarterly'
     ? '例如 2026-Q2'
-    : `例如 ${getDefaultMonthlyPeriodKey()}`
+    : `例如 ${getDefaultMonthlyPeriodKey(createDialogMember.value)}`
 })
 
 const createDialogEstimateHelperText = computed(() => {
@@ -1039,7 +1052,7 @@ const currentFeePeriodKey = computed(() => {
 
   return selectedMember.value.billing_mode === 'quarterly'
     ? getQuarterlyPaymentOpenPeriodKey()
-    : getCurrentMonthlyFeePeriodKey()
+    : getMonthlyPaymentOpenPeriodKey(getPaymentMemberBillingConfig(selectedMember.value))
 })
 
 const currentFeeBillingName = computed(() =>
@@ -1537,6 +1550,20 @@ const getUnifiedStatusLabel = (
 const getMembershipPeriodLookupKey = (billingMode?: string | null, periodKey?: string | null) =>
   `${billingMode || ''}:${periodKey || ''}`
 
+const isMembershipRecordPeriodOpen = (record: MyPaymentRecord) => {
+  if (record.billing_mode === 'quarterly') {
+    return isQuarterlyPaymentPeriodOpen(record.period_key)
+  }
+
+  if (record.billing_mode === 'monthly') {
+    return selectedMember.value
+      ? isMonthlyPaymentPeriodOpen(getPaymentMemberBillingConfig(selectedMember.value), record.period_key)
+      : true
+  }
+
+  return true
+}
+
 const activeMembershipSubmissionStatusByPeriod = computed(() => {
   const statusMap = new Map<string, string>()
 
@@ -1610,10 +1637,12 @@ const unifiedPaymentRecords = computed<UnifiedPaymentRecord[]>(() => {
   records.value.forEach((record) => {
     const status = record.status || 'unpaid'
     const activeSubmissionStatus = getActiveMembershipSubmissionStatus(record)
+    const isPeriodOpen = isMembershipRecordPeriodOpen(record)
 
     if (
       isPaidStatus(activeSubmissionStatus)
       || (isPendingStatus(activeSubmissionStatus) && !isPaidStatus(status))
+      || (status === 'unpaid' && !isPeriodOpen)
     ) {
       return
     }
@@ -1633,7 +1662,7 @@ const unifiedPaymentRecords = computed<UnifiedPaymentRecord[]>(() => {
       dateKey: record.updated_at || record.period_key,
       selectable: status === 'unpaid'
         && canCreateSubmissionForSelectedMember.value
-        && (record.billing_mode !== 'quarterly' || isQuarterlyPaymentPeriodOpen(record.period_key)),
+        && isPeriodOpen,
       periodKey: record.period_key,
       breakdown: buildPaymentBreakdownText(record.amount, record.balance_amount, formatCurrency)
     })
@@ -1834,6 +1863,19 @@ const submissionRules = {
           return
         }
 
+        if (
+          targetMember.billing_mode === 'monthly'
+          && !isMonthlyPaymentPeriodOpen(getPaymentMemberBillingConfig(targetMember), normalizedValue)
+        ) {
+          const openPeriodKey = getMonthlyPaymentOpenPeriodKey(getPaymentMemberBillingConfig(targetMember))
+          callback(new Error(
+            targetMember.role === '校隊'
+              ? `校隊月費需等月份結束，目前只能新增 ${openPeriodKey} 或更早月份`
+              : `固定月繳目前只能新增 ${openPeriodKey} 或更早月份`
+          ))
+          return
+        }
+
         callback()
       },
       trigger: ['blur', 'change']
@@ -1935,10 +1977,10 @@ const submissionRules = {
   ]
 }
 
-const getCurrentMonthlyFeePeriodKey = (date = dayjs()) =>
-  dayjs(date).format('YYYY-MM')
-
-const getDefaultMonthlyPeriodKey = () => getCurrentMonthlyFeePeriodKey()
+const getDefaultMonthlyPeriodKey = (targetMember?: MyPaymentMember | null) =>
+  targetMember
+    ? getMonthlyPaymentOpenPeriodKey(getPaymentMemberBillingConfig(targetMember))
+    : dayjs().format('YYYY-MM')
 
 const getDefaultQuarterlyPeriodKey = (preferredPeriodKey?: string | null) => {
   const fallbackPeriodKey = getQuarterlyPaymentOpenPeriodKey()
@@ -1964,7 +2006,7 @@ const getDefaultSubmissionPeriodKey = (
     return getDefaultQuarterlyPeriodKey(normalizedPreferredPeriodKey)
   }
 
-  return normalizedPreferredPeriodKey || getDefaultMonthlyPeriodKey()
+  return normalizedPreferredPeriodKey || getDefaultMonthlyPeriodKey(targetMember)
 }
 
 const buildMemberOptionLabel = (member: MyPaymentMember) => {
@@ -1973,14 +2015,7 @@ const buildMemberOptionLabel = (member: MyPaymentMember) => {
 }
 
 const getPaymentMemberBillingLabel = (member: MyPaymentMember) =>
-  getMemberBillingLabel({
-    role: member.role,
-    fee_billing_mode: member.billing_mode === 'none'
-      ? NO_FEE_BILLING_MODE
-      : member.role === '球員' && member.billing_mode === 'monthly'
-        ? 'monthly_fixed'
-        : ROLE_DEFAULT_FEE_BILLING_MODE
-  })
+  getMemberBillingLabel(getPaymentMemberBillingConfig(member))
 
 const getStatusLabel = (status?: string | null) => {
   if (status === 'paid' || status === 'approved') return '已確認'

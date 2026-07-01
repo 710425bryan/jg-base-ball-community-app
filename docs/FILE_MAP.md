@@ -132,6 +132,7 @@
 | `src/utils/equipmentRequestStatus.ts` | 裝備申請狀態規則 |
 | `src/utils/vendors.ts` | 廠商搜尋、交易類別分組與照片 path normalize |
 | `src/utils/memberBilling.ts` | 球員有效繳費模式、固定月繳與月費計算 helper |
+| `src/utils/monthlyPaymentPeriods.ts` | 月繳付款回報開放期別，校隊計次與固定月繳 25 日規則 |
 | `src/utils/monthlyFeeSettlement.ts` | 月費結算 |
 | `src/utils/quarterlyFeeFamilies.ts` | 季費家庭分組與金額 |
 | `src/utils/quarterlyPaymentSubmissions.ts` | 季費付款回報期別開放、項目 normalize 與多球員季費驗證 |
@@ -375,6 +376,7 @@
 - `src/utils/lineupPhotoParser.test.ts`
 - `src/utils/leaveRequests.test.ts`
 - `src/utils/memberBilling.test.ts`
+- `src/utils/monthlyPaymentPeriods.test.ts`
 - `src/utils/monthlyFeeSettlement.test.ts`
 - `src/utils/quarterlyFeeFamilies.test.ts`
 - `src/utils/quarterlyPaymentSubmissions.test.ts`
