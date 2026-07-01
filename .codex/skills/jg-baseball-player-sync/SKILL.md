@@ -20,7 +20,7 @@ description: "Player roster sync workflow for jg-base-ball-community-app. Use wh
 
 - Google 同步不得覆蓋既有成員的 `team_members.is_primary_payer`、`team_members.is_half_price` 與 `team_members.fee_billing_mode`。
 - 只有在新增全新成員時，才把前兩個欄位預設為 `false`，並把 `fee_billing_mode` 預設為 `role_default`。
-- Google 同步未提供年級欄位時，不覆蓋既有成員的 `team_members.grade`；新增成員或既有空值才依 `birth_date` 與 9 月 1 日學年度切分帶入預設年級。
+- Google 同步未提供年級欄位時，不覆蓋既有成員的 `team_members.grade`；新增成員或既有空值才依 `birth_date` 帶入預設年級，出生日期 9 月 2 日以後預設晚一屆，名單年級每年 6 月 19 日由 DB 排程自動升級。
 - 對重複同步列做去重時，保留最後一筆資料，並統計重複數。
 - dedupe key 為空白時，不要把多筆資料錯誤合併成同一個人。
 - 球員名單顯示有 `src/stores/playerRoster.ts` 的 session 內快取；Google 同步、新增、編輯、刪除成功後要 force refresh，不能只沿用快取。

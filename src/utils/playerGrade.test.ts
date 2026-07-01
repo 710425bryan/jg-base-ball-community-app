@@ -18,29 +18,34 @@ describe('playerGrade', () => {
     })
   })
 
-  it('switches academic years on September 1', () => {
-    expect(getAcademicYearStart('2026-08-31')).toBe(2025)
-    expect(getAcademicYearStart('2026-09-01')).toBe(2026)
+  it('switches roster grades on June 19', () => {
+    expect(getAcademicYearStart('2026-06-18')).toBe(2025)
+    expect(getAcademicYearStart('2026-06-19')).toBe(2026)
   })
 
-  it('infers elementary grade using the September 1 enrollment cutoff', () => {
-    expect(inferPlayerGradeFromBirthDate('2018-09-01', { today: '2026-07-01' })).toBe('國小二年級')
-    expect(inferPlayerGradeFromBirthDate('2018-09-02', { today: '2026-07-01' })).toBe('國小一年級')
-    expect(inferPlayerGradeFromBirthDate('2019-09-01', { today: '2026-07-01' })).toBe('國小一年級')
-    expect(inferPlayerGradeFromBirthDate('2019-09-02', { today: '2026-07-01' })).toBe('幼稚園大班')
+  it('infers elementary grade using the September 2 enrollment birth cutoff', () => {
+    expect(inferPlayerGradeFromBirthDate('2018-09-01', { today: '2026-07-01' })).toBe('國小三年級')
+    expect(inferPlayerGradeFromBirthDate('2018-09-02', { today: '2026-07-01' })).toBe('國小二年級')
+    expect(inferPlayerGradeFromBirthDate('2019-09-01', { today: '2026-07-01' })).toBe('國小二年級')
+    expect(inferPlayerGradeFromBirthDate('2019-09-02', { today: '2026-07-01' })).toBe('國小一年級')
   })
 
   it('moves September 2 or later birthdays up when marked as early enrollment', () => {
     expect(inferPlayerGradeFromBirthDate('2019-09-02', {
       isEarlyEnrollment: true,
       today: '2026-07-01'
-    })).toBe('國小一年級')
+    })).toBe('國小二年級')
   })
 
-  it('infers kindergarten grades', () => {
-    expect(inferPlayerGradeFromBirthDate('2021-09-02', { today: '2026-07-01' })).toBe('幼稚園小班')
-    expect(inferPlayerGradeFromBirthDate('2020-09-02', { today: '2026-07-01' })).toBe('幼稚園中班')
-    expect(inferPlayerGradeFromBirthDate('2019-09-02', { today: '2026-07-01' })).toBe('幼稚園大班')
+  it('advances inferred grades on the June 19 roster rollover date', () => {
+    expect(inferPlayerGradeFromBirthDate('2019-09-02', { today: '2026-06-18' })).toBe('幼稚園大班')
+    expect(inferPlayerGradeFromBirthDate('2019-09-02', { today: '2026-06-19' })).toBe('國小一年級')
+  })
+
+  it('infers kindergarten grades before the June 19 rollover', () => {
+    expect(inferPlayerGradeFromBirthDate('2021-09-02', { today: '2026-06-18' })).toBe('幼稚園小班')
+    expect(inferPlayerGradeFromBirthDate('2020-09-02', { today: '2026-06-18' })).toBe('幼稚園中班')
+    expect(inferPlayerGradeFromBirthDate('2019-09-02', { today: '2026-06-18' })).toBe('幼稚園大班')
   })
 
   it('normalizes common spreadsheet grade labels', () => {

@@ -20,6 +20,8 @@ export type PlayerGradeValue = (typeof PLAYER_GRADE_OPTIONS)[number]['value']
 
 const PLAYER_GRADE_VALUES = PLAYER_GRADE_OPTIONS.map((option) => option.value)
 const PLAYER_GRADE_VALUE_SET = new Set<string>(PLAYER_GRADE_VALUES)
+const GRADE_ROLLOVER_MONTH = 6
+const GRADE_ROLLOVER_DAY = 19
 
 const GRADE_BY_INDEX = new Map<number, PlayerGradeValue>([
   [-2, '幼稚園小班'],
@@ -86,7 +88,8 @@ export const getAcademicYearStart = (today: Date | string = new Date()) => {
   const parts = parseDateParts(today)
   if (!parts) return new Date().getFullYear()
 
-  return parts.month > 9 || (parts.month === 9 && parts.day >= 1)
+  return parts.month > GRADE_ROLLOVER_MONTH ||
+    (parts.month === GRADE_ROLLOVER_MONTH && parts.day >= GRADE_ROLLOVER_DAY)
     ? parts.year
     : parts.year - 1
 }

@@ -144,7 +144,7 @@
           
           <div v-if="r.payment_items && r.payment_items.length" class="flex flex-wrap gap-1 mb-3">
             <span v-for="item in r.payment_items" :key="item" class="text-[10px] bg-indigo-50 text-indigo-500 border border-indigo-100 px-1.5 py-0.5 rounded truncate max-w-full font-bold">
-              {{ item === '加購其他項目:' && r.other_item_note ? `${item} ${r.other_item_note}` : item }}
+              {{ formatPaymentItemLabel(item, r.other_item_note) }}
             </span>
           </div>
 
@@ -248,7 +248,7 @@
                 <div class="flex flex-wrap gap-1 max-w-[280px]">
                   <template v-if="fee.payment_items && fee.payment_items.length > 0">
                     <span v-for="item in fee.payment_items" :key="item" class="text-[10px] bg-indigo-50 text-indigo-500 border border-indigo-100 px-1.5 py-0.5 rounded truncate max-w-full font-bold">
-                      {{ item === '加購其他項目:' && fee.other_item_note ? `${item} ${fee.other_item_note}` : item }}
+                      {{ formatPaymentItemLabel(item, fee.other_item_note) }}
                     </span>
                   </template>
                   <span v-else class="text-[10px] bg-gray-100 text-gray-500 border border-gray-200 px-1.5 py-0.5 rounded font-bold">未設定明細</span>
@@ -408,6 +408,17 @@ const editForm = ref({
 const isEditingRemittance = ref(false)
 
 const DEFAULT_QUARTERLY_PAYMENT_ITEM = '學費(季繳$6000/3000)'
+const PAYMENT_ITEM_LABELS: Record<string, string> = {
+  profile_payment_submission: '家長繳費回報'
+}
+
+const formatPaymentItemLabel = (item: string, otherItemNote?: string | null) => {
+  if (item === '加購其他項目:' && otherItemNote) {
+    return `${item} ${otherItemNote}`
+  }
+
+  return PAYMENT_ITEM_LABELS[item] || item
+}
 
 const cloneFeeValue = <T,>(value: T): T => {
   if (Array.isArray(value)) {
@@ -977,8 +988,9 @@ const exportCSV = () => {
   filteredFeesList.value.forEach(fee => {
     let itemsStr = ''
     if (fee.payment_items && fee.payment_items.length > 0) {
-      itemsStr = fee.payment_items.join('; ')
-      if (fee.other_item_note) itemsStr += ` (${fee.other_item_note})`
+      itemsStr = fee.payment_items
+        .map((item: string) => formatPaymentItemLabel(item, fee.other_item_note))
+        .join('; ')
     } else {
       itemsStr = '無'
     }
