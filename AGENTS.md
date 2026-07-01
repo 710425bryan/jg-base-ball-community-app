@@ -236,6 +236,7 @@
 - 裝備付款在加購申請 `approved` 後即可回報，費用端確認收款只代表款項已完成，不代表商品已備貨或已領取；若要刪除已收款測試請購，必須先走退款 / 作廢收款，並反向處理球員餘額。
 - 季費堂數不足補償以當月週六數對比 `/training-dates` 訓練日期設定總天數；任何設定日期都算一堂，達當月週六數就不補償。補償先產生 `quarterly_fee_compensation_items` 待審核單，核准後才用 `quarterly_compensation` source 寫入 `player_balance_transactions`。
 - sibling / quarter fee / monthly settlement 等邏輯已拆在 `src/utils/*fee*` 與相關測試。
+- 手足主要繳費人退隊、離隊或關閉 / 畢業後，剩餘有效手足的新一期月費 / 季費試算不得沿用手足半價；主要繳費人恢復有效後，若 `sibling_ids` 與 `is_primary_payer` 仍保留，另一位有效手足可恢復手足減免。既有已保存帳款金額不自動覆寫，需由管理端重算或手動調整。
 - 比賽費走 `src/services/matchFees.ts`、`match_fee_items`、`match_payment_submissions`、`match_payment_submission_items`，可在 `/my-payments` 合併回報，在 `/fees` 審核。
 - 匯款表單匯入走 `supabase/functions/record-fee-remittance/index.ts` 與 `scripts/google-form-remittance-apps-script.js`，不得硬編碼 secret。
 - 費用提醒走 `src/services/feeManagementReminders.ts` 與 `supabase_fee_management_reminders_migration.sql`，改提醒時要檢查通知中心 `get_notification_feed()`。

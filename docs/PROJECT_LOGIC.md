@@ -501,6 +501,7 @@ UI 約定：
 - 個人付款回報由 `myPayments` RPC 建立，可選用球員餘額；一般繳費與裝備付款都在管理端確認時才正式扣餘額。
 - 球員餘額以 `player_balance_transactions` 流水帳計算，管理員可手動調整，付款審核時可把溢繳轉入餘額；退款 / 作廢收款必須以反向流水退回餘額扣抵或沖回溢繳轉入。
 - sibling / family grouping 與季費家庭金額計算在 utils。
+- 手足主要繳費人退隊、離隊或關閉 / 畢業後，剩餘有效手足的新一期月費 / 季費試算不得沿用手足半價；主要繳費人恢復有效後，若 `sibling_ids` 與 `is_primary_payer` 仍保留，另一位有效手足可恢復手足減免。既有已保存帳款金額不自動覆寫，需由管理端重算或手動調整。
 - 比賽費由 `matches.match_fee_amount` 產生 `match_fee_items`，家長可在 `/my-payments` 合併回報，管理端在 `/fees` 審核。
 - 費用提醒由 `get_fee_management_reminders()` 與 `get_notification_feed()` 整合進通知中心。
 - Google Form 匯款資料走 `record-fee-remittance`，以 secret 驗證並建立付款 / 通知資料。

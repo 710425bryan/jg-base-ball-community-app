@@ -305,7 +305,6 @@ import { useRoute } from 'vue-router'
 import { useWindowSize } from '@vueuse/core'
 import {
   buildSiblingGroupMap,
-  normalizeSiblingIds,
   resolveLinkedMemberIds
 } from '@/utils/siblingGroups'
 import {
@@ -654,7 +653,9 @@ const fetchData = async () => {
         ...member,
         sibling_ids: Array.isArray(member.sibling_ids) ? [...member.sibling_ids] : []
       }))
-    const members = normalizeSiblingIds(filterQuarterlyPricingMembers(quarterlyMemberCandidates))
+    // Keep original sibling_ids for stale half-price checks; normalizing after
+    // filtering inactive siblings would erase the inactive reference.
+    const members = filterQuarterlyPricingMembers(quarterlyMemberCandidates)
 
     const siblingGroupMap = buildSiblingGroupMap(members)
     const quarterlyMemberIdSet = new Set(members.map((member) => member.id))
