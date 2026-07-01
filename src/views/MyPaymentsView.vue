@@ -640,7 +640,6 @@ import {
   clampBalanceDeduction,
   getExternalPaymentAmount
 } from '@/utils/playerBalance'
-import { getDefaultMonthlyFeeSettlementMonth } from '@/utils/monthlyFeeSettlement'
 import {
   getMemberBillingLabel,
   NO_FEE_BILLING_MODE,
@@ -896,8 +895,7 @@ const createDialogMembershipMetaText = computed(() => {
 })
 
 const nextMonthlyFeePeriod = computed(() => {
-  const today = dayjs()
-  return today.date() >= 25 ? today.add(1, 'month') : today
+  return dayjs().add(1, 'month')
 })
 
 const membershipSelectionHint = computed(() => {
@@ -922,7 +920,7 @@ const membershipSelectionHint = computed(() => {
 
   const periodKey = currentFeePeriodKey.value
   const nextPeriodKey = nextMonthlyFeePeriod.value.format('YYYY-MM')
-  const nextOpenDate = nextMonthlyFeePeriod.value.date(25).format('YYYY-MM-DD')
+  const nextOpenDate = nextMonthlyFeePeriod.value.startOf('month').format('YYYY-MM-DD')
 
   if (currentFeeDueStatus.value === 'paid') {
     return `目前可回報的 ${periodKey} 月費已確認；${nextPeriodKey} 月費預計 ${nextOpenDate} 起開放回報。`
@@ -1938,7 +1936,7 @@ const submissionRules = {
 }
 
 const getCurrentMonthlyFeePeriodKey = (date = dayjs()) =>
-  getDefaultMonthlyFeeSettlementMonth(date)
+  dayjs(date).format('YYYY-MM')
 
 const getDefaultMonthlyPeriodKey = () => getCurrentMonthlyFeePeriodKey()
 
