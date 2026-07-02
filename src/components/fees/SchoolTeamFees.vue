@@ -30,7 +30,7 @@
       <div class="w-full sm:w-auto flex flex-col gap-1.5 border-l-0 sm:border-l border-gray-200 pl-0 sm:pl-4">
         <span class="text-xs font-bold text-gray-500">月份統計說明</span>
         <p class="text-xs text-gray-500 leading-relaxed max-w-sm">
-          本月堂數依訓練日期設定自動計算；請假天數只統計落在本月訓練日期內的假單日期。
+          本月堂數依訓練日期設定自動計算；計次月費只扣落在本月訓練日期內的全日 / 上午假單。
         </p>
         <p class="text-[11px] text-gray-400 leading-relaxed max-w-sm">
           {{ trainingMonthDateSummary }}
@@ -205,7 +205,7 @@
     <!-- Data Table -->
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden" v-loading="isLoading">
       <div class="px-4 py-3 text-xs text-gray-400 border-b border-gray-100 bg-gray-50/60">
-        請假天數只統計落在本月訓練日期內的假單日期；本月堂數依訓練日期設定自動計算。固定月繳列不參與堂數、請假或單堂費率計算。
+        請假天數只統計落在本月訓練日期內的全日 / 上午假單；下午假單不扣計次月費。固定月繳列不參與堂數、請假或單堂費率計算。
       </div>
       <div class="overflow-x-auto">
         <table class="w-full min-w-[900px]">
@@ -644,7 +644,7 @@ const calculateFees = async () => {
 
     const leaveRequestsRes = await supabase
       .from('leave_requests')
-      .select('user_id, start_date, end_date')
+      .select('user_id, start_date, end_date, leave_time_segment')
       .lte('start_date', endOfMonth)
       .gte('end_date', startOfMonth)
     if (leaveRequestsRes.error) throw leaveRequestsRes.error
@@ -653,7 +653,8 @@ const calculateFees = async () => {
       leaveRequests: (leaveRequestsRes.data || []).map((leave: any) => ({
         memberId: leave.user_id,
         startDate: leave.start_date,
-        endDate: leave.end_date
+        endDate: leave.end_date,
+        leaveTimeSegment: leave.leave_time_segment
       })),
       monthStart: startOfMonth,
       monthEnd: endOfMonth,

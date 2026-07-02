@@ -3,7 +3,8 @@ import dayjs from 'dayjs'
 import {
   buildMonthlyFeeLeaveDateMap,
   getDefaultMonthlyFeeSettlementMonth,
-  getMonthlyFeeTotalSessionsFromTrainingDates
+  getMonthlyFeeTotalSessionsFromTrainingDates,
+  isMonthlyFeeDeductibleLeaveSegment
 } from './monthlyFeeSettlement'
 
 describe('monthlyFeeSettlement', () => {
@@ -62,5 +63,26 @@ describe('monthlyFeeSettlement', () => {
 
     expect(leaveDateMap.get('member-1')).toEqual(['2026-06-14', '2026-06-27'])
     expect(leaveDateMap.get('member-1')).not.toContain('2026-06-28')
+  })
+
+  it('deducts monthly fees only for full-day and morning leave segments', () => {
+    expect(isMonthlyFeeDeductibleLeaveSegment('full_day')).toBe(true)
+    expect(isMonthlyFeeDeductibleLeaveSegment('morning')).toBe(true)
+    expect(isMonthlyFeeDeductibleLeaveSegment('afternoon')).toBe(false)
+    expect(isMonthlyFeeDeductibleLeaveSegment(null)).toBe(true)
+
+    const leaveDateMap = buildMonthlyFeeLeaveDateMap({
+      monthStart: '2026-07-01',
+      monthEnd: '2026-07-31',
+      trainingDates: ['2026-07-04', '2026-07-11', '2026-07-18', '2026-07-25'],
+      leaveRequests: [
+        { memberId: 'member-1', startDate: '2026-07-04', endDate: '2026-07-04', leaveTimeSegment: 'afternoon' },
+        { memberId: 'member-1', startDate: '2026-07-11', endDate: '2026-07-11', leaveTimeSegment: 'morning' },
+        { memberId: 'member-1', startDate: '2026-07-18', endDate: '2026-07-18', leaveTimeSegment: 'full_day' },
+        { memberId: 'member-1', startDate: '2026-07-25', endDate: '2026-07-25', leaveTimeSegment: null }
+      ]
+    })
+
+    expect(leaveDateMap.get('member-1')).toEqual(['2026-07-11', '2026-07-18', '2026-07-25'])
   })
 })

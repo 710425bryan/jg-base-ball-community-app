@@ -112,6 +112,7 @@
 | `supabase_profile_payment_submission_estimate_migration.sql` | 付款估算 RPC | 家長端送出前估算 |
 | `supabase_profile_payment_submission_estimate_monthly_record_migration.sql` | 月費紀錄估算補強 | 固定月繳 / 月費估算必讀 |
 | `supabase_zzzzzzzz_profile_payment_estimate_training_dates_migration.sql` | 付款估算訓練日期補強 | 月繳本月堂數改以 `/training-dates` 設定天數計算 |
+| `supabase_zzzzzzzzzzzzzzzzz_monthly_fee_leave_time_segment_migration.sql` | 計次月費假單時段修正 | 月費試算 / 家長端付款估算只把訓練日期內的全日、上午假單列為請假扣減；下午假不扣計次月費 |
 | `supabase_player_balance_transactions_migration.sql` | 球員餘額流水帳與付款 RPC 覆寫 | 餘額權威主線 |
 | `supabase_inactive_member_visibility_migration.sql` | 關閉 / 畢業成員繳費名單修正 | `list_my_payment_members()` 不回傳退隊、離隊、關閉 / 畢業成員 |
 | `supabase_quarterly_fee_compensation_migration.sql` | 季費堂數不足補償 | 產生待審核補償單，核准後寫入球員餘額 |

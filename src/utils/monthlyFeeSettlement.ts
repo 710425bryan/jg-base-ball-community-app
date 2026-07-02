@@ -1,4 +1,5 @@
 import dayjs, { type Dayjs } from 'dayjs'
+import { normalizeLeaveTimeSegment } from './leaveRequests'
 
 export const MONTHLY_FEE_SETTLEMENT_SWITCH_DAY = 25
 
@@ -18,6 +19,7 @@ export type MonthlyFeeLeaveRequestSource = {
   memberId: string | null | undefined
   startDate: string | null | undefined
   endDate: string | null | undefined
+  leaveTimeSegment?: string | null | undefined
 }
 
 const normalizeDateText = (value: string | null | undefined) => {
@@ -39,6 +41,11 @@ const addLeaveDate = (
   leaveDateMap.set(normalizedMemberId, dates)
 }
 
+export const isMonthlyFeeDeductibleLeaveSegment = (value: unknown) => {
+  const segment = normalizeLeaveTimeSegment(value)
+  return segment === 'full_day' || segment === 'morning'
+}
+
 export const buildMonthlyFeeLeaveDateMap = ({
   leaveRequests,
   monthStart,
@@ -56,6 +63,8 @@ export const buildMonthlyFeeLeaveDateMap = ({
     : null
 
   leaveRequests.forEach((leave) => {
+    if (!isMonthlyFeeDeductibleLeaveSegment(leave.leaveTimeSegment)) return
+
     const rawStart = normalizeDateText(leave.startDate)
     const rawEnd = normalizeDateText(leave.endDate || leave.startDate)
     if (!rawStart || !rawEnd) return
