@@ -51,6 +51,7 @@
 | `supabase_my_home_next_event_match_only_hotfix.sql` | 個人首頁 Next Up 僅顯示賽程 | 避免點名單搶佔 Next Up |
 | `supabase_inactive_member_visibility_migration.sql` | 關閉 / 畢業成員可見性修正 | 覆寫 `list_my_payment_members()`、`list_my_leave_members()`、`create_my_leave_requests()` 與 `get_dashboard_today_attendance_status()`，排除退隊、離隊、關閉 / 畢業成員 |
 | `supabase_my_leave_requests_migration.sql` | 我的假單 RPC | 家長端請假安全入口 |
+| `supabase_zzzzzzzzzzzzzzzz_leave_time_segments_migration.sql` | 單日假單全日 / 上午 / 下午時段 | 新增 `leave_requests.leave_time_segment`，覆寫我的假單 RPC、賽事假單同步、比賽費同步與今日點名摘要的時段重疊判斷 |
 | `supabase_my_player_records_migration.sql` | 我的成績 RPC | `/my-records` 不直接讀後台 matches |
 | `supabase_notification_feed_rpc_migration.sql` | 通知中心 RPC 初版 | 後續多個檔案覆寫 |
 | `supabase_announcement_notifications_migration.sql` | 公告通知 feed 補強 | 覆寫 `get_notification_feed()` |
@@ -90,7 +91,7 @@
 | `supabase_match_video_url_migration.sql` | 比賽影片欄位 | media UI 使用 |
 | `supabase_match_reminder_notifications_migration.sql` | 賽事提醒通知 | 覆寫 `get_notification_feed()` 可能性 |
 | `supabase_match_reminder_schedule_config_migration.sql` | 賽事提醒排程設定 | `system_settings.match_reminder_schedule_config`、每分鐘 cron checker |
-| `supabase_match_leave_absences_migration.sql` | 未來賽事假單請假同步 | `preview_match_leave_absences()`、`get_match_leave_absences()`、`leave_requests` / `matches` trigger，只管理 `source = 'leave_request'` 的 `matches.absent_players` |
+| `supabase_match_leave_absences_migration.sql` | 未來賽事假單請假同步 | `preview_match_leave_absences()`、`get_match_leave_absences()`、`leave_requests` / `matches` trigger，只管理 `source = 'leave_request'` 的 `matches.absent_players`；半日假單規則以後續 `supabase_zzzzzzzzzzzzzzzz_leave_time_segments_migration.sql` 為準 |
 | `supabase_location_geocoding_cache_migration.sql` | 地點 geocoding cache | `resolve-location` Edge Function 使用 |
 
 ## 收費、付款、餘額與比賽費

@@ -23,6 +23,7 @@ import { cloneLineScoreData, createDefaultLineScoreData, finalizeInningScore, ge
 import { buildMatchAudioRoster } from '@/utils/matchAudioTranscription'
 import { previewMatchLeaveAbsences } from '@/services/matchLeaveAbsences'
 import {
+  formatAbsentPlayerLeaveSegment,
   isLeaveRequestAbsentPlayer,
   mergeManualAndLeaveAbsences,
   withoutLeaveRequestAbsentPlayers
@@ -318,7 +319,7 @@ const syncLeaveRequestAbsences = async () => {
 
   syncingLeaveAbsences.value = true
   try {
-    const leaveAbsences = await previewMatchLeaveAbsences(matchDate, playerNames)
+    const leaveAbsences = await previewMatchLeaveAbsences(matchDate, playerNames, formData.value.match_time)
     if (runId !== leaveAbsenceSyncRunId) return
     formData.value.absent_players = mergeManualAndLeaveAbsences(formData.value.absent_players, leaveAbsences)
   } catch (error: any) {
@@ -333,7 +334,7 @@ const syncLeaveRequestAbsences = async () => {
 }
 
 watch(
-  () => [visible.value, formData.value.match_date, formData.value.players] as const,
+    () => [visible.value, formData.value.match_date, formData.value.match_time, formData.value.players] as const,
   () => {
     void syncLeaveRequestAbsences()
   },
@@ -1365,7 +1366,9 @@ const handlePhotoUpload = async (event: Event) => {
                   <el-option value="公假" label="公假" />
                   <el-option value="未到" label="曠課/未到" />
                 </el-select>
-                <el-tag v-if="isLeaveRequestAbsentPlayer(abs)" size="small" type="warning" effect="plain">假單同步</el-tag>
+                <el-tag v-if="isLeaveRequestAbsentPlayer(abs)" size="small" type="warning" effect="plain">
+                  假單同步・{{ formatAbsentPlayerLeaveSegment(abs) }}
+                </el-tag>
                 <el-button v-else type="danger" circle size="small" plain @click="removeAbsent(i)"><el-icon><Minus /></el-icon></el-button>
               </div>
               <div v-if="!formData.absent_players.length" class="text-xs text-gray-400 p-3 bg-gray-50 rounded-lg text-center border border-dashed border-gray-200">

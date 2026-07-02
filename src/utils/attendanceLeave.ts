@@ -1,3 +1,5 @@
+import { normalizeLeaveTimeSegment } from './leaveRequests'
+
 export const ATTENDANCE_STATUS_UNSET = ''
 export const ATTENDANCE_STATUS_PENDING = '待點名'
 export const ATTENDANCE_STATUS_LEAVE = '請假'
@@ -14,6 +16,7 @@ export type AttendanceLeaveRecord = {
   user_id?: string | number | null
   member_id?: string | number | null
   leave_type?: string | null
+  leave_time_segment?: string | null
   start_date?: string | null
   end_date?: string | null
   reason?: string | null
@@ -40,6 +43,7 @@ export type AttendanceLeaveSummaryRow = {
   status: string | null
   team_group: string | null
   leave_type: string | null
+  leave_time_segment: string | null
   start_date: string | null
   end_date: string | null
   reason: string | null
@@ -55,6 +59,41 @@ export const normalizeAttendanceDate = (value: unknown) => {
   const match = text.match(/\d{4}-\d{2}-\d{2}/)
   return match ? match[0] : text
 }
+
+const parseEventTimeMinutes = (value: unknown) => {
+  const text = String(value ?? '')
+  const matches = Array.from(text.matchAll(/\b([01]?\d|2[0-3]):([0-5]\d)\b/g))
+  return matches.map((match) => Number(match[1]) * 60 + Number(match[2]))
+}
+
+export const leaveTimeSegmentOverlapsEventTime = (
+  leaveTimeSegment: unknown,
+  eventTimeText?: unknown
+) => {
+  const segment = normalizeLeaveTimeSegment(leaveTimeSegment)
+  if (segment === 'full_day') return true
+
+  const eventMinutes = parseEventTimeMinutes(eventTimeText)
+  if (eventMinutes.length === 0) return true
+
+  const eventStart = eventMinutes[0]
+  const eventEnd = eventMinutes[1] ?? eventStart
+  const segmentStart = segment === 'morning' ? 0 : 12 * 60
+  const segmentEnd = segment === 'morning' ? 12 * 60 : 24 * 60
+
+  if (eventEnd > eventStart) {
+    return eventStart < segmentEnd && eventEnd > segmentStart
+  }
+
+  return eventStart >= segmentStart && eventStart < segmentEnd
+}
+
+export const filterAttendanceLeaveRecordsForEvent = <T extends AttendanceLeaveRecord>(
+  records: T[] | null | undefined,
+  eventTimeText?: unknown
+) => (records || []).filter((record) =>
+  leaveTimeSegmentOverlapsEventTime(record.leave_time_segment, eventTimeText)
+)
 
 export const buildAttendanceLeaveMemberIdSet = (records: AttendanceLeaveRecord[] | null | undefined) => {
   const ids = (records || [])
@@ -106,6 +145,7 @@ export const buildAttendanceLeaveSummaryRows = (
       status: displayMember?.status || null,
       team_group: displayMember?.team_group || null,
       leave_type: record.leave_type || null,
+      leave_time_segment: record.leave_time_segment || null,
       start_date: record.start_date || null,
       end_date: record.end_date || null,
       reason: record.reason || null,

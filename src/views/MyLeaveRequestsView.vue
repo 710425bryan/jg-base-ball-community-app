@@ -108,6 +108,7 @@
                 <div class="flex items-start justify-between gap-3">
                   <div>
                     <div class="text-lg font-black text-slate-800">{{ formatLeaveDateRange(leave.start_date, leave.end_date) }}</div>
+                    <div class="mt-1 text-xs font-bold text-primary">{{ formatLeaveTimeSegment(leave.leave_time_segment) }}</div>
                     <div class="text-xs text-gray-400 mt-1">{{ leave.member_name }} / {{ leave.member_role || '未分類' }}</div>
                   </div>
 
@@ -183,6 +184,19 @@
         </el-form-item>
 
         <template v-if="form.leave_mode === '單日請假'">
+          <el-form-item label="請假時段" prop="leave_time_segment" class="font-bold">
+            <el-radio-group v-model="form.leave_time_segment" class="w-full flex custom-segmented">
+              <el-radio-button
+                v-for="option in LEAVE_TIME_SEGMENT_OPTIONS"
+                :key="option.value"
+                :label="option.value"
+                class="flex-1"
+              >
+                {{ option.label }}
+              </el-radio-button>
+            </el-radio-group>
+          </el-form-item>
+
           <el-form-item label="請假日期" prop="date_single" class="font-bold">
             <el-date-picker
               v-model="form.date_single"
@@ -321,7 +335,9 @@ import {
   collectLeaveRequestDates,
   createDefaultLeaveRequestFormState,
   findNonTrainingLeaveDates,
+  getLeaveTimeSegmentLabel,
   LEAVE_MODE_OPTIONS,
+  LEAVE_TIME_SEGMENT_OPTIONS,
   LEAVE_TYPE_OPTIONS,
   LEAVE_WEEKDAY_OPTIONS,
   leaveRequestBaseRules
@@ -414,6 +430,8 @@ const formatLeaveDateRange = (startDate: string, endDate: string) => {
   return `${startDate} ~ ${endDate}`
 }
 
+const formatLeaveTimeSegment = (segment: unknown) => getLeaveTimeSegmentLabel(segment)
+
 const formatDateTime = (value?: string | null) => {
   if (!value) {
     return '尚無資料'
@@ -488,6 +506,9 @@ const refreshTrainingDateWarning = async ({ notify = false }: { notify?: boolean
 }
 
 const handleLeaveDateSelectionChange = () => {
+  if (form.leave_mode !== '單日請假') {
+    form.leave_time_segment = 'full_day'
+  }
   void nextTick().then(() => refreshTrainingDateWarning({ notify: true }))
 }
 
@@ -549,6 +570,7 @@ const submitLeaveRequest = async () => {
       member_id: selectedMember.value.member_id,
       records: records.map((record) => ({
         leave_type: record.leave_type,
+        leave_time_segment: record.leave_time_segment,
         start_date: record.start_date,
         end_date: record.end_date,
         reason: record.reason

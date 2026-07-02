@@ -9,6 +9,7 @@ import {
   getMyHomeMemberLeave,
   getSelectedMyHomeMember
 } from '@/utils/myHomeSnapshot'
+import { getLeaveTimeSegmentLabel } from '@/utils/leaveRequests'
 
 const props = defineProps<{
   snapshot: MyHomeSnapshot
@@ -66,7 +67,9 @@ const trainingPointCard = computed(() => ({
 
 const memberStatusText = computed(() => {
   if (!selectedMember.value) return '尚未綁定'
-  if (selectedLeave.value) return `今日已${selectedLeave.value.leave_type}`
+  if (selectedLeave.value) {
+    return `今日已${selectedLeave.value.leave_type}（${getLeaveTimeSegmentLabel(selectedLeave.value.leave_time_segment)}）`
+  }
   return '今日未請假'
 })
 

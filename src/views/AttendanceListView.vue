@@ -127,6 +127,7 @@ import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
 import {
   buildAttendanceLeaveSummaryRows,
+  filterAttendanceLeaveRecordsForEvent,
   getDefaultAttendanceStatusForMember
 } from '@/utils/attendanceLeave'
 import dayjs from 'dayjs'
@@ -225,7 +226,7 @@ const submitCreate = async () => {
       const { data: leaves, error: leaveError } = await supabase
         .from('leave_requests')
         .select(`
-          id, user_id, leave_type, start_date, end_date, reason,
+          id, user_id, leave_type, leave_time_segment, start_date, end_date, reason,
           team_members ( id, name, avatar_url, role, jersey_number, status, team_group )
         `)
         .lte('start_date', form.date)
@@ -233,7 +234,7 @@ const submitCreate = async () => {
 
       if (leaveError) throw leaveError
       leaveMemberIds = new Set(
-        buildAttendanceLeaveSummaryRows(leaves, members)
+        buildAttendanceLeaveSummaryRows(filterAttendanceLeaveRecordsForEvent(leaves), members)
           .filter((row) => row.in_roll_call_list)
           .map((row) => row.member_id)
           .filter(Boolean)

@@ -2,24 +2,25 @@ export type LeaveType = '事假' | '病假' | '公假' | '其他'
 
 export type LeaveMode = '單日請假' | '連續多日' | '固定週期'
 
-export type LeaveDateRange = [string, string]
+export type LeaveTimeSegment = 'full_day' | 'morning' | 'afternoon'
 
-export type LeaveTimeRange = [string, string] | null
+export type LeaveDateRange = [string, string]
 
 export type LeaveRequestFormState = {
   leave_type: LeaveType
   leave_mode: LeaveMode
+  leave_time_segment: LeaveTimeSegment
   date_single: string
   date_range: LeaveDateRange
   recurring_days: number[]
   recurring_range: LeaveDateRange
-  time_range: LeaveTimeRange
   reason: string
 }
 
 export type LeaveRequestDraftRecord = {
   member_id: string
   leave_type: LeaveType
+  leave_time_segment: LeaveTimeSegment
   start_date: string
   end_date: string
   reason: string | null
@@ -38,6 +39,7 @@ export type MyLeaveRequest = {
   member_name: string
   member_role: string | null
   leave_type: string
+  leave_time_segment: LeaveTimeSegment | string | null
   start_date: string
   end_date: string
   reason: string | null
@@ -46,6 +48,7 @@ export type MyLeaveRequest = {
 
 export type CreateMyLeaveRequestRecordPayload = {
   leave_type: string
+  leave_time_segment?: string | null
   start_date: string
   end_date: string
   reason?: string | null

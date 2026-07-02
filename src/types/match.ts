@@ -11,6 +11,7 @@ export interface AbsentPlayer {
   leave_request_ids?: string[];
   start_date?: string | null;
   end_date?: string | null;
+  leave_time_segment?: string | null;
 }
 
 export interface LineupEntry {

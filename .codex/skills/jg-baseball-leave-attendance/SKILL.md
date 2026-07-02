@@ -33,6 +33,7 @@ description: "Leave request, attendance event, roll call, dashboard attendance s
 
 - 家長 / 球員自己的請假走 `myLeaveRequests` RPC，不直接寫 raw table。
 - 後台請假管理在 `/leave-requests`，feature key 為 `leave_requests`。
+- `leave_requests.leave_time_segment` 是請假時段權威欄位：`full_day` / `morning` / `afternoon`。新增假單預設 `full_day`；半日只套用單日請假。比賽、比賽費、點名預設若有事件時間要用時段重疊判斷，時間不明視為全日。
 - 點名事件使用 `attendance_events`，單場紀錄使用 `attendance_records`。
 - `/attendance/:id` 顯示單場點名 detail。
 - 今日訓練點名狀態走 `get_dashboard_today_attendance_status()`，需支援同一天多筆點名單，只給 `leave_requests:VIEW` 使用者顯示。

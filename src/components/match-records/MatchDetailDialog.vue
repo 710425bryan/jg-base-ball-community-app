@@ -9,6 +9,7 @@ import { normalizeExternalUrl } from '@/utils/externalUrl'
 import { formatMatchRecordForGoogleCalendar } from '@/utils/matchCalendarCopy'
 import { getMatchLeaveAbsences } from '@/services/matchLeaveAbsences'
 import {
+  formatAbsentPlayerLeaveSegment,
   isLeaveRequestAbsentPlayer,
   mergeManualAndLeaveAbsences
 } from '@/utils/matchLeaveAbsences'
@@ -355,7 +356,7 @@ const pitchingTeamStats = computed(() => {
                          :class="isLeaveRequestAbsentPlayer(p) ? 'bg-amber-50 text-amber-700 border border-amber-100' : 'bg-gray-100 text-gray-600'"
                        >
                          <span class="font-bold">{{ p.name }}</span> <span class="text-[10px] bg-white border border-gray-200 px-1 rounded">{{ p.type }}</span>
-                         <span v-if="isLeaveRequestAbsentPlayer(p)" class="ml-1 text-[10px] font-bold">假單同步</span>
+                          <span v-if="isLeaveRequestAbsentPlayer(p)" class="ml-1 text-[10px] font-bold">假單同步・{{ formatAbsentPlayerLeaveSegment(p) }}</span>
                        </span>
                      </div>
                    </div>

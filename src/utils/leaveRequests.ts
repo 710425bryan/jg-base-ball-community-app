@@ -1,6 +1,7 @@
 import dayjs from 'dayjs'
 import type { FormRules } from 'element-plus'
 import type {
+  LeaveTimeSegment,
   LeaveMode,
   LeaveRequestDraftRecord,
   LeaveRequestFormState,
@@ -10,6 +11,12 @@ import type {
 export const LEAVE_TYPE_OPTIONS: LeaveType[] = ['事假', '病假', '公假', '其他']
 
 export const LEAVE_MODE_OPTIONS: LeaveMode[] = ['單日請假', '連續多日', '固定週期']
+
+export const LEAVE_TIME_SEGMENT_OPTIONS: Array<{ label: string; value: LeaveTimeSegment }> = [
+  { label: '全日', value: 'full_day' },
+  { label: '上午', value: 'morning' },
+  { label: '下午', value: 'afternoon' }
+]
 
 export const LEAVE_WEEKDAY_OPTIONS = [
   { label: '一', value: 1 },
@@ -27,11 +34,11 @@ export const createDefaultLeaveRequestFormState = (baseDate = dayjs()): LeaveReq
   return {
     leave_type: '事假',
     leave_mode: '單日請假',
+    leave_time_segment: 'full_day',
     date_single: formattedToday,
     date_range: [formattedToday, formattedToday],
     recurring_days: [],
     recurring_range: [formattedToday, baseDate.add(1, 'month').format('YYYY-MM-DD')],
-    time_range: null,
     reason: ''
   }
 }
@@ -76,6 +83,22 @@ const collectDatesInRange = (
 
 const dedupeSortedDates = (dates: string[]) => [...new Set(dates)].sort((left, right) => left.localeCompare(right))
 
+export const normalizeLeaveTimeSegment = (value: unknown): LeaveTimeSegment => {
+  const normalized = String(value || '').trim()
+  return normalized === 'morning' || normalized === 'afternoon' ? normalized : 'full_day'
+}
+
+export const getLeaveTimeSegmentLabel = (value: unknown) => {
+  switch (normalizeLeaveTimeSegment(value)) {
+    case 'morning':
+      return '上午'
+    case 'afternoon':
+      return '下午'
+    default:
+      return '全日'
+  }
+}
+
 export const collectLeaveRequestDates = (
   form: LeaveRequestFormState,
   maxIterations = 365
@@ -112,17 +135,8 @@ export const findNonTrainingLeaveDates = (
   )
 }
 
-export const buildLeaveReasonText = (
-  reason: string,
-  timeRange: LeaveRequestFormState['time_range']
-) => {
+export const buildLeaveReasonText = (reason: string) => {
   const normalizedReason = reason.trim()
-
-  if (timeRange && timeRange.length === 2 && timeRange[0] && timeRange[1]) {
-    const timeText = `[時段: ${timeRange[0]} - ${timeRange[1]}]`
-    return normalizedReason ? `${timeText}\n${normalizedReason}` : timeText
-  }
-
   return normalizedReason || null
 }
 
@@ -139,7 +153,7 @@ export const buildLeaveRequestRecords = ({
     throw new Error('請選擇請假人員')
   }
 
-  const finalReason = buildLeaveReasonText(form.reason, form.time_range)
+  const finalReason = buildLeaveReasonText(form.reason)
 
   if (form.leave_mode === '單日請假') {
     if (!form.date_single) {
@@ -149,6 +163,7 @@ export const buildLeaveRequestRecords = ({
     return [{
       member_id: memberId,
       leave_type: form.leave_type,
+      leave_time_segment: normalizeLeaveTimeSegment(form.leave_time_segment),
       start_date: form.date_single,
       end_date: form.date_single,
       reason: finalReason
@@ -163,6 +178,7 @@ export const buildLeaveRequestRecords = ({
     return [{
       member_id: memberId,
       leave_type: form.leave_type,
+      leave_time_segment: 'full_day',
       start_date: form.date_range[0],
       end_date: form.date_range[1],
       reason: finalReason
@@ -187,6 +203,7 @@ export const buildLeaveRequestRecords = ({
       records.push({
         member_id: memberId,
         leave_type: form.leave_type,
+        leave_time_segment: 'full_day',
         start_date: currentDate.format('YYYY-MM-DD'),
         end_date: currentDate.format('YYYY-MM-DD'),
         reason: finalReason
@@ -214,7 +231,7 @@ export const buildLeaveNotificationDateLabel = ({
   recordCount: number
 }) => {
   if (leaveMode === '單日請假') {
-    return `日期：${form.date_single}`
+    return `日期：${form.date_single}（${getLeaveTimeSegmentLabel(form.leave_time_segment)}）`
   }
 
   if (leaveMode === '連續多日') {

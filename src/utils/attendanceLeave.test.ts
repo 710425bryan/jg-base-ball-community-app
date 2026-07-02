@@ -4,7 +4,9 @@ import {
   ATTENDANCE_STATUS_UNSET,
   buildAttendanceLeaveMemberIdSet,
   buildAttendanceLeaveSummaryRows,
+  filterAttendanceLeaveRecordsForEvent,
   getDefaultAttendanceStatusForMember,
+  leaveTimeSegmentOverlapsEventTime,
   normalizeAttendanceDate,
   normalizeRollCallStatus
 } from './attendanceLeave'
@@ -80,5 +82,23 @@ describe('attendance leave helpers', () => {
       name: '小華',
       in_roll_call_list: false
     })
+  })
+
+  it('checks leave segment overlap against event times', () => {
+    expect(leaveTimeSegmentOverlapsEventTime('morning', '09:00 - 12:00')).toBe(true)
+    expect(leaveTimeSegmentOverlapsEventTime('morning', '13:00 - 15:00')).toBe(false)
+    expect(leaveTimeSegmentOverlapsEventTime('afternoon', '13:00 - 15:00')).toBe(true)
+    expect(leaveTimeSegmentOverlapsEventTime('morning', '')).toBe(true)
+    expect(leaveTimeSegmentOverlapsEventTime('full_day', '13:00 - 15:00')).toBe(true)
+  })
+
+  it('filters leave rows by event time segment', () => {
+    const rows = filterAttendanceLeaveRecordsForEvent([
+      { id: 'leave-1', user_id: 'member-1', leave_time_segment: 'morning' },
+      { id: 'leave-2', user_id: 'member-2', leave_time_segment: 'afternoon' },
+      { id: 'leave-3', user_id: 'member-3', leave_time_segment: 'full_day' }
+    ], '13:00 - 15:00')
+
+    expect(rows.map((row) => row.id)).toEqual(['leave-2', 'leave-3'])
   })
 })

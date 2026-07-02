@@ -36,6 +36,7 @@ export type MyHomeLeaveStatus = {
   member_id: string
   member_name: string
   leave_type: string
+  leave_time_segment?: string | null
   start_date: string
   end_date: string
   reason: string | null

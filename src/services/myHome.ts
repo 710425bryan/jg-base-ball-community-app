@@ -17,6 +17,8 @@ import {
 } from '@/utils/supabaseRpc'
 import { normalizeMyHomeNextEvent } from '@/utils/myHomeSnapshot'
 import { isActiveRosterMember } from '@/utils/memberLifecycle'
+import { leaveTimeSegmentOverlapsEventTime } from '@/utils/attendanceLeave'
+import { normalizeLeaveTimeSegment } from '@/utils/leaveRequests'
 import {
   buildTrainingMonthDateItems,
   getDefaultTrainingMonthDates,
@@ -46,6 +48,14 @@ const getWeekStartDate = (today?: string | null) => {
 
 const hasOwn = (value: object, key: string) =>
   Object.prototype.hasOwnProperty.call(value, key)
+
+type MyHomeLeaveRequestRow = {
+  id?: string | null
+  member_id?: string | null
+  start_date?: string | null
+  end_date?: string | null
+  leave_time_segment?: string | null
+}
 
 const hasTrainingPointFields = (member: Partial<MyHomeMember> | null | undefined) =>
   Boolean(member
@@ -101,6 +111,78 @@ const normalizeTrainingMonthDate = (row: Partial<MyHomeTrainingMonthDate> | stri
     label: String(row?.label || row?.date || ''),
     is_today: Boolean(row?.is_today),
     is_past: Boolean(row?.is_past)
+  }
+}
+
+const isDateWithinLeaveRange = (date: string, leave: MyHomeLeaveRequestRow) => {
+  const startDate = String(leave.start_date || '')
+  const endDate = String(leave.end_date || startDate)
+  return Boolean(date && startDate && startDate <= date && endDate >= date)
+}
+
+const buildTrainingLocationTimeText = (location: MyHomeTrainingLocation) =>
+  [location.start_time, location.end_time].filter(Boolean).join(' - ')
+
+const enrichSnapshotWithLeaveSegments = async (snapshot: MyHomeSnapshot): Promise<MyHomeSnapshot> => {
+  const memberIds = Array.from(new Set(
+    [
+      ...snapshot.today_leaves.map((leave) => leave.member_id),
+      ...snapshot.training_locations.map((location) => location.member_id)
+    ].filter(Boolean)
+  ))
+
+  if (memberIds.length === 0) return snapshot
+
+  const rowsByMemberId = new Map<string, MyHomeLeaveRequestRow[]>()
+  const successfulMemberIds = new Set<string>()
+
+  await Promise.all(memberIds.map(async (memberId) => {
+    try {
+      const { data, error } = await supabase.rpc('list_my_leave_requests', {
+        p_member_id: memberId
+      })
+      if (error) throw error
+
+      rowsByMemberId.set(
+        memberId,
+        ensureArray<MyHomeLeaveRequestRow>(data).map((row) => ({
+          ...row,
+          member_id: row.member_id ? String(row.member_id) : memberId,
+          leave_time_segment: normalizeLeaveTimeSegment(row.leave_time_segment)
+        }))
+      )
+      successfulMemberIds.add(memberId)
+    } catch (error) {
+      console.warn(`無法補齊 ${memberId} 的請假時段，暫以首頁 snapshot 顯示。`, error)
+    }
+  }))
+
+  if (successfulMemberIds.size === 0) return snapshot
+
+  return {
+    ...snapshot,
+    today_leaves: snapshot.today_leaves.map((leave) => {
+      if (!successfulMemberIds.has(leave.member_id)) return leave
+      const matchedLeave = rowsByMemberId.get(leave.member_id)?.find((row) => row.id === leave.id)
+      return {
+        ...leave,
+        leave_time_segment: normalizeLeaveTimeSegment(matchedLeave?.leave_time_segment || leave.leave_time_segment)
+      }
+    }),
+    training_locations: snapshot.training_locations.map((location) => {
+      if (!successfulMemberIds.has(location.member_id)) return location
+      const isOnLeave = rowsByMemberId.get(location.member_id)?.some((leave) =>
+        isDateWithinLeaveRange(location.training_date, leave)
+        && leaveTimeSegmentOverlapsEventTime(
+          leave.leave_time_segment,
+          buildTrainingLocationTimeText(location)
+        )
+      ) || false
+      return {
+        ...location,
+        is_on_leave: isOnLeave
+      }
+    })
   }
 }
 
@@ -361,6 +443,7 @@ export const getMyHomeSnapshot = async (today?: string | null) => {
 
   const withTrainingPoints = await enrichMembersWithTrainingPoints(snapshot, rawMembers)
   const activeSnapshot = await filterActiveSnapshotMembers(withTrainingPoints)
+  const snapshotWithLeaveSegments = await enrichSnapshotWithLeaveSegments(activeSnapshot)
 
-  return enrichSnapshotWithMatchFees(activeSnapshot)
+  return enrichSnapshotWithMatchFees(snapshotWithLeaveSegments)
 }

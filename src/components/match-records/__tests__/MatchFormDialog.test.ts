@@ -221,7 +221,7 @@ describe('MatchFormDialog leave request absence sync', () => {
     ])
     await vm.syncLeaveRequestAbsences()
 
-    expect(previewMatchLeaveAbsences).toHaveBeenLastCalledWith('2099-06-28', ['王小明', '李小華'])
+    expect(previewMatchLeaveAbsences).toHaveBeenLastCalledWith('2099-06-28', ['王小明', '李小華'], '')
     expect(vm.formData.absent_players).toEqual([
       expect.objectContaining({
         name: '王小明',

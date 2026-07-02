@@ -1,4 +1,5 @@
 import type { AbsentPlayer } from '@/types/match'
+import { getLeaveTimeSegmentLabel } from '@/utils/leaveRequests'
 
 export const MATCH_LEAVE_ABSENCE_SOURCE = 'leave_request'
 
@@ -8,6 +9,7 @@ export interface MatchLeaveAbsenceRow {
   leave_type: string | null
   start_date: string | null
   end_date: string | null
+  leave_time_segment?: string | null
   leave_request_ids: string[] | null
 }
 
@@ -33,8 +35,12 @@ export const createAbsentPlayerFromLeaveRow = (row: MatchLeaveAbsenceRow): Absen
   member_id: row.member_id || null,
   leave_request_ids: normalizeLeaveRequestIds(row.leave_request_ids),
   start_date: row.start_date || null,
-  end_date: row.end_date || row.start_date || null
+  end_date: row.end_date || row.start_date || null,
+  leave_time_segment: row.leave_time_segment || 'full_day'
 })
+
+export const formatAbsentPlayerLeaveSegment = (player: Partial<AbsentPlayer> | null | undefined) =>
+  getLeaveTimeSegmentLabel(player?.leave_time_segment)
 
 export const getAbsentPlayerMergeKey = (player: Partial<AbsentPlayer> | null | undefined) => {
   if (!player) return ''

@@ -21,14 +21,16 @@ const normalizeRows = (rows: MatchLeaveAbsenceRow[] | null | undefined): AbsentP
 
 export const previewMatchLeaveAbsences = async (
   matchDate: string,
-  playerNames: string[]
+  playerNames: string[],
+  matchTime?: string | null
 ): Promise<AbsentPlayer[]> => {
   const normalizedPlayerNames = normalizePlayerNames(playerNames)
   if (!matchDate || !normalizedPlayerNames.length) return []
 
   const { data, error } = await supabase.rpc('preview_match_leave_absences', {
     p_match_date: matchDate,
-    p_player_names: normalizedPlayerNames
+    p_player_names: normalizedPlayerNames,
+    p_match_time: matchTime || null
   })
 
   if (error) throw error

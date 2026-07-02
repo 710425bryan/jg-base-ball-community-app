@@ -115,6 +115,7 @@
                       <div class="mt-1 break-words text-base font-black leading-snug text-slate-800">
                         {{ formatLeaveDate(row) }}
                       </div>
+                      <div class="mt-1 text-xs font-black text-primary">{{ formatLeaveTimeSegment(row.leave_time_segment) }}</div>
                     </div>
                     <span class="shrink-0 rounded-lg border border-orange-100 bg-orange-50 px-3 py-1 text-sm font-black text-primary">
                       {{ row.leave_type }}
@@ -178,6 +179,12 @@
                 <el-table-column label="日期" min-width="120">
                   <template #default="{ row }">
                     <span class="font-bold text-gray-700">{{ formatLeaveDate(row) }}</span>
+                  </template>
+                </el-table-column>
+
+                <el-table-column label="時段" width="80">
+                  <template #default="{ row }">
+                    <span class="font-bold text-primary">{{ formatLeaveTimeSegment(row.leave_time_segment) }}</span>
                   </template>
                 </el-table-column>
 
@@ -402,7 +409,7 @@
         </div>
 
         <el-form-item label="請假模式" prop="leave_mode" class="font-bold mb-5">
-          <el-radio-group v-model="form.leave_mode" class="w-full flex custom-segmented">
+          <el-radio-group v-model="form.leave_mode" class="w-full flex custom-segmented" @change="handleLeaveModeChange">
             <el-radio-button
               v-for="option in LEAVE_MODE_OPTIONS"
               :key="option"
@@ -414,6 +421,19 @@
 
         <!-- 單日請假 -->
         <template v-if="form.leave_mode === '單日請假'">
+          <el-form-item label="請假時段" prop="leave_time_segment" class="font-bold">
+            <el-radio-group v-model="form.leave_time_segment" class="w-full flex custom-segmented">
+              <el-radio-button
+                v-for="option in LEAVE_TIME_SEGMENT_OPTIONS"
+                :key="option.value"
+                :label="option.value"
+                class="flex-1"
+              >
+                {{ option.label }}
+              </el-radio-button>
+            </el-radio-group>
+          </el-form-item>
+
           <el-form-item label="請假日期" prop="date_single" class="font-bold">
             <el-date-picker
               v-model="form.date_single"
@@ -474,22 +494,6 @@
           </div>
         </template>
 
-        <el-form-item label="請假時段 (選填)" class="font-bold">
-          <div class="flex items-center w-full gap-2">
-            <el-time-picker
-              v-model="form.time_range"
-              is-range
-              range-separator="至"
-              start-placeholder="開始時間"
-              end-placeholder="結束時間"
-              format="HH:mm"
-              value-format="HH:mm"
-              size="large"
-              class="!w-full"
-            />
-          </div>
-        </el-form-item>
-
         <el-form-item label="請假原因說明" prop="reason" class="font-bold">
           <el-input v-model="form.reason" type="textarea" :rows="3" placeholder="請簡述請假事由 (選填)" />
           <p class="text-sm text-gray-400 font-normal mt-1 w-full">假單送出後將自動生效並加入出缺勤紀錄中。</p>
@@ -527,7 +531,9 @@ import {
   buildLeaveNotificationDateLabel,
   buildLeaveRequestRecords,
   createDefaultLeaveRequestFormState,
+  getLeaveTimeSegmentLabel,
   LEAVE_MODE_OPTIONS,
+  LEAVE_TIME_SEGMENT_OPTIONS,
   LEAVE_TYPE_OPTIONS,
   LEAVE_WEEKDAY_OPTIONS,
   leaveRequestBaseRules
@@ -664,6 +670,8 @@ const formatLeaveDate = (row: any) => {
     : `${String(row.start_date).slice(5)} ~ ${String(row.end_date).slice(5)}`
 }
 
+const formatLeaveTimeSegment = (segment: unknown) => getLeaveTimeSegmentLabel(segment)
+
 const getLeavesForDate = (dateStr: string) => {
   return leaveRequests.value.filter(leave => {
     return dateStr >= leave.start_date && dateStr <= leave.end_date
@@ -672,6 +680,12 @@ const getLeavesForDate = (dateStr: string) => {
 
 // --- 日期篩選邏輯 ---
 const selectedDate = ref<string>('')
+
+const handleLeaveModeChange = () => {
+  if (form.leave_mode !== '單日請假') {
+    form.leave_time_segment = 'full_day'
+  }
+}
 
 const applyMonthFilter = (month: string) => {
   const monthDate = dayjs(month)
@@ -986,7 +1000,7 @@ const fetchStatsData = async () => {
       supabase
         .from('leave_requests')
         .select(`
-          id, user_id, leave_type, start_date, end_date,
+          id, user_id, leave_type, leave_time_segment, start_date, end_date,
           team_members ( id, name, team_group )
         `)
         .lte('start_date', endDate)
@@ -1108,7 +1122,7 @@ const fetchData = async () => {
     let query = supabase
       .from('leave_requests')
       .select(`
-        id, user_id, leave_type, start_date, end_date, reason, created_at,
+        id, user_id, leave_type, leave_time_segment, start_date, end_date, reason, created_at,
         team_members ( name, role, avatar_url )
       `)
       .order('start_date', { ascending: false })
@@ -1189,6 +1203,7 @@ const submitForm = async () => {
       .insert(recordsToInsert.map((record) => ({
         user_id: record.member_id,
         leave_type: record.leave_type,
+        leave_time_segment: record.leave_time_segment,
         start_date: record.start_date,
         end_date: record.end_date,
         reason: record.reason

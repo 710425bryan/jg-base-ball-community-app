@@ -222,6 +222,7 @@ import { useTeamGroupsStore } from '@/stores/teamGroups'
 import {
   ATTENDANCE_STATUS_LEAVE,
   buildAttendanceLeaveSummaryRows,
+  filterAttendanceLeaveRecordsForEvent,
   getDefaultAttendanceStatusForMember,
   normalizeAttendanceDate,
   normalizeAttendanceMemberId,
@@ -256,6 +257,72 @@ const rollCallFilters = computed(() => [
   ...teamGroupsStore.options.map((option) => option.value),
   '校隊'
 ])
+
+const buildAttendanceEventTimeText = (startTime?: string | null, endTime?: string | null) => {
+  const start = String(startTime || '').trim()
+  const end = String(endTime || '').trim()
+  if (start && end) return `${start} - ${end}`
+  return start || end || ''
+}
+
+const normalizeJoinedRow = <T,>(value: T | T[] | null | undefined): T | null => {
+  if (Array.isArray(value)) return value[0] || null
+  return value || null
+}
+
+const getAttendanceEventTimeText = async (event: any) => {
+  if (event?.training_location_session_venue_id) {
+    const { data, error } = await supabase
+      .from('training_location_session_venues')
+      .select('start_time, end_time, training_location_sessions(start_time, end_time)')
+      .eq('id', event.training_location_session_venue_id)
+      .maybeSingle()
+
+    if (error) {
+      console.warn('無法取得場地點名時段，暫以全日判斷假單。', error)
+      return ''
+    }
+
+    const session = normalizeJoinedRow((data as any)?.training_location_sessions)
+    return buildAttendanceEventTimeText(
+      (data as any)?.start_time || session?.start_time,
+      (data as any)?.end_time || session?.end_time
+    )
+  }
+
+  if (event?.training_location_session_id) {
+    const { data, error } = await supabase
+      .from('training_location_sessions')
+      .select('start_time, end_time')
+      .eq('id', event.training_location_session_id)
+      .maybeSingle()
+
+    if (error) {
+      console.warn('無法取得訓練點名時段，暫以全日判斷假單。', error)
+      return ''
+    }
+
+    return buildAttendanceEventTimeText((data as any)?.start_time, (data as any)?.end_time)
+  }
+
+  if (event?.training_session_id) {
+    const { data, error } = await supabase
+      .from('training_session_settings')
+      .select('matches(match_time)')
+      .eq('id', event.training_session_id)
+      .maybeSingle()
+
+    if (error) {
+      console.warn('無法取得特訓點名時段，暫以全日判斷假單。', error)
+      return ''
+    }
+
+    const match = normalizeJoinedRow((data as any)?.matches)
+    return String(match?.match_time || '')
+  }
+
+  return ''
+}
 
 const getRollCallGroupSort = (player: any) => {
   const rawSort = getTeamGroupSortValue(player.team_group, teamGroupsStore.options)
@@ -437,6 +504,7 @@ const fetchData = async () => {
       ...evData,
       date: eventDate || evData.date
     }
+    const eventTimeText = await getAttendanceEventTimeText(evData)
 
     // 2. 取得球員。特訓點名只列錄取名單；場地點名列最新場地配置中的該場地；一般點名列所有現役球員/校隊。
     let membersData: any[] = []
@@ -483,7 +551,7 @@ const fetchData = async () => {
     const { data: leavesData, error: leaveError } = await supabase
       .from('leave_requests')
       .select(`
-        id, user_id, leave_type, start_date, end_date, reason,
+        id, user_id, leave_type, leave_time_segment, start_date, end_date, reason,
         team_members ( id, name, avatar_url, role, jersey_number, status, team_group )
       `)
       .lte('start_date', eventDate)
@@ -491,8 +559,9 @@ const fetchData = async () => {
 
     if (leaveError) throw leaveError
 
-    todayLeaveRecordCount.value = Array.isArray(leavesData) ? leavesData.length : 0
-    todayLeaveRows.value = buildAttendanceLeaveSummaryRows(leavesData, membersData)
+    const eventLeaves = filterAttendanceLeaveRecordsForEvent(leavesData, eventTimeText)
+    todayLeaveRecordCount.value = eventLeaves.length
+    todayLeaveRows.value = buildAttendanceLeaveSummaryRows(eventLeaves, membersData)
       .map((row) => ({
         ...row,
         team_group: normalizeTeamGroup(row.team_group)

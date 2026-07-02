@@ -22,6 +22,7 @@ describe('leaveRequests', () => {
     expect(records).toEqual([{
       member_id: 'member-1',
       leave_type: '事假',
+      leave_time_segment: 'full_day',
       start_date: '2026-04-20',
       end_date: '2026-04-20',
       reason: null
@@ -43,6 +44,7 @@ describe('leaveRequests', () => {
     expect(records).toEqual([{
       member_id: 'member-2',
       leave_type: '事假',
+      leave_time_segment: 'full_day',
       start_date: '2026-04-20',
       end_date: '2026-04-22',
       reason: null
@@ -66,6 +68,7 @@ describe('leaveRequests', () => {
       {
         member_id: 'member-3',
         leave_type: '事假',
+        leave_time_segment: 'full_day',
         start_date: '2026-04-20',
         end_date: '2026-04-20',
         reason: null
@@ -73,6 +76,7 @@ describe('leaveRequests', () => {
       {
         member_id: 'member-3',
         leave_type: '事假',
+        leave_time_segment: 'full_day',
         start_date: '2026-04-22',
         end_date: '2026-04-22',
         reason: null
@@ -80,6 +84,7 @@ describe('leaveRequests', () => {
       {
         member_id: 'member-3',
         leave_type: '事假',
+        leave_time_segment: 'full_day',
         start_date: '2026-04-27',
         end_date: '2026-04-27',
         reason: null
@@ -99,6 +104,38 @@ describe('leaveRequests', () => {
         recurring_range: ['2026-04-20', '2026-04-25']
       }
     })).toThrow('所選期限內沒有符合該星期的日期')
+  })
+
+  it('keeps half-day segments only for single-day leave', () => {
+    const form = createDefaultLeaveRequestFormState()
+
+    expect(buildLeaveRequestRecords({
+      memberId: 'member-5',
+      form: {
+        ...form,
+        leave_mode: '單日請假',
+        leave_time_segment: 'morning',
+        date_single: '2026-04-20'
+      }
+    })[0]).toMatchObject({
+      leave_time_segment: 'morning',
+      start_date: '2026-04-20',
+      end_date: '2026-04-20'
+    })
+
+    expect(buildLeaveRequestRecords({
+      memberId: 'member-5',
+      form: {
+        ...form,
+        leave_mode: '連續多日',
+        leave_time_segment: 'afternoon',
+        date_range: ['2026-04-20', '2026-04-21']
+      }
+    })[0]).toMatchObject({
+      leave_time_segment: 'full_day',
+      start_date: '2026-04-20',
+      end_date: '2026-04-21'
+    })
   })
 
   it('collects leave dates from single-day, range, and recurring forms', () => {
