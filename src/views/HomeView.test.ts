@@ -445,6 +445,7 @@ describe('HomeView dashboard redesign', () => {
     expect(wrapper.find('[data-test="school-team-count"]').text()).toContain('校隊 1')
     expect(wrapper.find('[data-test="community-members-count"]').text()).toContain('社區 2')
     expect(wrapper.find('[data-test="coach-members-count"]').text()).toContain('教練 1')
+    expect(wrapper.find('[data-test="inactive-members-count"]').text()).toContain('退隊/離隊 1')
     expect(wrapper.find('[data-test="today-leaves-total"]').text()).toContain('3')
     expect(wrapper.find('[data-test="today-leave-requests-count"]').text()).toContain('請假系統 2')
     expect(wrapper.find('[data-test="today-attendance-leaves-count"]').text()).toContain('今日點名 2')

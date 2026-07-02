@@ -371,6 +371,9 @@ const getAddonAvailabilityLabel = (equipment: Equipment) => {
 const isActiveDashboardMember = (member: TeamMemberStatRow) =>
   isActiveRosterMember(member)
 
+const isDashboardTeamMember = (member: TeamMemberStatRow) =>
+  PLAYER_MEMBER_STAT_ROLES.includes(String(member.role || ''))
+
 const resetAdminStats = () => {
   Object.assign(stats, createEmptyDashboardStats())
 }
@@ -479,9 +482,13 @@ const fetchAdminStats = async () => {
     if (todayLeaveRequestsRes.error) throw todayLeaveRequestsRes.error
     if (todayAttendanceEventsRes.error) throw todayAttendanceEventsRes.error
 
-    const members = Array.isArray(membersRes.data)
-      ? (membersRes.data as TeamMemberStatRow[]).filter(isActiveDashboardMember)
+    const rosterMembers = Array.isArray(membersRes.data)
+      ? membersRes.data as TeamMemberStatRow[]
       : []
+    const members = rosterMembers.filter(isActiveDashboardMember)
+    const inactiveMembers = rosterMembers.filter((member) =>
+      isDashboardTeamMember(member) && !isActiveDashboardMember(member)
+    ).length
     const activeMemberIds = new Set(
       members
         .map((member) => member.id)
@@ -520,6 +527,7 @@ const fetchAdminStats = async () => {
     stats.schoolTeamMembers = schoolTeamMembers
     stats.communityMembers = communityMembers
     stats.coachMembers = coachMembers
+    stats.inactiveMembers = inactiveMembers
     stats.todayLeaves = todayLeaveMemberIds.size
     stats.todayLeaveRequests = leaveRequestMemberIds.size
     stats.todayAttendanceLeaves = attendanceLeaveMemberIds.size
@@ -1314,6 +1322,10 @@ onUnmounted(() => {
             <span data-test="coach-members-count" class="inline-flex items-center gap-2.5 whitespace-nowrap rounded-full bg-white/85 px-3 py-1.5 shadow-sm shadow-slate-200/70">
               <span class="h-2.5 w-2.5 shrink-0 rounded-full bg-[#f59e0b]"></span>
               教練 {{ stats.coachMembers }}
+            </span>
+            <span data-test="inactive-members-count" class="inline-flex items-center gap-2.5 whitespace-nowrap rounded-full bg-red-50 px-3 py-1.5 text-red-600 shadow-sm shadow-red-100/70">
+              <span class="h-2.5 w-2.5 shrink-0 rounded-full bg-[#ef4444]"></span>
+              退隊/離隊 {{ stats.inactiveMembers }}
             </span>
           </div>
         </article>

@@ -735,6 +735,7 @@ import {
   inferPlayerGradeFromBirthDate,
   normalizePlayerGrade
 } from '@/utils/playerGrade'
+import { inferPlayerULevelFromBirthDate } from '@/utils/playerULevel'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
 import { usePlayerRosterStore } from '@/stores/playerRoster'
@@ -983,28 +984,9 @@ const persistNormalizedSiblingIds = async (memberList: any[]) => {
   return normalizedMembers
 }
 
-// 計算 U-level
 const getULevel = (member: any) => {
   if (member.role !== '球員' && member.role !== '校隊') return '';
-  if (!member.birth_date) return '';
-  const bd = new Date(member.birth_date);
-  let cohortYear = bd.getFullYear();
-  const month = bd.getMonth() + 1;
-  const date = bd.getDate();
-  
-  // 台灣學制：9月2日含以後出生，算次年學長姐同屆（較晚入學），除非標記為提早入學
-  if ((month > 9 || (month === 9 && date >= 2)) && !member.is_early_enrollment) {
-    cohortYear += 1;
-  }
-  
-  const now = new Date();
-  // 基準年：少棒學年度如果在8月前，視為當年賽季；8月後視為次年賽季
-  const baseYear = (now.getMonth() + 1) <= 8 ? now.getFullYear() : now.getFullYear() + 1;
-  const u = baseYear - cohortYear;
-
-  if (!Number.isFinite(u)) return '';
-  if (u <= 8) return 'U8';
-  return `U${u}`;
+  return inferPlayerULevelFromBirthDate(member.birth_date);
 }
 
 const getULevelNumber = (level: string) =>

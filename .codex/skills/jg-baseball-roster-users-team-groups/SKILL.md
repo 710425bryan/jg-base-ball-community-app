@@ -38,6 +38,7 @@ description: "Player roster, users, profile binding, team groups, roster cache, 
 - team group 設定透過 `team_group_settings` 與 `teamGroupsApi` RPC 管理，前端共用 `teamGroups` store。
 - team group 只適用在 eligible role，非球員類角色不應保留無效分組。
 - 球員年級存在 `team_members.grade`；新增 / 空值時依 `birth_date` 預設，出生日期 9 月 2 日以後晚一屆，名單年級每年 6 月 19 日由 DB 排程自動升級，表單可手動調整。
+- 球員名單的 U-level 標籤由 `src/utils/playerULevel.ts` 依 `birth_date` 和今年生日是否已到計算；不使用 `grade`、9 月 2 日入學切點或 `is_early_enrollment`。
 
 ## 不可破壞規則
 

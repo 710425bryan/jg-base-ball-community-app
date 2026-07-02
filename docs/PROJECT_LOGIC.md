@@ -195,6 +195,7 @@ UI 約定：
 - 角色權限 UI 讀寫 `app_roles`、`app_role_permissions`。
 - `team_members.joined_date` 記錄球員加入時間；既有名單無歷史資料時回填 `2026-02-01`，新建資料預設為台灣當天日期。
 - `team_members.grade` 記錄球員年級；新增 / 空值時依 `birth_date` 推算，出生日期 9 月 2 日以後預設晚一屆，名單年級每年 6 月 19 日自動升級，可由名單表單下拉選單手動調整。
+- 球員名單的 U-level 標籤依 `birth_date` 即時計算：今年生日已到或已過時顯示 `今年 - 出生年 + 1`，生日未到則顯示 `今年 - 出生年`；`U8` 以下統一顯示 `U8`，不使用年級或 9 月 2 日入學切點。
 - team group 設定使用 `teamGroups` store 與 `teamGroupsApi`；新增、改名、排序、刪除轉移都要同步影響 `PlayersView`、`TrainingView`、`TrainingLocationsView`、`LeaveRequestsView`、`RollCallView` 的組別選項。
 - 非 eligible role 不應保留 team group；刪除組別時要有轉移或清理策略。
 
