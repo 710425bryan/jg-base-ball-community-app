@@ -1,4 +1,5 @@
 import type { MatchRecord, MatchRecordInput } from '@/types/match'
+import { isNoFeeBillingMember } from '@/utils/memberBilling'
 
 const TAIPEI_TIME_ZONE = 'Asia/Taipei'
 const OFFICIAL_OUR_TEAM_ALIASES = ['中港熊戰']
@@ -103,6 +104,7 @@ export interface CalendarSyncRosterMember {
   jersey_number?: string | number | null
   role?: string | null
   status?: string | null
+  fee_billing_mode?: string | null
 }
 
 export type CalendarSyncIssueSeverity = 'warning' | 'blocking'
@@ -119,6 +121,7 @@ export interface CalendarSyncPlayerCheckItem {
   number: string
   status: 'matched' | 'number_matched' | 'needs_review' | 'unchecked'
   message: string
+  excludeFromPayload?: boolean
 }
 
 export interface CalendarSyncPlayerCheck {
@@ -611,27 +614,39 @@ export const checkCalendarPlayersAgainstRoster = (
       const role = String(member.role || '').trim()
       const status = String(member.status || '').trim()
       return Boolean(member.name) &&
+        !isNoFeeBillingMember(member) &&
         (!role || role === '球員' || role === '校隊') &&
         (!status || status === '在隊')
     })
+  const noFeeRoster = (rosterMembers || [])
+    .filter((member) => Boolean(member.name) && isNoFeeBillingMember(member))
 
-  if (!activeRoster.length) {
+  if (!activeRoster.length && !noFeeRoster.length) {
     return emptyPlayerCheck(players)
   }
 
   const nameBuckets = new Map<string, CalendarSyncRosterMember[]>()
   const numberBuckets = new Map<string, CalendarSyncRosterMember[]>()
+  const noFeeNameBuckets = new Map<string, CalendarSyncRosterMember[]>()
+  const noFeeNumberBuckets = new Map<string, CalendarSyncRosterMember[]>()
+
+  const addRosterBucket = (
+    buckets: Map<string, CalendarSyncRosterMember[]>,
+    key: string,
+    member: CalendarSyncRosterMember
+  ) => {
+    if (!key) return
+    buckets.set(key, [...(buckets.get(key) || []), member])
+  }
 
   activeRoster.forEach((member) => {
-    const nameKey = normalizeLooseNameKey(member.name)
-    if (nameKey) {
-      nameBuckets.set(nameKey, [...(nameBuckets.get(nameKey) || []), member])
-    }
+    addRosterBucket(nameBuckets, normalizeLooseNameKey(member.name), member)
+    addRosterBucket(numberBuckets, normalizeRosterNumber(member.jersey_number), member)
+  })
 
-    const numberKey = normalizeRosterNumber(member.jersey_number)
-    if (numberKey) {
-      numberBuckets.set(numberKey, [...(numberBuckets.get(numberKey) || []), member])
-    }
+  noFeeRoster.forEach((member) => {
+    addRosterBucket(noFeeNameBuckets, normalizeLooseNameKey(member.name), member)
+    addRosterBucket(noFeeNumberBuckets, normalizeRosterNumber(member.jersey_number), member)
   })
 
   const items = players.map<CalendarSyncPlayerCheckItem>((player) => {
@@ -639,6 +654,31 @@ export const checkCalendarPlayersAgainstRoster = (
     const sourceNumber = normalizeRosterNumber(player.number)
     const nameMatches = nameBuckets.get(normalizeLooseNameKey(sourceName)) || []
     const numberMatches = sourceNumber ? numberBuckets.get(sourceNumber) || [] : []
+    const noFeeNameMatches = noFeeNameBuckets.get(normalizeLooseNameKey(sourceName)) || []
+    const noFeeNumberMatches = sourceNumber ? noFeeNumberBuckets.get(sourceNumber) || [] : []
+
+    if (noFeeNameMatches.length > 0 || (noFeeNumberMatches.length > 0 && numberMatches.length === 0)) {
+      return {
+        sourceName,
+        sourceNumber,
+        name: sourceName,
+        number: sourceNumber || player.number || '',
+        status: 'unchecked',
+        message: '不收費球員不匯入',
+        excludeFromPayload: true
+      }
+    }
+
+    if (!activeRoster.length) {
+      return {
+        sourceName,
+        sourceNumber,
+        name: sourceName,
+        number: sourceNumber || player.number || '',
+        status: 'unchecked',
+        message: ''
+      }
+    }
 
     if (nameMatches.length === 1) {
       const matched = nameMatches[0]
@@ -726,10 +766,12 @@ export const checkCalendarPlayersAgainstRoster = (
 const getPayloadPlayers = (match: ParsedMatch, playerCheck: CalendarSyncPlayerCheck): ParsedMatch['players'] => {
   if (!playerCheck.items.length) return match.players
 
-  return playerCheck.items.map((item) => ({
-    name: item.status === 'needs_review' ? item.sourceName : item.name,
-    number: item.status === 'needs_review' ? item.sourceNumber : item.number
-  }))
+  return playerCheck.items
+    .filter((item) => !item.excludeFromPayload)
+    .map((item) => ({
+      name: item.status === 'needs_review' ? item.sourceName : item.name,
+      number: item.status === 'needs_review' ? item.sourceNumber : item.number
+    }))
 }
 
 export const createMatchRecordInput = (

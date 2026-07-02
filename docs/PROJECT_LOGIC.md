@@ -237,6 +237,7 @@ UI 約定：
 - 單場點名紀錄使用 `attendance_records`。
 - 點名頁會參照球員名單與當日請假資料。
 - 場地配置點名單透過 `attendance_events.training_location_session_id` / `training_location_session_venue_id` 連回場地配置；每個場地區塊各自一張點名單，名單只取該場地最新 assignments。
+- `team_members.fee_billing_mode = 'no_fee'` 的球員 / 校隊不進新的點名名單與場地連動點名同步；若舊點名事件已存在 `attendance_records`，仍保留顯示歷史紀錄。
 - 外部請假 webhook 會處理 member match、建立假單與通知，必須檢查 secret、payload normalize 與推播 target。
 - 今日訓練點名摘要走 `get_dashboard_today_attendance_status()`，會回傳今日所有點名單與請假名單，只顯示給 `leave_requests:VIEW`。
 - `leave_requests` 新增 / 更新 / 刪除會透過 `supabase_match_leave_absences_migration.sql` 的 trigger 重算今日與未來賽事中 `source = 'leave_request'` 的 `matches.absent_players`；手動請假列不會被假單同步刪除。
@@ -287,7 +288,7 @@ UI 約定：
 資料流：
 
 - `matchesApi` 封裝 `matches` CRUD。
-- Google Calendar / iCal parser 負責把外部日曆轉成 match payload；手動同步預覽優先走 `sync-match-calendar` Edge Function dry-run，瀏覽器第三方 CORS proxy 只作 fallback。
+- Google Calendar / iCal parser 負責把外部日曆轉成 match payload；手動同步預覽優先走 `sync-match-calendar` Edge Function dry-run，瀏覽器第三方 CORS proxy 只作 fallback。同步 roster 會辨識 `fee_billing_mode = 'no_fee'` 並排除於新比賽名單與 lineup payload。
 - 同步規劃維持 `create`、`update`、`skip` 三種結果。
 - 比賽紀錄元件處理陣容、照片、出席統計、賽事細節與 live controller。
 - `/calendar?match_id=...` 會開啟 `MatchDetailDialog`；推播與通知的比賽詳情 URL 統一導向這條路徑。
@@ -405,6 +406,7 @@ UI 約定：
 - 教練在 `/training-locations` 建立某天訓練配置，可設定多場地區塊；每個場地區塊可個別保存訓練標題、日期、開始 / 結束時間與備註，必要時可由前端同步共用設定。球員可用全隊、角色或 `team_group` 快速帶入，再拖曳或勾選微調。
 - `save_training_location_session()` 會重建該訓練的場地與指派；DB 以 `(session_id, member_id)` 確保同一球員只在一個場地。
 - `create_training_location_venue_attendance_event()` 會為單一場地區塊建立或重用一張點名單，並由 `sync_training_location_attendance_records()` 自動同步該場地最新配置球員。
+- 場地配置 roster 仍顯示 `fee_billing_mode = 'no_fee'` 的球員 / 校隊並標註「不收費」，但前端不可勾選、拖曳、快捷加入或保存；DB 端也拒絕新的 no-fee assignment。既有配置可顯示，下次儲存會移除。
 - 個人首頁透過 `get_my_home_snapshot()` 的 `training_locations` 或 `list_my_week_training_locations()` fallback 顯示 linked member 本週場地；標題、日期與時間以場地區塊設定優先，未設定才回退 session 共用值，已請假時標示但不通知。
 - `send-training-location-notifications` 每日台灣時間 20:10 檢查隔天已發布配置，也可由設定頁手動觸發；通知標題、日期與時間以場地區塊設定優先，同一使用者綁多名且同訓練資訊的球員時合併成一則通知。
 
@@ -494,7 +496,7 @@ UI 約定：
 - 後台費用頁管理月費、季費與付款回報審核。
 - `team_members.fee_billing_mode = 'monthly_fixed'` 代表社區球員固定月繳：角色仍為 `球員`，但有效繳費模式為月繳；月費表採固定金額減手動扣減，季費表與家庭季費分組排除該球員。
 - `team_members.fee_billing_mode = 'monthly_per_session'` 代表球員計次月費：角色仍為 `球員`，但有效繳費模式為月繳；月費表採訓練日期堂數、請假扣減與單次金額公式，季費表與家庭季費分組排除該球員。
-- `team_members.fee_billing_mode = 'no_fee'` 代表球員 / 校隊不收費：不產生新的月費、季費與比賽費；切換前既有帳款與付款回報保留，裝備加購付款仍維持自費。
+- `team_members.fee_billing_mode = 'no_fee'` 代表球員 / 校隊不收費：不產生新的月費、季費與比賽費，也不進新的場地配置、點名與比賽名單；切換前既有帳款、付款回報、點名紀錄與歷史比賽資料保留，裝備加購付款仍維持自費。
 - 校隊與球員計次月費的本月堂數由 `/training-dates` 的訓練日期設定天數自動帶入，月費頁不可手動改堂數；請假扣減只依所選月份統計假單日期，以球員 + 日期去重，不合併點名紀錄。
 - 家長端月費回報開放期別依計算方式區分：計次月費需等月份結束後才開放前一個月；`monthly_fixed` 固定月繳球員每月 25 日起可提前回報下個月。
 - 固定月繳預設金額存在 `fee_settings.monthly_fixed_fee`，正式月費紀錄會在 `monthly_fees.calculation_type` / `monthly_fees.fixed_monthly_fee` 保留當月計算方式與金額快照。

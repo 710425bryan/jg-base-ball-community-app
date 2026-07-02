@@ -310,6 +310,27 @@ END:VCALENDAR`)
     expect(playerCheck.items[3].message).toContain('背號 #88 命中多位隊員')
   })
 
+  it('ignores no-fee roster members when checking calendar players', () => {
+    const playerCheck = checkCalendarPlayersAgainstRoster(
+      [
+        { name: '免收費', number: '99' }
+      ],
+      [
+        { id: 'p-no-fee', name: '免收費', jersey_number: '99', role: '球員', status: '在隊', fee_billing_mode: 'no_fee' }
+      ]
+    )
+
+    expect(playerCheck.total).toBe(1)
+    expect(playerCheck.matched).toBe(0)
+    expect(playerCheck.needsReview).toBe(0)
+    expect(playerCheck.items[0]).toMatchObject({
+      status: 'unchecked',
+      name: '免收費',
+      number: '99',
+      excludeFromPayload: true
+    })
+  })
+
   it('plans create update and skip actions while backfilling legacy google ids', () => {
     const createParsed = parseMatchRecord({
       id: 'uid-create@google.com',

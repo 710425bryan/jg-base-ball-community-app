@@ -15,6 +15,7 @@ export type TrainingLocationRosterMember = {
   role: string | null
   team_group: string | null
   jersey_number: string | null
+  fee_billing_mode: string | null
   is_on_leave: boolean
 }
 

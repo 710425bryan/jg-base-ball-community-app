@@ -228,6 +228,7 @@ import {
   normalizeRollCallStatus
 } from '@/utils/attendanceLeave'
 import type { AttendanceLeaveSummaryRow } from '@/utils/attendanceLeave'
+import { isNoFeeBillingMember } from '@/utils/memberBilling'
 import { getTeamGroupSortValue, normalizeTeamGroup } from '@/utils/teamGroups'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, Check, Checked, Delete, Loading, Search } from '@element-plus/icons-vue'
@@ -452,7 +453,7 @@ const fetchData = async () => {
       if (memberIds.length > 0) {
         const { data: selectedMembers, error: selectedMemberError } = await supabase
           .from('team_members_safe')
-          .select('id, name, avatar_url, role, jersey_number, status, team_group')
+          .select('id, name, avatar_url, role, jersey_number, status, team_group, fee_billing_mode')
           .in('id', memberIds)
           .order('name')
 
@@ -470,7 +471,7 @@ const fetchData = async () => {
     } else {
       const { data: allMembers, error: memberError } = await supabase
         .from('team_members')
-        .select('id, name, avatar_url, role, jersey_number, status, team_group')
+        .select('id, name, avatar_url, role, jersey_number, status, team_group, fee_billing_mode')
         .in('role', ['球員', '校隊'])
         .order('name')
 
@@ -518,7 +519,7 @@ const fetchData = async () => {
     // 5. 組裝最終 List
     // 過濾掉退隊人員，但若該人員在此點名單已有紀錄（歷史紀錄），則保留顯示
     const activeMembers = membersData?.filter(m =>
-      m.status !== '退隊' || recordMap.has(normalizeAttendanceMemberId(m.id))
+      (m.status !== '退隊' && !isNoFeeBillingMember(m)) || recordMap.has(normalizeAttendanceMemberId(m.id))
     ) || []
     
     // 收集需要寫回預設狀態的球員，稍後於背景自動補齊。

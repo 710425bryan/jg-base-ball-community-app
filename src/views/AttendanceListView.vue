@@ -167,6 +167,7 @@ const fetchEvents = async () => {
       .select('*', { count: 'exact', head: true })
       .in('role', ['球員', '校隊'])
       .neq('status', '退隊')
+      .or('fee_billing_mode.is.null,fee_billing_mode.neq.no_fee')
 
     const { data, error } = await supabase
       .from('attendance_events')
@@ -215,6 +216,7 @@ const submitCreate = async () => {
       .select('id')
       .in('role', ['球員', '校隊'])
       .neq('status', '退隊')
+      .or('fee_billing_mode.is.null,fee_billing_mode.neq.no_fee')
 
     if (memberError) throw memberError
 

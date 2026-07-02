@@ -19,6 +19,7 @@ import { TrainingLocationAuthError, trainingLocationsApi } from '@/services/trai
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
 import { useTeamGroupsStore } from '@/stores/teamGroups'
+import { getMemberBillingLabel, isNoFeeBillingMember } from '@/utils/memberBilling'
 import { getUniqueTeamGroupOptions, normalizeTeamGroup } from '@/utils/teamGroups'
 import type {
   TrainingLocationDispatchResult,
@@ -116,8 +117,11 @@ const rosterById = computed(() =>
   new Map(roster.value.map((member) => [member.member_id, member]))
 )
 
+const isSelectableRosterMember = (member: TrainingLocationRosterMember | null | undefined) =>
+  Boolean(member && !isNoFeeBillingMember(member))
+
 const activeRosterMemberIds = computed(() =>
-  new Set(roster.value.map((member) => member.member_id))
+  new Set(roster.value.filter(isSelectableRosterMember).map((member) => member.member_id))
 )
 
 const assignedMemberIds = computed(() =>
@@ -142,7 +146,8 @@ const filteredRoster = computed(() => {
       member.name,
       member.role,
       member.team_group,
-      member.jersey_number
+      member.jersey_number,
+      getMemberBillingLabel(member)
     ].filter(Boolean).some((value) => String(value).toLowerCase().includes(query))
   )
 })
@@ -151,8 +156,16 @@ const unassignedRoster = computed(() =>
   filteredRoster.value.filter((member) => !assignedMemberIds.value.has(member.member_id))
 )
 
+const selectableUnassignedRoster = computed(() =>
+  unassignedRoster.value.filter(isSelectableRosterMember)
+)
+
 const unassignedRosterIds = computed(() =>
-  unassignedRoster.value.map((member) => member.member_id)
+  selectableUnassignedRoster.value.map((member) => member.member_id)
+)
+
+const noFeeUnassignedRosterCount = computed(() =>
+  unassignedRoster.value.length - selectableUnassignedRoster.value.length
 )
 
 const isAllPoolMembersSelected = computed(() =>
@@ -312,7 +325,7 @@ const loadRoster = async () => {
 
   const removedCount = pruneUnavailableVenueMembers()
   if (removedCount > 0) {
-    ElMessage.warning(`已移除 ${removedCount} 位已退隊或不在目前可配置名單中的球員，儲存後會同步更新。`)
+    ElMessage.warning(`已移除 ${removedCount} 位已退隊、不收費或不在目前可配置名單中的球員，儲存後會同步更新。`)
   }
 }
 
@@ -415,7 +428,8 @@ const applyVenuePreset = (venueIndex: number, preset: TrainingVenue) => {
 
 const moveMemberToVenue = (memberId: string, venueIndex: number) => {
   const target = form.venues[venueIndex]
-  if (!target || !rosterById.value.has(memberId)) return
+  const member = rosterById.value.get(memberId)
+  if (!target || !isSelectableRosterMember(member)) return
 
   form.venues.forEach((venue) => {
     venue.member_ids = venue.member_ids.filter((id) => id !== memberId)
@@ -449,6 +463,7 @@ const isPoolMemberSelected = (memberId: string) =>
 
 const setPoolMemberSelected = (memberId: string, checked: unknown) => {
   const shouldSelect = checked === true
+  if (shouldSelect && !isSelectableRosterMember(rosterById.value.get(memberId))) return
 
   if (shouldSelect) {
     if (!selectedPoolMemberIds.value.includes(memberId)) {
@@ -461,6 +476,7 @@ const setPoolMemberSelected = (memberId: string, checked: unknown) => {
 }
 
 const togglePoolMemberSelection = (memberId: string) => {
+  if (!isSelectableRosterMember(rosterById.value.get(memberId))) return
   setPoolMemberSelected(memberId, !isPoolMemberSelected(memberId))
 }
 
@@ -481,19 +497,19 @@ const clearPoolMemberSelection = () => {
 }
 
 const moveSelectedMembersToVenue = (venueIndex: number) => {
-  if (selectedPoolMemberIds.value.length === 0) {
+  const memberIds = getSaveableMemberIds(selectedPoolMemberIds.value)
+  if (memberIds.length === 0) {
     ElMessage.warning('請先勾選球員')
     return
   }
 
   selectedVenueIndex.value = venueIndex
-  const memberIds = [...selectedPoolMemberIds.value]
   memberIds.forEach((memberId) => moveMemberToVenue(memberId, venueIndex))
 }
 
 const moveMembersByFilter = (filter: (member: TrainingLocationRosterMember) => boolean) => {
   const targetIndex = selectedVenueIndex.value
-  const members = roster.value.filter(filter)
+  const members = roster.value.filter((member) => filter(member) && isSelectableRosterMember(member))
 
   if (members.length === 0) {
     ElMessage.warning('沒有符合條件的球員')
@@ -504,6 +520,7 @@ const moveMembersByFilter = (filter: (member: TrainingLocationRosterMember) => b
 }
 
 const onDragStart = (memberId: string) => {
+  if (!isSelectableRosterMember(rosterById.value.get(memberId))) return
   draggedMemberId.value = memberId
 }
 
@@ -1094,7 +1111,7 @@ onMounted(() => {
                       <button
                         type="button"
                         class="min-h-9 rounded-xl border border-amber-100 px-3 text-xs font-black text-amber-600 transition-colors hover:bg-amber-50 disabled:cursor-not-allowed disabled:border-slate-100 disabled:bg-slate-100 disabled:text-slate-400"
-                        :disabled="getVenueActiveMemberCount(venue) === 0"
+                        :disabled="venue.member_ids.length === 0"
                         @click="clearVenueMembers(venueIndex)"
                       >
                         清除球員
@@ -1114,10 +1131,17 @@ onMounted(() => {
                       v-for="member in getVenueMembers(venue)"
                       :key="member.member_id"
                       class="flex min-w-0 items-center justify-between gap-2 rounded-xl border px-3 py-2"
-                      :class="member.is_on_leave ? 'border-amber-100 bg-amber-50 text-amber-800' : 'border-slate-100 bg-slate-50 text-slate-700'"
+                      :class="isNoFeeBillingMember(member)
+                        ? 'border-slate-200 bg-slate-100 text-slate-400'
+                        : member.is_on_leave
+                          ? 'border-amber-100 bg-amber-50 text-amber-800'
+                          : 'border-slate-100 bg-slate-50 text-slate-700'"
                     >
                       <div class="min-w-0">
-                        <div class="truncate text-sm font-black">{{ member.name }}</div>
+                        <div class="flex min-w-0 items-center gap-2">
+                          <span class="truncate text-sm font-black">{{ member.name }}</span>
+                          <span v-if="isNoFeeBillingMember(member)" class="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-black text-slate-500">不收費</span>
+                        </div>
                         <div class="truncate text-xs font-bold opacity-70">{{ getMemberMeta(member) }}<span v-if="member.is_on_leave">｜已請假</span></div>
                       </div>
                       <button
@@ -1129,7 +1153,7 @@ onMounted(() => {
                       </button>
                     </div>
 
-                    <div v-if="getVenueActiveMemberCount(venue) === 0" class="rounded-xl border border-dashed border-slate-200 px-3 py-5 text-center text-sm font-bold text-slate-400 sm:col-span-2 xl:col-span-3">
+                    <div v-if="getVenueMembers(venue).length === 0" class="rounded-xl border border-dashed border-slate-200 px-3 py-5 text-center text-sm font-bold text-slate-400 sm:col-span-2 xl:col-span-3">
                       拖曳或移入球員到這個場地。
                     </div>
                   </div>
@@ -1143,7 +1167,10 @@ onMounted(() => {
                   <div class="text-lg font-black text-slate-900">球員池</div>
                   <p class="text-xs font-bold text-slate-400">目前場地：{{ selectedVenue?.venue_name || `場地 ${selectedVenueIndex + 1}` }}</p>
                 </div>
-                <span class="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-500">{{ unassignedRoster.length }} 未配置</span>
+                <div class="flex flex-wrap justify-end gap-2">
+                  <span class="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-500">{{ selectableUnassignedRoster.length }} 可配置</span>
+                  <span v-if="noFeeUnassignedRosterCount > 0" class="rounded-full bg-slate-200 px-3 py-1 text-xs font-black text-slate-500">{{ noFeeUnassignedRosterCount }} 不收費</span>
+                </div>
               </div>
 
               <el-input v-model="searchQuery" class="mt-3" size="large" placeholder="搜尋姓名、組別、背號" clearable />
@@ -1184,7 +1211,7 @@ onMounted(() => {
                   class="min-h-8 rounded-xl bg-primary px-3 text-xs font-black text-white transition-colors hover:bg-primary-hover"
                   @click="moveMembersByFilter(() => true)"
                 >
-                  全隊 {{ roster.length }}
+                  全隊 {{ activeRosterMemberIds.size }}
                 </button>
                 <button
                   type="button"
@@ -1219,10 +1246,17 @@ onMounted(() => {
                   <div
                     v-for="member in unassignedRoster"
                     :key="member.member_id"
-                    draggable="true"
-                    class="flex cursor-grab items-center gap-2 rounded-xl border bg-white px-3 py-2 transition-colors active:cursor-grabbing"
+                    :draggable="isSelectableRosterMember(member)"
+                    class="flex items-center gap-2 rounded-xl border bg-white px-3 py-2 transition-colors"
                     :class="[
-                      member.is_on_leave ? 'border-amber-100 text-amber-800' : 'border-slate-100 text-slate-700',
+                      isNoFeeBillingMember(member)
+                        ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 opacity-75'
+                        : 'cursor-grab active:cursor-grabbing',
+                      isNoFeeBillingMember(member)
+                        ? ''
+                        : member.is_on_leave
+                          ? 'border-amber-100 text-amber-800'
+                          : 'border-slate-100 text-slate-700',
                       isPoolMemberSelected(member.member_id) ? 'bg-primary/5 ring-2 ring-primary/30' : ''
                     ]"
                     @dragstart="onDragStart(member.member_id)"
@@ -1230,6 +1264,7 @@ onMounted(() => {
                   >
                     <el-checkbox
                       :model-value="isPoolMemberSelected(member.member_id)"
+                      :disabled="!isSelectableRosterMember(member)"
                       @click.stop
                       @change="(checked: unknown) => setPoolMemberSelected(member.member_id, checked)"
                     />
@@ -1237,7 +1272,10 @@ onMounted(() => {
                       <el-icon><UserFilled /></el-icon>
                     </div>
                     <div class="min-w-0 flex-1">
-                      <div class="truncate text-sm font-black">{{ member.name }}</div>
+                      <div class="flex min-w-0 items-center gap-2">
+                        <span class="truncate text-sm font-black">{{ member.name }}</span>
+                        <span v-if="isNoFeeBillingMember(member)" class="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-black text-slate-500">不收費</span>
+                      </div>
                       <div class="truncate text-xs font-bold opacity-70">{{ getMemberMeta(member) }}<span v-if="member.is_on_leave">｜已請假</span></div>
                     </div>
                   </div>

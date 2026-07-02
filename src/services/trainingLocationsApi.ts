@@ -67,6 +67,7 @@ const normalizeRosterMember = (row: any): TrainingLocationRosterMember => ({
   jersey_number: row?.jersey_number === null || row?.jersey_number === undefined
     ? null
     : String(row.jersey_number),
+  fee_billing_mode: row?.fee_billing_mode ? String(row.fee_billing_mode) : null,
   is_on_leave: Boolean(row?.is_on_leave)
 })
 

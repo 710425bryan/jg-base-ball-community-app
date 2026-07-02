@@ -21,7 +21,8 @@ const teamMembersChain = {
   order: vi.fn(() => teamMembersChain),
   then: (resolve: (value: unknown) => void) => resolve({
     data: [
-      { id: 'p1', name: '王大雷', role: '球員', status: '在隊', jersey_number: '18', avatar_url: 'https://example.com/wang.jpg' }
+      { id: 'p1', name: '王大雷', role: '球員', status: '在隊', jersey_number: '18', fee_billing_mode: 'role_default', avatar_url: 'https://example.com/wang.jpg' },
+      { id: 'p-no-fee', name: '免收費', role: '球員', status: '在隊', jersey_number: '99', fee_billing_mode: 'no_fee', avatar_url: 'https://example.com/no-fee.jpg' }
     ]
   })
 }
@@ -161,6 +162,40 @@ describe('MatchFormDialog sync current lineup editor', () => {
       name: '王大雷',
       number: '18'
     })
+  })
+})
+
+describe('MatchFormDialog no-fee roster exclusions', () => {
+  it('excludes no-fee players from match roster candidates', async () => {
+    const wrapper = await mountDialog()
+    const vm = wrapper.vm as any
+
+    await Promise.resolve()
+    await nextTick()
+
+    expect(vm.playerOptions.map((player: any) => player.name)).toEqual(['王大雷'])
+
+    vm.formData.players = '王大雷,免收費'
+    vm.formData.lineup = [
+      { order: 1, position: '1', name: '王大雷', number: '18' },
+      { order: 2, position: '2', name: '免收費', number: '99' }
+    ]
+    vm.formData.current_lineup = [
+      { order: 1, position: '1', name: '免收費', number: '99' }
+    ]
+    vm.formData.batting_stats = [
+      { name: '免收費', number: '99' },
+      { name: '王大雷', number: '18' }
+    ]
+    vm.formData.pitching_stats = [
+      { name: '免收費', number: '99' },
+      { name: '王大雷', number: '18' }
+    ]
+    await nextTick()
+
+    expect(vm.availablePlayerNames).toEqual(['王大雷'])
+    expect(vm.getLineupRosterCandidates().map((player: any) => player.name)).toEqual(['王大雷'])
+    expect(vm.matchAudioRoster.map((player: any) => player.name)).toEqual(['王大雷'])
   })
 })
 

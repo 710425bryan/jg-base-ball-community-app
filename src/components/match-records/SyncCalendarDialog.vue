@@ -336,7 +336,7 @@ const ensureMatchesLoaded = async () => {
 const fetchRosterMembers = async () => {
   const { data, error } = await supabase
     .from('team_members_safe')
-    .select('id, name, role, status, jersey_number')
+    .select('id, name, role, status, jersey_number, fee_billing_mode')
     .in('role', ['球員', '校隊'])
     .order('name', { ascending: true })
 
