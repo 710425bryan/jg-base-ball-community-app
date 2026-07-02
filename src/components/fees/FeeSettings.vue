@@ -2,7 +2,7 @@
   <div class="mx-auto flex max-w-4xl animate-fade-in flex-col gap-5">
     <div class="flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary/10 p-4 text-sm font-bold leading-relaxed text-primary">
       <el-icon class="mt-0.5 text-lg"><InfoFilled /></el-icon>
-      <div>校隊維持計次月費；開啟固定月繳的社區球員會以這裡設定的月繳金額進入月費表。不收費成員不會產生新的隊費與比賽費，裝備加購仍依實際申請付款。</div>
+      <div>校隊與開啟計次月費的球員會依單次金額進入月費表；開啟固定月繳的社區球員會以這裡設定的月繳金額進入月費表。不收費成員不會產生新的隊費與比賽費，裝備加購仍依實際申請付款。</div>
     </div>
 
     <section class="overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-sm" v-loading="isCompensationDefaultsLoading">
@@ -45,21 +45,21 @@
 
     <section class="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm" v-loading="isLoading">
       <div class="border-b border-gray-100 bg-gray-50/80 px-4 py-3">
-        <h3 class="text-base font-black text-gray-800">校隊計次月費</h3>
-        <p class="mt-1 text-xs font-medium text-gray-400">用於校隊月費公式：出席堂數 x 單次收費金額。</p>
+        <h3 class="text-base font-black text-gray-800">計次月費</h3>
+        <p class="mt-1 text-xs font-medium text-gray-400">用於月費公式：出席堂數 x 單次收費金額。</p>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full min-w-[560px]">
           <thead>
             <tr class="border-b border-gray-100 bg-gray-50/60">
-              <th class="w-1/2 px-4 py-3 text-left text-sm font-bold text-gray-500">校隊成員姓名</th>
+              <th class="w-1/2 px-4 py-3 text-left text-sm font-bold text-gray-500">成員姓名</th>
               <th class="px-4 py-3 text-left text-sm font-bold text-gray-500">單次收費金額 (元)</th>
               <th class="w-32 px-4 py-3 text-center text-sm font-bold text-gray-500">操作</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
             <tr v-if="schoolMembers.length === 0">
-              <td colspan="3" class="px-4 py-8 text-center text-sm font-bold text-gray-400">目前沒有校隊成員</td>
+              <td colspan="3" class="px-4 py-8 text-center text-sm font-bold text-gray-400">目前沒有計次月費成員</td>
             </tr>
             <tr v-for="member in schoolMembers" :key="member.id" class="transition-colors hover:bg-gray-50/50">
               <td class="flex items-center gap-2 px-4 py-3">
@@ -195,6 +195,7 @@ import type { QuarterlyFeeCompensationDefaults } from '@/types/quarterlyFeeCompe
 import {
   DEFAULT_FIXED_MONTHLY_FEE,
   FIXED_MONTHLY_FEE_BILLING_MODE,
+  isPerSessionMonthlyBillingMember,
   NO_FEE_BILLING_MODE,
   normalizeFixedMonthlyFee
 } from '@/utils/memberBilling'
@@ -261,7 +262,7 @@ const fetchData = async () => {
 
     activeFeeMembers.value = (teamMembers || []).filter(isActiveRosterMember)
     schoolMembers.value = activeFeeMembers.value.filter(
-      (member) => member.role === '校隊' && member.fee_billing_mode !== NO_FEE_BILLING_MODE
+      (member) => isPerSessionMonthlyBillingMember(member)
     )
     fixedMonthlyMembers.value = activeFeeMembers.value.filter(
       (member) => member.role === '球員' && member.fee_billing_mode === FIXED_MONTHLY_FEE_BILLING_MODE

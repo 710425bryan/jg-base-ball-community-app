@@ -101,6 +101,7 @@
 | `supabase_quarterly_fees_rls.sql` | 季費 RLS 修正 | 權限問題先查 |
 | `supabase_fixed_monthly_billing_migration.sql` | 社區球員固定月繳 | `fee_billing_mode` 依賴 |
 | `supabase_no_fee_billing_migration.sql` | 球員 / 校隊不收費模式 | `fee_billing_mode = no_fee`，覆寫付款 RPC、比賽費同步、首頁與收費提醒摘要 |
+| `supabase_zzzzzzzzzzzzzzz_monthly_per_session_billing_migration.sql` | 球員計次月費模式 | `fee_billing_mode = monthly_per_session`，覆寫繳費模式 helper、`list_my_payment_members()` 與收費提醒摘要 |
 | `supabase_profile_payment_submissions_migration.sql` | 個人付款回報 | `/my-payments` 主線 |
 | `supabase_profile_payment_rpc_fix_migration.sql` | 個人付款 RPC 修正 | 覆寫付款 RPC |
 | `supabase_profile_payment_review_member_id_ambiguity_fix_migration.sql` | 付款審核 member_id ambiguity 修正 | 審核流程必讀 |
@@ -113,7 +114,7 @@
 | `supabase_inactive_member_visibility_migration.sql` | 關閉 / 畢業成員繳費名單修正 | `list_my_payment_members()` 不回傳退隊、離隊、關閉 / 畢業成員 |
 | `supabase_quarterly_fee_compensation_migration.sql` | 季費堂數不足補償 | 產生待審核補償單，核准後寫入球員餘額 |
 | `supabase_zzzzzzzzzzzz_quarterly_payment_open_period_migration.sql` | 季繳付款回報開放期別 | 每季最後一個月 25 日起開放下一季；覆寫付款估算 RPC，新增付款回報 trigger 防止未開放未來季寫入 |
-| `supabase_zzzzzzzzzzzzzz_monthly_payment_open_period_migration.sql` | 月繳付款回報開放期別 | 校隊計次月費只開放已結束月份；固定月繳球員每月 25 日起開放下月，並以 trigger 防止未開放月份寫入 |
+| `supabase_zzzzzzzzzzzzzz_monthly_payment_open_period_migration.sql` | 月繳付款回報開放期別 | 計次月費只開放已結束月份；固定月繳球員每月 25 日起開放下月，並以 trigger 防止未開放月份寫入 |
 | `supabase_match_fees_migration.sql` | 比賽費 items / submissions | 比賽費與餘額整合 |
 | `supabase_fee_management_reminders_migration.sql` | 費用提醒與通知中心 | 覆寫 `get_notification_feed()` |
 

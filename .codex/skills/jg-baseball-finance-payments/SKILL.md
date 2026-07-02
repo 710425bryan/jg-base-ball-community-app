@@ -48,9 +48,10 @@ description: "Finance, fees, payment submissions, player balances, match fees, r
 - `permissionsStore.can()` 只控制 UX；付款審核、餘額扣抵、可見資料必須由 RLS / RPC 檢查。
 - 球員餘額不可扣成負數；家長自助使用餘額後仍需管理端審核才正式扣款。
 - 社區球員固定月繳以 `team_members.fee_billing_mode = 'monthly_fixed'` 表示，角色仍是 `球員`。
-- 固定月繳球員進 `monthly_fees`，排除 `quarterly_fees` 與家庭季費分組。
+- 球員計次月費以 `team_members.fee_billing_mode = 'monthly_per_session'` 表示，角色仍是 `球員`，但隊費進 `monthly_fees` 並採校隊同款計次公式。
+- 固定月繳與球員計次月費都排除 `quarterly_fees` 與家庭季費分組。
 - 球員 / 校隊不收費以 `team_members.fee_billing_mode = 'no_fee'` 表示；不產生新的月費、季費與比賽費，但既有帳款保留，裝備付款仍維持自費。
-- 月繳付款回報開放期別要依 `monthly_fees.calculation_type` / 有效收費模式區分：校隊計次月費只開放已結束月份，`monthly_fixed` 固定月繳球員每月 25 日起開放下月；前端 helper 與 DB trigger 必須同步。
+- 月繳付款回報開放期別要依 `monthly_fees.calculation_type` / 有效收費模式區分：校隊與球員計次月費只開放已結束月份，`monthly_fixed` 固定月繳球員每月 25 日起開放下月；前端 helper 與 DB trigger 必須同步。
 - 季繳付款回報的開放期別以台灣日期為準，每季最後一個月 25 日起開放下一季；前端 helper 與 DB helper / trigger 必須同步，未開放的未來季不可新增付款回報，過去未繳季度可補繳。
 - 季費補償的堂數不足只看當月週六數與 `/training-dates` 設定日期總數，補課日不限定週六。
 - `is_primary_payer`、`is_half_price`、sibling / family grouping 會影響金額，改費用時要同步檢查。
@@ -72,4 +73,4 @@ description: "Finance, fees, payment submissions, player balances, match fees, r
 - 基本檢查：`pnpm exec vue-tsc --noEmit`
 - 費用純邏輯：`pnpm exec vitest run src/utils/memberBilling.test.ts src/utils/monthlyFeeSettlement.test.ts src/utils/quarterlyFeeFamilies.test.ts src/utils/quarterlyFeeCompensation.test.ts src/utils/playerBalance.test.ts src/utils/feeManagementReminders.test.ts`
 - 比賽費或付款 UI 風險高時跑：`pnpm build`
-- 人工 sanity check：家長 linked member 可見性、管理端審核、餘額扣抵、固定月繳排除季費、不收費排除隊費與比賽費、比賽費付款、裝備付款整合。
+- 人工 sanity check：家長 linked member 可見性、管理端審核、餘額扣抵、固定月繳與球員計次月費排除季費、不收費排除隊費與比賽費、比賽費付款、裝備付款整合。

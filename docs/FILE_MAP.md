@@ -131,8 +131,8 @@
 | `src/utils/equipmentPricing.ts` | 裝備價格計算 |
 | `src/utils/equipmentRequestStatus.ts` | 裝備申請狀態規則 |
 | `src/utils/vendors.ts` | 廠商搜尋、交易類別分組與照片 path normalize |
-| `src/utils/memberBilling.ts` | 球員有效繳費模式、固定月繳與月費計算 helper |
-| `src/utils/monthlyPaymentPeriods.ts` | 月繳付款回報開放期別，校隊計次與固定月繳 25 日規則 |
+| `src/utils/memberBilling.ts` | 球員有效繳費模式、固定月繳、球員計次月費與月費計算 helper |
+| `src/utils/monthlyPaymentPeriods.ts` | 月繳付款回報開放期別，計次月費與固定月繳 25 日規則 |
 | `src/utils/monthlyFeeSettlement.ts` | 月費結算 |
 | `src/utils/quarterlyFeeFamilies.ts` | 季費家庭分組與金額 |
 | `src/utils/quarterlyPaymentSubmissions.ts` | 季費付款回報期別開放、項目 normalize 與多球員季費驗證 |
@@ -216,9 +216,9 @@
 
 | 檔案 | 用途 |
 | --- | --- |
-| `src/components/fees/FeeSettings.vue` | 校隊計次費率、社區球員固定月繳金額與季費補償預設設定 |
-| `src/components/fees/SchoolTeamFees.vue` | 月費管理，包含校隊計次與社區球員固定月繳 |
-| `src/components/fees/QuarterlyFees.vue` | 季費管理，排除固定月繳球員 |
+| `src/components/fees/FeeSettings.vue` | 計次月費費率、社區球員固定月繳金額與季費補償預設設定 |
+| `src/components/fees/SchoolTeamFees.vue` | 月費管理，包含校隊計次、球員計次月費與社區球員固定月繳 |
+| `src/components/fees/QuarterlyFees.vue` | 季費管理，排除固定月繳、球員計次月費與不收費球員 |
 | `src/components/fees/QuarterlyFeeCompensationPanel.vue` | 季費堂數不足補償試算、待審核與核准 |
 | `src/components/fees/ProfilePaymentSubmissionInbox.vue` | 個人付款回報審核 |
 | `src/components/fees/PlayerBalanceManager.vue` | 球員餘額管理與流水帳 |
@@ -308,7 +308,7 @@
 | 公開首頁 / Dashboard | `supabase_dashboard_snapshot_migration.sql`、`supabase_my_home_snapshot_migration.sql`、`supabase_zz_my_home_training_points_migration.sql` |
 | 假單 | `supabase_my_leave_requests_migration.sql`、`supabase_match_leave_absences_migration.sql` |
 | 個人成績 | `supabase_my_player_records_migration.sql` |
-| 收費 / 付款 | `supabase_fees_migration.sql`、`supabase_quarterly_fees_migration.sql`、`supabase_profile_payment_submissions_migration.sql`、`supabase_player_balance_transactions_migration.sql`、`supabase_fixed_monthly_billing_migration.sql`、`supabase_quarterly_fee_compensation_migration.sql`、`supabase_match_fees_migration.sql`、`supabase_fee_management_reminders_migration.sql`、`supabase_zzzzzzzzzzzz_quarterly_payment_open_period_migration.sql` |
+| 收費 / 付款 | `supabase_fees_migration.sql`、`supabase_quarterly_fees_migration.sql`、`supabase_profile_payment_submissions_migration.sql`、`supabase_player_balance_transactions_migration.sql`、`supabase_fixed_monthly_billing_migration.sql`、`supabase_zzzzzzzzzzzzzzz_monthly_per_session_billing_migration.sql`、`supabase_quarterly_fee_compensation_migration.sql`、`supabase_match_fees_migration.sql`、`supabase_fee_management_reminders_migration.sql`、`supabase_zzzzzzzzzzzz_quarterly_payment_open_period_migration.sql`、`supabase_zzzzzzzzzzzzzz_monthly_payment_open_period_migration.sql` |
 | 裝備 | `supabase_equipment_management_migration.sql`、`supabase_equipment_inventory_adjustments_migration.sql`、`supabase_equipment_manual_purchase_records_migration.sql`、`supabase_equipment_multiple_photos_migration.sql`、`supabase_zzzzzz_equipment_inventory_snapshot_rpc_migration.sql`、`supabase_zzzzzzzz_equipment_ready_for_pickup_payment_scope_migration.sql`、`supabase_zzzzzzzzz_equipment_custom_order_migration.sql`、`supabase_zzzzzzzzzz_equipment_approved_payment_scope_migration.sql`、`supabase_zzzzzzzzzzz_equipment_payment_refund_migration.sql`、`supabase_zzzzzzzzzzzz_equipment_create_request_inventory_guard_transaction_fix_migration.sql` |
 | 廠商 | `supabase_vendor_management_migration.sql` |
 | 能力 / 體測 | `supabase_performance_data_migration.sql`、`supabase_performance_view_scope_migration.sql` |

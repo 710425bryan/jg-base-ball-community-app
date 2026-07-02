@@ -1,5 +1,10 @@
 import { getSiblingGroupIds, resolveLinkedMemberIds, type SiblingNode } from './siblingGroups'
-import { isQuarterlyBillingMember } from './memberBilling'
+import {
+  FIXED_MONTHLY_FEE_BILLING_MODE,
+  isQuarterlyBillingMember,
+  MONTHLY_PER_SESSION_FEE_BILLING_MODE,
+  NO_FEE_BILLING_MODE
+} from './memberBilling'
 import { isActiveRosterMember, shouldApplyManualHalfPrice } from './memberLifecycle'
 
 export const FULL_QUARTERLY_FEE_AMOUNT = 6000
@@ -67,7 +72,9 @@ export const isQuarterlyPricingMember = (member: QuarterlyPricingMember) => {
   }
 
   if (member.role === undefined || member.role === null) {
-    return member.fee_billing_mode !== 'monthly_fixed' && member.fee_billing_mode !== 'no_fee'
+    return member.fee_billing_mode !== FIXED_MONTHLY_FEE_BILLING_MODE &&
+      member.fee_billing_mode !== MONTHLY_PER_SESSION_FEE_BILLING_MODE &&
+      member.fee_billing_mode !== NO_FEE_BILLING_MODE
   }
 
   return isQuarterlyBillingMember(member)

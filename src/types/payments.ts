@@ -14,6 +14,7 @@ export type MyPaymentMember = {
   name: string
   role: '校隊' | '球員'
   billing_mode: MyPaymentMemberBillingMode
+  fee_billing_mode?: string | null
   is_linked?: boolean
   balance_amount?: number
 }

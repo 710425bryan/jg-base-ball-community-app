@@ -643,7 +643,9 @@ import {
 import {
   FIXED_MONTHLY_FEE_BILLING_MODE,
   getMemberBillingLabel,
+  getMonthlyFeeCalculationType,
   NO_FEE_BILLING_MODE,
+  normalizeMemberFeeBillingMode,
   ROLE_DEFAULT_FEE_BILLING_MODE
 } from '@/utils/memberBilling'
 import {
@@ -822,10 +824,15 @@ const getPaymentMemberBillingConfig = (member?: MyPaymentMember | null) => ({
   role: member?.role,
   fee_billing_mode: member?.billing_mode === 'none'
     ? NO_FEE_BILLING_MODE
-    : member?.role === '球員' && member.billing_mode === 'monthly'
-      ? FIXED_MONTHLY_FEE_BILLING_MODE
-      : ROLE_DEFAULT_FEE_BILLING_MODE
+    : normalizeMemberFeeBillingMode(
+      member?.fee_billing_mode ||
+      (member?.role === '球員' && member.billing_mode === 'monthly'
+        ? FIXED_MONTHLY_FEE_BILLING_MODE
+        : ROLE_DEFAULT_FEE_BILLING_MODE)
+    )
 })
+const isFixedMonthlyPaymentMember = (member?: MyPaymentMember | null) =>
+  getMonthlyFeeCalculationType(getPaymentMemberBillingConfig(member)) === 'monthly_fixed'
 
 const quarterlyPaymentCandidates = computed(() =>
   linkedMembers.value.filter((member) => member.billing_mode === 'quarterly')
@@ -966,9 +973,11 @@ const createDialogEstimateHelperText = computed(() => {
   }
 
   if (createDialogMember.value.billing_mode === 'monthly') {
-    return createDialogMember.value.role === '球員'
-      ? '社區固定月繳會依收費設定的固定金額與既有月費扣減自動帶入金額。'
-      : '校隊月繳會依校隊收費設定、請假天數與既有月費扣減自動帶入金額。'
+    if (isFixedMonthlyPaymentMember(createDialogMember.value)) {
+      return '社區固定月繳會依收費設定的固定金額與既有月費扣減自動帶入金額。'
+    }
+
+    return '計次月費會依單次收費設定、請假天數與既有月費扣減自動帶入金額。'
   }
 
   return '球員季繳目前會先帶入該季度既有金額，若尚無資料可再手動調整。'
@@ -1869,9 +1878,9 @@ const submissionRules = {
         ) {
           const openPeriodKey = getMonthlyPaymentOpenPeriodKey(getPaymentMemberBillingConfig(targetMember))
           callback(new Error(
-            targetMember.role === '校隊'
-              ? `校隊月費需等月份結束，目前只能新增 ${openPeriodKey} 或更早月份`
-              : `固定月繳目前只能新增 ${openPeriodKey} 或更早月份`
+            isFixedMonthlyPaymentMember(targetMember)
+              ? `固定月繳目前只能新增 ${openPeriodKey} 或更早月份`
+              : `計次月費需等月份結束，目前只能新增 ${openPeriodKey} 或更早月份`
           ))
           return
         }

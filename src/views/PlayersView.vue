@@ -118,6 +118,9 @@
                 <span v-if="isFixedMonthlyMember(row)" class="text-[10px] font-bold border px-1.5 py-0.5 rounded-sm mt-0.5 w-max inline-flex items-center gap-1 text-amber-700 border-amber-200 bg-amber-50">
                   固定月繳
                 </span>
+                <span v-if="isMonthlyPerSessionMember(row)" class="text-[10px] font-bold border px-1.5 py-0.5 rounded-sm mt-0.5 w-max inline-flex items-center gap-1 text-blue-700 border-blue-200 bg-blue-50">
+                  計次月費
+                </span>
                 <span v-if="isNoFeeMember(row)" class="text-[10px] font-bold border px-1.5 py-0.5 rounded-sm mt-0.5 w-max inline-flex items-center gap-1 text-slate-600 border-slate-200 bg-slate-50">
                   不收費
                 </span>
@@ -337,6 +340,9 @@
                 <span v-if="isFixedMonthlyMember(member)" class="text-[10px] font-bold px-2 py-1 rounded-md border bg-amber-50 text-amber-700 border-amber-200">
                   固定月繳
                 </span>
+                <span v-if="isMonthlyPerSessionMember(member)" class="text-[10px] font-bold px-2 py-1 rounded-md border bg-blue-50 text-blue-700 border-blue-200">
+                  計次月費
+                </span>
                 <span v-if="isNoFeeMember(member)" class="text-[10px] font-bold px-2 py-1 rounded-md border bg-slate-50 text-slate-600 border-slate-200">
                   不收費
                 </span>
@@ -472,7 +478,7 @@
               </template>
               <el-switch v-model="form.is_half_price" active-text="是" inactive-text="否" />
             </el-form-item>
-            <el-form-item prop="fee_billing_mode" class="font-bold mb-0" v-if="form.role === '球員' || form.role === '校隊'">
+            <el-form-item prop="fee_billing_mode" class="font-bold mb-0 sm:col-span-2" v-if="form.role === '球員' || form.role === '校隊'">
               <template #label>
                 <div class="inline-flex items-center gap-1 leading-none mr-3">收費模式 <el-tooltip content="不收費成員不會產生新的隊費與比賽費；裝備加購仍依實際申請付款。" placement="top"><el-icon class="text-gray-400 cursor-help"><InfoFilled /></el-icon></el-tooltip></div>
               </template>
@@ -725,7 +731,9 @@ import {
   FIXED_MONTHLY_FEE_BILLING_MODE,
   getMemberBillingLabel,
   isFixedMonthlyBillingMember,
+  isMonthlyPerSessionBillingMember,
   isNoFeeBillingMember,
+  MONTHLY_PER_SESSION_FEE_BILLING_MODE,
   NO_FEE_BILLING_MODE,
   normalizeMemberFeeBillingMode,
   ROLE_DEFAULT_FEE_BILLING_MODE
@@ -831,6 +839,7 @@ const filterMemberGroup = ref('全部')
 
 const isSiblingEligibleRole = isTeamGroupEligibleRole
 const isFixedMonthlyMember = (member: any) => isFixedMonthlyBillingMember(member)
+const isMonthlyPerSessionMember = (member: any) => isMonthlyPerSessionBillingMember(member)
 const isNoFeeMember = (member: any) => isNoFeeBillingMember(member)
 const normalizeBillingModeForRole = (role: string | null | undefined, mode: string | null | undefined) => {
   const normalizedMode = normalizeMemberFeeBillingMode(mode)
@@ -1372,14 +1381,20 @@ const form = reactive(createInitialForm())
 const lastAutoGrade = ref('')
 const billingModeOptions = computed(() => [
   {
-    label: form.role === '校隊' ? '校隊月繳' : '依身分收費',
+    label: form.role === '校隊' ? '校隊月繳' : '球員季繳',
     value: ROLE_DEFAULT_FEE_BILLING_MODE
   },
   ...(form.role === '球員'
-    ? [{
-      label: '固定月繳',
-      value: FIXED_MONTHLY_FEE_BILLING_MODE
-    }]
+    ? [
+      {
+        label: '計次月費',
+        value: MONTHLY_PER_SESSION_FEE_BILLING_MODE
+      },
+      {
+        label: '固定月繳',
+        value: FIXED_MONTHLY_FEE_BILLING_MODE
+      }
+    ]
     : []),
   {
     label: '不收費',
@@ -2371,24 +2386,35 @@ onMounted(() => {
 }
 
 .billing-mode-radio-group {
-  display: inline-flex;
+  display: grid;
+  width: 100%;
   max-width: 100%;
-  flex-wrap: wrap;
-  align-items: center;
-  row-gap: 0.5rem;
-  vertical-align: top;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  align-items: stretch;
 }
 .billing-mode-radio-group .el-radio-button {
+  display: block;
   margin: 0;
+  min-width: 0;
 }
 .billing-mode-radio-group .el-radio-button__inner {
   display: inline-flex;
+  width: 100%;
   min-height: 32px;
   align-items: center;
   justify-content: center;
+  border-left: var(--el-border);
+  border-radius: 8px !important;
   font-weight: 800;
   line-height: 1;
   white-space: nowrap;
+}
+
+@media (min-width: 640px) {
+  .billing-mode-radio-group {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 .players-photo,

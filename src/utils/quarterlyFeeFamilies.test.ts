@@ -73,6 +73,33 @@ describe('quarterlyFeeFamilies', () => {
     expect(getExpectedQuarterlyAmount(members[1], members, buildSiblingGroupMap(members))).toBe(0)
   })
 
+  it('excludes per-session monthly players from quarterly sibling pricing', () => {
+    const members = [
+      {
+        id: 'quarterly-player',
+        role: '球員',
+        fee_billing_mode: 'role_default',
+        sibling_ids: ['monthly-per-session-player'],
+        is_primary_payer: false,
+        is_half_price: false
+      },
+      {
+        id: 'monthly-per-session-player',
+        role: '球員',
+        fee_billing_mode: 'monthly_per_session',
+        sibling_ids: ['quarterly-player'],
+        is_primary_payer: true,
+        is_half_price: false
+      }
+    ]
+    const quarterlyMembers = filterQuarterlyPricingMembers(members)
+    const quarterlySiblingGroupMap = buildSiblingGroupMap(quarterlyMembers)
+
+    expect(quarterlyMembers.map((member) => member.id)).toEqual(['quarterly-player'])
+    expect(getExpectedQuarterlyAmount(quarterlyMembers[0], quarterlyMembers, quarterlySiblingGroupMap)).toBe(FULL_QUARTERLY_FEE_AMOUNT)
+    expect(getExpectedQuarterlyAmount(members[1], members, buildSiblingGroupMap(members))).toBe(0)
+  })
+
   it('excludes no-fee players from quarterly sibling pricing', () => {
     const members = [
       {

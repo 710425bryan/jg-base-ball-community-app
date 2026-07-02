@@ -18,6 +18,7 @@ describe('memberBilling', () => {
     expect(normalizeMemberFeeBillingMode(null)).toBe('role_default')
     expect(normalizeMemberFeeBillingMode('unexpected')).toBe('role_default')
     expect(normalizeMemberFeeBillingMode('monthly_fixed')).toBe('monthly_fixed')
+    expect(normalizeMemberFeeBillingMode('monthly_per_session')).toBe('monthly_per_session')
     expect(normalizeMemberFeeBillingMode('no_fee')).toBe('no_fee')
   })
 
@@ -36,6 +37,15 @@ describe('memberBilling', () => {
     expect(isFixedMonthlyBillingMember(quarterlyPlayer)).toBe(false)
     expect(getEffectivePaymentBillingMode(quarterlyPlayer)).toBe('quarterly')
     expect(getMemberBillingLabel(quarterlyPlayer)).toBe('球員季繳')
+  })
+
+  it('treats per-session monthly players as monthly billing without fixed monthly calculation', () => {
+    const perSessionPlayer = { role: '球員', fee_billing_mode: 'monthly_per_session' }
+
+    expect(isFixedMonthlyBillingMember(perSessionPlayer)).toBe(false)
+    expect(getEffectivePaymentBillingMode(perSessionPlayer)).toBe('monthly')
+    expect(getMonthlyFeeCalculationType(perSessionPlayer)).toBe('per_session')
+    expect(getMemberBillingLabel(perSessionPlayer)).toBe('計次月費')
   })
 
   it('treats no-fee school team members and players as non-billable', () => {

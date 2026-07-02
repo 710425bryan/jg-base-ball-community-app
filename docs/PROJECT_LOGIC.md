@@ -493,9 +493,10 @@ UI 約定：
 
 - 後台費用頁管理月費、季費與付款回報審核。
 - `team_members.fee_billing_mode = 'monthly_fixed'` 代表社區球員固定月繳：角色仍為 `球員`，但有效繳費模式為月繳；月費表採固定金額減手動扣減，季費表與家庭季費分組排除該球員。
+- `team_members.fee_billing_mode = 'monthly_per_session'` 代表球員計次月費：角色仍為 `球員`，但有效繳費模式為月繳；月費表採訓練日期堂數、請假扣減與單次金額公式，季費表與家庭季費分組排除該球員。
 - `team_members.fee_billing_mode = 'no_fee'` 代表球員 / 校隊不收費：不產生新的月費、季費與比賽費；切換前既有帳款與付款回報保留，裝備加購付款仍維持自費。
-- 校隊計次月費的本月堂數由 `/training-dates` 的訓練日期設定天數自動帶入，月費頁不可手動改堂數；請假扣減只依所選月份統計假單日期，以球員 + 日期去重，不合併點名紀錄。
-- 家長端月費回報開放期別依計算方式區分：校隊計次月費需等月份結束後才開放前一個月；`monthly_fixed` 固定月繳球員每月 25 日起可提前回報下個月。
+- 校隊與球員計次月費的本月堂數由 `/training-dates` 的訓練日期設定天數自動帶入，月費頁不可手動改堂數；請假扣減只依所選月份統計假單日期，以球員 + 日期去重，不合併點名紀錄。
+- 家長端月費回報開放期別依計算方式區分：計次月費需等月份結束後才開放前一個月；`monthly_fixed` 固定月繳球員每月 25 日起可提前回報下個月。
 - 固定月繳預設金額存在 `fee_settings.monthly_fixed_fee`，正式月費紀錄會在 `monthly_fees.calculation_type` / `monthly_fees.fixed_monthly_fee` 保留當月計算方式與金額快照。
 - 季費堂數不足補償依當月週六數與 `/training-dates` 訓練日期設定總天數計算；週五、週日或其他補課日都算一堂，設定天數達當月週六數即不補償。補償預設每日折抵為一般 500 元、半價 / 手足折扣 250 元，可在收費設定調整。系統只產生 `quarterly_fee_compensation_items` 待審核單，管理員核准後才以 `quarterly_compensation` source 寫入 `player_balance_transactions`。
 - 季繳付款回報的開放期別由 `src/utils/quarterlyPaymentSubmissions.ts` 與 DB helper `get_quarterly_payment_open_period_key()` 共同決定：以台灣日期為準，每季最後一個月 25 日起開放下一季；未開放的未來季在家長端不顯示可勾選，RPC / trigger 也會拒絕寫入，過去未繳季度仍可補繳。
@@ -510,7 +511,7 @@ UI 約定：
 重要規則：
 
 - 餘額屬於 `team_members`，不可扣成負數；家長只能看與使用自己綁定球員的餘額。
-- 修改付款或費用要檢查 sibling、primary payer、half price、固定月繳與不收費排除規則。
+- 修改付款或費用要檢查 sibling、primary payer、half price、固定月繳、球員計次月費與不收費排除規則。
 - `list_my_payment_members()` 與前端 `/my-payments` 會排除退隊、離隊、關閉 / 畢業成員；月費、季費與費用設定頁也只用有效成員建立後續繳費名單。
 - 裝備付款回報在 `/my-payments` 與 `/fees?tab=equipment` 整合，但不要混入一般月費資料模型。
 - 比賽費付款回報在 UI 上可與一般付款合併，但資料模型仍使用 `match_payment_submissions`。

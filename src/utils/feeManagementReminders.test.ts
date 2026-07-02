@@ -100,8 +100,8 @@ describe('fee management reminder mapping', () => {
       items: [
         {
           kind: 'monthlyUnpaid',
-          title: '校隊月費待追蹤',
-          body: '3 位校隊成員尚未標記已繳。',
+          title: '月費待追蹤',
+          body: '3 位月費成員尚未標記已繳。',
           count: 3,
           amount: 0,
           severity: 'warning',

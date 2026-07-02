@@ -1,11 +1,13 @@
 export const ROLE_DEFAULT_FEE_BILLING_MODE = 'role_default'
 export const FIXED_MONTHLY_FEE_BILLING_MODE = 'monthly_fixed'
+export const MONTHLY_PER_SESSION_FEE_BILLING_MODE = 'monthly_per_session'
 export const NO_FEE_BILLING_MODE = 'no_fee'
 export const DEFAULT_FIXED_MONTHLY_FEE = 2000
 
 export type MemberFeeBillingMode =
   | typeof ROLE_DEFAULT_FEE_BILLING_MODE
   | typeof FIXED_MONTHLY_FEE_BILLING_MODE
+  | typeof MONTHLY_PER_SESSION_FEE_BILLING_MODE
   | typeof NO_FEE_BILLING_MODE
 
 export type EffectivePaymentBillingMode = 'monthly' | 'quarterly' | 'none'
@@ -17,7 +19,9 @@ export type BillingModeMember = {
 }
 
 export const normalizeMemberFeeBillingMode = (value?: string | null): MemberFeeBillingMode =>
-  value === FIXED_MONTHLY_FEE_BILLING_MODE || value === NO_FEE_BILLING_MODE
+  value === FIXED_MONTHLY_FEE_BILLING_MODE ||
+  value === MONTHLY_PER_SESSION_FEE_BILLING_MODE ||
+  value === NO_FEE_BILLING_MODE
     ? value
     : ROLE_DEFAULT_FEE_BILLING_MODE
 
@@ -28,21 +32,32 @@ export const isNoFeeBillingMember = (member: BillingModeMember) =>
 export const isFixedMonthlyBillingMember = (member: BillingModeMember) =>
   member.role === '球員' && normalizeMemberFeeBillingMode(member.fee_billing_mode) === FIXED_MONTHLY_FEE_BILLING_MODE
 
+export const isMonthlyPerSessionBillingMember = (member: BillingModeMember) =>
+  member.role === '球員' &&
+  normalizeMemberFeeBillingMode(member.fee_billing_mode) === MONTHLY_PER_SESSION_FEE_BILLING_MODE
+
 export const getEffectivePaymentBillingMode = (
   member: BillingModeMember
 ): EffectivePaymentBillingMode | null => {
   if (isNoFeeBillingMember(member)) return 'none'
   if (member.role === '校隊') return 'monthly'
   if (isFixedMonthlyBillingMember(member)) return 'monthly'
+  if (isMonthlyPerSessionBillingMember(member)) return 'monthly'
   if (member.role === '球員') return 'quarterly'
   return null
 }
+
+export const isMonthlyBillingMember = (member: BillingModeMember) =>
+  getEffectivePaymentBillingMode(member) === 'monthly'
 
 export const isQuarterlyBillingMember = (member: BillingModeMember) =>
   getEffectivePaymentBillingMode(member) === 'quarterly'
 
 export const getMonthlyFeeCalculationType = (member: BillingModeMember): MonthlyFeeCalculationType =>
   isFixedMonthlyBillingMember(member) ? 'monthly_fixed' : 'per_session'
+
+export const isPerSessionMonthlyBillingMember = (member: BillingModeMember) =>
+  isMonthlyBillingMember(member) && getMonthlyFeeCalculationType(member) === 'per_session'
 
 export const normalizeFixedMonthlyFee = (
   value: unknown,
@@ -87,6 +102,7 @@ export const calculateDiscountedPerSessionFee = (
 export const getMemberBillingLabel = (member: BillingModeMember) => {
   if (isNoFeeBillingMember(member)) return '不收費'
   if (isFixedMonthlyBillingMember(member)) return '社區月繳'
+  if (isMonthlyPerSessionBillingMember(member)) return '計次月費'
   if (member.role === '校隊') return '校隊月繳'
   if (member.role === '球員') return '球員季繳'
   return '未設定'

@@ -46,7 +46,7 @@ description: "Player roster, users, profile binding, team groups, roster cache, 
 - `team_members_safe` 是預設展示來源；不要為了表格方便改回 raw `team_members`。
 - linked member 綁定會影響 `/my-records`、`/my-payments`、`/my-leave-requests`、`/training`、`/equipment-addons` 與個人首頁。
 - Google 同步不得覆蓋人工維護欄位：`is_primary_payer`、`is_half_price`、`fee_billing_mode`、既有 `joined_date`、既有 `grade`。
-- `fee_billing_mode` 可為 `role_default`、`monthly_fixed`、`no_fee`；新增球員預設 `role_default`，既有球員同步不得覆蓋人工設定。
+- `fee_billing_mode` 可為 `role_default`、`monthly_fixed`、`monthly_per_session`、`no_fee`；新增球員預設 `role_default`，既有球員同步不得覆蓋人工設定。
 - 刪除或改名 team group 前要確認轉移規則，避免球員留在不存在的組別。
 - 角色權限 UI 與 roster/users 管理要保持 `app_roles`、`app_role_permissions` 一致。
 

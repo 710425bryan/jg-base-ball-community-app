@@ -205,7 +205,7 @@
     <!-- Data Table -->
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden" v-loading="isLoading">
       <div class="px-4 py-3 text-xs text-gray-400 border-b border-gray-100 bg-gray-50/60">
-        請假天數只統計落在本月訓練日期內的假單日期；本月堂數依訓練日期設定自動計算。社區月繳列不參與堂數、請假或單堂費率計算。
+        請假天數只統計落在本月訓練日期內的假單日期；本月堂數依訓練日期設定自動計算。固定月繳列不參與堂數、請假或單堂費率計算。
       </div>
       <div class="overflow-x-auto">
         <table class="w-full min-w-[900px]">
@@ -224,7 +224,7 @@
           <tbody class="divide-y divide-gray-100">
             <tr v-if="feesList.length === 0" class="hover:bg-gray-50/50">
               <td colspan="7" class="py-8 text-center text-gray-400 font-bold">
-                請點擊右上角「試算本月」載入校隊名單
+                請點擊右上角「試算本月」載入月費名單
               </td>
             </tr>
             <tr :id="`fee-row-${fee.member_id}`" v-for="fee in feesList" :key="fee.member_id" class="hover:bg-gray-50/50 transition-colors duration-1000">
@@ -238,6 +238,7 @@
                     <span class="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded leading-none shrink-0 border border-primary/20">半價優惠</span>
                   </el-tooltip>
                   <span v-if="isFixedMonthlyFee(fee)" class="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded leading-none shrink-0 border border-amber-200">社區月繳</span>
+                  <span v-else-if="isPlayerPerSessionMonthlyFee(fee)" class="text-[10px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded leading-none shrink-0 border border-blue-200">計次月費</span>
                 </div>
               </td>
               <td class="py-3 px-4">
@@ -325,7 +326,7 @@ import {
   calculatePerSessionMonthlyPayableAmount,
   DEFAULT_FIXED_MONTHLY_FEE,
   getMonthlyFeeCalculationType,
-  isFixedMonthlyBillingMember,
+  isMonthlyBillingMember,
   isNoFeeBillingMember,
   normalizeFixedMonthlyFee
 } from '@/utils/memberBilling'
@@ -464,6 +465,8 @@ const formatCurrency = (amount: number) => {
 }
 
 const isFixedMonthlyFee = (fee: any) => fee.calculation_type === 'monthly_fixed'
+const isPlayerPerSessionMonthlyFee = (fee: any) =>
+  fee.role === '球員' && fee.calculation_type === 'per_session'
 
 const getFeeReceivableAmount = (fee: any) => {
   if (isFixedMonthlyFee(fee)) {
@@ -590,7 +593,7 @@ const calculateFees = async () => {
     trainingMonthDatesIsDefault.value = monthDateSettings.is_default
     monthlyTotalSessions.value = getMonthlyFeeTotalSessionsFromTrainingDates(monthDateSettings.training_dates)
 
-    // 1. 撈取校隊與固定月繳球員名單
+    // 1. 撈取月費成員名單
     const { data: membersData, error: membersErr } = await supabase
       .from('team_members')
       .select('id, name, role, status, is_inactive_or_graduated, sibling_ids, is_primary_payer, is_half_price, fee_billing_mode')
@@ -600,10 +603,7 @@ const calculateFees = async () => {
     const members = membersData?.filter(m =>
       isActiveRosterMember(m) &&
       !isNoFeeBillingMember(m) &&
-      (
-        m.role === '校隊' ||
-        isFixedMonthlyBillingMember(m)
-      )
+      isMonthlyBillingMember(m)
     ) || []
     
     // 預處理：確保手足連結是對稱的（防呆：萬一只單向填寫，另一方忘記填寫）
@@ -632,7 +632,7 @@ const calculateFees = async () => {
       return
     }
 
-    // 2. 撈取本月所有人費率設定 (校隊預設 500；固定月繳預設 2000)
+    // 2. 撈取本月所有人費率設定 (計次預設 500；固定月繳預設 2000)
     const { data: feeSettings, error: fsErr } = await supabase
       .from('fee_settings')
       .select('member_id, per_session_fee, monthly_fixed_fee')
@@ -855,7 +855,7 @@ const exportCSV = () => {
   const url = URL.createObjectURL(blob);
   
   link.setAttribute('href', url);
-  link.setAttribute('download', `校隊月費結算表_${selectedMonth.value}.csv`);
+  link.setAttribute('download', `月費結算表_${selectedMonth.value}.csv`);
   link.style.visibility = 'hidden';
   document.body.appendChild(link);
   link.click();
@@ -870,7 +870,7 @@ const formatTimestamp = (timestamp: string) => {
   return dayjs(timestamp).format('YYYY-MM-DD HH:mm')
 }
 
-// 撈取近期寫入的季費總表，過濾出有包含「本校隊清單中任何一員」的新回報
+// 撈取近期寫入的季費總表，過濾出有包含「目前月費名單中任何一員」的新回報
 const fetchRemittances = async (schoolTeamMembers: any[]) => {
   try {
     const stIds = schoolTeamMembers.map(m => m.id)

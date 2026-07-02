@@ -5,7 +5,7 @@
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <AppPageHeader
           title="收費管理系統"
-          subtitle="管理校隊月費、球員季費、比賽費用、裝備付款與收費設定"
+          subtitle="管理月費、球員季費、比賽費用、裝備付款與收費設定"
           :icon="Money"
           as="h2"
         />
@@ -18,7 +18,7 @@
       >
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 pt-0.5 sm:pt-1">
           <div class="rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/10 via-amber-50 to-white px-3 py-3 sm:px-4 sm:py-4 shadow-sm">
-            <p class="text-[10px] sm:text-xs font-bold uppercase tracking-[0.16em] sm:tracking-[0.24em] text-primary/70">校隊月費</p>
+            <p class="text-[10px] sm:text-xs font-bold uppercase tracking-[0.16em] sm:tracking-[0.24em] text-primary/70">月費結算</p>
             <p class="mt-2 sm:mt-3 text-[clamp(1.25rem,6vw,1.7rem)] md:text-3xl leading-none font-black text-slate-900">{{ formatCurrency(monthlySummary.total) }}</p>
             <p class="mt-1.5 sm:mt-2 text-[10px] sm:text-xs text-gray-500 leading-tight">
               期間：{{ monthlySummary.periodLabel || '尚未載入' }}
@@ -49,7 +49,7 @@
 
         <p class="mt-2 text-[10px] sm:text-[11px] text-gray-400 leading-tight sm:leading-relaxed">
           <span class="sm:hidden">手機版先提供兩邊目前期間的快速合計，方便先看總額再往下操作。</span>
-          <span class="hidden sm:inline">校隊月費、球員季費與比賽費用的繳費時間可以不同，所以上方會分開顯示各自期間金額，並另外提供目前選定期間的合計供你快速對帳。</span>
+          <span class="hidden sm:inline">月費、球員季費與比賽費用的繳費時間可以不同，所以上方會分開顯示各自期間金額，並另外提供目前選定期間的合計供你快速對帳。</span>
         </p>
       </div>
 
@@ -172,12 +172,12 @@ type FeeSummarySnapshot = {
 }
 
 const tabs = [
-  { id: 'monthly', name: '校隊月費結算' },
+  { id: 'monthly', name: '月費結算' },
   { id: 'quarterly', name: '球員季費表單' },
   { id: 'match-fees', name: '比賽費用' },
   { id: 'equipment', name: '裝備請購/付款' },
   { id: 'balances', name: '球員餘額' },
-  { id: 'settings', name: '校隊收費設定' }
+  { id: 'settings', name: '收費設定' }
 ]
 
 const activeTab = ref('monthly')
