@@ -26,6 +26,7 @@ import {
   formatAbsentPlayerLeaveSegment,
   isLeaveRequestAbsentPlayer,
   mergeManualAndLeaveAbsences,
+  resolveMatchLeaveAbsenceEventTime,
   withoutLeaveRequestAbsentPlayers
 } from '@/utils/matchLeaveAbsences'
 import { isNoFeeBillingMember } from '@/utils/memberBilling'
@@ -319,7 +320,8 @@ const syncLeaveRequestAbsences = async () => {
 
   syncingLeaveAbsences.value = true
   try {
-    const leaveAbsences = await previewMatchLeaveAbsences(matchDate, playerNames, formData.value.match_time)
+    const eventTimeText = resolveMatchLeaveAbsenceEventTime(formData.value.match_time, formData.value.note)
+    const leaveAbsences = await previewMatchLeaveAbsences(matchDate, playerNames, eventTimeText)
     if (runId !== leaveAbsenceSyncRunId) return
     formData.value.absent_players = mergeManualAndLeaveAbsences(formData.value.absent_players, leaveAbsences)
   } catch (error: any) {
@@ -334,7 +336,12 @@ const syncLeaveRequestAbsences = async () => {
 }
 
 watch(
-    () => [visible.value, formData.value.match_date, formData.value.match_time, formData.value.players] as const,
+    () => [
+      visible.value,
+      formData.value.match_date,
+      resolveMatchLeaveAbsenceEventTime(formData.value.match_time, formData.value.note),
+      formData.value.players
+    ] as const,
   () => {
     void syncLeaveRequestAbsences()
   },

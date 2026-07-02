@@ -1,4 +1,5 @@
 import type { AbsentPlayer } from '@/types/match'
+import { normalizeEventTimeText } from '@/utils/attendanceLeave'
 import { getLeaveTimeSegmentLabel } from '@/utils/leaveRequests'
 
 export const MATCH_LEAVE_ABSENCE_SOURCE = 'leave_request'
@@ -23,6 +24,25 @@ const normalizeNameKey = (value: unknown) =>
 const normalizeLeaveRequestIds = (value: unknown) => {
   if (!Array.isArray(value)) return []
   return value.map((item) => String(item || '').trim()).filter(Boolean)
+}
+
+const MATCH_TIME_NOTE_LABEL_PATTERN = /(集合時間|比賽時間|開打時間|開始時間|時間)\s*[：:]?\s*/i
+
+export const resolveMatchLeaveAbsenceEventTime = (
+  matchTime?: string | null,
+  note?: string | null
+) => {
+  const normalizedMatchTime = normalizeEventTimeText(matchTime)
+  if (normalizedMatchTime) return normalizedMatchTime
+
+  const noteLines = String(note || '').split(/\r?\n/)
+  for (const line of noteLines) {
+    if (!MATCH_TIME_NOTE_LABEL_PATTERN.test(line)) continue
+    const normalizedLineTime = normalizeEventTimeText(line)
+    if (normalizedLineTime) return normalizedLineTime
+  }
+
+  return normalizeEventTimeText(note)
 }
 
 export const isLeaveRequestAbsentPlayer = (player: Partial<AbsentPlayer> | null | undefined) =>

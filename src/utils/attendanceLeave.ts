@@ -60,11 +60,35 @@ export const normalizeAttendanceDate = (value: unknown) => {
   return match ? match[0] : text
 }
 
-const parseEventTimeMinutes = (value: unknown) => {
+export const parseEventTimeMinutes = (value: unknown) => {
   const text = String(value ?? '')
-  const matches = Array.from(text.matchAll(/\b([01]?\d|2[0-3]):([0-5]\d)\b/g))
-  return matches.map((match) => Number(match[1]) * 60 + Number(match[2]))
+  const matches = Array.from(text.matchAll(
+    /(?:(上午|早上|am|a\.m\.|下午|晚上|pm|p\.m\.)\s*)?\b([01]?\d|2[0-3])\s*[:：.．]\s*([0-5]\d)\b/gi
+  ))
+
+  return matches.map((match) => {
+    const marker = String(match[1] || '').toLowerCase()
+    let hour = Number(match[2])
+    const minute = Number(match[3])
+
+    if (['下午', '晚上', 'pm', 'p.m.'].includes(marker) && hour >= 1 && hour <= 11) {
+      hour += 12
+    } else if (['上午', '早上', 'am', 'a.m.'].includes(marker) && hour === 12) {
+      hour = 0
+    }
+
+    return hour * 60 + minute
+  })
 }
+
+const formatEventTimeMinute = (minuteOfDay: number) => {
+  const hour = Math.floor(minuteOfDay / 60)
+  const minute = minuteOfDay % 60
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+}
+
+export const normalizeEventTimeText = (value: unknown) =>
+  parseEventTimeMinutes(value).map(formatEventTimeMinute).join(' - ')
 
 export const leaveTimeSegmentOverlapsEventTime = (
   leaveTimeSegment: unknown,

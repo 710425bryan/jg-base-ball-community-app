@@ -233,6 +233,21 @@ describe('MatchFormDialog leave request absence sync', () => {
     ])
   })
 
+  it('uses calendar note gather time when match time is empty', async () => {
+    const wrapper = await mountDialog()
+    const vm = wrapper.vm as any
+
+    vi.mocked(previewMatchLeaveAbsences).mockClear()
+    vm.formData.match_date = '2099-07-04'
+    vm.formData.match_time = ''
+    vm.formData.note = '[Google Calendar 同步]\n集合時間: 13:30\n原始標題: 新泰太陽 vs 中港熊戰'
+    vm.formData.players = '????'
+
+    await vm.syncLeaveRequestAbsences()
+
+    expect(previewMatchLeaveAbsences).toHaveBeenLastCalledWith('2099-07-04', ['????'], '13:30')
+  })
+
   it('removes stale leave request absences while preserving manual absences', async () => {
     const wrapper = await mountDialog()
     const vm = wrapper.vm as any

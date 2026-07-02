@@ -37,16 +37,28 @@ as $$
 declare
   v_match text[];
   v_seen integer := 0;
+  v_marker text;
   v_hour integer;
   v_minute integer;
 begin
   for v_match in
-    select regexp_matches(coalesce(p_text, ''), '([0-9]{1,2}):([0-5][0-9])', 'g')
+    select regexp_matches(
+      coalesce(p_text, ''),
+      '(上午|早上|am|a\.m\.|下午|晚上|pm|p\.m\.)?[[:space:]]*([0-9]{1,2})[[:space:]]*[:：\.．][[:space:]]*([0-5][0-9])',
+      'gi'
+    )
   loop
-    v_hour := (v_match)[1]::integer;
-    v_minute := (v_match)[2]::integer;
+    v_marker := lower(coalesce((v_match)[1], ''));
+    v_hour := (v_match)[2]::integer;
+    v_minute := (v_match)[3]::integer;
 
     if v_hour between 0 and 23 then
+      if v_marker in ('下午', '晚上', 'pm', 'p.m.') and v_hour between 1 and 11 then
+        v_hour := v_hour + 12;
+      elsif v_marker in ('上午', '早上', 'am', 'a.m.') and v_hour = 12 then
+        v_hour := 0;
+      end if;
+
       v_seen := v_seen + 1;
       if v_seen = greatest(coalesce(p_occurrence, 1), 1) then
         return v_hour * 60 + v_minute;
@@ -122,6 +134,38 @@ begin
   end if;
 
   return public.leave_time_segment_overlaps_event_time(v_segment, p_event_time);
+end;
+$$;
+
+create or replace function public.get_match_leave_event_time(
+  p_match_time text,
+  p_note text default null
+)
+returns text
+language plpgsql
+immutable
+as $$
+declare
+  v_line text;
+begin
+  if public.extract_time_minutes(p_match_time, 1) is not null then
+    return p_match_time;
+  end if;
+
+  for v_line in
+    select regexp_split_to_table(coalesce(p_note, ''), E'\\r?\\n')
+  loop
+    if v_line ~* '(集合時間|比賽時間|開打時間|開始時間|時間)'
+      and public.extract_time_minutes(v_line, 1) is not null then
+      return v_line;
+    end if;
+  end loop;
+
+  if public.extract_time_minutes(p_note, 1) is not null then
+    return p_note;
+  end if;
+
+  return null;
 end;
 $$;
 
@@ -479,7 +523,11 @@ begin
 
   return query
   select *
-  from public.build_match_leave_absence_rows(v_match.match_date, v_player_names, v_match.match_time);
+  from public.build_match_leave_absence_rows(
+    v_match.match_date,
+    v_player_names,
+    public.get_match_leave_event_time(v_match.match_time, v_match.note)
+  );
 end;
 $$;
 
@@ -524,7 +572,11 @@ begin
 
   with leave_rows as (
     select *
-    from public.build_match_leave_absence_rows(v_match.match_date, v_player_names, v_match.match_time)
+    from public.build_match_leave_absence_rows(
+      v_match.match_date,
+      v_player_names,
+      public.get_match_leave_event_time(v_match.match_time, v_match.note)
+    )
   ),
   leave_rows_without_manual_duplicates as (
     select leave_rows.*
@@ -571,7 +623,7 @@ $$;
 
 drop trigger if exists sync_match_leave_absences_after_match_change on public.matches;
 create trigger sync_match_leave_absences_after_match_change
-after insert or update of match_date, match_time, players
+after insert or update of match_date, match_time, note, players
 on public.matches
 for each row
 execute function public.sync_match_leave_absences_after_match_change();
@@ -631,7 +683,7 @@ begin
               lr.end_date,
               lr.leave_time_segment,
               v_match.match_date,
-              v_match.match_time
+              public.get_match_leave_event_time(v_match.match_time, v_match.note)
             )
         )
     )
@@ -715,7 +767,7 @@ begin
             lr.end_date,
             lr.leave_time_segment,
             v_match.match_date,
-            v_match.match_time
+            public.get_match_leave_event_time(v_match.match_time, v_match.note)
           )
       )
   )
@@ -1155,6 +1207,7 @@ revoke all on function public.normalize_leave_time_segment(text) from public;
 revoke all on function public.extract_time_minutes(text, integer) from public;
 revoke all on function public.leave_time_segment_overlaps_event_time(text, text) from public;
 revoke all on function public.leave_request_overlaps_event(date, date, text, date, text) from public;
+revoke all on function public.get_match_leave_event_time(text, text) from public;
 revoke all on function public.build_match_leave_absence_rows(date, text[], text) from public, anon, authenticated;
 revoke all on function public.sync_match_leave_absences_for_match(uuid) from public, anon, authenticated;
 revoke all on function public.preview_match_leave_absences(date, text[], text) from public, anon, authenticated;
@@ -1173,6 +1226,7 @@ grant execute on function public.normalize_leave_time_segment(text) to authentic
 grant execute on function public.extract_time_minutes(text, integer) to authenticated, service_role;
 grant execute on function public.leave_time_segment_overlaps_event_time(text, text) to authenticated, service_role;
 grant execute on function public.leave_request_overlaps_event(date, date, text, date, text) to authenticated, service_role;
+grant execute on function public.get_match_leave_event_time(text, text) to authenticated, service_role;
 grant execute on function public.list_my_leave_requests(uuid) to authenticated;
 grant execute on function public.create_my_leave_requests(uuid, jsonb) to authenticated;
 grant execute on function public.preview_match_leave_absences(date, text[], text) to authenticated;

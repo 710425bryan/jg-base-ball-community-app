@@ -7,6 +7,7 @@ import {
   filterAttendanceLeaveRecordsForEvent,
   getDefaultAttendanceStatusForMember,
   leaveTimeSegmentOverlapsEventTime,
+  normalizeEventTimeText,
   normalizeAttendanceDate,
   normalizeRollCallStatus
 } from './attendanceLeave'
@@ -88,8 +89,14 @@ describe('attendance leave helpers', () => {
     expect(leaveTimeSegmentOverlapsEventTime('morning', '09:00 - 12:00')).toBe(true)
     expect(leaveTimeSegmentOverlapsEventTime('morning', '13:00 - 15:00')).toBe(false)
     expect(leaveTimeSegmentOverlapsEventTime('afternoon', '13:00 - 15:00')).toBe(true)
+    expect(leaveTimeSegmentOverlapsEventTime('morning', '下午1.30 - 17:30')).toBe(false)
     expect(leaveTimeSegmentOverlapsEventTime('morning', '')).toBe(true)
     expect(leaveTimeSegmentOverlapsEventTime('full_day', '13:00 - 15:00')).toBe(true)
+  })
+
+  it('normalizes event time text from common time notations', () => {
+    expect(normalizeEventTimeText('13.30 - 17.30')).toBe('13:30 - 17:30')
+    expect(normalizeEventTimeText('集合時間: 下午1.30')).toBe('13:30')
   })
 
   it('filters leave rows by event time segment', () => {

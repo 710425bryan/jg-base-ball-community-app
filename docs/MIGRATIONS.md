@@ -51,7 +51,7 @@
 | `supabase_my_home_next_event_match_only_hotfix.sql` | 個人首頁 Next Up 僅顯示賽程 | 避免點名單搶佔 Next Up |
 | `supabase_inactive_member_visibility_migration.sql` | 關閉 / 畢業成員可見性修正 | 覆寫 `list_my_payment_members()`、`list_my_leave_members()`、`create_my_leave_requests()` 與 `get_dashboard_today_attendance_status()`，排除退隊、離隊、關閉 / 畢業成員 |
 | `supabase_my_leave_requests_migration.sql` | 我的假單 RPC | 家長端請假安全入口 |
-| `supabase_zzzzzzzzzzzzzzzz_leave_time_segments_migration.sql` | 單日假單全日 / 上午 / 下午時段 | 新增 `leave_requests.leave_time_segment`，覆寫我的假單 RPC、賽事假單同步、比賽費同步與今日點名摘要的時段重疊判斷 |
+| `supabase_zzzzzzzzzzzzzzzz_leave_time_segments_migration.sql` | 單日假單全日 / 上午 / 下午時段 | 新增 `leave_requests.leave_time_segment`，覆寫我的假單 RPC、賽事假單同步、比賽費同步與今日點名摘要的時段重疊判斷；賽事判斷會優先用 `matches.match_time`，再 fallback 到 `matches.note` 的集合時間 |
 | `supabase_my_player_records_migration.sql` | 我的成績 RPC | `/my-records` 不直接讀後台 matches |
 | `supabase_notification_feed_rpc_migration.sql` | 通知中心 RPC 初版 | 後續多個檔案覆寫 |
 | `supabase_announcement_notifications_migration.sql` | 公告通知 feed 補強 | 覆寫 `get_notification_feed()` |

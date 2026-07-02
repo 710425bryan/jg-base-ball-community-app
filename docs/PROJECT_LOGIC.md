@@ -241,7 +241,7 @@ UI 約定：
 - `team_members.fee_billing_mode = 'no_fee'` 的球員 / 校隊不進新的點名名單與場地連動點名同步；若舊點名事件已存在 `attendance_records`，仍保留顯示歷史紀錄。
 - 外部請假 webhook 會處理 member match、建立假單與通知，必須檢查 secret、payload normalize 與推播 target。
 - 今日訓練點名摘要走 `get_dashboard_today_attendance_status()`，會回傳今日所有點名單與請假名單，只顯示給 `leave_requests:VIEW`。
-- `leave_requests` 新增 / 更新 / 刪除會透過假單同步 trigger 重算今日與未來賽事中 `source = 'leave_request'` 的 `matches.absent_players`；手動請假列不會被假單同步刪除。半日假單使用 `matches.match_time` 判斷是否與比賽時間重疊；比賽沒有時間時視為全日。
+- `leave_requests` 新增 / 更新 / 刪除會透過假單同步 trigger 重算今日與未來賽事中 `source = 'leave_request'` 的 `matches.absent_players`；手動請假列不會被假單同步刪除。半日假單優先使用 `matches.match_time` 判斷是否與比賽時間重疊；若時間欄位空白，會從 `matches.note` 的「集合時間 / 比賽時間 / 開打時間」等備註抓取時間；仍沒有時間時視為全日。
 
 重要規則：
 
@@ -293,7 +293,7 @@ UI 約定：
 - 同步規劃維持 `create`、`update`、`skip` 三種結果。
 - 比賽紀錄元件處理陣容、照片、出席統計、賽事細節與 live controller。
 - `/calendar?match_id=...` 會開啟 `MatchDetailDialog`；推播與通知的比賽詳情 URL 統一導向這條路徑。
-- `MatchFormDialog` 會用 `preview_match_leave_absences(p_match_date, p_player_names, p_match_time)` 預覽出賽名單內、假單日期與時段涵蓋比賽的球員，顯示成不可手動改名的 `source = 'leave_request'` 請假列。
+- `MatchFormDialog` 會用 `preview_match_leave_absences(p_match_date, p_player_names, p_match_time)` 預覽出賽名單內、假單日期與時段涵蓋比賽的球員；前端傳入的時間會先取比賽時間欄位，沒有時再取備註中的集合時間，顯示成不可手動改名的 `source = 'leave_request'` 請假列。
 - `MatchDetailDialog` 的「賽事備註」卡會合併已儲存手動請假列與 `get_match_leave_absences(p_match_id)` 的最新假單同步列；今日 / 未來賽事中已刪除假單留下的舊自動列不再顯示。
 - `/match-records` 的「未來賽事」可由具 `matches:EDIT` 的使用者手動發送單場賽事通知；「提醒排程」同樣只給 `matches:EDIT` 使用者管理，設定存在 `system_settings.match_reminder_schedule_config`，透過 `get_match_reminder_schedule_config()` / `save_match_reminder_schedule_config(jsonb)` 讀寫全站共用多組規則。
 - Edge Function `send-match-reminders` 會驗證手動 bearer user 權限或排程 secret；自動排程每分鐘以 Asia/Taipei 判斷到期規則，寫入 `push_dispatch_events` 並發送 Web Push，通知 URL 統一導向 `/calendar?match_id=...`。
