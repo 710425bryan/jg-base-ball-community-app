@@ -35,8 +35,8 @@ description: "Match records, schedule detail, lineup, media, live controller, au
 - `matchesApi` 封裝 `matches` CRUD，保留 schema cache 欄位缺失 fallback。
 - `/calendar` 顯示賽程並用 `?match_id=` 開啟 `MatchDetailDialog`。
 - `/match-records` 是後台比賽紀錄管理，feature key 為 `matches`。
-- `/match-records` 的「未來賽事」手動通知與「提醒排程」只顯示給 `matches:EDIT` 使用者，前端走 `src/services/matchReminderNotifications.ts` 呼叫 `send-match-reminders` 或提醒排程 RPC。
-- 賽事提醒排程是全站共用多組規則，設定存在 `system_settings.match_reminder_schedule_config`，自動排程由 `send-match-reminders` 每分鐘依 Asia/Taipei 判斷到期規則。
+- `/match-records` 的「未來賽事」手動通知與「提醒排程」只顯示給 `matches:EDIT` 使用者，前端走 `src/services/matchReminderNotifications.ts` 呼叫 `send-match-reminders`、提醒排程 RPC 或 ADMIN 健康狀態 RPC。
+- 賽事提醒排程是全站共用多組規則，設定存在 `system_settings.match_reminder_schedule_config`，自動排程由 `send-match-reminders` 每分鐘依 Asia/Taipei 判斷到期規則；健康檢查使用 `get_match_reminder_health_status()` 與 `matches:HEALTH_ALERT` targeted event，只通知 active `ADMIN`，不自動補發。
 - `/my-records` 透過 `myPlayerRecords` RPC 讀 linked member 可見紀錄，不直接使用後台 `matchesApi` 列表。
 - 比賽照片使用 `matches-photos` bucket。
 - 今日 / 未來賽事的假單同步請假列走 `matchLeaveAbsences` service 與 `supabase_match_leave_absences_migration.sql`，只管理 `matches.absent_players` 中 `source = 'leave_request'` 的列。

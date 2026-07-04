@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { Bell, Delete, Plus, RefreshLeft } from '@element-plus/icons-vue'
+import { Bell, CircleCheck, Delete, Plus, RefreshLeft, WarningFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import {
+  getMatchReminderHealthStatus,
   getMatchReminderScheduleConfig,
-  saveMatchReminderScheduleConfig
+  saveMatchReminderScheduleConfig,
+  type MatchReminderHealthStatus
 } from '@/services/matchReminderNotifications'
 import {
   MAX_MATCH_REMINDER_RULES,
@@ -31,6 +33,7 @@ const isLoading = ref(false)
 const isSaving = ref(false)
 const showValidation = ref(false)
 const draftConfig = ref<MatchReminderScheduleConfig>(createDefaultMatchReminderScheduleConfig())
+const healthStatus = ref<MatchReminderHealthStatus | null>(null)
 
 const cloneConfig = (config: MatchReminderScheduleConfig): MatchReminderScheduleConfig => ({
   version: 1,
@@ -42,11 +45,69 @@ const validationErrors = computed(() =>
   validateMatchReminderScheduleConfig(draftConfig.value)
 )
 
+const healthStatusMeta = computed(() => {
+  if (!healthStatus.value) {
+    return {
+      type: 'info' as const,
+      icon: Bell,
+      label: '檢查中',
+      className: 'border-slate-200 bg-slate-50 text-slate-700'
+    }
+  }
+
+  if (healthStatus.value.status === 'healthy') {
+    return {
+      type: 'success' as const,
+      icon: CircleCheck,
+      label: '正常',
+      className: 'border-emerald-200 bg-emerald-50 text-emerald-700'
+    }
+  }
+
+  if (healthStatus.value.status === 'warning') {
+    return {
+      type: 'warning' as const,
+      icon: WarningFilled,
+      label: '注意',
+      className: 'border-amber-200 bg-amber-50 text-amber-700'
+    }
+  }
+
+  return {
+    type: 'error' as const,
+    icon: WarningFilled,
+    label: '異常',
+    className: 'border-red-200 bg-red-50 text-red-700'
+  }
+})
+
+const formatDateTime = (value?: string | null) => {
+  if (!value) return '尚無資料'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+
+  return date.toLocaleString('zh-TW', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  })
+}
+
 const loadConfig = async () => {
   isLoading.value = true
   showValidation.value = false
   try {
-    draftConfig.value = cloneConfig(await getMatchReminderScheduleConfig())
+    const [config, health] = await Promise.all([
+      getMatchReminderScheduleConfig(),
+      getMatchReminderHealthStatus().catch((error) => {
+        console.warn('讀取賽事提醒健康狀態失敗', error)
+        return null
+      })
+    ])
+    draftConfig.value = cloneConfig(config)
+    healthStatus.value = health
   } catch (error: any) {
     draftConfig.value = createDefaultMatchReminderScheduleConfig()
     ElMessage.error(`讀取提醒排程失敗：${error?.message || '請稍後再試'}`)
@@ -132,6 +193,34 @@ const handleSave = async () => {
     class="match-reminder-schedule-dialog"
   >
     <div v-loading="isLoading" class="match-reminder-schedule-content space-y-4">
+      <div
+        class="rounded-lg border p-4"
+        :class="healthStatusMeta.className"
+      >
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 text-base font-black">
+              <el-icon><component :is="healthStatusMeta.icon" /></el-icon>
+              <span>排程健康狀態</span>
+              <span class="rounded-full bg-white/70 px-2 py-0.5 text-xs font-black">{{ healthStatusMeta.label }}</span>
+            </div>
+            <p class="mt-1 text-sm opacity-90">
+              最近檢查：{{ formatDateTime(healthStatus?.checked_at) }}
+            </p>
+          </div>
+          <div class="grid grid-cols-2 gap-2 text-xs font-bold sm:text-right">
+            <span>cron：{{ healthStatus?.cron.active ? '啟用' : '未啟用' }}</span>
+            <span>規則：{{ healthStatus?.config.rule_count ?? 0 }} 組</span>
+            <span>HTTP：{{ healthStatus?.http.last_status_code ?? '尚無' }}</span>
+            <span>警報：{{ healthStatus?.recent_alert_count ?? 0 }} 筆</span>
+          </div>
+        </div>
+        <ul v-if="healthStatus?.messages.length" class="mt-3 m-0 list-disc pl-5 text-sm">
+          <li v-for="message in healthStatus.messages.slice(0, 3)" :key="message">{{ message }}</li>
+        </ul>
+        <p v-else class="mt-3 text-sm opacity-90">最近一次排程與 Edge Function 呼叫看起來正常。</p>
+      </div>
+
       <div class="flex flex-col gap-3 rounded-lg border border-gray-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
         <div class="min-w-0">
           <div class="flex items-center gap-2 text-base font-bold text-gray-800">

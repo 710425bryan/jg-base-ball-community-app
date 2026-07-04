@@ -25,6 +25,22 @@ export interface DueMatchReminderScheduleRule extends MatchReminderScheduleRule 
   target_date: string
 }
 
+export interface MatchReminderHealthCheckOptions {
+  windowMinutes?: number
+  graceMinutes?: number
+}
+
+export type MatchReminderHealthMatch = Pick<MatchRecord, 'id' | 'match_date' | 'match_time' | 'match_name'>
+
+export interface MatchReminderMissingEventAlert {
+  rule: DueMatchReminderScheduleRule
+  target_date: string
+  missing_matches: MatchReminderHealthMatch[]
+  missing_count: number
+  expected_event_keys: string[]
+  missing_event_keys: string[]
+}
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
@@ -52,6 +68,13 @@ export const addDaysToDateString = (dateString: string, days: number) => {
   const date = new Date(Date.UTC(year, month - 1, day + days))
 
   return date.toISOString().slice(0, 10)
+}
+
+const getTaipeiDateTimeEpoch = (dateString: string, timeString: string) => {
+  const [year, month, day] = dateString.split('-').map(Number)
+  const [hour, minute] = timeString.split(':').map(Number)
+
+  return Date.UTC(year, month - 1, day, hour - 8, minute)
 }
 
 export const getDateTimeInTaipei = (now = new Date()) =>
@@ -195,7 +218,75 @@ export const getDueMatchReminderRules = (
     }))
 }
 
+export const getRecentDueMatchReminderRules = (
+  input: unknown,
+  now = new Date(),
+  options: MatchReminderHealthCheckOptions = {}
+): DueMatchReminderScheduleRule[] => {
+  const config = normalizeMatchReminderScheduleConfig(input)
+  if (!config.enabled) return []
+
+  const windowMinutes = Math.max(1, Math.floor(options.windowMinutes ?? 30))
+  const graceMinutes = Math.max(0, Math.floor(options.graceMinutes ?? 3))
+  const taipeiNow = getDateTimeInTaipei(now)
+  const nowEpoch = getTaipeiDateTimeEpoch(taipeiNow.date, taipeiNow.time)
+  const candidates = [
+    taipeiNow.date,
+    addDaysToDateString(taipeiNow.date, -1)
+  ]
+
+  return config.rules
+    .filter((rule) => rule.enabled)
+    .flatMap((rule) => candidates.map((scheduledDate) => {
+      const scheduledEpoch = getTaipeiDateTimeEpoch(scheduledDate, rule.time)
+      const diffMinutes = Math.floor((nowEpoch - scheduledEpoch) / 60_000)
+
+      if (diffMinutes < graceMinutes || diffMinutes > windowMinutes) return null
+
+      return {
+        ...rule,
+        scheduled_date: scheduledDate,
+        target_date: addDaysToDateString(scheduledDate, rule.days_before)
+      }
+    }))
+    .filter((rule): rule is DueMatchReminderScheduleRule => Boolean(rule))
+}
+
 export const buildMatchReminderScheduleEventKey = (
   match: Pick<MatchRecord, 'id'>,
   rule: Pick<DueMatchReminderScheduleRule, 'id' | 'scheduled_date' | 'time'>
 ) => `match_reminder:${match.id}:${rule.id}:${rule.scheduled_date}:${rule.time}`
+
+export const buildMatchReminderHealthEventKey = (
+  kind: string,
+  rule: Pick<DueMatchReminderScheduleRule, 'id' | 'scheduled_date' | 'time'>,
+  adminUserId: string
+) => `match_reminder_health:${kind}:${rule.id}:${rule.scheduled_date}:${rule.time}:${adminUserId}`
+
+export const findMissingMatchReminderEvents = (
+  rules: DueMatchReminderScheduleRule[],
+  matchesByTargetDate: Record<string, MatchReminderHealthMatch[]>,
+  existingEventKeys: Iterable<string>
+): MatchReminderMissingEventAlert[] => {
+  const existingKeys = new Set(existingEventKeys)
+
+  return rules
+    .map((rule) => {
+      const matches = matchesByTargetDate[rule.target_date] || []
+      const missingMatches = matches.filter((match) =>
+        !existingKeys.has(buildMatchReminderScheduleEventKey(match, rule))
+      )
+
+      if (matches.length === 0 || missingMatches.length === 0) return null
+
+      return {
+        rule,
+        target_date: rule.target_date,
+        missing_matches: missingMatches,
+        missing_count: missingMatches.length,
+        expected_event_keys: matches.map((match) => buildMatchReminderScheduleEventKey(match, rule)),
+        missing_event_keys: missingMatches.map((match) => buildMatchReminderScheduleEventKey(match, rule))
+      }
+    })
+    .filter((alert): alert is MatchReminderMissingEventAlert => Boolean(alert))
+}

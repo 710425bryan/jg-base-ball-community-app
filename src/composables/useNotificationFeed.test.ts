@@ -103,6 +103,30 @@ describe('notification feed controller', () => {
     })
   })
 
+  it('maps match reminder health alert notifications', async () => {
+    const fetcher = vi.fn().mockResolvedValue([
+      {
+        id: 'match_reminder_health:missing_events:default:2026-07-04:20:00:admin-1',
+        source: 'match',
+        title: '賽事提醒排程異常',
+        body: '原訂發送：2026-07-04 20:00',
+        created_at: '2026-07-04T12:05:00.000Z',
+        link: '/match-records',
+        highlight_member_id: null
+      }
+    ])
+
+    const controller = createNotificationFeedController(fetcher)
+    await controller.loadNotificationFeed(10)
+
+    expect(controller.notifications.value[0]).toMatchObject({
+      id: 'match:match_reminder_health:missing_events:default:2026-07-04:20:00:admin-1',
+      source: 'match',
+      title: '賽事提醒排程異常',
+      link: '/match-records'
+    })
+  })
+
   it('maps announcement notifications', async () => {
     const fetcher = vi.fn().mockResolvedValue([
       {

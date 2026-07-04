@@ -83,7 +83,7 @@
 | `src/services/teamGroupsApi.ts` | team group 設定 RPC | `team_group_settings` 相關 RPC |
 | `src/services/matchesApi.ts` | 賽事 CRUD | `matches` |
 | `src/services/matchLeaveAbsences.ts` | 未來賽事假單同步請假預覽 / 詳情讀取 | `preview_match_leave_absences()`、`get_match_leave_absences()` |
-| `src/services/matchReminderNotifications.ts` | 未來賽事手動通知與提醒排程設定 RPC | `send-match-reminders` Edge Function、`system_settings.match_reminder_schedule_config` |
+| `src/services/matchReminderNotifications.ts` | 未來賽事手動通知、提醒排程設定與排程健康狀態 RPC | `send-match-reminders` Edge Function、`system_settings.match_reminder_schedule_config`、`get_match_reminder_health_status()` |
 | `src/services/matchCalendarSync.ts` | Google Calendar 手動同步預覽 | `sync-match-calendar` Edge Function、瀏覽器 proxy fallback |
 | `src/services/matchAudioApi.ts` | 比賽語音轉紀錄 Edge Function 呼叫 | `transcribe-match-audio` |
 | `src/services/matchFees.ts` | 比賽費付款與審核 RPC | `match_fee_items` / `match_payment_submissions` |
@@ -319,7 +319,7 @@
 | 場地與人員配置 | `supabase_training_locations_migration.sql`、`supabase_zzzzzzzzz_training_location_attendance_migration.sql`、`supabase_zzzzzzzzzz_training_location_venue_settings_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzz_training_location_leave_time_segment_migration.sql` |
 | 教練排班表 | `supabase_coach_schedules_migration.sql`、`supabase_coach_schedules_schedulable_coaches_hotfix.sql`、`supabase_coach_schedules_training_location_sync_hotfix.sql` |
 | 賽事同步 | `supabase_matches_google_calendar_sync_migration.sql`、`supabase_match_calendar_daily_sync_schedule.sql`、`supabase_match_leave_absences_migration.sql` |
-| 推播 | `supabase_web_push_subscriptions_migration.sql`、`supabase_push_dispatch_events_migration.sql`、`supabase_match_reminder_notifications_migration.sql`、`supabase_match_reminder_schedule_config_migration.sql` |
+| 推播 | `supabase_web_push_subscriptions_migration.sql`、`supabase_push_dispatch_events_migration.sql`、`supabase_match_reminder_notifications_migration.sql`、`supabase_match_reminder_schedule_config_migration.sql`、`supabase_match_reminder_health_migration.sql` |
 | 節日主題 | `supabase_holiday_theme_migration.sql` |
 
 完整 migration / hotfix / repair 索引請讀 `docs/MIGRATIONS.md`。注意：同一 function / policy 可能在後續 migration 被覆寫。修改 DB 規則前要用 `rg` 查所有同名 function / policy。
@@ -332,7 +332,7 @@
 | `supabase/functions/_shared/push.ts` | 推播共用權限與 subscription helper |
 | `supabase/functions/notify-holiday-theme/index.ts` | 節日主題通知 |
 | `supabase/functions/notify-holiday-theme/logic.ts` | 節日通知邏輯 |
-| `supabase/functions/send-match-reminders/index.ts` | 賽事提醒與未來賽事手動通知 |
+| `supabase/functions/send-match-reminders/index.ts` | 賽事提醒、未來賽事手動通知與 ADMIN 排程健康警報 |
 | `supabase/functions/send-training-registration-notifications/index.ts` | 特訓報名開始 / 截止前提醒通知 |
 | `supabase/functions/send-training-registration-status-notifications/index.ts` | 單筆特訓報名完成 / 錄取通知 |
 | `supabase/functions/send-training-selection-notifications/index.ts` | 特訓錄取名單公布通知 |
