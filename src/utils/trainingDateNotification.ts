@@ -49,6 +49,8 @@ export type TrainingDateNotificationTarget = {
   user_id: string
   member_id: string
   member_name: string
+  program_key?: string | null
+  program_label?: string | null
 }
 
 export type TrainingDateNotificationGroup = {
@@ -59,6 +61,8 @@ export type TrainingDateNotificationGroup = {
 
 export type TrainingDateNotificationContext = {
   monthStart: string
+  programKey?: string | null
+  programLabel?: string | null
   trainingDates: string[]
   addedDates?: string[]
   removedDates?: string[]
@@ -94,16 +98,16 @@ export const groupTrainingDateNotificationTargets = (
 
 export const buildTrainingDateNotificationEventKey = (
   group: Pick<TrainingDateNotificationGroup, 'userId'>,
-  context: Pick<TrainingDateNotificationContext, 'monthStart' | 'changeKey'>
-) => `training_dates:${context.monthStart}:${group.userId}:${context.changeKey || 'changed'}`
+  context: Pick<TrainingDateNotificationContext, 'monthStart' | 'programKey' | 'changeKey'>
+) => `training_dates:${context.programKey || 'default'}:${context.monthStart}:${group.userId}:${context.changeKey || 'changed'}`
 
 export const buildTrainingDateNotificationUrl = (
-  context: Pick<TrainingDateNotificationContext, 'monthStart'>
-) => `/dashboard?training_month=${encodeURIComponent(context.monthStart.slice(0, 7))}`
+  context: Pick<TrainingDateNotificationContext, 'monthStart' | 'programKey'>
+) => `/dashboard?training_month=${encodeURIComponent(context.monthStart.slice(0, 7))}&training_program=${encodeURIComponent(context.programKey || 'default')}`
 
 export const buildTrainingDateNotificationTitle = (
-  context: Pick<TrainingDateNotificationContext, 'monthStart'>
-) => `訓練日期異動：${formatTrainingMonthLabel(context.monthStart)}`
+  context: Pick<TrainingDateNotificationContext, 'monthStart' | 'programLabel'>
+) => `${context.programLabel ? `${context.programLabel} ` : ''}訓練日期異動：${formatTrainingMonthLabel(context.monthStart)}`
 
 export const buildTrainingDateNotificationBody = (context: TrainingDateNotificationContext) => {
   const trainingDates = normalizeTrainingMonthDateList(context.trainingDates, context.monthStart)

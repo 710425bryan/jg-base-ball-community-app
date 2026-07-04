@@ -23,6 +23,8 @@ const buildSnapshot = (matchLevel: string | null): MyHomeSnapshot => ({
       name: '測試球員',
       role: '球員',
       team_group: null,
+      training_program: 'chunggang_school_team',
+      training_program_label: '中港校隊',
       status: '在隊',
       jersey_number: null,
       avatar_url: null,
@@ -104,5 +106,42 @@ describe('MyHomeTodayPanel', () => {
     expect(wrapper.text()).toContain('5/2 週六')
     expect(wrapper.text()).toContain('5/9 週六')
     expect(wrapper.text()).toContain('下一次 5/9 週六')
+  })
+
+  it('switches monthly training dates by selected member program', async () => {
+    const snapshot = buildSnapshot('友誼賽')
+    snapshot.members.push({
+      id: 'member-2',
+      name: '國中球員',
+      role: '校隊',
+      team_group: '國中校隊',
+      training_program: 'junior_high_school_team',
+      training_program_label: '國中校隊',
+      status: '在隊',
+      jersey_number: null,
+      avatar_url: null,
+      point_balance: 0,
+      reserved_training_points: 0,
+      available_training_points: 0
+    })
+    snapshot.training_month_dates_by_program = {
+      chunggang_school_team: snapshot.training_month_dates,
+      junior_high_school_team: [
+        {
+          date: '2026-05-03',
+          weekday: '週日',
+          label: '5/3 週日',
+          is_today: false,
+          is_past: false
+        }
+      ]
+    }
+
+    const wrapper = mountPanel(snapshot)
+    await wrapper.setProps({ selectedMemberId: 'member-2' })
+
+    expect(wrapper.text()).toContain('國中校隊')
+    expect(wrapper.text()).toContain('5/3 週日')
+    expect(wrapper.text()).not.toContain('5/2 週六')
   })
 })

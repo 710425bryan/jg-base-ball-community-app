@@ -20,10 +20,18 @@
       </div>
 
       <div class="w-full sm:w-auto flex flex-col gap-1.5 border-l-0 sm:border-l border-gray-200 pl-0 sm:pl-4">
-        <label class="text-xs font-bold text-gray-500">本月堂數</label>
-        <div class="inline-flex h-10 w-full items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-4 text-gray-800 sm:w-32">
-          <span class="font-mono text-2xl font-black leading-none">{{ monthlyTotalSessions }}</span>
-          <span class="text-xs font-bold text-gray-500">堂</span>
+        <label class="text-xs font-bold text-gray-500">各項目本月堂數</label>
+        <div class="flex min-h-10 w-full flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-gray-800 sm:max-w-sm">
+          <span
+            v-for="summary in visibleProgramSessionSummaries"
+            :key="summary.value"
+            class="inline-flex items-center gap-1 rounded-lg bg-white px-2.5 py-1 text-xs font-black text-slate-700"
+          >
+            {{ summary.label }}
+            <span class="font-mono text-base text-primary">{{ summary.totalSessions }}</span>
+            堂
+          </span>
+          <span v-if="visibleProgramSessionSummaries.length === 0" class="text-xs font-bold text-gray-500">尚未試算</span>
         </div>
       </div>
 
@@ -45,7 +53,7 @@
       <div class="w-full lg:w-auto flex flex-col sm:flex-row gap-2 mt-2 lg:mt-0 justify-end flex-shrink-0">
         <button 
           @click="exportCSV" 
-          :disabled="isLoading || feesList.length === 0"
+          :disabled="isLoading || displayedFeesList.length === 0"
           class="w-full sm:w-auto bg-indigo-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-indigo-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
@@ -72,6 +80,18 @@
     </div>
 
     <div class="bg-white p-5 md:p-6 rounded-2xl border border-gray-100 shadow-sm">
+      <div class="mb-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
+        <el-input v-model="searchQuery" size="large" clearable placeholder="搜尋球員、組別或訓練項目" />
+        <el-select v-model="programFilter" size="large" class="w-full">
+          <el-option label="全部訓練項目" value="all" />
+          <el-option
+            v-for="option in programOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
+      </div>
       <div class="flex flex-col gap-1 mb-4">
         <p class="text-xs font-bold uppercase tracking-[0.24em] text-primary/70">{{ selectedMonth }} 月費總結</p>
         <div class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
@@ -222,12 +242,12 @@
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
-            <tr v-if="feesList.length === 0" class="hover:bg-gray-50/50">
+            <tr v-if="displayedFeesList.length === 0" class="hover:bg-gray-50/50">
               <td colspan="7" class="py-8 text-center text-gray-400 font-bold">
                 請點擊右上角「試算本月」載入月費名單
               </td>
             </tr>
-            <tr :id="`fee-row-${fee.member_id}`" v-for="fee in feesList" :key="fee.member_id" class="hover:bg-gray-50/50 transition-colors duration-1000">
+            <tr :id="`fee-row-${fee.member_id}`" v-for="fee in displayedFeesList" :key="fee.member_id" class="hover:bg-gray-50/50 transition-colors duration-1000">
               <td class="py-3 px-4">
                 <div class="flex items-center gap-2">
                   <div class="font-black text-gray-800 shrink-0">{{ fee.member_name }}</div>
@@ -239,6 +259,7 @@
                   </el-tooltip>
                   <span v-if="isFixedMonthlyFee(fee)" class="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded leading-none shrink-0 border border-amber-200">社區月繳</span>
                   <span v-else-if="isPlayerPerSessionMonthlyFee(fee)" class="text-[10px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded leading-none shrink-0 border border-blue-200">計次月費</span>
+                  <span class="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded leading-none shrink-0 border border-emerald-200">{{ fee.training_program_label || '中港校隊' }}</span>
                 </div>
               </td>
               <td class="py-3 px-4">
@@ -247,7 +268,7 @@
                 </div>
                 <div v-else class="text-center font-bold text-gray-600 flex items-center justify-center">
                   <span class="inline-flex min-w-[3.5rem] justify-center rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 font-mono font-bold text-gray-800 mr-2">
-                    {{ monthlyTotalSessions }}
+                    {{ fee.total_sessions }}
                   </span>
                   /
                   <el-tooltip
@@ -313,6 +334,7 @@ import dayjs from 'dayjs'
 import { useWindowSize } from '@vueuse/core'
 import { useRoute } from 'vue-router'
 import { trainingDatesApi } from '@/services/trainingDatesApi'
+import { trainingProgramsApi } from '@/services/trainingProgramsApi'
 import {
   buildMonthlyFeeLeaveDateMap,
   getDefaultMonthlyFeeSettlementMonth,
@@ -320,6 +342,13 @@ import {
 } from '@/utils/monthlyFeeSettlement'
 import { buildPaymentBreakdownText } from '@/utils/playerBalance'
 import { formatTrainingMonthDateLabel } from '@/utils/trainingMonthDates'
+import type { TrainingProgramSetting } from '@/types/trainingProgram'
+import {
+  buildTrainingProgramOptions,
+  getTrainingProgramFallbackSettings,
+  getTrainingProgramForMember,
+  getTrainingProgramSettingByKey
+} from '@/utils/trainingPrograms'
 import {
   calculateDiscountedPerSessionFee,
   calculateFixedMonthlyPayableAmount,
@@ -347,6 +376,10 @@ const selectedMonth = ref(getDefaultMonthlyFeeSettlementMonth())
 const monthlyTotalSessions = ref(4)
 const hasMonthlyTotalMismatch = ref(false)
 const trainingMonthDates = ref<string[]>([])
+const trainingMonthDatesByProgram = ref<Record<string, string[]>>({})
+const programSettings = ref<TrainingProgramSetting[]>(getTrainingProgramFallbackSettings())
+const programFilter = ref('all')
+const searchQuery = ref('')
 const trainingMonthDatesIsDefault = ref(false)
 const isLoading = ref(false)
 const isCalculating = ref(false)
@@ -379,6 +412,36 @@ const hasChanges = computed(() => pendingChanges.value.length > 0)
 const route = useRoute()
 const highlightFeeId = computed(() => route.query.highlight_fee_id as string | undefined)
 const highlightMemberId = computed(() => route.query.highlight_member_id as string | undefined)
+
+const programOptions = computed(() => buildTrainingProgramOptions(programSettings.value))
+const normalizedSearchQuery = computed(() => searchQuery.value.trim().toLowerCase())
+const displayedFeesList = computed(() => feesList.value.filter((fee) => {
+  if (programFilter.value !== 'all' && fee.training_program !== programFilter.value) return false
+  const query = normalizedSearchQuery.value
+  if (!query) return true
+  return [
+    fee.member_name,
+    fee.role,
+    fee.training_program_label,
+    fee.team_group
+  ].filter(Boolean).some((value) => String(value).toLowerCase().includes(query))
+}))
+
+const programSessionSummaries = computed(() =>
+  programOptions.value.map((option) => ({
+    ...option,
+    dates: trainingMonthDatesByProgram.value[option.value] || [],
+    totalSessions: getMonthlyFeeTotalSessionsFromTrainingDates(trainingMonthDatesByProgram.value[option.value] || [])
+  })).filter((summary) => summary.dates.length > 0 || feesList.value.some((fee) => fee.training_program === summary.value))
+)
+
+const visibleProgramSessionSummaries = computed(() => {
+  if (programFilter.value === 'all') {
+    return programSessionSummaries.value
+  }
+
+  return programSessionSummaries.value.filter((summary) => summary.value === programFilter.value)
+})
 
 // --- Watcher for Highlight Logic ---
 watch([isLoading, schoolTeamRemittances], ([newLoading, newRemittances]) => {
@@ -417,12 +480,14 @@ const getMonthBounds = (monthValue: string) => ({
 })
 
 const trainingMonthDateSummary = computed(() => {
-  const source = trainingMonthDatesIsDefault.value ? '未設定月份，使用預設週六' : '訓練日期設定'
-  if (trainingMonthDates.value.length === 0) {
+  const source = trainingMonthDatesIsDefault.value ? '部分項目使用預設訓練日' : '訓練日期設定'
+  if (visibleProgramSessionSummaries.value.length === 0) {
     return `${source}：本月沒有訓練日`
   }
 
-  return `${source}：${trainingMonthDates.value.map(formatTrainingMonthDateLabel).join('、')}`
+  return visibleProgramSessionSummaries.value.map((summary) =>
+    `${summary.label} ${summary.totalSessions} 堂：${summary.dates.map(formatTrainingMonthDateLabel).join('、') || '本月沒有訓練日'}`
+  ).join('；')
 })
 
 const onMonthChange = () => {
@@ -432,7 +497,7 @@ const onMonthChange = () => {
 const syncMonthlyTotalToFees = () => {
   feesList.value.forEach((fee) => {
     if (!isFixedMonthlyFee(fee)) {
-      fee.total_sessions = monthlyTotalSessions.value
+      fee.total_sessions = getMonthlyFeeTotalSessionsFromTrainingDates(fee.training_dates || [])
     }
   })
 }
@@ -473,7 +538,7 @@ const getFeeReceivableAmount = (fee: any) => {
     return normalizeFixedMonthlyFee(fee.fixed_monthly_fee)
   }
 
-  return Math.max(0, monthlyTotalSessions.value - fee.leave_sessions) * fee.per_session_fee
+  return Math.max(0, Number(fee.total_sessions || 0) - fee.leave_sessions) * fee.per_session_fee
 }
 
 const getFeePayableAmount = (fee: any) => {
@@ -482,7 +547,7 @@ const getFeePayableAmount = (fee: any) => {
   }
 
   return calculatePerSessionMonthlyPayableAmount(
-    monthlyTotalSessions.value,
+    fee.total_sessions,
     fee.leave_sessions,
     fee.per_session_fee,
     fee.deduction_amount
@@ -493,7 +558,7 @@ const getFeePaymentBreakdownText = (fee: any) =>
   buildPaymentBreakdownText(getFeePayableAmount(fee), fee.balance_amount || 0, formatCurrency)
 
 const schoolTeamFeeSummary = computed(() => {
-  return feesList.value.reduce((summary, fee) => {
+  return displayedFeesList.value.reduce((summary, fee) => {
     const amount = getFeePayableAmount(fee)
 
     summary.total += amount
@@ -519,7 +584,7 @@ const schoolTeamSummaryCards = computed(() => {
       key: 'total',
       label: '本月應繳總額',
       amount: summary.total,
-      description: '目前選定月份全部球員',
+      description: '目前篩選結果',
       cardClass: 'border-primary/20 bg-gradient-to-br from-primary/10 via-amber-50 to-white',
       labelClass: 'text-primary',
       amountClass: 'text-gray-900',
@@ -529,7 +594,7 @@ const schoolTeamSummaryCards = computed(() => {
       key: 'paid',
       label: '本月已繳總額',
       amount: summary.paid,
-      description: '目前選定月份已繳球員',
+      description: '目前篩選結果已繳球員',
       cardClass: 'border-emerald-100 bg-emerald-50/80',
       labelClass: 'text-emerald-700',
       amountClass: 'text-emerald-700',
@@ -539,7 +604,7 @@ const schoolTeamSummaryCards = computed(() => {
       key: 'unpaid',
       label: '本月未繳總額',
       amount: summary.unpaid,
-      description: '目前選定月份未繳球員',
+      description: '目前篩選結果未繳球員',
       cardClass: 'border-amber-100 bg-amber-50/80',
       labelClass: 'text-amber-700',
       amountClass: 'text-amber-700',
@@ -588,15 +653,15 @@ const calculateFees = async () => {
   
   try {
     const { startOfMonth, endOfMonth } = getMonthBounds(selectedMonth.value)
-    const monthDateSettings = await trainingDatesApi.getMonthDates(selectedMonth.value)
-    trainingMonthDates.value = monthDateSettings.training_dates
-    trainingMonthDatesIsDefault.value = monthDateSettings.is_default
-    monthlyTotalSessions.value = getMonthlyFeeTotalSessionsFromTrainingDates(monthDateSettings.training_dates)
+    programSettings.value = await trainingProgramsApi.listSettings().catch((error) => {
+      console.warn('訓練項目設定無法載入，月費頁暫以預設項目判斷。', error)
+      return getTrainingProgramFallbackSettings()
+    })
 
     // 1. 撈取月費成員名單
     const { data: membersData, error: membersErr } = await supabase
       .from('team_members')
-      .select('id, name, role, status, is_inactive_or_graduated, sibling_ids, is_primary_payer, is_half_price, fee_billing_mode')
+      .select('id, name, role, team_group, status, is_inactive_or_graduated, sibling_ids, is_primary_payer, is_half_price, fee_billing_mode')
       .in('role', ['校隊', '球員'])
     if (membersErr) throw membersErr
 
@@ -604,7 +669,38 @@ const calculateFees = async () => {
       isActiveRosterMember(m) &&
       !isNoFeeBillingMember(m) &&
       isMonthlyBillingMember(m)
-    ) || []
+    ).map((member) => {
+      const program = getTrainingProgramForMember(member, programSettings.value)
+      return {
+        ...member,
+        training_program: program.program_key,
+        training_program_label: program.label
+      }
+    }) || []
+
+    const monthProgramKeys = Array.from(new Set([
+      ...programOptions.value.map((option) => option.value),
+      ...members.map((member) => member.training_program)
+    ].filter(Boolean)))
+    const monthDateResults = await Promise.all(monthProgramKeys.map(async (programKey) => {
+      const program = getTrainingProgramSettingByKey(programSettings.value, programKey)
+      const result = await trainingDatesApi.getMonthDates(selectedMonth.value, {
+        programKey: program.program_key,
+        programLabel: program.label,
+        defaultWeekdays: program.default_weekdays
+      })
+      return [program.program_key, result] as const
+    }))
+    const nextTrainingMonthDatesByProgram = Object.fromEntries(
+      monthDateResults.map(([programKey, result]) => [programKey, result.training_dates])
+    )
+    trainingMonthDatesByProgram.value = nextTrainingMonthDatesByProgram
+    trainingMonthDates.value = Array.from(new Set(Object.values(nextTrainingMonthDatesByProgram).flat())).sort()
+    trainingMonthDatesIsDefault.value = monthDateResults.some(([, result]) => result.is_default)
+    monthlyTotalSessions.value = Math.max(
+      0,
+      ...Object.values(nextTrainingMonthDatesByProgram).map(getMonthlyFeeTotalSessionsFromTrainingDates)
+    )
     
     // 預處理：確保手足連結是對稱的（防呆：萬一只單向填寫，另一方忘記填寫）
     members.forEach(m => {
@@ -649,23 +745,29 @@ const calculateFees = async () => {
       .gte('end_date', startOfMonth)
     if (leaveRequestsRes.error) throw leaveRequestsRes.error
 
-    const leaveDateMap = buildMonthlyFeeLeaveDateMap({
-      leaveRequests: (leaveRequestsRes.data || []).map((leave: any) => ({
+    const leaveSources = (leaveRequestsRes.data || []).map((leave: any) => ({
         memberId: leave.user_id,
         startDate: leave.start_date,
         endDate: leave.end_date,
         leaveTimeSegment: leave.leave_time_segment
-      })),
-      monthStart: startOfMonth,
-      monthEnd: endOfMonth,
-      trainingDates: monthDateSettings.training_dates
-    })
+      }))
+    const leaveDateMapsByProgram = new Map(
+      monthProgramKeys.map((programKey) => [
+        programKey,
+        buildMonthlyFeeLeaveDateMap({
+          leaveRequests: leaveSources,
+          monthStart: startOfMonth,
+          monthEnd: endOfMonth,
+          trainingDates: nextTrainingMonthDatesByProgram[programKey] || []
+        })
+      ])
+    )
 
 
     // 撈取資料庫中已寫入的 monthly_fees 紀錄
     const { data: existingFees, error: existingErr } = await supabase
       .from('monthly_fees')
-      .select('id, member_id, year_month, total_sessions, leave_sessions, per_session_fee, payable_amount, deduction_amount, calculation_type, fixed_monthly_fee, status, payment_method, account_last_5, remittance_date, balance_amount, created_at, updated_at')
+      .select('id, member_id, year_month, total_sessions, leave_sessions, per_session_fee, payable_amount, deduction_amount, calculation_type, training_program, fixed_monthly_fee, status, payment_method, account_last_5, remittance_date, balance_amount, created_at, updated_at')
       .eq('year_month', selectedMonth.value)
       .in('member_id', memberIds)
     if (existingErr) throw existingErr
@@ -673,17 +775,21 @@ const calculateFees = async () => {
     const existingFeeRows = existingFees || []
     const existingFeeMap = new Map(existingFeeRows.map(f => [f.member_id, f]))
     const nonFixedExistingFees = existingFeeRows.filter((fee: any) => fee.calculation_type !== 'monthly_fixed')
-    const storedMonthlyTotals = Array.from(new Set(
-      nonFixedExistingFees.map((fee: any) => Number(fee.total_sessions || 0))
-    ))
-
-    hasMonthlyTotalMismatch.value = storedMonthlyTotals.length > 1 ||
-      nonFixedExistingFees.some((fee: any) => Number(fee.total_sessions || 0) !== monthlyTotalSessions.value)
+    hasMonthlyTotalMismatch.value = nonFixedExistingFees.some((fee: any) => {
+      const member = members.find((item) => item.id === fee.member_id)
+      const expectedTotal = member
+        ? getMonthlyFeeTotalSessionsFromTrainingDates(nextTrainingMonthDatesByProgram[member.training_program] || [])
+        : monthlyTotalSessions.value
+      return Number(fee.total_sessions || 0) !== expectedTotal
+    })
 
     // 組裝
     feesList.value = members.map(m => {
       const calculationType = getMonthlyFeeCalculationType(m)
       const isFixedMonthly = calculationType === 'monthly_fixed'
+      const programKey = m.training_program
+      const programDates = nextTrainingMonthDatesByProgram[programKey] || []
+      const totalSessions = getMonthlyFeeTotalSessionsFromTrainingDates(programDates)
       let per_session_fee = isFixedMonthly ? 0 : (feeSettingMap.get(m.id) || 500)
       const existing = existingFeeMap.get(m.id)
       const fixedMonthlyFee = isFixedMonthly
@@ -717,7 +823,7 @@ const calculateFees = async () => {
 
       per_session_fee = calculateDiscountedPerSessionFee(per_session_fee, isDiscounted)
       
-      const countedLeaveDates = isFixedMonthly ? [] : (leaveDateMap.get(m.id) || [])
+      const countedLeaveDates = isFixedMonthly ? [] : (leaveDateMapsByProgram.get(programKey)?.get(m.id) || [])
       const leave_sessions = countedLeaveDates.length
       const has_leave_overlap = leave_sessions > 0
 
@@ -725,8 +831,12 @@ const calculateFees = async () => {
         member_id: m.id,
         member_name: m.name,
         role: m.role,
+        team_group: m.team_group,
+        training_program: programKey,
+        training_program_label: m.training_program_label,
+        training_dates: programDates,
         month: selectedMonth.value,
-        total_sessions: isFixedMonthly ? 0 : monthlyTotalSessions.value,
+        total_sessions: isFixedMonthly ? 0 : totalSessions,
         leave_sessions: leave_sessions,
         per_session_fee: per_session_fee,
         calculation_type: calculationType,
@@ -755,7 +865,8 @@ const calculateFees = async () => {
         const existing = existingFeeMap.get(fee.member_id)
         if (!existing) return true
 
-        return Number(existing.total_sessions || 0) !== (isFixedMonthlyFee(fee) ? 0 : monthlyTotalSessions.value) ||
+        return Number(existing.total_sessions || 0) !== (isFixedMonthlyFee(fee) ? 0 : fee.total_sessions) ||
+          String(existing.training_program || fee.training_program || '') !== String(fee.training_program || '') ||
           Number(existing.leave_sessions || 0) !== (isFixedMonthlyFee(fee) ? 0 : fee.leave_sessions) ||
           Number(existing.payable_amount || 0) !== getFeePayableAmount(fee)
       })
@@ -785,7 +896,8 @@ const saveAll = async () => {
       .map(f => ({
         member_id: f.member_id,
         year_month: f.month,
-        total_sessions: isFixedMonthlyFee(f) ? 0 : monthlyTotalSessions.value,
+        training_program: f.training_program || null,
+        total_sessions: isFixedMonthlyFee(f) ? 0 : f.total_sessions,
         leave_sessions: isFixedMonthlyFee(f) ? 0 : f.leave_sessions,
         per_session_fee: isFixedMonthlyFee(f) ? 0 : f.per_session_fee,
         calculation_type: f.calculation_type,
@@ -819,25 +931,25 @@ const saveAll = async () => {
 
 // 匯出 CSV 方法
 const exportCSV = () => {
-  if (feesList.value.length === 0) {
+  if (displayedFeesList.value.length === 0) {
     ElMessage.warning('目前沒有結算資料可匯出');
     return;
   }
 
-  const headers = ['姓名', '月份', '收費模式', '總堂數', '請假天數', '請假日期', '單堂費用', '固定月繳', '應扣', '應收', '應繳'];
+  const headers = ['姓名', '訓練項目', '月份', '收費模式', '總堂數', '請假天數', '請假日期', '單堂費用', '固定月繳', '應扣', '應收', '應繳'];
   const rows = [headers];
 
-  feesList.value.forEach(fee => {
-    const attendedSessions = monthlyTotalSessions.value - fee.leave_sessions;
+  displayedFeesList.value.forEach(fee => {
     const amountToReceive = getFeeReceivableAmount(fee);
     const payable = getFeePayableAmount(fee);
     const leaveDates = (fee.counted_leave_dates || []).join('、') || '-';
 
     rows.push([
       fee.member_name,
+      fee.training_program_label || '-',
       fee.month,
       isFixedMonthlyFee(fee) ? '社區月繳' : '計次月費',
-      isFixedMonthlyFee(fee) ? '-' : monthlyTotalSessions.value.toString(),
+      isFixedMonthlyFee(fee) ? '-' : String(fee.total_sessions || 0),
       fee.leave_sessions.toString(),
       leaveDates,
       isFixedMonthlyFee(fee) ? '-' : fee.per_session_fee.toString(),

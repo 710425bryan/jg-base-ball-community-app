@@ -5,6 +5,8 @@ export type MyHomeMember = {
   name: string
   role: string | null
   team_group: string | null
+  training_program?: string | null
+  training_program_label?: string | null
   status: string | null
   is_inactive_or_graduated?: boolean
   jersey_number: string | null
@@ -46,6 +48,8 @@ export type MyHomeTrainingLocation = {
   session_id: string
   member_id: string
   member_name: string
+  program_key?: string | null
+  program_label?: string | null
   title: string
   training_date: string
   start_time: string | null
@@ -111,6 +115,7 @@ export type MyHomeSnapshot = {
   today_leaves: MyHomeLeaveStatus[]
   training_locations: MyHomeTrainingLocation[]
   training_month_dates: MyHomeTrainingMonthDate[]
+  training_month_dates_by_program: Record<string, MyHomeTrainingMonthDate[]>
   payment_summary: MyHomePaymentSummary
   equipment_summary: MyHomeEquipmentSummary
   match_fee_summary: MyHomeMatchFeeSummary
@@ -135,6 +140,7 @@ export const createEmptyMyHomeSnapshot = (): MyHomeSnapshot => ({
   today_leaves: [],
   training_locations: [],
   training_month_dates: [],
+  training_month_dates_by_program: {},
   payment_summary: {
     unpaid_count: 0,
     pending_review_count: 0,

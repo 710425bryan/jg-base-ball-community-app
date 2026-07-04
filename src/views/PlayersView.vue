@@ -148,9 +148,9 @@
               <span v-else class="text-gray-300">-</span>
             </template>
           </el-table-column>
-          <el-table-column prop="role" label="身分" width="90">
+          <el-table-column prop="role" label="身分" width="110">
             <template #default="{ row }">
-              <span class="players-role-table-badge" :class="getRoleClass(row.role)">{{ row.role }}</span>
+              <span class="players-role-table-badge" :class="getRoleClass(getMemberIdentityLabel(row))">{{ getMemberIdentityLabel(row) }}</span>
             </template>
           </el-table-column>
           <el-table-column prop="team_group" label="所屬群組 (熊隊)" min-width="135">
@@ -248,7 +248,7 @@
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-14 w-14" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" /></svg>
                 </div>
                 <div class="absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-2">
-                  <span class="players-role-badge max-w-[70%] truncate font-black px-2 py-1 rounded-md border border-white/70 bg-white/90 shadow-sm backdrop-blur" :class="getRoleClass(member.role)">{{ member.role }}</span>
+                  <span class="players-role-badge max-w-[70%] truncate font-black px-2 py-1 rounded-md border border-white/70 bg-white/90 shadow-sm backdrop-blur" :class="getRoleClass(getMemberIdentityLabel(member))">{{ getMemberIdentityLabel(member) }}</span>
                   <span v-if="member.jersey_number" class="bg-slate-950/90 text-white font-mono font-black text-sm px-2.5 py-1 rounded-md shadow-sm shrink-0">#{{ member.jersey_number }}</span>
                 </div>
                 <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/75 via-slate-900/25 to-transparent px-3 pb-2 pt-8">
@@ -393,17 +393,13 @@
             <el-form-item label="姓名" prop="name" class="font-bold mb-0">
               <el-input v-model="form.name" placeholder="隊職員姓名" />
             </el-form-item>
-            <el-form-item label="身分" prop="role" class="font-bold mb-0">
-              <el-select v-model="form.role" class="w-full">
-                <el-option label="球員" value="球員" />
-                <el-option label="校隊" value="校隊" />
-                <el-option label="教練" value="教練" />
-                <el-option label="管理群" value="管理群" />
-                <el-option label="其他" value="其他" />
+            <el-form-item label="身分" prop="member_identity" class="font-bold mb-0">
+              <el-select v-model="form.member_identity" class="w-full">
+                <el-option v-for="option in memberIdentityOptions" :key="option.value" :label="option.label" :value="option.value" />
               </el-select>
             </el-form-item>
-            <el-form-item label="所屬群組 (熊隊)" prop="team_group" class="font-bold mb-0" v-if="form.role === '球員' || form.role === '校隊'">
-              <el-select v-model="form.team_group" class="w-full" filterable>
+            <el-form-item :label="teamGroupFieldLabel" prop="team_group" class="font-bold mb-0" v-if="isTeamMemberFormRole">
+              <el-select v-model="form.team_group" class="w-full" filterable :disabled="isSchoolProgramIdentity">
                 <el-option v-for="option in teamGroupOptions" :key="option.value" :label="option.label" :value="option.value" />
               </el-select>
             </el-form-item>
@@ -802,8 +798,30 @@ const GENERAL_MEMBER_ROLE_FALLBACK = 'MEMBER'
 const GENERAL_MEMBER_ROLE_CANDIDATE_KEYS = ['MEMBER', 'PARENT', 'GENERAL_MEMBER']
 const DEFAULT_U_LEVEL_OPTIONS = ['U12', 'U11', 'U10', 'U9', 'U8']
 const DEFAULT_EXISTING_MEMBER_JOINED_DATE = '2026-02-01'
+const CHUNGGANG_PLAYER_IDENTITY = 'chunggang_player'
+const XINTAI_PLAYER_IDENTITY = 'xintai_player'
+const COMMUNITY_PLAYER_IDENTITY = 'community_player'
+const CHUNGGANG_SCHOOL_TEAM_GROUP = '中港校隊'
+const XINTAI_SCHOOL_TEAM_GROUP = '國中校隊'
+const SCHOOL_TEAM_GROUP_VALUES = [CHUNGGANG_SCHOOL_TEAM_GROUP, XINTAI_SCHOOL_TEAM_GROUP]
+type MemberIdentity = typeof COMMUNITY_PLAYER_IDENTITY | typeof CHUNGGANG_PLAYER_IDENTITY | typeof XINTAI_PLAYER_IDENTITY | '教練' | '管理群' | '其他'
+
 const teamGroupOptions = computed(() => teamGroupsStore.options)
 const defaultTeamGroupValue = computed(() => teamGroupOptions.value[0]?.value || '')
+const defaultCommunityTeamGroupValue = computed(() =>
+  teamGroupOptions.value.find((option) => !SCHOOL_TEAM_GROUP_VALUES.includes(option.value))?.value || defaultTeamGroupValue.value
+)
+const memberIdentityOptions: Array<{ label: string; value: MemberIdentity }> = [
+  { label: '社區球員', value: COMMUNITY_PLAYER_IDENTITY },
+  { label: '中港球員', value: CHUNGGANG_PLAYER_IDENTITY },
+  { label: '新泰球員', value: XINTAI_PLAYER_IDENTITY },
+  { label: '教練', value: '教練' },
+  { label: '管理群', value: '管理群' },
+  { label: '其他', value: '其他' }
+]
+const isSchoolProgramIdentityValue = (value: unknown) =>
+  value === CHUNGGANG_PLAYER_IDENTITY || value === XINTAI_PLAYER_IDENTITY
+
 const getTodayDateInputValue = () => {
   const today = new Date()
   const year = today.getFullYear()
@@ -841,6 +859,27 @@ const isSiblingEligibleRole = isTeamGroupEligibleRole
 const isFixedMonthlyMember = (member: any) => isFixedMonthlyBillingMember(member)
 const isMonthlyPerSessionMember = (member: any) => isMonthlyPerSessionBillingMember(member)
 const isNoFeeMember = (member: any) => isNoFeeBillingMember(member)
+const getMemberIdentityValue = (member: any): MemberIdentity => {
+  if (member?.role === '校隊') {
+    return normalizeTeamGroup(member.team_group) === XINTAI_SCHOOL_TEAM_GROUP
+      ? XINTAI_PLAYER_IDENTITY
+      : CHUNGGANG_PLAYER_IDENTITY
+  }
+
+  if (member?.role === '球員') {
+    return COMMUNITY_PLAYER_IDENTITY
+  }
+
+  if (member?.role === '教練' || member?.role === '管理群' || member?.role === '其他') {
+    return member.role
+  }
+
+  return '其他'
+}
+const getMemberIdentityLabelFromValue = (value: unknown) =>
+  memberIdentityOptions.find((option) => option.value === value)?.label || '社區球員'
+const getMemberIdentityLabel = (member: any) =>
+  getMemberIdentityLabelFromValue(getMemberIdentityValue(member))
 const normalizeBillingModeForRole = (role: string | null | undefined, mode: string | null | undefined) => {
   const normalizedMode = normalizeMemberFeeBillingMode(mode)
 
@@ -1077,7 +1116,7 @@ const formatDateTime = (value: unknown) => {
 
 const playerExportColumns = computed<PlayerExportColumn[]>(() => [
   { key: 'name', label: '姓名', basic: true, always: true, getValue: (member) => member.name },
-  { key: 'role', label: '稱謂/身分', basic: true, sourceKeys: ['role'], getValue: (member) => member.role },
+  { key: 'role', label: '稱謂/身分', basic: true, sourceKeys: ['role', 'team_group'], getValue: (member) => getMemberIdentityLabel(member) },
   { key: 'status', label: '在隊狀態', basic: true, sourceKeys: ['status'], getValue: (member) => member.status || '在隊' },
   { key: 'is_inactive_or_graduated', label: '關閉球員/畢業', basic: true, sourceKeys: ['is_inactive_or_graduated'], getValue: (member) => formatBoolean(member.is_inactive_or_graduated) },
   { key: 'team_group', label: '所屬群組 (熊隊)', basic: true, sourceKeys: ['team_group'], getValue: (member) => member.team_group },
@@ -1152,7 +1191,7 @@ const canExportPlayerCsv = computed(() =>
 )
 
 const getExportMemberOptionLabel = (member: any) => {
-  const tags = [member.role, member.grade, getULevel(member), member.team_group]
+  const tags = [getMemberIdentityLabel(member), member.grade, getULevel(member), member.team_group]
     .filter(Boolean)
     .join(' / ')
 
@@ -1293,7 +1332,8 @@ const filteredMembers = computed(() => {
       const name = String(m.name || '').toLowerCase()
       const schoolName = String(m.school_name || '').toLowerCase()
       const grade = String(m.grade || '').toLowerCase()
-      return name.includes(q) || schoolName.includes(q) || grade.includes(q)
+      const identityLabel = getMemberIdentityLabel(m).toLowerCase()
+      return name.includes(q) || schoolName.includes(q) || grade.includes(q) || identityLabel.includes(q)
     })
   }
   
@@ -1348,8 +1388,9 @@ let selectedFile: File | null = null
 const createInitialForm = () => ({
   id: '',
   name: '',
+  member_identity: COMMUNITY_PLAYER_IDENTITY as MemberIdentity,
   role: '球員',
-  team_group: defaultTeamGroupValue.value,
+  team_group: defaultCommunityTeamGroupValue.value,
   status: '在隊',
   jersey_number: '',
   jersey_name: '',
@@ -1379,6 +1420,9 @@ const createInitialForm = () => ({
 
 const form = reactive(createInitialForm())
 const lastAutoGrade = ref('')
+const isTeamMemberFormRole = computed(() => form.role === '球員' || form.role === '校隊')
+const isSchoolProgramIdentity = computed(() => isSchoolProgramIdentityValue(form.member_identity))
+const teamGroupFieldLabel = computed(() => isSchoolProgramIdentity.value ? '訓練項目' : '所屬群組 (熊隊)')
 const billingModeOptions = computed(() => [
   {
     label: form.role === '校隊' ? '校隊月繳' : '球員季繳',
@@ -1401,6 +1445,37 @@ const billingModeOptions = computed(() => [
     value: NO_FEE_BILLING_MODE
   }
 ])
+
+const applyMemberIdentityToForm = (identity: MemberIdentity) => {
+  if (identity === COMMUNITY_PLAYER_IDENTITY) {
+    form.role = '球員'
+    if (!form.team_group || SCHOOL_TEAM_GROUP_VALUES.includes(normalizeTeamGroup(form.team_group))) {
+      form.team_group = defaultCommunityTeamGroupValue.value
+    }
+    form.fee_billing_mode = normalizeBillingModeForRole(form.role, form.fee_billing_mode)
+    return
+  }
+
+  if (identity === CHUNGGANG_PLAYER_IDENTITY || identity === XINTAI_PLAYER_IDENTITY) {
+    form.role = '校隊'
+    form.team_group = identity === XINTAI_PLAYER_IDENTITY
+      ? XINTAI_SCHOOL_TEAM_GROUP
+      : CHUNGGANG_SCHOOL_TEAM_GROUP
+    form.fee_billing_mode = ROLE_DEFAULT_FEE_BILLING_MODE
+    return
+  }
+
+  form.role = identity
+  form.team_group = ''
+  form.fee_billing_mode = ROLE_DEFAULT_FEE_BILLING_MODE
+}
+
+watch(
+  () => form.member_identity,
+  (identity) => {
+    applyMemberIdentityToForm(identity)
+  }
+)
 
 watch(
   () => form.role,
@@ -1453,6 +1528,7 @@ const schoolNameOptions = computed(() =>
 
 const rules = computed(() => ({
   name: [{ required: true, message: '請填寫姓名', trigger: 'blur' }],
+  member_identity: [{ required: true, message: '請選擇身分', trigger: 'change' }],
   role: [{ required: true, message: '請選擇身分', trigger: 'change' }],
   birth_date: [{ required: true, message: '請選擇生日', trigger: 'change' }],
   joined_date: [{ required: true, message: '請選擇加入時間', trigger: 'change' }],
@@ -2036,6 +2112,7 @@ const openEditModal = (member: any) => {
   Object.assign(form, member)
   if (!form.status) form.status = '在隊'
   if (!form.joined_date) form.joined_date = DEFAULT_EXISTING_MEMBER_JOINED_DATE
+  form.member_identity = getMemberIdentityValue(member)
   form.grade = normalizePlayerGrade(member.grade) || ''
   form.is_inactive_or_graduated = !!member.is_inactive_or_graduated
   form.fee_billing_mode = normalizeBillingModeForRole(member.role, member.fee_billing_mode)
@@ -2096,6 +2173,7 @@ const submitForm = async () => {
     // 2. 構建 payload (拔除不需要的空 ID，且過濾空字串為 null 以免日期欄位報錯)
     const payload: any = { ...form }
     if (!isEditing.value) delete payload.id // 新增不需要傳入 id
+    delete payload.member_identity
     
     for (const key in payload) {
       if (payload[key] === '') {
@@ -2195,7 +2273,10 @@ const confirmDelete = async () => {
 // --- 介面輔助 ---
 const getRoleClass = (role: string) => {
   switch (role) {
+    case '社區球員':
     case '球員': return 'border-primary text-primary bg-primary/10'
+    case '中港球員': return 'border-pink-400 text-pink-600 bg-pink-50 shadow-sm'
+    case '新泰球員': return 'border-emerald-400 text-emerald-700 bg-emerald-50 shadow-sm'
     case '校隊': return 'border-pink-400 text-pink-600 bg-pink-50 shadow-sm'
     case '教練': return 'border-secondary text-[#ca8a04] bg-secondary/10'
     case '管理群': return 'border-slate-800 text-slate-800 bg-slate-100'

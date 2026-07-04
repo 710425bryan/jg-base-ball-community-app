@@ -89,6 +89,7 @@
 | `src/services/matchFees.ts` | 比賽費付款與審核 RPC | `match_fee_items` / `match_payment_submissions` |
 | `src/services/weatherApi.ts` | 賽事 / 首頁天氣預報與地點解析 | `resolve-location`、Open-Meteo |
 | `src/services/trainingApi.ts` | 特訓報名、點數、特訓點名 RPC 與單筆報名 / 錄取通知呼叫 | `training_*` / `player_point_transactions` / `attendance_events.training_session_id` |
+| `src/services/trainingProgramsApi.ts` | 訓練項目設定 RPC | `training_program_settings` |
 | `src/services/trainingDatesApi.ts` | 每月訓練日期設定與日期異動通知呼叫 | `training_month_date_settings` / `get_training_month_dates()` / `save_training_month_dates()` / `send-training-date-notifications` |
 | `src/services/trainingLocationsApi.ts` | 場地與人員配置、連動點名 RPC | `training_location_*` / `training_venues` / `attendance_events.training_location_session_id` / `training_location_session_venue_id` |
 | `src/services/coachSchedulesApi.ts` | 教練排班候選、Dashboard 摘要與指派儲存 RPC | `coach_schedule_events` / `coach_schedule_assignments` / `list_coach_schedule_*` |
@@ -177,6 +178,7 @@
 | `/attendance` | `src/views/AttendanceListView.vue` | `attendance:VIEW` |
 | `/attendance/:id` | `src/views/RollCallView.vue` | `attendance:VIEW` |
 | `/training` | `src/views/TrainingView.vue` | `training` + linked member exception |
+| `/training-program-settings` | `src/views/TrainingProgramSettingsView.vue` | `training_dates:VIEW` |
 | `/training-dates` | `src/views/TrainingDatesView.vue` | `training_dates:VIEW` |
 | `/training-locations` | `src/views/TrainingLocationsView.vue` | `training_locations:VIEW` |
 | `/coach-schedules` | `src/views/CoachSchedulesView.vue` | `coach_schedules:VIEW` |
@@ -313,7 +315,7 @@
 | 廠商 | `supabase_vendor_management_migration.sql` |
 | 能力 / 體測 | `supabase_performance_data_migration.sql`、`supabase_performance_view_scope_migration.sql` |
 | 特訓 / 點數 | `supabase_training_points_migration.sql`、`supabase_zz_training_point_transaction_delete_migration.sql`、`supabase_zz_training_registration_notifications_migration.sql`、`supabase_zzzzzzzz_training_auto_select_notifications_migration.sql` |
-| 訓練日期設定 / 換月預設排程 | `supabase_training_dates_migration.sql` |
+| 訓練項目 / 訓練日期設定 / 換月預設排程 | `supabase_training_dates_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzz_training_program_scope_migration.sql` |
 | 場地與人員配置 | `supabase_training_locations_migration.sql`、`supabase_zzzzzzzzz_training_location_attendance_migration.sql`、`supabase_zzzzzzzzzz_training_location_venue_settings_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzz_training_location_leave_time_segment_migration.sql` |
 | 教練排班表 | `supabase_coach_schedules_migration.sql`、`supabase_coach_schedules_schedulable_coaches_hotfix.sql`、`supabase_coach_schedules_training_location_sync_hotfix.sql` |
 | 賽事同步 | `supabase_matches_google_calendar_sync_migration.sql`、`supabase_match_calendar_daily_sync_schedule.sql`、`supabase_match_leave_absences_migration.sql` |

@@ -68,15 +68,29 @@ export const normalizeTrainingMonth = (value?: string | null, fallbackMonth = ge
 export const getTrainingMonthStartDate = (month?: string | null) =>
   `${normalizeTrainingMonth(month)}-01`
 
-export const getDefaultTrainingMonthDates = (month?: string | null) => {
+const normalizeDefaultWeekdays = (weekdays?: number | number[] | null) => {
+  const values = Array.isArray(weekdays) ? weekdays : [weekdays]
+  const normalized = values
+    .map((item) => Number(item))
+    .filter((item) => Number.isInteger(item) && item >= 0 && item <= 6)
+
+  const unique = Array.from(new Set(normalized)).sort((left, right) => left - right)
+  return unique.length > 0 ? unique : [6]
+}
+
+export const getDefaultTrainingMonthDates = (
+  month?: string | null,
+  weekdays?: number | number[] | null
+) => {
   const normalized = normalizeTrainingMonth(month)
   const parsed = parseMonth(normalized)!
   const maxDay = new Date(Date.UTC(parsed.year, parsed.month, 0)).getUTCDate()
   const dates: string[] = []
+  const weekdaySet = new Set(normalizeDefaultWeekdays(weekdays))
 
   for (let day = 1; day <= maxDay; day += 1) {
     const date = new Date(Date.UTC(parsed.year, parsed.month - 1, day))
-    if (date.getUTCDay() === 6) {
+    if (weekdaySet.has(date.getUTCDay())) {
       dates.push(`${normalized}-${pad2(day)}`)
     }
   }

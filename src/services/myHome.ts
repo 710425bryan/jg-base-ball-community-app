@@ -1,5 +1,7 @@
 import { supabase } from '@/services/supabase'
 import { listMyMatchFeeItems } from '@/services/matchFees'
+import { trainingDatesApi } from '@/services/trainingDatesApi'
+import { trainingProgramsApi } from '@/services/trainingProgramsApi'
 import {
   createEmptyMyHomeSnapshot,
   type MyHomeEquipmentRequest,
@@ -23,9 +25,16 @@ import { buildTrainingLocationLeaveEventTimeText } from '@/utils/trainingLocatio
 import {
   buildTrainingMonthDateItems,
   getDefaultTrainingMonthDates,
-  getTrainingMonthStartDate,
   normalizeTrainingMonth
 } from '@/utils/trainingMonthDates'
+import {
+  DEFAULT_TRAINING_PROGRAM_KEY,
+  getScopedTrainingProgramForMember,
+  getTrainingProgramFallbackSettings,
+  getTrainingProgramKeyForMember,
+  getTrainingProgramSettingByKey
+} from '@/utils/trainingPrograms'
+import type { TrainingProgramSetting } from '@/types/trainingProgram'
 
 const RPC_NAME = 'get_my_home_snapshot'
 
@@ -70,6 +79,8 @@ const normalizeMember = (member: Partial<MyHomeMember> & Record<string, unknown>
   name: String(member.name || ''),
   role: member.role ? String(member.role) : null,
   team_group: member.team_group ? String(member.team_group) : null,
+  training_program: member.training_program ? String(member.training_program) : null,
+  training_program_label: member.training_program_label ? String(member.training_program_label) : null,
   status: member.status ? String(member.status) : null,
   is_inactive_or_graduated: Boolean(member.is_inactive_or_graduated),
   jersey_number: member.jersey_number === null || member.jersey_number === undefined
@@ -85,6 +96,8 @@ const normalizeTrainingLocation = (row: Partial<MyHomeTrainingLocation>): MyHome
   session_id: String(row?.session_id || ''),
   member_id: String(row?.member_id || ''),
   member_name: String(row?.member_name || ''),
+  program_key: row?.program_key ? String(row.program_key) : null,
+  program_label: row?.program_label ? String(row.program_label) : null,
   title: String(row?.title || ''),
   training_date: String(row?.training_date || ''),
   start_time: row?.start_time ? String(row.start_time) : null,
@@ -245,44 +258,114 @@ const enrichSnapshotWithTrainingLocations = async (
   }
 }
 
+const enrichSnapshotWithTrainingPrograms = (
+  snapshot: MyHomeSnapshot,
+  settings: TrainingProgramSetting[]
+): MyHomeSnapshot => ({
+  ...snapshot,
+  members: snapshot.members.map((member) => {
+    const program = member.training_program
+      ? getTrainingProgramSettingByKey(settings, member.training_program)
+      : getScopedTrainingProgramForMember(member, settings)
+    return {
+      ...member,
+      training_program: program?.program_key || null,
+      training_program_label: program?.label || null
+    }
+  }),
+  training_locations: snapshot.training_locations.map((location) => {
+    if (location.program_key) return location
+    const member = snapshot.members.find((item) => item.id === location.member_id)
+    const program = member
+      ? getScopedTrainingProgramForMember(member, settings)
+      : getTrainingProgramSettingByKey(settings, DEFAULT_TRAINING_PROGRAM_KEY)
+    return {
+      ...location,
+      program_key: program?.program_key || DEFAULT_TRAINING_PROGRAM_KEY,
+      program_label: program?.label || getTrainingProgramSettingByKey(settings, DEFAULT_TRAINING_PROGRAM_KEY).label
+    }
+  })
+})
+
 const enrichSnapshotWithTrainingMonthDates = async (
   snapshot: MyHomeSnapshot,
   rawPayload: Partial<MyHomeSnapshot> | null | undefined,
+  settings: TrainingProgramSetting[],
   today?: string | null
 ): Promise<MyHomeSnapshot> => {
   const month = normalizeTrainingMonth(today)
 
-  if (rawPayload && 'training_month_dates' in rawPayload) {
+  const rawDatesByProgram = rawPayload && 'training_month_dates_by_program' in rawPayload
+    ? (rawPayload as any).training_month_dates_by_program
+    : null
+
+  if (rawDatesByProgram && typeof rawDatesByProgram === 'object' && !Array.isArray(rawDatesByProgram)) {
+    const nextDatesByProgram = Object.fromEntries(
+      Object.entries(rawDatesByProgram as Record<string, unknown>).map(([programKey, dates]) => [
+        programKey,
+        buildTrainingMonthDateItems(
+          ensureArray<Partial<MyHomeTrainingMonthDate> | string>(dates).map((item) => (
+            typeof item === 'string' ? item : String(item?.date || '')
+          )),
+          today
+        )
+      ])
+    )
+    const defaultKey = snapshot.members[0]?.training_program || DEFAULT_TRAINING_PROGRAM_KEY
     return {
       ...snapshot,
-      training_month_dates: buildTrainingMonthDateItems(
-        snapshot.training_month_dates.map((item) => item.date),
-        today
-      )
+      training_month_dates_by_program: nextDatesByProgram,
+      training_month_dates: nextDatesByProgram[defaultKey] || snapshot.training_month_dates
     }
   }
 
-  try {
-    const { data, error } = await supabase.rpc('get_training_month_dates', {
-      p_month: getTrainingMonthStartDate(month)
-    })
-    if (error) throw error
+  if (rawPayload && 'training_month_dates' in rawPayload) {
+    const defaultKey = DEFAULT_TRAINING_PROGRAM_KEY
+    const dates = buildTrainingMonthDateItems(
+      snapshot.training_month_dates.map((item) => item.date),
+      today
+    )
+    return {
+      ...snapshot,
+      training_month_dates: dates,
+      training_month_dates_by_program: {
+        ...snapshot.training_month_dates_by_program,
+        [defaultKey]: dates
+      }
+    }
+  }
 
-    const payload = (data ?? {}) as { training_dates?: unknown; is_default?: boolean }
-    const dates = ensureArray<string>(payload.training_dates)
-    return {
-      ...snapshot,
-      training_month_dates: buildTrainingMonthDateItems(
-        payload.is_default === false ? dates : getDefaultTrainingMonthDates(month),
-        today
-      )
+  const programKeys = Array.from(new Set(
+    snapshot.members
+      .map((member) => getTrainingProgramKeyForMember(member, settings))
+      .filter(Boolean)
+  ))
+  if (programKeys.length === 0) programKeys.push(DEFAULT_TRAINING_PROGRAM_KEY)
+
+  const entries = await Promise.all(programKeys.map(async (programKey) => {
+    const setting = getTrainingProgramSettingByKey(settings, programKey)
+    try {
+      const result = await trainingDatesApi.getMonthDates(month, {
+        programKey: setting.program_key,
+        programLabel: setting.label,
+        defaultWeekdays: setting.default_weekdays
+      })
+      return [setting.program_key, buildTrainingMonthDateItems(result.training_dates, today)] as const
+    } catch (error) {
+      console.warn(`get_training_month_dates RPC 無法補齊 ${setting.label} 首頁訓練日期，暫以項目預設星期顯示。`, error)
+      return [
+        setting.program_key,
+        buildTrainingMonthDateItems(getDefaultTrainingMonthDates(month, setting.default_weekdays), today)
+      ] as const
     }
-  } catch (error) {
-    console.warn('get_training_month_dates RPC 無法補齊首頁訓練日期，暫以本月週六顯示。', error)
-    return {
-      ...snapshot,
-      training_month_dates: buildTrainingMonthDateItems(getDefaultTrainingMonthDates(month), today)
-    }
+  }))
+
+  const datesByProgram = Object.fromEntries(entries)
+  const defaultKey = snapshot.members[0]?.training_program || DEFAULT_TRAINING_PROGRAM_KEY
+  return {
+    ...snapshot,
+    training_month_dates_by_program: datesByProgram,
+    training_month_dates: datesByProgram[defaultKey] || datesByProgram[DEFAULT_TRAINING_PROGRAM_KEY] || []
   }
 }
 
@@ -387,6 +470,7 @@ const normalizeSnapshot = (payload: Partial<MyHomeSnapshot> | null | undefined):
     today_leaves: ensureArray<MyHomeLeaveStatus>(payload?.today_leaves),
     training_locations: ensureArray<Partial<MyHomeTrainingLocation>>(payload?.training_locations).map(normalizeTrainingLocation),
     training_month_dates: ensureArray<Partial<MyHomeTrainingMonthDate> | string>(payload?.training_month_dates).map(normalizeTrainingMonthDate),
+    training_month_dates_by_program: {},
     payment_summary: {
       unpaid_count: normalizeNumber(payload?.payment_summary?.unpaid_count),
       pending_review_count: normalizeNumber(payload?.payment_summary?.pending_review_count),
@@ -432,12 +516,17 @@ export const getMyHomeSnapshot = async (today?: string | null) => {
 
   const payload = (data ?? null) as Partial<MyHomeSnapshot> | null
   const rawMembers = ensureArray<Partial<MyHomeMember>>(payload?.members)
+  const programSettings = await trainingProgramsApi.listSettings().catch((error) => {
+    console.warn('訓練項目設定無法載入，首頁暫以預設項目判斷。', error)
+    return getTrainingProgramFallbackSettings()
+  })
+  const normalizedSnapshot = enrichSnapshotWithTrainingPrograms(normalizeSnapshot(payload), programSettings)
   const snapshotWithLocations = await enrichSnapshotWithTrainingLocations(
-    normalizeSnapshot(payload),
+    normalizedSnapshot,
     payload,
     today
   )
-  const snapshot = await enrichSnapshotWithTrainingMonthDates(snapshotWithLocations, payload, today)
+  const snapshot = await enrichSnapshotWithTrainingMonthDates(snapshotWithLocations, payload, programSettings, today)
 
   const withTrainingPoints = await enrichMembersWithTrainingPoints(snapshot, rawMembers)
   const activeSnapshot = await filterActiveSnapshotMembers(withTrainingPoints)

@@ -16,11 +16,21 @@ import {
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
 import { TrainingLocationAuthError, trainingLocationsApi } from '@/services/trainingLocationsApi'
+import { trainingProgramsApi } from '@/services/trainingProgramsApi'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
 import { useTeamGroupsStore } from '@/stores/teamGroups'
 import { getMemberBillingLabel, isNoFeeBillingMember } from '@/utils/memberBilling'
 import { getUniqueTeamGroupOptions, normalizeTeamGroup } from '@/utils/teamGroups'
+import {
+  DEFAULT_TRAINING_PROGRAM_KEY,
+  buildTrainingProgramOptions,
+  getTrainingProgramFallbackSettings,
+  getTrainingProgramKeyForMember,
+  getTrainingProgramSettingByKey,
+  normalizeTrainingProgramKey
+} from '@/utils/trainingPrograms'
+import type { TrainingProgramSetting } from '@/types/trainingProgram'
 import type {
   TrainingLocationDispatchResult,
   TrainingLocationRosterMember,
@@ -39,7 +49,7 @@ type SaveSessionOptions = {
   dispatchAfterPublish?: boolean
 }
 
-const DEFAULT_TITLE = '週六訓練'
+const DEFAULT_TITLE = '訓練'
 const DEFAULT_START_TIME = '09:00'
 const DEFAULT_END_TIME = '12:30'
 const getDefaultTrainingDate = () => dayjs().format('YYYY-MM-DD')
@@ -57,6 +67,14 @@ const canCreateAttendance = computed(() =>
   canEdit.value && canOpenAttendance.value && permissionsStore.can('attendance', 'CREATE')
 )
 
+const programSettings = ref<TrainingProgramSetting[]>(getTrainingProgramFallbackSettings())
+const selectedProgramKey = ref(DEFAULT_TRAINING_PROGRAM_KEY)
+const programOptions = computed(() => buildTrainingProgramOptions(programSettings.value))
+const selectedProgram = computed(() =>
+  getTrainingProgramSettingByKey(programSettings.value, selectedProgramKey.value)
+)
+const selectedProgramLabel = computed(() => selectedProgram.value.label)
+
 const sessions = ref<TrainingLocationSession[]>([])
 const venues = ref<TrainingVenue[]>([])
 const roster = ref<TrainingLocationRosterMember[]>([])
@@ -71,17 +89,19 @@ const isDispatching = ref(false)
 const creatingAttendanceVenueIndex = ref<number | null>(null)
 const isCreatingAttendance = computed(() => creatingAttendanceVenueIndex.value !== null)
 
+const getDefaultTitle = () => `${selectedProgram.value.label}${DEFAULT_TITLE}`
+
 const createEmptyVenue = (): EditableVenue => ({
   clientKey: `venue-${Date.now()}-${Math.random().toString(36).slice(2)}`,
   id: null,
   venue_id: null,
-  title: DEFAULT_TITLE,
+  title: getDefaultTitle(),
   training_date: getDefaultTrainingDate(),
-  start_time: DEFAULT_START_TIME,
-  end_time: DEFAULT_END_TIME,
-  venue_name: '',
-  venue_address: null,
-  venue_maps_url: null,
+  start_time: selectedProgram.value.default_start_time || DEFAULT_START_TIME,
+  end_time: selectedProgram.value.default_end_time || DEFAULT_END_TIME,
+  venue_name: selectedProgram.value.default_venue_name || '',
+  venue_address: selectedProgram.value.default_venue_address,
+  venue_maps_url: selectedProgram.value.default_venue_maps_url,
   attendance_event_id: null,
   sort_order: 0,
   note: null,
@@ -91,10 +111,11 @@ const createEmptyVenue = (): EditableVenue => ({
 
 const form = reactive({
   session_id: null as string | null,
-  title: DEFAULT_TITLE,
+  program_key: selectedProgramKey.value,
+  title: getDefaultTitle(),
   training_date: getDefaultTrainingDate(),
-  start_time: DEFAULT_START_TIME,
-  end_time: DEFAULT_END_TIME,
+  start_time: selectedProgram.value.default_start_time || DEFAULT_START_TIME,
+  end_time: selectedProgram.value.default_end_time || DEFAULT_END_TIME,
   status: 'draft' as TrainingLocationSessionStatus,
   note: '',
   venues: [createEmptyVenue()] as EditableVenue[]
@@ -120,8 +141,14 @@ const rosterById = computed(() =>
 const isSelectableRosterMember = (member: TrainingLocationRosterMember | null | undefined) =>
   Boolean(member && !isNoFeeBillingMember(member))
 
+const scopedRoster = computed(() =>
+  roster.value.filter((member) =>
+    getTrainingProgramKeyForMember(member, programSettings.value) === selectedProgram.value.program_key
+  )
+)
+
 const activeRosterMemberIds = computed(() =>
-  new Set(roster.value.filter(isSelectableRosterMember).map((member) => member.member_id))
+  new Set(scopedRoster.value.filter(isSelectableRosterMember).map((member) => member.member_id))
 )
 
 const assignedMemberIds = computed(() =>
@@ -139,9 +166,9 @@ const normalizedSearchQuery = computed(() => searchQuery.value.trim().toLowerCas
 
 const filteredRoster = computed(() => {
   const query = normalizedSearchQuery.value
-  if (!query) return roster.value
+  if (!query) return scopedRoster.value
 
-  return roster.value.filter((member) =>
+  return scopedRoster.value.filter((member) =>
     [
       member.name,
       member.role,
@@ -311,15 +338,24 @@ const loadVenues = async () => {
   venues.value = await trainingLocationsApi.listVenues()
 }
 
+const loadProgramSettings = async () => {
+  programSettings.value = await trainingProgramsApi.listSettings()
+  if (!programSettings.value.some((setting) => setting.program_key === selectedProgramKey.value && setting.is_active)) {
+    selectedProgramKey.value = programSettings.value.find((setting) => setting.is_active)?.program_key || DEFAULT_TRAINING_PROGRAM_KEY
+  }
+}
+
 const loadSessions = async () => {
   const from = dayjs().subtract(14, 'day').format('YYYY-MM-DD')
   const to = dayjs().add(45, 'day').format('YYYY-MM-DD')
-  sessions.value = sortSessionsByNearestTime(await trainingLocationsApi.listSessions(from, to))
+  sessions.value = sortSessionsByNearestTime(await trainingLocationsApi.listSessions(from, to, selectedProgram.value.program_key))
 }
 
 const loadRoster = async () => {
-  roster.value = (await trainingLocationsApi.listRoster(rosterTrainingDate.value)).map((member) => ({
+  roster.value = (await trainingLocationsApi.listRoster(rosterTrainingDate.value, selectedProgram.value.program_key)).map((member) => ({
     ...member,
+    training_program: member.training_program || getTrainingProgramKeyForMember(member, programSettings.value),
+    training_program_label: member.training_program_label || selectedProgram.value.label,
     team_group: normalizeTeamGroup(member.team_group) || null
   }))
 
@@ -344,6 +380,7 @@ const loadAll = async () => {
   isLoading.value = true
   try {
     await authStore.ensureInitialized()
+    await loadProgramSettings()
     await Promise.all([loadVenues(), loadSessions(), loadRoster()])
   } catch (error: any) {
     await handleTrainingLocationError(error, '無法載入場地配置資料')
@@ -359,10 +396,11 @@ const resetForm = () => {
   resetSyncFields()
   Object.assign(form, {
     session_id: null,
-    title: DEFAULT_TITLE,
+    program_key: selectedProgram.value.program_key,
+    title: getDefaultTitle(),
     training_date: getDefaultTrainingDate(),
-    start_time: DEFAULT_START_TIME,
-    end_time: DEFAULT_END_TIME,
+    start_time: selectedProgram.value.default_start_time || DEFAULT_START_TIME,
+    end_time: selectedProgram.value.default_end_time || DEFAULT_END_TIME,
     status: 'draft',
     note: '',
     venues: [createEmptyVenue()]
@@ -370,11 +408,13 @@ const resetForm = () => {
 }
 
 const hydrateSession = async (session: TrainingLocationSession) => {
+  selectedProgramKey.value = normalizeTrainingProgramKey(session.program_key)
   selectedSessionId.value = session.session_id
   selectedVenueIndex.value = 0
   selectedPoolMemberIds.value = []
   Object.assign(form, {
     session_id: session.session_id,
+    program_key: selectedProgramKey.value,
     title: session.title,
     training_date: session.training_date,
     start_time: session.start_time || '',
@@ -532,6 +572,7 @@ const onDropOnVenue = (venueIndex: number) => {
 
 const buildSavePayload = (status: TrainingLocationSessionStatus = form.status) => ({
   session_id: form.session_id,
+  program_key: selectedProgram.value.program_key,
   title: form.title,
   training_date: form.training_date,
   start_time: form.start_time || null,
@@ -818,6 +859,21 @@ watch(() => form.title, () => {
   if (syncFields.title) syncAllVenueFieldsFromForm('title')
 })
 
+watch(selectedProgramKey, async () => {
+  selectedProgramKey.value = normalizeTrainingProgramKey(selectedProgramKey.value)
+  form.program_key = selectedProgram.value.program_key
+  if (!form.session_id) {
+    form.title = getDefaultTitle()
+    form.start_time = selectedProgram.value.default_start_time || DEFAULT_START_TIME
+    form.end_time = selectedProgram.value.default_end_time || DEFAULT_END_TIME
+    form.venues = [createEmptyVenue()]
+    selectedVenueIndex.value = 0
+    selectedPoolMemberIds.value = []
+    resetSyncFields()
+  }
+  await Promise.all([loadSessions(), loadRoster()])
+})
+
 watch(() => form.training_date, () => {
   if (syncFields.training_date) syncAllVenueFieldsFromForm('training_date')
 })
@@ -912,9 +968,9 @@ onMounted(() => {
               @click="hydrateSession(session)"
             >
               <div class="flex items-start justify-between gap-3">
-                <div class="min-w-0">
-                  <div class="truncate text-base font-black text-slate-900">{{ session.title }}</div>
-                  <div class="mt-1 text-xs font-bold text-slate-500">{{ formatSessionDate(session.training_date) }}｜{{ formatSessionTime(session) }}</div>
+                  <div class="min-w-0">
+                    <div class="truncate text-base font-black text-slate-900">{{ session.title }}</div>
+                  <div class="mt-1 text-xs font-bold text-slate-500">{{ session.program_label || selectedProgramLabel }}｜{{ formatSessionDate(session.training_date) }}｜{{ formatSessionTime(session) }}</div>
                 </div>
                 <span class="shrink-0 rounded-full px-2.5 py-1 text-xs font-black" :class="getStatusMeta(session.status).className">
                   {{ getStatusMeta(session.status).label }}
@@ -951,6 +1007,16 @@ onMounted(() => {
                   </div>
                 </div>
                 <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <el-form-item label="訓練項目" class="mb-0 font-bold">
+                    <el-select v-model="selectedProgramKey" class="w-full" size="large">
+                      <el-option
+                        v-for="option in programOptions"
+                        :key="option.value"
+                        :label="option.label"
+                        :value="option.value"
+                      />
+                    </el-select>
+                  </el-form-item>
                   <el-form-item label="訓練標題" class="mb-0 font-bold xl:col-span-2">
                     <el-input v-model="form.title" size="large" placeholder="例如：週六訓練" />
                   </el-form-item>

@@ -9,13 +9,16 @@ import {
   Loading,
   MagicStick,
   Refresh,
+  Setting,
   UserFilled
 } from '@element-plus/icons-vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
 import { trainingDatesApi } from '@/services/trainingDatesApi'
+import { trainingProgramsApi } from '@/services/trainingProgramsApi'
 import { usePermissionsStore } from '@/stores/permissions'
 import type { TrainingMonthDates } from '@/types/trainingDate'
+import type { TrainingProgramSetting } from '@/types/trainingProgram'
 import {
   formatTrainingMonthDateLabel,
   formatTrainingMonthLabel,
@@ -23,6 +26,13 @@ import {
   normalizeTrainingMonth,
   normalizeTrainingMonthDateList
 } from '@/utils/trainingMonthDates'
+import {
+  DEFAULT_TRAINING_PROGRAM_KEY,
+  buildTrainingProgramOptions,
+  getTrainingProgramFallbackSettings,
+  getTrainingProgramSettingByKey,
+  normalizeTrainingProgramKey
+} from '@/utils/trainingPrograms'
 
 type CalendarDay = {
   date: string
@@ -38,20 +48,49 @@ const router = useRouter()
 const canEdit = computed(() => permissionsStore.can('training_dates', 'EDIT'))
 const canOpenCoachSchedules = computed(() => permissionsStore.can('coach_schedules', 'VIEW'))
 const selectedMonth = ref(dayjs().format('YYYY-MM'))
+const programSettings = ref<TrainingProgramSetting[]>(getTrainingProgramFallbackSettings())
+const selectedProgramKey = ref(DEFAULT_TRAINING_PROGRAM_KEY)
 const monthDates = ref<TrainingMonthDates | null>(null)
 const selectedDates = ref<string[]>([])
 const note = ref('')
 const isLoading = ref(false)
 const isSaving = ref(false)
+const isProgramLoading = ref(false)
 
 const today = computed(() => dayjs().format('YYYY-MM-DD'))
 const monthLabel = computed(() => formatTrainingMonthLabel(selectedMonth.value))
+const programOptions = computed(() => buildTrainingProgramOptions(programSettings.value))
+const selectedProgram = computed(() =>
+  getTrainingProgramSettingByKey(programSettings.value, selectedProgramKey.value)
+)
+const selectedProgramLabel = computed(() => selectedProgram.value.label)
 const sortedSelectedDates = computed(() =>
   normalizeTrainingMonthDateList(selectedDates.value, selectedMonth.value)
 )
 const selectedDateSet = computed(() => new Set(sortedSelectedDates.value))
-const defaultDates = computed(() => getDefaultTrainingMonthDates(selectedMonth.value))
+const defaultDates = computed(() =>
+  getDefaultTrainingMonthDates(selectedMonth.value, selectedProgram.value.default_weekdays)
+)
 const hasCustomSetting = computed(() => monthDates.value?.is_default === false)
+
+const loadProgramSettings = async () => {
+  isProgramLoading.value = true
+  try {
+    const settings = await trainingProgramsApi.listSettings()
+    programSettings.value = settings
+    const hasSelectedProgram = settings.some((setting) =>
+      setting.program_key === selectedProgramKey.value && setting.is_active
+    )
+    if (!hasSelectedProgram) {
+      selectedProgramKey.value = settings.find((setting) => setting.is_active)?.program_key || DEFAULT_TRAINING_PROGRAM_KEY
+    }
+  } catch (error) {
+    console.warn('Failed to load training program settings:', error)
+    programSettings.value = getTrainingProgramFallbackSettings()
+  } finally {
+    isProgramLoading.value = false
+  }
+}
 
 const calendarDays = computed<CalendarDay[]>(() => {
   const month = normalizeTrainingMonth(selectedMonth.value)
@@ -89,14 +128,18 @@ const calendarDays = computed<CalendarDay[]>(() => {
 const loadMonthDates = async () => {
   isLoading.value = true
   try {
-    const data = await trainingDatesApi.getMonthDates(selectedMonth.value)
+    const data = await trainingDatesApi.getMonthDates(selectedMonth.value, {
+      programKey: selectedProgram.value.program_key,
+      programLabel: selectedProgram.value.label,
+      defaultWeekdays: selectedProgram.value.default_weekdays
+    })
     monthDates.value = data
     selectedDates.value = [...data.training_dates]
     note.value = data.note || ''
   } catch (error: any) {
     console.error('Error loading training dates:', error)
     monthDates.value = null
-    selectedDates.value = getDefaultTrainingMonthDates(selectedMonth.value)
+    selectedDates.value = getDefaultTrainingMonthDates(selectedMonth.value, selectedProgram.value.default_weekdays)
     note.value = ''
     ElMessage.error(error?.message || '無法載入訓練日期設定')
   } finally {
@@ -104,7 +147,7 @@ const loadMonthDates = async () => {
   }
 }
 
-const applyDefaultSaturdays = () => {
+const applyProgramDefaults = () => {
   if (!canEdit.value) return
   selectedDates.value = [...defaultDates.value]
 }
@@ -130,12 +173,17 @@ const saveMonthDates = async () => {
     const result = await trainingDatesApi.saveMonthDates({
       month: selectedMonth.value,
       trainingDates: sortedSelectedDates.value,
-      note: note.value
+      note: note.value,
+      programKey: selectedProgram.value.program_key,
+      programLabel: selectedProgram.value.label,
+      defaultWeekdays: selectedProgram.value.default_weekdays
     })
 
     monthDates.value = {
       month_start: result.month_start,
       month: normalizeTrainingMonth(result.month_start),
+      program_key: result.program_key,
+      program_label: result.program_label,
       training_dates: result.training_dates,
       note: result.note,
       is_default: false,
@@ -169,15 +217,21 @@ const saveMonthDates = async () => {
 const openCoachSchedules = () => {
   router.push({
     path: '/coach-schedules',
-    query: { month: selectedMonth.value }
+    query: { month: selectedMonth.value, training_program: selectedProgram.value.program_key }
   })
 }
 
-watch(selectedMonth, () => {
+const openProgramSettings = () => {
+  router.push('/training-program-settings')
+}
+
+watch([selectedMonth, selectedProgramKey], () => {
+  selectedProgramKey.value = normalizeTrainingProgramKey(selectedProgramKey.value)
   void loadMonthDates()
 })
 
-onMounted(() => {
+onMounted(async () => {
+  await loadProgramSettings()
   void loadMonthDates()
 })
 </script>
@@ -187,13 +241,13 @@ onMounted(() => {
     <div class="mx-auto flex max-w-7xl flex-col gap-4">
       <AppPageHeader
         title="訓練日期設定"
-        subtitle="設定每月訓練日期；未設定月份預設為該月所有星期六。"
+        subtitle="依訓練項目設定每月訓練日期；未設定月份會依項目預設星期產生。"
         :icon="Calendar"
         as="h2"
       >
         <template #title-suffix>
           <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
-            {{ hasCustomSetting ? '已設定' : '預設週六' }}
+            {{ selectedProgramLabel }}｜{{ hasCustomSetting ? '已設定' : '使用預設' }}
           </span>
         </template>
         <template #actions>
@@ -205,6 +259,15 @@ onMounted(() => {
           >
             <el-icon :class="{ 'is-loading': isLoading }"><Refresh /></el-icon>
             重新整理
+          </button>
+          <button
+            v-if="canEdit"
+            type="button"
+            class="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-black text-slate-600 transition-colors hover:border-primary hover:text-primary"
+            @click="openProgramSettings"
+          >
+            <el-icon><Setting /></el-icon>
+            訓練項目設定
           </button>
           <button
             v-if="canOpenCoachSchedules"
@@ -235,7 +298,22 @@ onMounted(() => {
 
       <div v-else class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <main class="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm md:p-5">
-          <div class="grid gap-4 md:grid-cols-[240px_minmax(0,1fr)] md:items-end">
+          <div class="grid gap-4 md:grid-cols-[220px_240px_minmax(0,1fr)] md:items-end">
+            <el-form-item label="訓練項目" class="mb-0 font-bold">
+              <el-select
+                v-model="selectedProgramKey"
+                class="w-full"
+                size="large"
+                :loading="isProgramLoading"
+              >
+                <el-option
+                  v-for="option in programOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+            </el-form-item>
             <el-form-item label="設定月份" class="mb-0 font-bold">
               <el-date-picker
                 v-model="selectedMonth"
@@ -247,7 +325,7 @@ onMounted(() => {
               />
             </el-form-item>
             <div class="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
-              {{ monthLabel }} 共 {{ sortedSelectedDates.length }} 個訓練日，個人首頁會一次顯示當月全部日期。
+              {{ selectedProgramLabel }}｜{{ monthLabel }} 共 {{ sortedSelectedDates.length }} 個訓練日，個人首頁會依成員所屬項目顯示。
             </div>
           </div>
 
@@ -281,10 +359,10 @@ onMounted(() => {
               v-if="canEdit"
               type="button"
               class="inline-flex min-h-10 items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 text-sm font-black text-emerald-700 transition-colors hover:bg-emerald-100"
-              @click="applyDefaultSaturdays"
+              @click="applyProgramDefaults"
             >
               <el-icon><MagicStick /></el-icon>
-              套用本月星期六
+              套用項目預設
             </button>
           </div>
         </main>

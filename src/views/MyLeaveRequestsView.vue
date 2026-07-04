@@ -72,7 +72,7 @@
                 v-if="selectedMember"
                 class="rounded-2xl border border-primary/15 bg-primary/5 px-4 py-3 text-sm text-primary font-bold"
               >
-                目前送假對象：{{ selectedMember.name }} / {{ selectedMember.role }}
+                目前送假對象：{{ selectedMember.name }} / {{ selectedMember.training_program_label || selectedMember.role }}
               </div>
             </div>
           </section>
@@ -324,11 +324,13 @@ import {
   listMyLeaveRequests
 } from '@/services/myLeaveRequests'
 import { trainingDatesApi } from '@/services/trainingDatesApi'
+import { trainingProgramsApi } from '@/services/trainingProgramsApi'
 import type {
   LeaveRequestFormState,
   MyLeaveMember,
   MyLeaveRequest
 } from '@/types/leaveRequests'
+import type { TrainingProgramSetting } from '@/types/trainingProgram'
 import {
   buildLeaveNotificationDateLabel,
   buildLeaveRequestRecords,
@@ -348,8 +350,15 @@ import {
   dispatchPushNotification
 } from '@/utils/pushNotifications'
 import { formatTrainingMonthDateLabel } from '@/utils/trainingMonthDates'
+import {
+  DEFAULT_TRAINING_PROGRAM_KEY,
+  getTrainingProgramFallbackSettings,
+  getTrainingProgramForMember,
+  getTrainingProgramSettingByKey
+} from '@/utils/trainingPrograms'
 
 const members = ref<MyLeaveMember[]>([])
+const programSettings = ref<TrainingProgramSetting[]>(getTrainingProgramFallbackSettings())
 const leaveRequests = ref<MyLeaveRequest[]>([])
 const selectedMemberId = ref('')
 const isBootstrapping = ref(true)
@@ -368,6 +377,12 @@ const formRules = leaveRequestBaseRules
 const selectedMember = computed(() => {
   return members.value.find((member) => member.member_id === selectedMemberId.value) || null
 })
+
+const selectedProgram = computed(() =>
+  selectedMember.value?.training_program
+    ? getTrainingProgramSettingByKey(programSettings.value, selectedMember.value.training_program)
+    : getTrainingProgramForMember(selectedMember.value, programSettings.value)
+)
 
 const canCreateLeaveRequest = computed(() => {
   return Boolean(selectedMember.value)
@@ -402,7 +417,7 @@ const sortLeaveRequests = (rows: MyLeaveRequest[]) => {
 }
 
 const buildMemberOptionLabel = (member: MyLeaveMember) => {
-  return `${member.name}｜${member.role}`
+  return `${member.name}｜${member.training_program_label || member.team_group || member.role}`
 }
 
 const getLeaveBadgeClass = (type: string) => {
@@ -447,14 +462,32 @@ const hydrateFormDefaults = () => {
   lastTrainingDateWarningKey.value = ''
 }
 
-const getTrainingDatesForMonth = async (month: string) => {
-  const cachedDates = trainingDateCache.get(month)
+const enrichLeaveMembersWithPrograms = (rows: MyLeaveMember[]) =>
+  rows.map((member) => {
+    const program = member.training_program
+      ? getTrainingProgramSettingByKey(programSettings.value, member.training_program)
+      : getTrainingProgramForMember(member, programSettings.value)
+    return {
+      ...member,
+      training_program: program.program_key,
+      training_program_label: program.label
+    }
+  })
+
+const getTrainingDatesForMonth = async (month: string, programKey = selectedProgram.value.program_key) => {
+  const cacheKey = `${programKey || DEFAULT_TRAINING_PROGRAM_KEY}:${month}`
+  const cachedDates = trainingDateCache.get(cacheKey)
   if (cachedDates) {
     return cachedDates
   }
 
-  const result = await trainingDatesApi.getMonthDates(month)
-  trainingDateCache.set(month, result.training_dates)
+  const program = getTrainingProgramSettingByKey(programSettings.value, programKey)
+  const result = await trainingDatesApi.getMonthDates(month, {
+    programKey: program.program_key,
+    programLabel: program.label,
+    defaultWeekdays: program.default_weekdays
+  })
+  trainingDateCache.set(cacheKey, result.training_dates)
   return result.training_dates
 }
 
@@ -477,7 +510,9 @@ const refreshTrainingDateWarning = async ({ notify = false }: { notify?: boolean
 
   try {
     const months = [...new Set(leaveDates.map((date) => date.slice(0, 7)))]
-    const trainingDatesByMonth = await Promise.all(months.map(getTrainingDatesForMonth))
+    const trainingDatesByMonth = await Promise.all(months.map((month) =>
+      getTrainingDatesForMonth(month, selectedProgram.value.program_key)
+    ))
     const nextNonTrainingDates = findNonTrainingLeaveDates(leaveDates, trainingDatesByMonth.flat())
 
     if (currentToken !== trainingDateCheckToken.value) {
@@ -637,7 +672,11 @@ onMounted(async () => {
   isBootstrapping.value = true
 
   try {
-    members.value = await listMyLeaveMembers()
+    programSettings.value = await trainingProgramsApi.listSettings().catch((error) => {
+      console.warn('訓練項目設定無法載入，請假頁暫以預設項目判斷。', error)
+      return getTrainingProgramFallbackSettings()
+    })
+    members.value = enrichLeaveMembersWithPrograms(await listMyLeaveMembers())
     selectedMemberId.value = members.value[0]?.member_id || ''
 
     if (selectedMemberId.value) {
@@ -656,6 +695,9 @@ watch(selectedMemberId, async (nextMemberId, previousMemberId) => {
   }
 
   await refreshCurrentMemberData()
+  if (isCreateDialogOpen.value) {
+    void refreshTrainingDateWarning({ notify: true })
+  }
 })
 </script>
 

@@ -30,6 +30,10 @@ export type MyLeaveMember = {
   member_id: string
   name: string
   role: string
+  team_group?: string | null
+  fee_billing_mode?: string | null
+  training_program?: string | null
+  training_program_label?: string | null
   is_linked?: boolean
 }
 

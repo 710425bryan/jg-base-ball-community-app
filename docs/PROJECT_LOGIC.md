@@ -358,23 +358,29 @@ UI 約定：
 主要檔案：
 
 - `src/views/TrainingDatesView.vue`
+- `src/views/TrainingProgramSettingsView.vue`
+- `src/services/trainingProgramsApi.ts`
 - `src/services/trainingDatesApi.ts`
 - `src/utils/trainingMonthDates.ts`
+- `src/utils/trainingPrograms.ts`
 - `src/utils/trainingDateNotification.ts`
 - `supabase/functions/send-training-date-notifications/index.ts`
 
 主要資料：
 
+- `training_program_settings`
 - `training_month_date_settings`
 - `push_dispatch_events.target_user_id` / `target_member_ids`
 
 資料流：
 
-- 管理者在 `/training-dates` 選擇月份並勾選該月訓練日期；未設定月份預設為該月所有星期六。
-- 個人首頁透過 `get_my_home_snapshot()` 的 `training_month_dates` 或 `get_training_month_dates()` fallback，一次顯示當月份全部訓練日期。
-- `save_training_month_dates()` 只儲存日期與備註，不建立場地、不指派球員，也不取代 `/training-locations`。
-- `training-month-date-defaults-daily` DB cron 於台灣時間每日 00:05 呼叫 `ensure_training_month_date_setting()`；換月後會自動建立當月預設週六設定，若該月已有設定則不覆蓋，且此自動建立流程不發通知。
-- 日期新增或取消時，前端呼叫 `send-training-date-notifications`，通知綁定有效球員 / 校隊的有效使用者。
+- 管理者在 `/training-program-settings` 設定 program 名稱、對應 `team_group`、預設星期、時間、場地與啟用狀態；中港校隊預設週六 `09:00-12:30` / `中港國小`，國中校隊預設週日 `09:00-12:00` / `新泰國中`，這些值執行時從 DB 讀取。
+- `role = 校隊` 不新增身分；國中校隊以 `team_group = 國中校隊` 對應 program。找不到對應時，校隊與計次月費成員 fallback 到中港校隊。
+- 管理者在 `/training-dates` 先選 program 再選月份並勾選該月訓練日期；未設定月份依該 program 的 `default_weekdays` 產生。
+- 個人首頁透過 `get_my_home_snapshot()` / `get_training_month_dates()` 補齊 `training_month_dates_by_program`；切換 linked member 時顯示該成員 program 的本月日期。
+- `save_training_month_dates()` 只儲存指定 program 的日期與備註，不建立場地、不指派球員，也不取代 `/training-locations`。
+- `training-month-date-defaults-daily` DB cron 於台灣時間每日 00:05 呼叫 `ensure_training_month_date_setting()`；換月後會自動建立各 program 預設設定，若該月已有設定則不覆蓋，且此自動建立流程不發通知。
+- 日期新增或取消時，前端呼叫 `send-training-date-notifications`，只通知該 program 綁定有效球員 / 校隊的有效使用者。
 
 重要規則：
 
@@ -404,7 +410,7 @@ UI 約定：
 
 資料流：
 
-- 教練在 `/training-locations` 建立某天訓練配置，可設定多場地區塊；每個場地區塊可個別保存訓練標題、日期、開始 / 結束時間與備註，必要時可由前端同步共用設定。球員可用全隊、角色或 `team_group` 快速帶入，再拖曳或勾選微調。
+- 教練在 `/training-locations` 建立某天訓練配置，先選 program；新增配置會套用 `training_program_settings` 的預設時間與場地。每個場地區塊可個別保存訓練標題、日期、開始 / 結束時間與備註，必要時可由前端同步共用設定。球員可用全隊、角色或 `team_group` 快速帶入，但球員池與快捷加入只取目前 program，再拖曳或勾選微調。
 - `save_training_location_session()` 會重建該訓練的場地與指派；DB 以 `(session_id, member_id)` 確保同一球員只在一個場地。
 - `create_training_location_venue_attendance_event()` 會為單一場地區塊建立或重用一張點名單，並由 `sync_training_location_attendance_records()` 自動同步該場地最新配置球員。
 - 場地配置 roster 仍顯示 `fee_billing_mode = 'no_fee'` 的球員 / 校隊並標註「不收費」，但前端不可勾選、拖曳、快捷加入或保存；DB 端也拒絕新的 no-fee assignment。既有配置可顯示，下次儲存會移除。
@@ -498,7 +504,8 @@ UI 約定：
 - `team_members.fee_billing_mode = 'monthly_fixed'` 代表社區球員固定月繳：角色仍為 `球員`，但有效繳費模式為月繳；月費表採固定金額減手動扣減，季費表與家庭季費分組排除該球員。
 - `team_members.fee_billing_mode = 'monthly_per_session'` 代表球員計次月費：角色仍為 `球員`，但有效繳費模式為月繳；月費表採訓練日期堂數、請假扣減與單次金額公式，季費表與家庭季費分組排除該球員。
 - `team_members.fee_billing_mode = 'no_fee'` 代表球員 / 校隊不收費：不產生新的月費、季費與比賽費，也不進新的場地配置、點名與比賽名單；切換前既有帳款、付款回報、點名紀錄與歷史比賽資料保留，裝備加購付款仍維持自費。
-- 校隊與球員計次月費的本月堂數由 `/training-dates` 的訓練日期設定天數自動帶入，月費頁不可手動改堂數；請假扣減只統計落在訓練日期內且時段為全日 / 上午的假單日期，以球員 + 日期去重，不合併點名紀錄；下午假不扣計次月費。
+- 校隊與球員計次月費的本月堂數由 `/training-dates` 該球員 program 的訓練日期設定天數自動帶入，月費頁不可手動改堂數；`monthly_fees.training_program` 保留當期 program snapshot。請假扣減只統計落在該 program 訓練日期內且時段為全日 / 上午的假單日期，以球員 + 日期去重，不合併點名紀錄；下午假不扣計次月費。
+- `/fees` 月費頁支援球員搜尋與 program 篩選，摘要、小計、CSV 匯出都依目前篩選結果與 row-level 堂數顯示；收費設定的計次月費名單會標示 program，但單次費率仍維持逐球員設定。
 - 家長端月費回報開放期別依計算方式區分：計次月費需等月份結束後才開放前一個月；`monthly_fixed` 固定月繳球員每月 25 日起可提前回報下個月。
 - 固定月繳預設金額存在 `fee_settings.monthly_fixed_fee`，正式月費紀錄會在 `monthly_fees.calculation_type` / `monthly_fees.fixed_monthly_fee` 保留當月計算方式與金額快照。
 - 季費堂數不足補償依當月週六數與 `/training-dates` 訓練日期設定總天數計算；週五、週日或其他補課日都算一堂，設定天數達當月週六數即不補償。補償預設每日折抵為一般 500 元、半價 / 手足折扣 250 元，可在收費設定調整。系統只產生 `quarterly_fee_compensation_items` 待審核單，管理員核准後才以 `quarterly_compensation` source 寫入 `player_balance_transactions`。

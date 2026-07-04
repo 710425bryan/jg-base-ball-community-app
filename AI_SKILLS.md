@@ -74,14 +74,14 @@
 ### `jg-baseball-training-locations`
 
 - 路徑：`.codex/skills/jg-baseball-training-locations/SKILL.md`
-- 用途：訓練場地與人員配置、分組快速帶入、個人首頁本週場地、場地通知。
-- 典型情境：修改 `/training-locations`、`training_venues`、`training_location_sessions`、`training_location_assignments`、`send-training-location-notifications`、或 `training_locations` 權限。
+- 用途：訓練場地與人員配置、program 分流、分組快速帶入、個人首頁本週場地、場地通知。
+- 典型情境：修改 `/training-locations`、`training_program_settings`、`training_venues`、`training_location_sessions`、`training_location_assignments`、`send-training-location-notifications`、或 `training_locations` 權限。
 
 ### `jg-baseball-training-dates`
 
 - 路徑：`.codex/skills/jg-baseball-training-dates/SKILL.md`
-- 用途：每月訓練日期設定、個人首頁本月訓練日、換月預設日期排程、日期異動通知。
-- 典型情境：修改 `/training-dates`、`training_month_date_settings`、`get_training_month_dates()`、`save_training_month_dates()`、`ensure_training_month_date_setting()`、`send-training-date-notifications`、或 `training_dates` 權限。
+- 用途：訓練項目設定、每月訓練日期設定、program 分流、個人首頁本月訓練日、換月預設日期排程、日期異動通知。
+- 典型情境：修改 `/training-program-settings`、`/training-dates`、`training_program_settings`、`training_month_date_settings`、`get_training_month_dates()`、`save_training_month_dates()`、`ensure_training_month_date_setting()`、`send-training-date-notifications`、或 `training_dates` 權限。
 
 ### `jg-baseball-coach-schedules`
 

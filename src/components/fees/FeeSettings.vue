@@ -64,6 +64,9 @@
             <tr v-for="member in schoolMembers" :key="member.id" class="transition-colors hover:bg-gray-50/50">
               <td class="flex items-center gap-2 px-4 py-3">
                 <span class="font-black text-gray-800">{{ member.name }}</span>
+                <span class="whitespace-nowrap rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
+                  {{ member.training_program_label || '中港校隊' }}
+                </span>
                 <span v-if="hasActiveFeeSibling(member)" class="whitespace-nowrap rounded border px-1.5 py-0.5 text-[10px] font-bold" :class="member.is_primary_payer ? 'border-green-200 bg-green-50 text-green-600' : 'border-primary/20 bg-primary/10 text-primary'">
                   {{ member.is_primary_payer ? '主要繳費人' : '半價優惠' }}
                 </span>
@@ -191,7 +194,9 @@ import {
   getQuarterlyFeeCompensationDefaults,
   saveQuarterlyFeeCompensationDefaults
 } from '@/services/quarterlyFeeCompensations'
+import { trainingProgramsApi } from '@/services/trainingProgramsApi'
 import type { QuarterlyFeeCompensationDefaults } from '@/types/quarterlyFeeCompensation'
+import type { TrainingProgramSetting } from '@/types/trainingProgram'
 import {
   DEFAULT_FIXED_MONTHLY_FEE,
   FIXED_MONTHLY_FEE_BILLING_MODE,
@@ -200,6 +205,10 @@ import {
   normalizeFixedMonthlyFee
 } from '@/utils/memberBilling'
 import { getActiveSiblingIds, isActiveRosterMember } from '@/utils/memberLifecycle'
+import {
+  getTrainingProgramFallbackSettings,
+  getTrainingProgramForMember
+} from '@/utils/trainingPrograms'
 import {
   DEFAULT_QUARTERLY_COMPENSATION_DISCOUNT_DAILY_CREDIT,
   DEFAULT_QUARTERLY_COMPENSATION_REGULAR_DAILY_CREDIT,
@@ -211,6 +220,7 @@ type FeeSettingKind = 'per_session' | 'monthly_fixed'
 const DEFAULT_PER_SESSION_FEE = 500
 
 const isLoading = ref(true)
+const programSettings = ref<TrainingProgramSetting[]>(getTrainingProgramFallbackSettings())
 const activeFeeMembers = ref<any[]>([])
 const schoolMembers = ref<any[]>([])
 const fixedMonthlyMembers = ref<any[]>([])
@@ -252,17 +262,34 @@ const markDirty = (memberId: string, kind: FeeSettingKind) => {
 const fetchData = async () => {
   isLoading.value = true
   try {
+    programSettings.value = await trainingProgramsApi.listSettings().catch((error) => {
+      console.warn('訓練項目設定無法載入，收費設定暫以預設項目判斷。', error)
+      return getTrainingProgramFallbackSettings()
+    })
+
     const { data: teamMembers, error: membersError } = await supabase
       .from('team_members')
-      .select('id, name, role, status, is_inactive_or_graduated, sibling_ids, is_primary_payer, fee_billing_mode')
+      .select('id, name, role, team_group, status, is_inactive_or_graduated, sibling_ids, is_primary_payer, fee_billing_mode')
       .in('role', ['校隊', '球員'])
       .order('name')
 
     if (membersError) throw membersError
 
-    activeFeeMembers.value = (teamMembers || []).filter(isActiveRosterMember)
+    activeFeeMembers.value = (teamMembers || [])
+      .filter(isActiveRosterMember)
+      .map((member) => {
+        const program = getTrainingProgramForMember(member, programSettings.value)
+        return {
+          ...member,
+          training_program: program.program_key,
+          training_program_label: program.label
+        }
+      })
     schoolMembers.value = activeFeeMembers.value.filter(
       (member) => isPerSessionMonthlyBillingMember(member)
+    ).sort((left, right) =>
+      String(left.training_program_label || '').localeCompare(String(right.training_program_label || ''), 'zh-Hant')
+      || String(left.name || '').localeCompare(String(right.name || ''), 'zh-Hant')
     )
     fixedMonthlyMembers.value = activeFeeMembers.value.filter(
       (member) => member.role === '球員' && member.fee_billing_mode === FIXED_MONTHLY_FEE_BILLING_MODE

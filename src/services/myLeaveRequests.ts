@@ -23,7 +23,7 @@ const filterActiveLeaveMembers = async (members: MyLeaveMember[]) => {
 
   const { data, error } = await supabase
     .from('team_members_safe')
-    .select('id, status, is_inactive_or_graduated')
+    .select('id, status, is_inactive_or_graduated, role, team_group')
     .in('id', memberIds)
 
   if (error) {
@@ -37,7 +37,24 @@ const filterActiveLeaveMembers = async (members: MyLeaveMember[]) => {
       .map((member) => String(member.id))
   )
 
-  return members.filter((member) => activeMemberIds.has(member.member_id))
+  const metaByMemberId = new Map((data || []).map((member: any) => [
+    String(member.id),
+    {
+      role: member.role ? String(member.role) : null,
+      team_group: member.team_group ? String(member.team_group) : null
+    }
+  ]))
+
+  return members
+    .filter((member) => activeMemberIds.has(member.member_id))
+    .map((member) => {
+      const meta = metaByMemberId.get(member.member_id)
+      return {
+        ...member,
+        role: member.role || meta?.role || '',
+        team_group: member.team_group || meta?.team_group || null
+      }
+    })
 }
 
 export const listMyLeaveMembers = async () => {

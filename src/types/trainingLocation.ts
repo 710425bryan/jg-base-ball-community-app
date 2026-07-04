@@ -14,6 +14,8 @@ export type TrainingLocationRosterMember = {
   name: string
   role: string | null
   team_group: string | null
+  training_program?: string | null
+  training_program_label?: string | null
   jersey_number: string | null
   fee_billing_mode: string | null
   is_on_leave: boolean
@@ -40,6 +42,8 @@ export type TrainingLocationSessionVenue = {
 
 export type TrainingLocationSession = {
   session_id: string
+  program_key: string
+  program_label: string | null
   title: string
   training_date: string
   start_time: string | null
@@ -70,6 +74,7 @@ export type TrainingLocationSessionSaveVenue = {
 
 export type TrainingLocationSessionSaveInput = {
   session_id?: string | null
+  program_key?: string | null
   title: string
   training_date: string
   start_time?: string | null

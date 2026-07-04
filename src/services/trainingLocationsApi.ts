@@ -8,6 +8,13 @@ import type {
   TrainingLocationSessionStatus,
   TrainingVenue
 } from '@/types/trainingLocation'
+import {
+  DEFAULT_TRAINING_PROGRAM_KEY,
+  getTrainingProgramFallbackSettings,
+  getTrainingProgramLabel,
+  normalizeTrainingProgramKey
+} from '@/utils/trainingPrograms'
+import { isSupabaseRpcMissingError } from '@/utils/supabaseRpc'
 
 const unwrapRows = <T>(data: T[] | T | null | undefined) => {
   if (!data) return [] as T[]
@@ -64,6 +71,8 @@ const normalizeRosterMember = (row: any): TrainingLocationRosterMember => ({
   name: String(row?.name || ''),
   role: row?.role ? String(row.role) : null,
   team_group: row?.team_group ? String(row.team_group) : null,
+  training_program: row?.training_program ? String(row.training_program) : row?.program_key ? String(row.program_key) : null,
+  training_program_label: row?.training_program_label ? String(row.training_program_label) : row?.program_label ? String(row.program_label) : null,
   jersey_number: row?.jersey_number === null || row?.jersey_number === undefined
     ? null
     : String(row.jersey_number),
@@ -95,6 +104,10 @@ const normalizeSessionStatus = (value: unknown): TrainingLocationSessionStatus =
 
 const normalizeSession = (row: any): TrainingLocationSession => ({
   session_id: String(row?.session_id || ''),
+  program_key: normalizeTrainingProgramKey(row?.program_key),
+  program_label: row?.program_label
+    ? String(row.program_label)
+    : getTrainingProgramLabel(getTrainingProgramFallbackSettings(), normalizeTrainingProgramKey(row?.program_key)),
   title: String(row?.title || ''),
   training_date: String(row?.training_date || ''),
   start_time: row?.start_time ? String(row.start_time) : null,
@@ -130,29 +143,56 @@ export const trainingLocationsApi = {
     return normalizeVenue(data)
   },
 
-  async listSessions(from?: string | null, to?: string | null) {
+  async listSessions(from?: string | null, to?: string | null, programKey?: string | null) {
     await ensureAuthenticatedSession()
+    const normalizedProgramKey = normalizeTrainingProgramKey(programKey)
     const { data, error } = await supabase.rpc('list_training_location_admin_sessions', {
       p_from: from || null,
-      p_to: to || null
+      p_to: to || null,
+      p_program_key: normalizedProgramKey
     })
-    if (error) throw normalizeTrainingLocationError(error)
+    if (error) {
+      if (isSupabaseRpcMissingError(error, 'list_training_location_admin_sessions') && normalizedProgramKey === DEFAULT_TRAINING_PROGRAM_KEY) {
+        const fallback = await supabase.rpc('list_training_location_admin_sessions', {
+          p_from: from || null,
+          p_to: to || null
+        })
+        if (fallback.error) throw normalizeTrainingLocationError(fallback.error)
+        return unwrapRows<TrainingLocationSession>(fallback.data).map(normalizeSession)
+      }
+
+      throw normalizeTrainingLocationError(error)
+    }
     return unwrapRows<TrainingLocationSession>(data).map(normalizeSession)
   },
 
-  async listRoster(trainingDate: string) {
+  async listRoster(trainingDate: string, programKey?: string | null) {
     await ensureAuthenticatedSession()
+    const normalizedProgramKey = normalizeTrainingProgramKey(programKey)
     const { data, error } = await supabase.rpc('list_training_location_roster', {
-      p_training_date: trainingDate
+      p_training_date: trainingDate,
+      p_program_key: normalizedProgramKey
     })
-    if (error) throw normalizeTrainingLocationError(error)
+    if (error) {
+      if (isSupabaseRpcMissingError(error, 'list_training_location_roster') && normalizedProgramKey === DEFAULT_TRAINING_PROGRAM_KEY) {
+        const fallback = await supabase.rpc('list_training_location_roster', {
+          p_training_date: trainingDate
+        })
+        if (fallback.error) throw normalizeTrainingLocationError(fallback.error)
+        return unwrapRows<TrainingLocationRosterMember>(fallback.data).map(normalizeRosterMember)
+      }
+
+      throw normalizeTrainingLocationError(error)
+    }
     return unwrapRows<TrainingLocationRosterMember>(data).map(normalizeRosterMember)
   },
 
   async saveSession(input: TrainingLocationSessionSaveInput) {
     await ensureAuthenticatedSession()
+    const normalizedProgramKey = normalizeTrainingProgramKey(input.program_key)
     const { data, error } = await supabase.rpc('save_training_location_session', {
       p_session_id: input.session_id || null,
+      p_program_key: normalizedProgramKey,
       p_title: input.title,
       p_training_date: input.training_date,
       p_start_time: input.start_time || null,
@@ -161,7 +201,24 @@ export const trainingLocationsApi = {
       p_note: input.note || null,
       p_venues: input.venues
     })
-    if (error) throw normalizeTrainingLocationError(error)
+    if (error) {
+      if (isSupabaseRpcMissingError(error, 'save_training_location_session') && normalizedProgramKey === DEFAULT_TRAINING_PROGRAM_KEY) {
+        const fallback = await supabase.rpc('save_training_location_session', {
+          p_session_id: input.session_id || null,
+          p_title: input.title,
+          p_training_date: input.training_date,
+          p_start_time: input.start_time || null,
+          p_end_time: input.end_time || null,
+          p_status: input.status,
+          p_note: input.note || null,
+          p_venues: input.venues
+        })
+        if (fallback.error) throw normalizeTrainingLocationError(fallback.error)
+        return String(fallback.data || '')
+      }
+
+      throw normalizeTrainingLocationError(error)
+    }
     return String(data || '')
   },
 

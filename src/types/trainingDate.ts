@@ -9,6 +9,8 @@ export type TrainingMonthDateItem = {
 export type TrainingMonthDates = {
   month_start: string
   month: string
+  program_key: string
+  program_label: string
   training_dates: string[]
   note: string | null
   is_default: boolean
@@ -19,6 +21,8 @@ export type TrainingMonthDateSaveResult = {
   success?: boolean
   changed: boolean
   month_start: string
+  program_key: string
+  program_label: string
   training_dates: string[]
   added_dates: string[]
   removed_dates: string[]
@@ -30,6 +34,8 @@ export type TrainingDateNotificationDispatchResult = {
   success?: boolean
   dry_run?: boolean
   month_start?: string
+  program_key?: string
+  program_label?: string
   target_row_count?: number
   group_count?: number
   active_user_count?: number

@@ -127,6 +127,12 @@ const router = createRouter({
           meta: { feature: 'training_dates' }
         },
         {
+          path: 'training-program-settings',
+          name: 'TrainingProgramSettings',
+          component: () => import('../views/TrainingProgramSettingsView.vue'),
+          meta: { feature: 'training_dates' }
+        },
+        {
           path: 'coach-schedules',
           name: 'CoachSchedules',
           component: () => import('../views/CoachSchedulesView.vue'),

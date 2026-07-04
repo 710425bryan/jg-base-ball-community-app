@@ -48,7 +48,12 @@ const selectedTrainingLocations = computed(() =>
       return leftKey.localeCompare(rightKey)
     })
 )
-const trainingMonthDates = computed(() => props.snapshot.training_month_dates)
+const selectedProgramKey = computed(() => selectedMember.value?.training_program || 'chunggang_school_team')
+const selectedProgramLabel = computed(() => selectedMember.value?.training_program_label || selectedMember.value?.team_group || '中港校隊')
+const trainingMonthDates = computed(() =>
+  props.snapshot.training_month_dates_by_program[selectedProgramKey.value]
+  || props.snapshot.training_month_dates
+)
 const upcomingTrainingMonthDate = computed(() =>
   trainingMonthDates.value.find((item) => !item.is_past)
   || trainingMonthDates.value[trainingMonthDates.value.length - 1]
@@ -77,8 +82,11 @@ const memberMetaText = computed(() => {
   if (!selectedMember.value) return '請管理員完成帳號與球員綁定'
 
   return [
+    selectedProgramLabel.value,
     selectedMember.value.role,
-    selectedMember.value.team_group,
+    selectedMember.value.team_group && selectedMember.value.team_group !== selectedProgramLabel.value
+      ? selectedMember.value.team_group
+      : null,
     selectedMember.value.jersey_number ? `#${selectedMember.value.jersey_number}` : null
   ].filter(Boolean).join('｜') || '球隊成員'
 })
@@ -201,6 +209,7 @@ watch(() => selectedMember.value?.id, () => {
                 本月訓練日期
               </div>
               <p class="mt-1 text-sm font-bold text-emerald-700">
+                <span class="mr-1">{{ selectedProgramLabel }}</span>
                 <span v-if="upcomingTrainingMonthDate">下一次 {{ upcomingTrainingMonthDate.label }}</span>
                 <span v-else>當月訓練日會顯示在這裡</span>
               </p>
@@ -358,6 +367,7 @@ watch(() => selectedMember.value?.id, () => {
               <div class="min-w-0">
                 <div class="text-sm font-black text-slate-900">本月訓練日期</div>
                 <p class="mt-1 text-xs font-bold text-emerald-700">
+                  <span class="mr-1">{{ selectedProgramLabel }}</span>
                   <span v-if="upcomingTrainingMonthDate">下一次 {{ upcomingTrainingMonthDate.label }}</span>
                   <span v-else>當月訓練日會顯示在這裡</span>
                 </p>

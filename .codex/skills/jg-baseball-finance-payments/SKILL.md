@@ -49,7 +49,8 @@ description: "Finance, fees, payment submissions, player balances, match fees, r
 - 球員餘額不可扣成負數；家長自助使用餘額後仍需管理端審核才正式扣款。
 - 社區球員固定月繳以 `team_members.fee_billing_mode = 'monthly_fixed'` 表示，角色仍是 `球員`。
 - 球員計次月費以 `team_members.fee_billing_mode = 'monthly_per_session'` 表示，角色仍是 `球員`，但隊費進 `monthly_fees` 並採校隊同款計次公式。
-- 校隊與球員計次月費只把落在訓練日期內的全日 / 上午假單算作請假扣減；下午假代表上午課程仍需收費，不扣計次月費。
+- 校隊與球員計次月費只把落在該球員 program 訓練日期內的全日 / 上午假單算作請假扣減；下午假代表上午課程仍需收費，不扣計次月費。
+- `monthly_fees.training_program` 保留月費當期 program snapshot；月費頁需支援球員搜尋、program 篩選 / 小計與 CSV program 欄位，row-level `total_sessions` 不可再用單一全域堂數套所有人。
 - 固定月繳與球員計次月費都排除 `quarterly_fees` 與家庭季費分組。
 - 球員 / 校隊不收費以 `team_members.fee_billing_mode = 'no_fee'` 表示；不產生新的月費、季費與比賽費，但既有帳款保留，裝備付款仍維持自費。
 - 月繳付款回報開放期別要依 `monthly_fees.calculation_type` / 有效收費模式區分：校隊與球員計次月費只開放已結束月份，`monthly_fixed` 固定月繳球員每月 25 日起開放下月；前端 helper 與 DB trigger 必須同步。

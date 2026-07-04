@@ -358,8 +358,8 @@ const systemFeatures = [
   },
   {
     key: 'training_dates',
-    name: '訓練日期設定',
-    desc: '設定每月訓練日期並發送日期異動通知',
+    name: '訓練項目與日期設定',
+    desc: '設定訓練項目、每月訓練日期並發送日期異動通知',
     actions: ['VIEW', 'EDIT']
   },
   {

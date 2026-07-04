@@ -49,6 +49,12 @@ const normalizeDateArray = (value: unknown) =>
     ? [...new Set(value.map(normalizeDate).filter((item): item is string => Boolean(item)))].sort()
     : [];
 
+const normalizeProgramKey = (value: unknown) => {
+  if (typeof value !== "string") return "chunggang_school_team";
+  const normalized = value.trim().toLowerCase().replace(/[^a-z0-9_:-]+/g, "_").replace(/^_+|_+$/g, "");
+  return normalized || "chunggang_school_team";
+};
+
 const canCallerEditTrainingDates = async (req: Request) => {
   const authHeader = req.headers.get("Authorization") || "";
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
@@ -96,9 +102,10 @@ const assertAuthorized = async (req: Request) => {
   throw jsonResponse({ success: false, error: "training date notification is not allowed" }, 403);
 };
 
-const fetchTargets = async (monthStart: string) => {
+const fetchTargets = async (monthStart: string, programKey: string) => {
   const { data, error } = await supabase.rpc("list_training_date_notification_targets", {
     p_month_start: monthStart,
+    p_program_key: programKey,
   });
 
   if (error) throw error;
@@ -135,6 +142,10 @@ serve(async (req) => {
     const trainingDates = normalizeDateArray(payload.training_dates);
     const addedDates = normalizeDateArray(payload.added_dates);
     const removedDates = normalizeDateArray(payload.removed_dates);
+    const programKey = normalizeProgramKey(payload.program_key);
+    const programLabel = typeof payload.program_label === "string" && payload.program_label.trim()
+      ? payload.program_label.trim()
+      : programKey;
     const changeKey = typeof payload.change_key === "string" && payload.change_key.trim()
       ? payload.change_key.trim()
       : crypto.randomUUID();
@@ -150,10 +161,11 @@ serve(async (req) => {
         skipped: true,
         reason: "no_date_changes",
         month_start: monthStart,
+        program_key: programKey,
       });
     }
 
-    const targets = await fetchTargets(monthStart);
+    const targets = await fetchTargets(monthStart, programKey);
     const groups = groupTrainingDateNotificationTargets(targets);
     const targetUserIds = [...new Set(groups.map((group) => group.userId))];
     const subscriptions = dryRun ? [] : await fetchEnabledPushSubscriptions(supabase, targetUserIds);
@@ -168,6 +180,8 @@ serve(async (req) => {
     const groupResults: Array<Record<string, unknown>> = [];
     const context = {
       monthStart,
+      programKey,
+      programLabel,
       trainingDates,
       addedDates,
       removedDates,
@@ -250,6 +264,8 @@ serve(async (req) => {
       success: true,
       dry_run: dryRun,
       month_start: monthStart,
+      program_key: programKey,
+      program_label: programLabel,
       target_row_count: targets.length,
       group_count: groups.length,
       active_user_count: targetUserIds.length,

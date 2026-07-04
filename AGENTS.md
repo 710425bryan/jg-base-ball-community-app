@@ -44,7 +44,7 @@
 | 賽事紀錄、陣容、照片、語音、天氣 | `jg-baseball-match-records-media` | `CalendarView.vue`、`MatchRecordsView.vue`、`src/services/matchesApi.ts`、`src/components/match-records/*` |
 | Google Calendar / iCal 賽事同步 | `jg-baseball-match-calendar-sync` | `src/utils/googleCalendarParser.ts`、`src/services/matchesApi.ts`、`SyncCalendarDialog.vue` |
 | 特訓報名、球員點數、特訓點名 | `jg-baseball-training` | `src/views/TrainingView.vue`、`src/services/trainingApi.ts`、`src/utils/training.ts`、`supabase_training_points_migration.sql` |
-| 每月訓練日期、日期異動通知 | `jg-baseball-training-dates` | `src/views/TrainingDatesView.vue`、`src/services/trainingDatesApi.ts`、`src/utils/trainingMonthDates.ts`、`supabase_training_dates_migration.sql` |
+| 訓練項目、每月訓練日期、日期異動通知 | `jg-baseball-training-dates` | `src/views/TrainingProgramSettingsView.vue`、`src/views/TrainingDatesView.vue`、`src/services/trainingProgramsApi.ts`、`src/services/trainingDatesApi.ts`、`src/utils/trainingMonthDates.ts`、`supabase_training_dates_migration.sql` |
 | 場地與人員配置 | `jg-baseball-training-locations` | `src/views/TrainingLocationsView.vue`、`src/services/trainingLocationsApi.ts`、`src/utils/trainingLocationNotification.ts`、`supabase_training_locations_migration.sql` |
 | 教練排班表、教練上課日 | `jg-baseball-coach-schedules` | `src/views/CoachSchedulesView.vue`、`src/services/coachSchedulesApi.ts`、`src/utils/coachSchedules.ts`、`supabase_coach_schedules_migration.sql` |
 | 收費、付款、球員餘額、比賽費、匯款匯入 | `jg-baseball-finance-payments` | `FeesView.vue`、`MyPaymentsView.vue`、`src/services/myPayments.ts`、`src/services/matchFees.ts`、`src/services/playerBalances.ts` |
@@ -119,7 +119,7 @@
 登入後頁面掛在 `MainLayout`，父層 `meta.requiresAuth = true`。
 
 - 不需額外 feature 的登入頁：`/dashboard`、`/calendar`、`/profile`、`/my-records`、`/my-payments`、`/equipment-addons`、`/my-leave-requests`。
-- 需要 `meta.feature` 的後台頁：`leave_requests`、`players`、`users`、`join_inquiries`、`announcements`、`holiday_theme_settings`、`attendance`、`training`、`training_dates`、`training_locations`、`coach_schedules`、`matches`、`fees`、`baseball_ability`、`physical_tests`、`equipment`、`vendors`。
+- 需要 `meta.feature` 的後台頁：`leave_requests`、`players`、`users`、`join_inquiries`、`announcements`、`holiday_theme_settings`、`attendance`、`training`、`training_dates`（含 `/training-dates`、`/training-program-settings`）、`training_locations`、`coach_schedules`、`matches`、`fees`、`baseball_ability`、`physical_tests`、`equipment`、`vendors`。
 - `baseball_ability` 與 `physical_tests` 有 `allowLinkedMemberView` 例外：有綁定球員者可唯讀自己的資料；管理權限者可看全隊。
 - 無權限時導回 `/dashboard`。
 
@@ -201,14 +201,15 @@
 
 ### 場地與人員配置
 
-- 後台路由 `/training-dates`，feature key 為 `training_dates`，actions：`VIEW / EDIT`。
-- 資料表為 `training_month_date_settings`；未設定月份由 `get_training_month_dates()` 回傳該月所有星期六。
-- 後台儲存走 `save_training_month_dates()`，只管理日期，不取代 `/training-locations` 的場地與人員配置。
-- DB 排程 `training-month-date-defaults-daily` 於台灣時間每日 00:05 呼叫 `ensure_training_month_date_setting()`；每月 1 日會自動建立當月預設週六設定，已存在設定時不覆蓋，也不發送通知。
-- 日期有新增或取消時，`send-training-date-notifications` 會通知綁定有效球員 / 校隊的家長與球員；通知中心只顯示 `target_user_id = auth.uid()` 的訓練日期通知。
+- 後台路由 `/training-program-settings` 與 `/training-dates`，feature key 為 `training_dates`，actions：`VIEW / EDIT`；訓練項目設定使用 `training_program_settings`，只保存 program 名稱、對應 `team_group`、預設星期 / 時間 / 場地與啟用狀態。
+- `role = 校隊` 保持不變；國中校隊以 `team_group = 國中校隊` 對應 `training_program_settings.team_group`，找不到對應時校隊與計次月費 fallback 到中港校隊。
+- 資料表為 `training_month_date_settings`；`program_key` 與 `month_start` 共同決定每個 program 的月份設定。未設定月份由 `get_training_month_dates(p_month, p_program_key)` 依訓練項目預設星期產生。
+- 後台儲存走 `save_training_month_dates()`，只管理該 program 日期，不取代 `/training-locations` 的場地與人員配置。
+- DB 排程 `training-month-date-defaults-daily` 於台灣時間每日 00:05 呼叫 `ensure_training_month_date_setting()`；每月 1 日會自動建立預設設定，已存在設定時不覆蓋，也不發送通知。
+- 日期有新增或取消時，`send-training-date-notifications` 只通知該 program 綁定有效球員 / 校隊的家長與球員；通知中心只顯示 `target_user_id = auth.uid()` 的訓練日期通知。
 - 後台路由 `/training-locations`，feature key 為 `training_locations`，actions：`VIEW / CREATE / EDIT / DELETE`。
 - 資料表為 `training_venues`、`training_location_sessions`、`training_location_session_venues`、`training_location_assignments`；前端一律走 `src/services/trainingLocationsApi.ts` 封裝的 security definer RPC。
-- 設定頁可建立某天訓練的多場地區塊，依全隊、角色或 `team_group` 快速帶入球員，再手動拖曳 / 勾選微調；同一訓練同一球員只能被配置到一個場地。
+- 設定頁可建立某天訓練的多場地區塊，先選訓練 program；新增配置會套用 `training_program_settings` 的預設時間與場地，球員池與全隊快捷加入只取目前 program 球員，再手動拖曳 / 勾選微調；同一訓練同一球員只能被配置到一個場地。
 - 場地配置的每個場地區塊可各自建立一張連動點名單；建立需 `training_locations:EDIT` + `attendance:CREATE`，開啟與操作仍走既有 `attendance:VIEW / EDIT / DELETE`。配置儲存後若場地已有連動點名單，DB 會同步該場地最新球員名單，移除已不在該場地內的點名紀錄。
 - 個人首頁透過 `get_my_home_snapshot()` 或 `list_my_week_training_locations()` 顯示 linked member 本週訓練場地；已請假球員仍可看到配置，但只有假單時段與場地訓練時間重疊才標示已請假。場地沒有開始 / 結束時間時，請假判斷使用上午區段 `09:00 - 12:00`；若場地使用預設上午時間 `09:00 - 12:30`，假單判斷仍收斂為上午區段，所以下午假不標示上午場地已請假。
 - `send-training-location-notifications` 於台灣時間前一天 20:10 或手動觸發，僅通知該球員綁定的有效使用者，且排除假單時段與該場地訓練時間重疊的球員；場地無時間或預設上午時間時同樣以上午區段判斷，下午假不排除上午場地通知；通知事件寫入 `push_dispatch_events.target_user_id` / `target_member_ids`，通知中心只顯示自己的場地通知。

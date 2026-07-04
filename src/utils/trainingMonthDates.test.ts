@@ -33,6 +33,16 @@ describe('trainingMonthDates', () => {
     ])
   })
 
+  it('returns configurable weekday defaults for junior high school team', () => {
+    expect(getDefaultTrainingMonthDates('2026-05', [0])).toEqual([
+      '2026-05-03',
+      '2026-05-10',
+      '2026-05-17',
+      '2026-05-24',
+      '2026-05-31'
+    ])
+  })
+
   it('filters, deduplicates, and sorts training dates inside the target month', () => {
     expect(normalizeTrainingMonthDateList([
       '2026-05-23',
@@ -90,6 +100,8 @@ describe('trainingDateNotification', () => {
   it('builds stable notification payload text', () => {
     const context = {
       monthStart: '2026-05-01',
+      programKey: 'junior_high_school_team',
+      programLabel: '國中校隊',
       trainingDates: ['2026-05-02', '2026-05-16'],
       addedDates: ['2026-05-16'],
       removedDates: ['2026-05-09'],
@@ -98,9 +110,9 @@ describe('trainingDateNotification', () => {
     const group = { userId: 'user-1' }
 
     expect(buildTrainingDateNotificationEventKey(group, context))
-      .toBe('training_dates:2026-05-01:user-1:2026-05-01T08:00:00.000Z')
-    expect(buildTrainingDateNotificationUrl(context)).toBe('/dashboard?training_month=2026-05')
-    expect(buildTrainingDateNotificationTitle(context)).toBe('訓練日期異動：2026 年 5 月')
+      .toBe('training_dates:junior_high_school_team:2026-05-01:user-1:2026-05-01T08:00:00.000Z')
+    expect(buildTrainingDateNotificationUrl(context)).toBe('/dashboard?training_month=2026-05&training_program=junior_high_school_team')
+    expect(buildTrainingDateNotificationTitle(context)).toBe('國中校隊 訓練日期異動：2026 年 5 月')
     expect(buildTrainingDateNotificationBody(context)).toBe([
       '本月訓練日：5/2 週六、5/16 週六',
       '新增：5/16 週六',
