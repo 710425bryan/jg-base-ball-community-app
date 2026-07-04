@@ -9,6 +9,11 @@ const unwrapRows = <T>(data: T[] | T | null | undefined) => {
   return Array.isArray(data) ? data : [data]
 }
 
+const normalizeNumber = (value: unknown) => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
 const normalizeMember = (row: any): MyPlayerRecordMember => ({
   member_id: String(row?.member_id || ''),
   name: String(row?.name || ''),
@@ -28,8 +33,8 @@ const normalizeMatchRecord = (row: any): MyPlayerMatchRecord => ({
   inning_logs: Array.isArray(row?.inning_logs) ? row.inning_logs : [],
   batting_stats: Array.isArray(row?.batting_stats) ? row.batting_stats : [],
   pitching_stats: Array.isArray(row?.pitching_stats) ? row.pitching_stats : [],
-  home_score: Number(row?.home_score || 0),
-  opponent_score: Number(row?.opponent_score || 0)
+  home_score: normalizeNumber(row?.home_score),
+  opponent_score: normalizeNumber(row?.opponent_score)
 })
 
 export const listMyPlayerRecordMembers = async () => {

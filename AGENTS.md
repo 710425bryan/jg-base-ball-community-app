@@ -96,6 +96,7 @@
 - UI 文案以繁體中文為主，語氣貼近現有系統。
 - 頁面專屬邏輯留在 `views`；可重用 UI 放 `components`；可測試邏輯放 `utils` / `composables`；外部資料存取放 `services`。
 - 新增或調整型別時同步更新 `src/types/*` 與實際資料 normalize 流程。
+- 新增、修改或刪除原始碼檔案時，必須同步新增或更新對應 unit test；每個被動到的 `views`、`components`、`stores`、`services`、`composables`、`utils`、Edge Function logic 檔案，都要有同名測試或明確被既有測試涵蓋。若是文件、純型別、migration、產物或其他不適合 unit test 的例外，回報時必須說明原因與替代驗證。
 - 新增 route-level 頁面時，同步建立或更新該頁面的流程規則：至少更新 `AGENTS.md`、`docs/PROJECT_LOGIC.md`、`docs/FILE_MAP.md`，若是新功能域或資料流複雜，還要新增 / 更新 `.codex/skills/<feature>/SKILL.md` 與 `AI_SKILLS.md`。
 - 修改前確認是否有使用者尚未提交的變更；不得 revert unrelated changes。
 - 不編輯 `dist/`、`dev-dist/`、`public/version.json`，除非任務就是建置輸出或 PWA 版本問題。
@@ -338,6 +339,7 @@
 - 文件-only：`git diff --check`
 - TypeScript / Vue：`pnpm exec vue-tsc --noEmit`
 - 純 utils：`pnpm exec vitest run <target.test.ts>`
+- 新增 / 修改 / 刪除原始碼：同步新增或更新對應 unit test；檔案調整完成後必須實際跑最貼近的 `pnpm exec vitest run <target.test.ts>`，不可只口頭說明應該跑。刪除原始碼時同步移除或調整相關測試，確認沒有 stale import。
 - UI 或整合風險高：`pnpm build`
 - 裝備：`pnpm exec vitest run src/utils/equipmentInventory.test.ts src/utils/equipmentPricing.test.ts src/utils/equipmentRequestStatus.test.ts`
 - 賽事同步：`pnpm exec vitest run src/utils/googleCalendarParser.test.ts src/services/matchesApi.test.ts`
