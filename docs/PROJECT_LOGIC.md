@@ -408,7 +408,7 @@ UI 約定：
 - `save_training_location_session()` 會重建該訓練的場地與指派；DB 以 `(session_id, member_id)` 確保同一球員只在一個場地。
 - `create_training_location_venue_attendance_event()` 會為單一場地區塊建立或重用一張點名單，並由 `sync_training_location_attendance_records()` 自動同步該場地最新配置球員。
 - 場地配置 roster 仍顯示 `fee_billing_mode = 'no_fee'` 的球員 / 校隊並標註「不收費」，但前端不可勾選、拖曳、快捷加入或保存；DB 端也拒絕新的 no-fee assignment。既有配置可顯示，下次儲存會移除。
-- 個人首頁透過 `get_my_home_snapshot()` 的 `training_locations` 或 `list_my_week_training_locations()` fallback 顯示 linked member 本週場地；標題、日期與時間以場地區塊設定優先，未設定才回退 session 共用值，已請假時標示但不通知。
+- 個人首頁透過 `get_my_home_snapshot()` 的 `training_locations` 或 `list_my_week_training_locations()` fallback 顯示 linked member 本週場地；標題、日期與時間以場地區塊設定優先，未設定才回退 session 共用值。已請假標示必須用假單時段與場地時間重疊判斷；場地與 session 都沒有時間時，使用上午區段 `09:00 - 12:00` 判斷。若場地使用預設上午時間 `09:00 - 12:30`，假單判斷仍收斂為上午區段，所以下午假不標示上午場地已請假。
 - `send-training-location-notifications` 每日台灣時間 20:10 檢查隔天已發布配置，也可由設定頁手動觸發；通知標題、日期與時間以場地區塊設定優先，同一使用者綁多名且同訓練資訊的球員時合併成一則通知。
 
 重要規則：
@@ -416,7 +416,7 @@ UI 約定：
 - `training_locations` feature/actions 為 `VIEW / CREATE / EDIT / DELETE`，預設只建立 `ADMIN` 權限。
 - 個人端只能看到自己的 linked member；管理端也只透過 security definer RPC 讀寫，不直接查 raw table。
 - 建立場地配置點名單需 `training_locations:EDIT` + `attendance:CREATE`；點名頁查看與出席 / 請假操作仍依 `attendance` 權限。多場地配置需分別從各場地區塊建立 / 開啟點名單。
-- 場地通知必須排除 `leave_requests.start_date <= training_date <= end_date` 的球員，且通知中心只能顯示 `target_user_id = auth.uid()` 的場地通知。
+- 場地通知必須排除假單日期涵蓋訓練日且 `leave_time_segment` 與場地時間重疊的球員；場地與 session 都沒有時間、或使用預設上午時間時，以上午區段判斷，下午假不排除上午場地通知。通知中心只能顯示 `target_user_id = auth.uid()` 的場地通知。
 
 ## 12A. 教練排班表
 

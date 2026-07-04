@@ -417,6 +417,30 @@ const canDelete = computed(() =>
   (isTrainingEvent.value && permissionsStore.can('training', 'DELETE'))
 )
 
+const ATTENDANCE_EDIT_PERMISSION_MESSAGE = '權限不足，您目前沒有編輯點名紀錄的權限，請聯繫管理員確認角色權限。'
+
+const isPermissionDeniedError = (error: any) => {
+  const message = [
+    error?.code,
+    error?.status,
+    error?.message,
+    error?.details,
+    error?.hint
+  ].filter(Boolean).join(' ').toLowerCase()
+
+  return error?.code === '42501' ||
+    error?.status === 403 ||
+    message.includes('permission denied') ||
+    message.includes('row-level security') ||
+    message.includes('violates row-level security policy') ||
+    message.includes('permission required')
+}
+
+const getAutoSaveErrorMessage = (error: any) =>
+  isPermissionDeniedError(error)
+    ? `自動存檔失敗：${ATTENDANCE_EDIT_PERMISSION_MESSAGE}`
+    : '自動存檔失敗，請確認網路連線'
+
 const statusOptions = computed(() => [
   // Detail 頁不提供缺席操作；缺席 / 禁報需走明確管理流程。
   { label: '出席', value: '出席', bgClass: 'bg-green-50', textClass: 'text-green-600', icon: '✅' },
@@ -464,13 +488,18 @@ const flushChanges = async () => {
     }
   } catch (err: any) {
     console.error('Auto-sync failed', err)
-    ElMessage.error('自動存檔失敗，請確認網路連線')
+    ElMessage.error(getAutoSaveErrorMessage(err))
   } finally {
     isSyncing.value = false
   }
 }
 
 const setPlayerStatus = (playerId: string, status: string) => {
+  if (!hasAccess.value) {
+    ElMessage.warning(ATTENDANCE_EDIT_PERMISSION_MESSAGE)
+    return
+  }
+
   const p = playersList.value.find(x => x.id === playerId)
   if (p && p.status !== status) {
     p.status = status

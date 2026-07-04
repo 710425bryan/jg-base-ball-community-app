@@ -74,6 +74,7 @@
 | `supabase_zzzzzzzzz_training_location_attendance_migration.sql` | 場地配置連動點名 | 覆寫場地列表 / 儲存 RPC，新增 `attendance_events.training_location_session_id` / `training_location_session_venue_id` |
 | `supabase_zzzzzzzzzz_training_location_venue_settings_migration.sql` | 場地區塊訓練設定 | 新增 `training_location_session_venues` 的標題 / 日期 / 時間欄位，覆寫場地列表、儲存、通知、個人首頁與連動點名 RPC |
 | `supabase_zzzzzzzzzzz_no_fee_roster_exclusions_migration.sql` | 不收費球員 roster 排除 | 覆寫場地 roster / 儲存 / 連動點名 RPC；新場地配置與新點名排除 `fee_billing_mode = no_fee`，舊點名紀錄保留 |
+| `supabase_zzzzzzzzzzzzzzzzzz_training_location_leave_time_segment_migration.sql` | 場地請假時段判斷修正 | 覆寫場地 roster、管理列表、個人首頁本週場地與場地通知 target；場地時間缺失或使用預設上午時間時以上午區段判斷，下午假不標示 / 排除上午場地 |
 | `supabase_coach_schedules_migration.sql` | 教練排班表 | 新增 `coach_schedule_events` / `coach_schedule_assignments`、`coach_schedules` 權限與 Dashboard / 管理頁 RPC；候選日需搭配 `/training-dates` 與場地配置 |
 | `supabase_coach_schedules_schedulable_coaches_hotfix.sql` | 可排班教練清單 hotfix | 覆寫 `list_schedulable_coaches()`，放寬 role 空白 / 中文歷史值並維持 active access 檢查 |
 | `supabase_coach_schedules_training_location_sync_hotfix.sql` | 教練排班場地同步 hotfix | 場地配置區塊更新時同步已儲存 `coach_schedule_events` 的來源日期 / 時間 / 標題 / 地點快照 |

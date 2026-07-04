@@ -19,6 +19,7 @@ import { normalizeMyHomeNextEvent } from '@/utils/myHomeSnapshot'
 import { isActiveRosterMember } from '@/utils/memberLifecycle'
 import { leaveTimeSegmentOverlapsEventTime } from '@/utils/attendanceLeave'
 import { normalizeLeaveTimeSegment } from '@/utils/leaveRequests'
+import { buildTrainingLocationLeaveEventTimeText } from '@/utils/trainingLocationLeave'
 import {
   buildTrainingMonthDateItems,
   getDefaultTrainingMonthDates,
@@ -120,9 +121,6 @@ const isDateWithinLeaveRange = (date: string, leave: MyHomeLeaveRequestRow) => {
   return Boolean(date && startDate && startDate <= date && endDate >= date)
 }
 
-const buildTrainingLocationTimeText = (location: MyHomeTrainingLocation) =>
-  [location.start_time, location.end_time].filter(Boolean).join(' - ')
-
 const enrichSnapshotWithLeaveSegments = async (snapshot: MyHomeSnapshot): Promise<MyHomeSnapshot> => {
   const memberIds = Array.from(new Set(
     [
@@ -175,7 +173,7 @@ const enrichSnapshotWithLeaveSegments = async (snapshot: MyHomeSnapshot): Promis
         isDateWithinLeaveRange(location.training_date, leave)
         && leaveTimeSegmentOverlapsEventTime(
           leave.leave_time_segment,
-          buildTrainingLocationTimeText(location)
+          buildTrainingLocationLeaveEventTimeText(location)
         )
       ) || false
       return {

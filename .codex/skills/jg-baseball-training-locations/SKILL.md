@@ -45,7 +45,7 @@ description: "Training venue and player assignment workflow for jg-base-ball-com
 - 自動通知由 `send-training-location-notifications` 在台灣時間前一天 20:10 執行。
 - 手動通知走同一支 Edge Function。
 - 只通知該球員 linked 的有效 profiles；同一 profile 綁多名球員時合併成一則通知。
-- 當天已請假的球員必須排除通知，請假判斷使用 `leave_requests.start_date <= training_date <= end_date`。
+- 當天已請假的球員只有在假單時段與場地訓練時間重疊時才排除通知 / 標示已請假；場地與 session 都沒有開始 / 結束時間、或使用預設上午時間 `09:00 - 12:30` 時，請假判斷收斂為上午區段，下午假不排除上午場地。
 - `push_dispatch_events` 需寫入 `target_user_id` 與 `target_member_ids`，通知中心只能顯示 `target_user_id = auth.uid()` 的場地通知。
 - event key 使用 session、target user、session updated_at 組成，避免同一版本重複發送。
 
