@@ -315,7 +315,7 @@
 | 廠商 | `supabase_vendor_management_migration.sql` |
 | 能力 / 體測 | `supabase_performance_data_migration.sql`、`supabase_performance_view_scope_migration.sql` |
 | 特訓 / 點數 | `supabase_training_points_migration.sql`、`supabase_zz_training_point_transaction_delete_migration.sql`、`supabase_zz_training_registration_notifications_migration.sql`、`supabase_zzzzzzzz_training_auto_select_notifications_migration.sql` |
-| 訓練項目 / 訓練日期設定 / 換月預設排程 | `supabase_training_dates_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzz_training_program_scope_migration.sql` |
+| 訓練項目 / 訓練日期設定 / 換月預設排程 | `supabase_training_dates_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzz_training_program_scope_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzzzz_team_member_training_program_hotfix.sql` |
 | 場地與人員配置 | `supabase_training_locations_migration.sql`、`supabase_zzzzzzzzz_training_location_attendance_migration.sql`、`supabase_zzzzzzzzzz_training_location_venue_settings_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzz_training_location_leave_time_segment_migration.sql` |
 | 教練排班表 | `supabase_coach_schedules_migration.sql`、`supabase_coach_schedules_schedulable_coaches_hotfix.sql`、`supabase_coach_schedules_training_location_sync_hotfix.sql` |
 | 賽事同步 | `supabase_matches_google_calendar_sync_migration.sql`、`supabase_match_calendar_daily_sync_schedule.sql`、`supabase_match_leave_absences_migration.sql` |

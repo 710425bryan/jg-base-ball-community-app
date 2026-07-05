@@ -31,5 +31,6 @@ export type TrainingProgramSettingSaveInput = {
 export type TrainingProgramMemberLike = {
   role?: string | null
   team_group?: string | null
+  training_program?: string | null
   fee_billing_mode?: string | null
 }

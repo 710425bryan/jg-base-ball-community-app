@@ -32,6 +32,14 @@ describe('trainingPrograms', () => {
     }, getTrainingProgramFallbackSettings())).toBe(JUNIOR_HIGH_SCHOOL_TEAM_PROGRAM_KEY)
   })
 
+  it('uses member training_program before team_group fallback', () => {
+    expect(getTrainingProgramKeyForMember({
+      role: '校隊',
+      team_group: 'U13熊戰組',
+      training_program: JUNIOR_HIGH_SCHOOL_TEAM_PROGRAM_KEY
+    }, getTrainingProgramFallbackSettings())).toBe(JUNIOR_HIGH_SCHOOL_TEAM_PROGRAM_KEY)
+  })
+
   it('falls back old school team data to chunggang program', () => {
     expect(getTrainingProgramKeyForMember({
       role: '校隊',

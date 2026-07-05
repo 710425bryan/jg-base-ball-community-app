@@ -141,6 +141,13 @@ export const getScopedTrainingProgramForMember = (
   settings: TrainingProgramSetting[]
 ) => {
   const activeSettings = getActiveTrainingProgramSettings(settings)
+  const trainingProgramKey = normalizeTrainingProgramKey(member?.training_program, '')
+  const directProgram = trainingProgramKey
+    ? activeSettings.find((setting) => setting.program_key === trainingProgramKey)
+    : null
+
+  if (directProgram) return directProgram
+
   const teamGroup = normalizeComparableTeamGroup(member?.team_group)
   const matched = teamGroup
     ? activeSettings.find((setting) => normalizeComparableTeamGroup(setting.team_group) === teamGroup)

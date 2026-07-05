@@ -203,7 +203,7 @@
 ### 場地與人員配置
 
 - 後台路由 `/training-program-settings` 與 `/training-dates`，feature key 為 `training_dates`，actions：`VIEW / EDIT`；訓練項目設定使用 `training_program_settings`，只保存 program 名稱、對應 `team_group`、預設星期 / 時間 / 場地與啟用狀態。
-- `role = 校隊` 保持不變；國中校隊以 `team_group = 國中校隊` 對應 `training_program_settings.team_group`，找不到對應時校隊與計次月費 fallback 到中港校隊。
+- `role = 校隊` 保持不變；中港 / 新泰身分存於 `team_members.training_program`，`team_group` 只作所屬群組（熊隊）使用。舊資料若沒有 `training_program`，才 fallback 用 `team_group` 對應 `training_program_settings.team_group`；仍找不到時校隊與計次月費 fallback 到中港校隊。
 - 資料表為 `training_month_date_settings`；`program_key` 與 `month_start` 共同決定每個 program 的月份設定。未設定月份由 `get_training_month_dates(p_month, p_program_key)` 依訓練項目預設星期產生。
 - 後台儲存走 `save_training_month_dates()`，只管理該 program 日期，不取代 `/training-locations` 的場地與人員配置。
 - DB 排程 `training-month-date-defaults-daily` 於台灣時間每日 00:05 呼叫 `ensure_training_month_date_setting()`；每月 1 日會自動建立預設設定，已存在設定時不覆蓋，也不發送通知。

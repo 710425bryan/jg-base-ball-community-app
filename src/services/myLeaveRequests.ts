@@ -23,7 +23,7 @@ const filterActiveLeaveMembers = async (members: MyLeaveMember[]) => {
 
   const { data, error } = await supabase
     .from('team_members_safe')
-    .select('id, status, is_inactive_or_graduated, role, team_group')
+    .select('id, status, is_inactive_or_graduated, role, team_group, training_program')
     .in('id', memberIds)
 
   if (error) {
@@ -41,7 +41,8 @@ const filterActiveLeaveMembers = async (members: MyLeaveMember[]) => {
     String(member.id),
     {
       role: member.role ? String(member.role) : null,
-      team_group: member.team_group ? String(member.team_group) : null
+      team_group: member.team_group ? String(member.team_group) : null,
+      training_program: member.training_program ? String(member.training_program) : null
     }
   ]))
 
@@ -52,7 +53,8 @@ const filterActiveLeaveMembers = async (members: MyLeaveMember[]) => {
       return {
         ...member,
         role: member.role || meta?.role || '',
-        team_group: member.team_group || meta?.team_group || null
+        team_group: member.team_group || meta?.team_group || null,
+        training_program: member.training_program || meta?.training_program || null
       }
     })
 }

@@ -413,7 +413,7 @@ const filterActiveSnapshotMembers = async (snapshot: MyHomeSnapshot): Promise<My
 
   const { data, error } = await supabase
     .from('team_members_safe')
-    .select('id, status, is_inactive_or_graduated')
+    .select('id, status, is_inactive_or_graduated, training_program')
     .in('id', memberIds)
 
   if (error) {
@@ -426,9 +426,31 @@ const filterActiveSnapshotMembers = async (snapshot: MyHomeSnapshot): Promise<My
       .filter(isActiveRosterMember)
       .map((member) => String(member.id))
   )
+  const activeMemberMetaById = new Map(
+    (data || [])
+      .filter(isActiveRosterMember)
+      .map((member: any) => [
+        String(member.id),
+        {
+          training_program: member.training_program ? String(member.training_program) : null
+        }
+      ])
+  )
   const hasMemberRemoved = activeMemberIds.size !== memberIds.length
 
-  if (!hasMemberRemoved) return snapshot
+  const nextMembers = snapshot.members
+    .filter((member) => activeMemberIds.has(member.id))
+    .map((member) => ({
+      ...member,
+      training_program: member.training_program || activeMemberMetaById.get(member.id)?.training_program || null
+    }))
+
+  if (!hasMemberRemoved) {
+    return {
+      ...snapshot,
+      members: nextMembers
+    }
+  }
 
   const nextPaymentDue = snapshot.payment_summary.next_due
   const latestEquipmentRequest = snapshot.equipment_summary.latest_request
@@ -436,7 +458,7 @@ const filterActiveSnapshotMembers = async (snapshot: MyHomeSnapshot): Promise<My
 
   return {
     ...snapshot,
-    members: snapshot.members.filter((member) => activeMemberIds.has(member.id)),
+    members: nextMembers,
     today_leaves: snapshot.today_leaves.filter((leave) => activeMemberIds.has(leave.member_id)),
     training_locations: snapshot.training_locations.filter((location) => activeMemberIds.has(location.member_id)),
     payment_summary: {
@@ -520,7 +542,8 @@ export const getMyHomeSnapshot = async (today?: string | null) => {
     console.warn('訓練項目設定無法載入，首頁暫以預設項目判斷。', error)
     return getTrainingProgramFallbackSettings()
   })
-  const normalizedSnapshot = enrichSnapshotWithTrainingPrograms(normalizeSnapshot(payload), programSettings)
+  const activeNormalizedSnapshot = await filterActiveSnapshotMembers(normalizeSnapshot(payload))
+  const normalizedSnapshot = enrichSnapshotWithTrainingPrograms(activeNormalizedSnapshot, programSettings)
   const snapshotWithLocations = await enrichSnapshotWithTrainingLocations(
     normalizedSnapshot,
     payload,
@@ -530,7 +553,8 @@ export const getMyHomeSnapshot = async (today?: string | null) => {
 
   const withTrainingPoints = await enrichMembersWithTrainingPoints(snapshot, rawMembers)
   const activeSnapshot = await filterActiveSnapshotMembers(withTrainingPoints)
-  const snapshotWithLeaveSegments = await enrichSnapshotWithLeaveSegments(activeSnapshot)
+  const activeSnapshotWithPrograms = enrichSnapshotWithTrainingPrograms(activeSnapshot, programSettings)
+  const snapshotWithLeaveSegments = await enrichSnapshotWithLeaveSegments(activeSnapshotWithPrograms)
 
   return enrichSnapshotWithMatchFees(snapshotWithLeaveSegments)
 }

@@ -70,6 +70,7 @@
 | `supabase_zz_training_hotfix_verify.sql` | 特訓 hotfix 驗證 | 驗證用 SQL |
 | `supabase_training_dates_migration.sql` | 每月訓練日期設定、換月預設日期排程與日期異動通知 | `/training-dates` 主線，覆寫 `get_notification_feed()` / `get_my_home_snapshot()`，新增 `training-month-date-defaults-daily` DB cron |
 | `supabase_zzzzzzzzzzzzzzzzzz_training_program_scope_migration.sql` | 訓練項目設定與 program 分流 | 新增 `training_program_settings`、`training_month_date_settings.program_key`、`training_location_sessions.program_key`、`monthly_fees.training_program`，並新增 program-aware dates / locations RPC overload |
+| `supabase_zzzzzzzzzzzzzzzzzzzz_team_member_training_program_hotfix.sql` | 球員中港 / 新泰身分欄位 hotfix | 新增 `team_members.training_program` 並讓 program 判斷優先使用該欄，`team_group` 回歸所屬群組（熊隊） |
 | `supabase_training_locations_migration.sql` | 場地與人員配置主 migration | `/training-locations` 主線 |
 | `supabase_training_locations_assignment_schema_hotfix.sql` | 場地指派 schema hotfix | 修改 assignment 前讀 |
 | `supabase_zzzzzzzzz_training_location_attendance_migration.sql` | 場地配置連動點名 | 覆寫場地列表 / 儲存 RPC，新增 `attendance_events.training_location_session_id` / `training_location_session_venue_id` |

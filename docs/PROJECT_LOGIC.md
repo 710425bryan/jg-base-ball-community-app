@@ -196,6 +196,7 @@ UI 約定：
 - `team_members.joined_date` 記錄球員加入時間；既有名單無歷史資料時回填 `2026-02-01`，新建資料預設為台灣當天日期。
 - `team_members.grade` 記錄球員年級；新增 / 空值時依 `birth_date` 推算，出生日期 9 月 2 日以後預設晚一屆，名單年級每年 6 月 19 日自動升級，可由名單表單下拉選單手動調整。
 - 球員名單的 U-level 標籤依 `birth_date` 即時計算：今年生日已到或已過時顯示 `今年 - 出生年 + 1`，生日未到則顯示 `今年 - 出生年`；`U8` 以下統一顯示 `U8`，不使用年級或 9 月 2 日入學切點。
+- `team_members.training_program` 保存中港 / 新泰校隊身分；`team_group` 只作所屬群組（熊隊）使用，球員編輯表單不可把它鎖成訓練項目。
 - team group 設定使用 `teamGroups` store 與 `teamGroupsApi`；新增、改名、排序、刪除轉移都要同步影響 `PlayersView`、`TrainingView`、`TrainingLocationsView`、`LeaveRequestsView`、`RollCallView` 的組別選項。
 - 非 eligible role 不應保留 team group；刪除組別時要有轉移或清理策略。
 
@@ -374,8 +375,8 @@ UI 約定：
 
 資料流：
 
-- 管理者在 `/training-program-settings` 設定 program 名稱、對應 `team_group`、預設星期、時間、場地與啟用狀態；中港校隊預設週六 `09:00-12:30` / `中港國小`，國中校隊預設週日 `09:00-12:00` / `新泰國中`，這些值執行時從 DB 讀取。
-- `role = 校隊` 不新增身分；國中校隊以 `team_group = 國中校隊` 對應 program。找不到對應時，校隊與計次月費成員 fallback 到中港校隊。
+- 管理者在 `/training-program-settings` 設定 program 名稱、對應舊資料 `team_group` fallback、預設星期、時間、場地與啟用狀態；中港校隊預設週六 `09:00-12:30` / `中港國小`，國中校隊預設週日 `09:00-12:00` / `新泰國中`，這些值執行時從 DB 讀取。
+- `role = 校隊` 不新增 DB 角色；中港 / 新泰身分優先使用 `team_members.training_program`。`team_group` 保留為所屬群組（熊隊），只在舊資料沒有 `training_program` 時用來 fallback 對應 program；找不到對應時，校隊與計次月費成員 fallback 到中港校隊。
 - 管理者在 `/training-dates` 先選 program 再選月份並勾選該月訓練日期；未設定月份依該 program 的 `default_weekdays` 產生。
 - 個人首頁透過 `get_my_home_snapshot()` / `get_training_month_dates()` 補齊 `training_month_dates_by_program`；切換 linked member 時顯示該成員 program 的本月日期。
 - `save_training_month_dates()` 只儲存指定 program 的日期與備註，不建立場地、不指派球員，也不取代 `/training-locations`。

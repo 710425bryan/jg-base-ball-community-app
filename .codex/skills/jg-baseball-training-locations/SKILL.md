@@ -30,7 +30,7 @@ description: "Training venue, program scope, and player assignment workflow for 
 - 常用場地存在 `training_venues`。
 - 訓練主檔存在 `training_location_sessions`，以 `program_key` 區分中港 / 國中等 program；若建立連動點名，會透過 `attendance_events.training_location_session_id` / `training_location_session_venue_id` 串到現有點名系統。
 - 新增配置時從 `training_program_settings` 套用預設開始 / 結束時間與場地；不可在頁面邏輯寫死週六、週日、時間或場地。
-- 球員池、全隊快捷加入與 roster RPC 列出全部有效球員 / 校隊；program 判斷以 `team_group` 對應 `training_program_settings.team_group`，找不到時校隊 / 計次月費 fallback 中港校隊，但 program 只用來標記球員所屬訓練項目與決定配置主檔 / 預設場地時間 / 通知語意，不限制可編排球員。
+- 球員池、全隊快捷加入與 roster RPC 列出全部有效球員 / 校隊；program 判斷優先使用 `team_members.training_program`，舊資料才以 `team_group` 對應 `training_program_settings.team_group`，找不到時校隊 / 計次月費 fallback 中港校隊。`team_group` 是所屬群組（熊隊），不可再拿來鎖住中港 / 新泰身份的群組選單；program 只用來標記球員所屬訓練項目與決定配置主檔 / 預設場地時間 / 通知語意，不限制可編排球員。
 - 多場地區塊存在 `training_location_session_venues`。
 - 球員指派存在 `training_location_assignments`，同一訓練同一球員只能被指派一次。
 - 個人首頁只顯示登入者 linked member 的本週已發布配置。

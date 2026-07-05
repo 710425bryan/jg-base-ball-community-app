@@ -398,8 +398,8 @@
                 <el-option v-for="option in memberIdentityOptions" :key="option.value" :label="option.label" :value="option.value" />
               </el-select>
             </el-form-item>
-            <el-form-item :label="teamGroupFieldLabel" prop="team_group" class="font-bold mb-0" v-if="isTeamMemberFormRole">
-              <el-select v-model="form.team_group" class="w-full" filterable :disabled="isSchoolProgramIdentity">
+            <el-form-item label="所屬群組 (熊隊)" prop="team_group" class="font-bold mb-0" v-if="isTeamMemberFormRole">
+              <el-select v-model="form.team_group" class="w-full" filterable>
                 <el-option v-for="option in teamGroupOptions" :key="option.value" :label="option.label" :value="option.value" />
               </el-select>
             </el-form-item>
@@ -757,6 +757,11 @@ import {
   isTeamGroupEligibleRole,
   normalizeTeamGroup
 } from '@/utils/teamGroups'
+import {
+  CHUNGGANG_SCHOOL_TEAM_PROGRAM_KEY,
+  JUNIOR_HIGH_SCHOOL_TEAM_PROGRAM_KEY,
+  normalizeTrainingProgramKey
+} from '@/utils/trainingPrograms'
 import axios from 'axios'
 
 const authStore = useAuthStore()
@@ -819,8 +824,11 @@ const memberIdentityOptions: Array<{ label: string; value: MemberIdentity }> = [
   { label: '管理群', value: '管理群' },
   { label: '其他', value: '其他' }
 ]
-const isSchoolProgramIdentityValue = (value: unknown) =>
-  value === CHUNGGANG_PLAYER_IDENTITY || value === XINTAI_PLAYER_IDENTITY
+const getSchoolTeamIdentityProgramKey = (identity: MemberIdentity) => {
+  if (identity === XINTAI_PLAYER_IDENTITY) return JUNIOR_HIGH_SCHOOL_TEAM_PROGRAM_KEY
+  if (identity === CHUNGGANG_PLAYER_IDENTITY) return CHUNGGANG_SCHOOL_TEAM_PROGRAM_KEY
+  return null
+}
 
 const getTodayDateInputValue = () => {
   const today = new Date()
@@ -861,6 +869,10 @@ const isMonthlyPerSessionMember = (member: any) => isMonthlyPerSessionBillingMem
 const isNoFeeMember = (member: any) => isNoFeeBillingMember(member)
 const getMemberIdentityValue = (member: any): MemberIdentity => {
   if (member?.role === '校隊') {
+    const trainingProgram = normalizeTrainingProgramKey(member.training_program, '')
+    if (trainingProgram === JUNIOR_HIGH_SCHOOL_TEAM_PROGRAM_KEY) return XINTAI_PLAYER_IDENTITY
+    if (trainingProgram === CHUNGGANG_SCHOOL_TEAM_PROGRAM_KEY) return CHUNGGANG_PLAYER_IDENTITY
+
     return normalizeTeamGroup(member.team_group) === XINTAI_SCHOOL_TEAM_GROUP
       ? XINTAI_PLAYER_IDENTITY
       : CHUNGGANG_PLAYER_IDENTITY
@@ -1391,6 +1403,7 @@ const createInitialForm = () => ({
   member_identity: COMMUNITY_PLAYER_IDENTITY as MemberIdentity,
   role: '球員',
   team_group: defaultCommunityTeamGroupValue.value,
+  training_program: null as string | null,
   status: '在隊',
   jersey_number: '',
   jersey_name: '',
@@ -1421,8 +1434,6 @@ const createInitialForm = () => ({
 const form = reactive(createInitialForm())
 const lastAutoGrade = ref('')
 const isTeamMemberFormRole = computed(() => form.role === '球員' || form.role === '校隊')
-const isSchoolProgramIdentity = computed(() => isSchoolProgramIdentityValue(form.member_identity))
-const teamGroupFieldLabel = computed(() => isSchoolProgramIdentity.value ? '訓練項目' : '所屬群組 (熊隊)')
 const billingModeOptions = computed(() => [
   {
     label: form.role === '校隊' ? '校隊月繳' : '球員季繳',
@@ -1449,6 +1460,7 @@ const billingModeOptions = computed(() => [
 const applyMemberIdentityToForm = (identity: MemberIdentity) => {
   if (identity === COMMUNITY_PLAYER_IDENTITY) {
     form.role = '球員'
+    form.training_program = null
     if (!form.team_group || SCHOOL_TEAM_GROUP_VALUES.includes(normalizeTeamGroup(form.team_group))) {
       form.team_group = defaultCommunityTeamGroupValue.value
     }
@@ -1458,15 +1470,15 @@ const applyMemberIdentityToForm = (identity: MemberIdentity) => {
 
   if (identity === CHUNGGANG_PLAYER_IDENTITY || identity === XINTAI_PLAYER_IDENTITY) {
     form.role = '校隊'
-    form.team_group = identity === XINTAI_PLAYER_IDENTITY
-      ? XINTAI_SCHOOL_TEAM_GROUP
-      : CHUNGGANG_SCHOOL_TEAM_GROUP
+    form.training_program = getSchoolTeamIdentityProgramKey(identity)
+    if (!form.team_group) form.team_group = defaultCommunityTeamGroupValue.value || defaultTeamGroupValue.value
     form.fee_billing_mode = ROLE_DEFAULT_FEE_BILLING_MODE
     return
   }
 
   form.role = identity
   form.team_group = ''
+  form.training_program = null
   form.fee_billing_mode = ROLE_DEFAULT_FEE_BILLING_MODE
 }
 
@@ -1939,6 +1951,7 @@ const syncFromGoogleSheet = async () => {
       const basePayload: any = {
         name,
         role: roleMapped,
+        training_program: roleMapped === '校隊' ? CHUNGGANG_SCHOOL_TEAM_PROGRAM_KEY : null,
         birth_date,
         is_early_enrollment,
         sibling_ids,
@@ -2186,6 +2199,10 @@ const submitForm = async () => {
     } else {
       payload.team_group = null
     }
+
+    payload.training_program = payload.role === '校隊'
+      ? normalizeTrainingProgramKey(payload.training_program, CHUNGGANG_SCHOOL_TEAM_PROGRAM_KEY)
+      : null
 
     payload.school_name = isTeamGroupEligibleRole(payload.role)
       ? normalizeSchoolName(payload.school_name) || null
