@@ -410,7 +410,7 @@ UI 約定：
 
 資料流：
 
-- 教練在 `/training-locations` 建立某天訓練配置，先選 program；新增配置會套用 `training_program_settings` 的預設時間與場地。每個場地區塊可個別保存訓練標題、日期、開始 / 結束時間與備註，必要時可由前端同步共用設定。球員可用全隊、角色或 `team_group` 快速帶入，但球員池與快捷加入只取目前 program，再拖曳或勾選微調。
+- 教練在 `/training-locations` 建立某天訓練配置，先選 program；新增配置會套用 `training_program_settings` 的預設時間與場地。每個場地區塊可個別保存訓練標題、日期、開始 / 結束時間與備註，必要時可由前端同步共用設定。球員池列出全部有效球員 / 校隊，並可用全隊、角色或 `team_group` 快速帶入；program 只決定這份配置的訓練項目、預設場地時間與後續通知語意，不限制可編排球員。
 - `save_training_location_session()` 會重建該訓練的場地與指派；DB 以 `(session_id, member_id)` 確保同一球員只在一個場地。
 - `create_training_location_venue_attendance_event()` 會為單一場地區塊建立或重用一張點名單，並由 `sync_training_location_attendance_records()` 自動同步該場地最新配置球員。
 - 場地配置 roster 仍顯示 `fee_billing_mode = 'no_fee'` 的球員 / 校隊並標註「不收費」，但前端不可勾選、拖曳、快捷加入或保存；DB 端也拒絕新的 no-fee assignment。既有配置可顯示，下次儲存會移除。

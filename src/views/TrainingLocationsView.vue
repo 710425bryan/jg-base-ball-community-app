@@ -141,11 +141,7 @@ const rosterById = computed(() =>
 const isSelectableRosterMember = (member: TrainingLocationRosterMember | null | undefined) =>
   Boolean(member && !isNoFeeBillingMember(member))
 
-const scopedRoster = computed(() =>
-  roster.value.filter((member) =>
-    getTrainingProgramKeyForMember(member, programSettings.value) === selectedProgram.value.program_key
-  )
-)
+const scopedRoster = computed(() => roster.value)
 
 const activeRosterMemberIds = computed(() =>
   new Set(scopedRoster.value.filter(isSelectableRosterMember).map((member) => member.member_id))
@@ -352,12 +348,16 @@ const loadSessions = async () => {
 }
 
 const loadRoster = async () => {
-  roster.value = (await trainingLocationsApi.listRoster(rosterTrainingDate.value, selectedProgram.value.program_key)).map((member) => ({
-    ...member,
-    training_program: member.training_program || getTrainingProgramKeyForMember(member, programSettings.value),
-    training_program_label: member.training_program_label || selectedProgram.value.label,
-    team_group: normalizeTeamGroup(member.team_group) || null
-  }))
+  roster.value = (await trainingLocationsApi.listRoster(rosterTrainingDate.value, selectedProgram.value.program_key)).map((member) => {
+    const trainingProgramKey = member.training_program || getTrainingProgramKeyForMember(member, programSettings.value)
+    return {
+      ...member,
+      training_program: trainingProgramKey,
+      training_program_label: member.training_program_label
+        || (trainingProgramKey ? getTrainingProgramSettingByKey(programSettings.value, trainingProgramKey).label : null),
+      team_group: normalizeTeamGroup(member.team_group) || null
+    }
+  })
 
   const removedCount = pruneUnavailableVenueMembers()
   if (removedCount > 0) {

@@ -210,7 +210,7 @@
 - 日期有新增或取消時，`send-training-date-notifications` 只通知該 program 綁定有效球員 / 校隊的家長與球員；通知中心只顯示 `target_user_id = auth.uid()` 的訓練日期通知。
 - 後台路由 `/training-locations`，feature key 為 `training_locations`，actions：`VIEW / CREATE / EDIT / DELETE`。
 - 資料表為 `training_venues`、`training_location_sessions`、`training_location_session_venues`、`training_location_assignments`；前端一律走 `src/services/trainingLocationsApi.ts` 封裝的 security definer RPC。
-- 設定頁可建立某天訓練的多場地區塊，先選訓練 program；新增配置會套用 `training_program_settings` 的預設時間與場地，球員池與全隊快捷加入只取目前 program 球員，再手動拖曳 / 勾選微調；同一訓練同一球員只能被配置到一個場地。
+- 設定頁可建立某天訓練的多場地區塊，先選訓練 program；新增配置會套用 `training_program_settings` 的預設時間與場地，球員池與全隊快捷加入列出全部有效球員 / 校隊，再手動拖曳 / 勾選微調；program 只決定配置主檔、預設場地時間與通知語意，不限制可編排球員；同一訓練同一球員只能被配置到一個場地。
 - 場地配置的每個場地區塊可各自建立一張連動點名單；建立需 `training_locations:EDIT` + `attendance:CREATE`，開啟與操作仍走既有 `attendance:VIEW / EDIT / DELETE`。配置儲存後若場地已有連動點名單，DB 會同步該場地最新球員名單，移除已不在該場地內的點名紀錄。
 - 個人首頁透過 `get_my_home_snapshot()` 或 `list_my_week_training_locations()` 顯示 linked member 本週訓練場地；已請假球員仍可看到配置，但只有假單時段與場地訓練時間重疊才標示已請假。場地沒有開始 / 結束時間時，請假判斷使用上午區段 `09:00 - 12:00`；若場地使用預設上午時間 `09:00 - 12:30`，假單判斷仍收斂為上午區段，所以下午假不標示上午場地已請假。
 - `send-training-location-notifications` 於台灣時間前一天 20:10 或手動觸發，僅通知該球員綁定的有效使用者，且排除假單時段與該場地訓練時間重疊的球員；場地無時間或預設上午時間時同樣以上午區段判斷，下午假不排除上午場地通知；通知事件寫入 `push_dispatch_events.target_user_id` / `target_member_ids`，通知中心只顯示自己的場地通知。

@@ -68,6 +68,57 @@ describe('trainingLocationsApi', () => {
     })
   })
 
+  it('keeps mixed-program roster rows returned by the roster RPC', async () => {
+    getSessionMock.mockResolvedValue({ data: { session: { access_token: 'token' } }, error: null })
+    rpcMock.mockResolvedValueOnce({
+      data: [
+        {
+          member_id: 'member-1',
+          name: '中港球員',
+          role: '校隊',
+          team_group: '中港校隊',
+          training_program: 'chunggang_school_team',
+          training_program_label: '中港校隊',
+          jersey_number: '10',
+          fee_billing_mode: 'role_default',
+          is_on_leave: false
+        },
+        {
+          member_id: 'member-2',
+          name: '新泰球員',
+          role: '校隊',
+          team_group: '國中校隊',
+          training_program: 'junior_high_school_team',
+          training_program_label: '國中校隊',
+          jersey_number: '12',
+          fee_billing_mode: 'role_default',
+          is_on_leave: true
+        }
+      ],
+      error: null
+    })
+
+    const { trainingLocationsApi } = await import('./trainingLocationsApi')
+
+    await expect(trainingLocationsApi.listRoster('2026-07-05', 'junior_high_school_team')).resolves.toEqual([
+      expect.objectContaining({
+        member_id: 'member-1',
+        training_program: 'chunggang_school_team',
+        training_program_label: '中港校隊'
+      }),
+      expect.objectContaining({
+        member_id: 'member-2',
+        training_program: 'junior_high_school_team',
+        training_program_label: '國中校隊',
+        is_on_leave: true
+      })
+    ])
+    expect(rpcMock).toHaveBeenCalledWith('list_training_location_roster', {
+      p_training_date: '2026-07-05',
+      p_program_key: 'junior_high_school_team'
+    })
+  })
+
   it('dispatches location notifications with bearer auth', async () => {
     getSessionMock.mockResolvedValue({ data: { session: { access_token: 'token-1' } }, error: null })
     invokeMock.mockResolvedValue({ data: { success: true }, error: null })
