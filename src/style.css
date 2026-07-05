@@ -199,6 +199,9 @@ html.app-readable-text-mode :where(.el-dialog__body) {
 }
 
 html.app-readable-text-mode :where(.el-select-dropdown__item, .el-dropdown-menu__item) {
+  align-items: center !important;
+  box-sizing: border-box !important;
+  display: flex !important;
   min-height: 52px !important;
   font-size: 1.0625rem !important;
   line-height: 1.35 !important;
@@ -297,10 +300,25 @@ html.app-readable-text-mode :where(.el-select-dropdown__item, .el-dropdown-menu_
   }
 
   .el-select-dropdown__item,
-  .el-dropdown-menu__item {
+  .el-dropdown-menu__item,
+  .el-cascader-node,
+  .el-autocomplete-suggestion li {
+    align-items: center !important;
+    box-sizing: border-box !important;
+    display: flex !important;
     min-height: 44px !important;
     font-size: 0.9375rem !important;
     line-height: 1.35 !important;
+  }
+
+  .el-select-dropdown__item > span,
+  .el-dropdown-menu__item > span,
+  .el-cascader-node__label,
+  .el-autocomplete-suggestion li > span {
+    align-items: center;
+    display: flex;
+    min-height: inherit;
+    min-width: 0;
   }
 
   #app.app-readable-text-mode {
