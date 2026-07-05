@@ -37,6 +37,16 @@ body {
   overscroll-behavior-y: none; /* Prevent elastic scroll pull-down revealing background */
 }
 
+@media (max-width: 639px) {
+  html,
+  body,
+  #app {
+    max-width: 100%;
+    overflow-x: hidden;
+    overscroll-behavior-x: none;
+  }
+}
+
 @layer components {
   .app-page-header {
     @apply flex w-full min-w-0 flex-col gap-3 md:flex-row md:items-center md:justify-between;
@@ -354,6 +364,8 @@ html {
 @media (max-width: 639px) {
   .el-overlay-dialog {
     overflow: hidden !important;
+    overflow-x: hidden !important;
+    overscroll-behavior-x: none;
     padding: 0 !important;
   }
 
@@ -363,6 +375,7 @@ html {
     --el-dialog-width: 100% !important;
     --el-dialog-margin-top: 0 !important;
     bottom: auto !important;
+    box-sizing: border-box !important;
     display: flex !important;
     flex-direction: column !important;
     height: 100dvh !important;
@@ -370,8 +383,10 @@ html {
     margin: 0 !important;
     max-height: 100dvh !important;
     max-width: 100% !important;
+    min-width: 0 !important;
     min-height: 100dvh !important;
     overflow: hidden !important;
+    overflow-x: hidden !important;
     position: relative !important;
     right: auto !important;
     top: auto !important;
@@ -382,7 +397,10 @@ html {
   .el-overlay-dialog > .el-dialog .el-dialog__header {
     flex: none !important;
     margin-right: 0 !important;
+    max-width: 100% !important;
     min-height: 56px !important;
+    min-width: 0 !important;
+    overflow-x: hidden !important;
     padding-bottom: 12px !important;
     padding-left: calc(16px + env(safe-area-inset-left)) !important;
     padding-right: calc(64px + env(safe-area-inset-right)) !important;
@@ -401,7 +419,10 @@ html {
 
   .el-overlay-dialog > .el-dialog .el-dialog__body {
     flex: 1 1 auto !important;
+    max-width: 100% !important;
     min-height: 0 !important;
+    min-width: 0 !important;
+    overflow-x: hidden !important;
     overflow-y: auto !important;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
@@ -409,6 +430,9 @@ html {
 
   .el-overlay-dialog > .el-dialog .el-dialog__footer {
     flex: none !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: hidden !important;
     padding-bottom: calc(16px + env(safe-area-inset-bottom)) !important;
     padding-left: calc(16px + env(safe-area-inset-left)) !important;
     padding-right: calc(16px + env(safe-area-inset-right)) !important;

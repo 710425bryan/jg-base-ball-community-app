@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full flex flex-col relative animate-fade-in p-2 md:p-6 pb-0 md:pb-6 bg-background text-text overflow-hidden">
+  <div class="players-view-page h-full flex flex-col relative animate-fade-in p-2 md:p-6 pb-0 md:pb-6 bg-background text-text overflow-hidden">
     <!-- 頂部標題與操作區 -->
     <div class="flex flex-col xl:flex-row justify-between xl:items-center mb-5 gap-4 shrink-0 players-page-header">
       <div class="shrink-0">
@@ -2573,6 +2573,18 @@ onMounted(() => {
 }
 
 @media (max-width: 639px) {
+  .players-view-page,
+  .players-page-header,
+  .players-toolbar,
+  .player-tabs-shell,
+  .players-content {
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+  .players-view-page {
+    overscroll-behavior-x: none;
+  }
   .players-page-header {
     gap: 0.5rem;
     margin-bottom: 0.625rem;
@@ -2580,6 +2592,7 @@ onMounted(() => {
   .players-toolbar {
     gap: 0.375rem;
     padding: 0.375rem;
+    width: 100%;
   }
   .players-toolbar-filters {
     display: grid;
@@ -2624,6 +2637,7 @@ onMounted(() => {
     font-size: 1rem;
   }
   .players-content {
+    overscroll-behavior-x: none;
     padding-right: 0;
     padding-bottom: 5.5rem;
   }
