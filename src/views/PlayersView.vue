@@ -2351,21 +2351,22 @@ onMounted(() => {
 .players-identity-select .el-select__placeholder,
 .players-identity-select .el-select__input {
   width: 100%;
-  justify-content: center;
-  text-align: center;
+  justify-content: flex-start;
+  text-align: left;
 }
 
 .players-identity-select-popper .el-select-dropdown__item {
   display: flex;
-  justify-content: center;
+  align-items: center;
+  justify-content: flex-start;
   padding-left: 12px;
   padding-right: 12px;
-  text-align: center;
+  text-align: left;
 }
 
 .players-identity-select-popper .el-select-dropdown__item span {
   width: 100%;
-  text-align: center;
+  text-align: left;
 }
 
 .player-tabs-shell .el-tabs__header {
