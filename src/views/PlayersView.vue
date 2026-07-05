@@ -394,7 +394,7 @@
               <el-input v-model="form.name" placeholder="隊職員姓名" />
             </el-form-item>
             <el-form-item label="身分" prop="member_identity" class="font-bold mb-0">
-              <el-select v-model="form.member_identity" class="w-full">
+              <el-select v-model="form.member_identity" class="players-identity-select w-full" popper-class="players-identity-select-popper">
                 <el-option v-for="option in memberIdentityOptions" :key="option.value" :label="option.label" :value="option.value" />
               </el-select>
             </el-form-item>
@@ -818,8 +818,8 @@ const defaultCommunityTeamGroupValue = computed(() =>
 )
 const memberIdentityOptions: Array<{ label: string; value: MemberIdentity }> = [
   { label: '社區球員', value: COMMUNITY_PLAYER_IDENTITY },
-  { label: '中港球員', value: CHUNGGANG_PLAYER_IDENTITY },
-  { label: '新泰球員', value: XINTAI_PLAYER_IDENTITY },
+  { label: '中港校隊', value: CHUNGGANG_PLAYER_IDENTITY },
+  { label: '新泰校隊', value: XINTAI_PLAYER_IDENTITY },
   { label: '教練', value: '教練' },
   { label: '管理群', value: '管理群' },
   { label: '其他', value: '其他' }
@@ -2292,7 +2292,9 @@ const getRoleClass = (role: string) => {
   switch (role) {
     case '社區球員':
     case '球員': return 'border-primary text-primary bg-primary/10'
+    case '中港校隊':
     case '中港球員': return 'border-pink-400 text-pink-600 bg-pink-50 shadow-sm'
+    case '新泰校隊':
     case '新泰球員': return 'border-emerald-400 text-emerald-700 bg-emerald-50 shadow-sm'
     case '校隊': return 'border-pink-400 text-pink-600 bg-pink-50 shadow-sm'
     case '教練': return 'border-secondary text-[#ca8a04] bg-secondary/10'
@@ -2343,6 +2345,27 @@ onMounted(() => {
 .players-toolbar .el-input__wrapper.is-focus,
 .players-toolbar .el-select__wrapper.is-focused {
   box-shadow: inset 0 0 0 1px var(--color-primary), 0 0 0 3px rgba(216, 143, 34, 0.14) !important;
+}
+
+.players-identity-select .el-select__selected-item,
+.players-identity-select .el-select__placeholder,
+.players-identity-select .el-select__input {
+  width: 100%;
+  justify-content: center;
+  text-align: center;
+}
+
+.players-identity-select-popper .el-select-dropdown__item {
+  display: flex;
+  justify-content: center;
+  padding-left: 12px;
+  padding-right: 12px;
+  text-align: center;
+}
+
+.players-identity-select-popper .el-select-dropdown__item span {
+  width: 100%;
+  text-align: center;
 }
 
 .player-tabs-shell .el-tabs__header {
