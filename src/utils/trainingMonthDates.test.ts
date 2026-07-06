@@ -101,7 +101,7 @@ describe('trainingDateNotification', () => {
     const context = {
       monthStart: '2026-05-01',
       programKey: 'junior_high_school_team',
-      programLabel: '國中校隊',
+      programLabel: '新泰總部',
       trainingDates: ['2026-05-02', '2026-05-16'],
       addedDates: ['2026-05-16'],
       removedDates: ['2026-05-09'],
@@ -112,7 +112,7 @@ describe('trainingDateNotification', () => {
     expect(buildTrainingDateNotificationEventKey(group, context))
       .toBe('training_dates:junior_high_school_team:2026-05-01:user-1:2026-05-01T08:00:00.000Z')
     expect(buildTrainingDateNotificationUrl(context)).toBe('/dashboard?training_month=2026-05&training_program=junior_high_school_team')
-    expect(buildTrainingDateNotificationTitle(context)).toBe('國中校隊 訓練日期異動：2026 年 5 月')
+    expect(buildTrainingDateNotificationTitle(context)).toBe('新泰總部 訓練日期異動：2026 年 5 月')
     expect(buildTrainingDateNotificationBody(context)).toBe([
       '本月訓練日：5/2 週六、5/16 週六',
       '新增：5/16 週六',

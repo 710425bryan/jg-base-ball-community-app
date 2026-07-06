@@ -375,8 +375,8 @@ UI 約定：
 
 資料流：
 
-- 管理者在 `/training-program-settings` 設定 program 名稱、對應舊資料 `team_group` fallback、預設星期、時間、場地與啟用狀態；中港校隊預設週六 `09:00-12:30` / `中港國小`，國中校隊預設週日 `09:00-12:00` / `新泰國中`，這些值執行時從 DB 讀取。
-- `role = 校隊` 不新增 DB 角色；中港 / 新泰身分優先使用 `team_members.training_program`。`team_group` 保留為所屬群組（熊隊），只在舊資料沒有 `training_program` 時用來 fallback 對應 program；找不到對應時，校隊與計次月費成員 fallback 到中港校隊。
+- 管理者在 `/training-program-settings` 設定 program 名稱、對應舊資料 `team_group` fallback、預設星期、時間、場地與啟用狀態；中港總部預設週六 `09:00-12:30` / `中港國小`，新泰總部預設週日 `09:00-12:00` / `新泰國中`，這些值執行時從 DB 讀取。
+- `role = 校隊` 不新增 DB 角色；中港 / 新泰身分優先使用 `team_members.training_program`。`team_group` 保留為所屬群組（熊隊），只在舊資料沒有 `training_program` 時用來 fallback 對應 program；找不到對應時，校隊與計次月費成員 fallback 到中港總部 program。
 - 管理者在 `/training-dates` 先選 program 再選月份並勾選該月訓練日期；未設定月份依該 program 的 `default_weekdays` 產生。
 - 個人首頁透過 `get_my_home_snapshot()` / `get_training_month_dates()` 補齊 `training_month_dates_by_program`；切換 linked member 時顯示該成員 program 的本月日期。
 - `save_training_month_dates()` 只儲存指定 program 的日期與備註，不建立場地、不指派球員，也不取代 `/training-locations`。

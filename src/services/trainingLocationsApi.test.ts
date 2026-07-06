@@ -104,12 +104,12 @@ describe('trainingLocationsApi', () => {
       expect.objectContaining({
         member_id: 'member-1',
         training_program: 'chunggang_school_team',
-        training_program_label: '中港校隊'
+        training_program_label: '中港總部'
       }),
       expect.objectContaining({
         member_id: 'member-2',
         training_program: 'junior_high_school_team',
-        training_program_label: '國中校隊',
+        training_program_label: '新泰總部',
         is_on_leave: true
       })
     ])

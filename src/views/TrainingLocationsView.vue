@@ -49,7 +49,7 @@ type SaveSessionOptions = {
   dispatchAfterPublish?: boolean
 }
 
-const DEFAULT_TITLE = '訓練'
+const DEFAULT_TITLE = '訓練課程'
 const DEFAULT_START_TIME = '09:00'
 const DEFAULT_END_TIME = '12:30'
 const getDefaultTrainingDate = () => dayjs().format('YYYY-MM-DD')
@@ -89,7 +89,7 @@ const isDispatching = ref(false)
 const creatingAttendanceVenueIndex = ref<number | null>(null)
 const isCreatingAttendance = computed(() => creatingAttendanceVenueIndex.value !== null)
 
-const getDefaultTitle = () => `${selectedProgram.value.label}${DEFAULT_TITLE}`
+const getDefaultTitle = () => DEFAULT_TITLE
 
 const createEmptyVenue = (): EditableVenue => ({
   clientKey: `venue-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -1018,7 +1018,7 @@ onMounted(() => {
                     </el-select>
                   </el-form-item>
                   <el-form-item label="訓練標題" class="mb-0 font-bold xl:col-span-2">
-                    <el-input v-model="form.title" size="large" placeholder="例如：週六訓練" />
+                    <el-input v-model="form.title" size="large" placeholder="例如：訓練課程" />
                   </el-form-item>
                   <el-form-item label="訓練日期" class="mb-0 font-bold">
                     <el-date-picker v-model="form.training_date" type="date" value-format="YYYY-MM-DD" format="YYYY-MM-DD" class="!w-full" size="large" />
@@ -1118,7 +1118,7 @@ onMounted(() => {
 
                       <div class="mt-4 grid gap-3 border-t border-slate-100 pt-4 md:grid-cols-2 lg:col-span-2 lg:row-start-2 xl:grid-cols-3">
                         <el-form-item label="訓練標題" class="mb-0 font-bold">
-                          <el-input v-model="venue.title" :disabled="syncFields.title" size="large" placeholder="例如：週六訓練" />
+                          <el-input v-model="venue.title" :disabled="syncFields.title" size="large" placeholder="例如：訓練課程" />
                         </el-form-item>
                         <el-form-item label="訓練日期" class="mb-0 font-bold">
                           <el-date-picker v-model="venue.training_date" :disabled="syncFields.training_date" type="date" value-format="YYYY-MM-DD" format="YYYY-MM-DD" class="!w-full" size="large" />

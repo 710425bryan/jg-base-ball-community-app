@@ -19,7 +19,7 @@ describe('trainingPrograms', () => {
       is_active: true
     })).toMatchObject({
       program_key: 'junior_high',
-      label: '國中校隊',
+      label: '新泰總部',
       default_weekdays: [0],
       is_active: true
     })

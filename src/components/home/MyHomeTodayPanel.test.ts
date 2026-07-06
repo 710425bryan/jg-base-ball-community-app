@@ -24,7 +24,7 @@ const buildSnapshot = (matchLevel: string | null): MyHomeSnapshot => ({
       role: '球員',
       team_group: null,
       training_program: 'chunggang_school_team',
-      training_program_label: '中港校隊',
+      training_program_label: '中港總部',
       status: '在隊',
       jersey_number: null,
       avatar_url: null,
@@ -116,7 +116,7 @@ describe('MyHomeTodayPanel', () => {
       role: '校隊',
       team_group: '國中校隊',
       training_program: 'junior_high_school_team',
-      training_program_label: '國中校隊',
+      training_program_label: '新泰總部',
       status: '在隊',
       jersey_number: null,
       avatar_url: null,
@@ -140,7 +140,7 @@ describe('MyHomeTodayPanel', () => {
     const wrapper = mountPanel(snapshot)
     await wrapper.setProps({ selectedMemberId: 'member-2' })
 
-    expect(wrapper.text()).toContain('國中校隊')
+    expect(wrapper.text()).toContain('新泰總部')
     expect(wrapper.text()).toContain('5/3 週日')
     expect(wrapper.text()).not.toContain('5/2 週六')
   })

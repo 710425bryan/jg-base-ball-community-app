@@ -259,7 +259,7 @@
                   </el-tooltip>
                   <span v-if="isFixedMonthlyFee(fee)" class="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded leading-none shrink-0 border border-amber-200">社區月繳</span>
                   <span v-else-if="isPlayerPerSessionMonthlyFee(fee)" class="text-[10px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded leading-none shrink-0 border border-blue-200">計次月費</span>
-                  <span class="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded leading-none shrink-0 border border-emerald-200">{{ fee.training_program_label || '中港校隊' }}</span>
+                  <span class="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded leading-none shrink-0 border border-emerald-200">{{ fee.training_program_label || '中港總部' }}</span>
                 </div>
               </td>
               <td class="py-3 px-4">

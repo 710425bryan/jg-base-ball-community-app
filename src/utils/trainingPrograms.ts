@@ -8,12 +8,12 @@ export const CHUNGGANG_SCHOOL_TEAM_PROGRAM_KEY = 'chunggang_school_team'
 export const JUNIOR_HIGH_SCHOOL_TEAM_PROGRAM_KEY = 'junior_high_school_team'
 export const DEFAULT_TRAINING_PROGRAM_KEY = CHUNGGANG_SCHOOL_TEAM_PROGRAM_KEY
 
-export const DEFAULT_TRAINING_PROGRAM_LABEL = '中港校隊'
+export const DEFAULT_TRAINING_PROGRAM_LABEL = '中港總部'
 
 export const DEFAULT_TRAINING_PROGRAM_SETTINGS: TrainingProgramSetting[] = [
   {
     program_key: CHUNGGANG_SCHOOL_TEAM_PROGRAM_KEY,
-    label: '中港校隊',
+    label: '中港總部',
     team_group: '中港校隊',
     default_weekdays: [6],
     default_start_time: '09:00',
@@ -28,7 +28,7 @@ export const DEFAULT_TRAINING_PROGRAM_SETTINGS: TrainingProgramSetting[] = [
   },
   {
     program_key: JUNIOR_HIGH_SCHOOL_TEAM_PROGRAM_KEY,
-    label: '國中校隊',
+    label: '新泰總部',
     team_group: '國中校隊',
     default_weekdays: [0],
     default_start_time: '09:00',
@@ -47,6 +47,13 @@ const WEEKDAY_SET = new Set([0, 1, 2, 3, 4, 5, 6])
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/
 
 const normalizeText = (value: unknown) => String(value ?? '').trim()
+
+export const normalizeTrainingProgramLabel = (value: unknown) => {
+  const label = normalizeText(value)
+  if (label === '中港校隊') return '中港總部'
+  if (label === '新泰校隊' || label === '國中校隊') return '新泰總部'
+  return label
+}
 
 const normalizeNullableText = (value: unknown) => {
   const text = normalizeText(value)
@@ -86,7 +93,7 @@ export const normalizeTrainingProgramTime = (value: unknown) => {
 
 export const normalizeTrainingProgramSetting = (row: any): TrainingProgramSetting => ({
   program_key: normalizeTrainingProgramKey(row?.program_key),
-  label: normalizeText(row?.label) || DEFAULT_TRAINING_PROGRAM_LABEL,
+  label: normalizeTrainingProgramLabel(row?.label) || DEFAULT_TRAINING_PROGRAM_LABEL,
   team_group: normalizeNullableText(row?.team_group),
   default_weekdays: normalizeTrainingProgramWeekdays(row?.default_weekdays),
   default_start_time: normalizeTrainingProgramTime(row?.default_start_time),

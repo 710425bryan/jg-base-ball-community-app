@@ -26,7 +26,7 @@ describe('trainingProgramsApi', () => {
     expect(await trainingProgramsApi.listSettings()).toEqual([
       expect.objectContaining({
         program_key: 'junior_high',
-        label: '國中校隊',
+        label: '新泰總部',
         default_weekdays: [0],
         sort_order: 20
       })
@@ -49,7 +49,7 @@ describe('trainingProgramsApi', () => {
 
   it('saves normalized setting payloads', async () => {
     rpcMock.mockResolvedValue({
-      data: { program_key: 'junior_high', label: '國中校隊', default_weekdays: [0] },
+      data: { program_key: 'junior_high', label: '新泰總部', default_weekdays: [0] },
       error: null
     })
 
@@ -57,7 +57,7 @@ describe('trainingProgramsApi', () => {
 
     await trainingProgramsApi.saveSetting({
       program_key: 'Junior High',
-      label: '國中校隊',
+      label: '新泰總部',
       team_group: '',
       default_weekdays: [0, 8],
       sort_order: null,
@@ -66,7 +66,7 @@ describe('trainingProgramsApi', () => {
 
     expect(rpcMock).toHaveBeenCalledWith('save_training_program_setting', {
       p_program_key: 'Junior High',
-      p_label: '國中校隊',
+      p_label: '新泰總部',
       p_team_group: null,
       p_default_weekdays: [0],
       p_default_start_time: null,

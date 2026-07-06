@@ -65,7 +65,7 @@
               <td class="flex items-center gap-2 px-4 py-3">
                 <span class="font-black text-gray-800">{{ member.name }}</span>
                 <span class="whitespace-nowrap rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
-                  {{ member.training_program_label || '中港校隊' }}
+                  {{ member.training_program_label || '中港總部' }}
                 </span>
                 <span v-if="hasActiveFeeSibling(member)" class="whitespace-nowrap rounded border px-1.5 py-0.5 text-[10px] font-bold" :class="member.is_primary_payer ? 'border-green-200 bg-green-50 text-green-600' : 'border-primary/20 bg-primary/10 text-primary'">
                   {{ member.is_primary_payer ? '主要繳費人' : '半價優惠' }}

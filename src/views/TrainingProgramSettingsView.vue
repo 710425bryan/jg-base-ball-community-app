@@ -129,7 +129,7 @@ onMounted(() => {
     <div class="mx-auto flex max-w-6xl flex-col gap-4">
       <AppPageHeader
         title="訓練項目設定"
-        subtitle="管理中港校隊、國中校隊等訓練項目的預設星期、時間與場地。"
+        subtitle="管理中港總部、新泰總部等訓練項目的預設星期、時間與場地。"
         :icon="Setting"
         as="h2"
       >
@@ -193,13 +193,13 @@ onMounted(() => {
 
           <div class="mt-4 grid gap-4 md:grid-cols-2">
             <el-form-item label="項目名稱" class="mb-0 font-bold">
-              <el-input v-model="setting.label" :disabled="!canEdit" size="large" placeholder="例如：國中校隊" />
+              <el-input v-model="setting.label" :disabled="!canEdit" size="large" placeholder="例如：新泰總部" />
             </el-form-item>
             <el-form-item label="項目代碼" class="mb-0 font-bold">
               <el-input v-model="setting.program_key" :disabled="!canEdit || Boolean(setting.created_at)" size="large" placeholder="例如：junior_high_school_team" />
             </el-form-item>
             <el-form-item label="對應球員組別" class="mb-0 font-bold">
-              <el-input v-model="setting.team_group" :disabled="!canEdit" size="large" placeholder="例如：國中校隊" />
+              <el-input v-model="setting.team_group" :disabled="!canEdit" size="large" placeholder="例如：熊隊" />
             </el-form-item>
             <el-form-item label="排序" class="mb-0 font-bold">
               <el-input-number v-model="setting.sort_order" :disabled="!canEdit" :step="10" class="!w-full" size="large" />

@@ -49,7 +49,7 @@ const selectedTrainingLocations = computed(() =>
     })
 )
 const selectedProgramKey = computed(() => selectedMember.value?.training_program || 'chunggang_school_team')
-const selectedProgramLabel = computed(() => selectedMember.value?.training_program_label || selectedMember.value?.team_group || '中港校隊')
+const selectedProgramLabel = computed(() => selectedMember.value?.training_program_label || selectedMember.value?.team_group || '中港總部')
 const trainingMonthDates = computed(() =>
   props.snapshot.training_month_dates_by_program[selectedProgramKey.value]
   || props.snapshot.training_month_dates

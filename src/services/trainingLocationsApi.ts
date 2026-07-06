@@ -12,7 +12,8 @@ import {
   DEFAULT_TRAINING_PROGRAM_KEY,
   getTrainingProgramFallbackSettings,
   getTrainingProgramLabel,
-  normalizeTrainingProgramKey
+  normalizeTrainingProgramKey,
+  normalizeTrainingProgramLabel
 } from '@/utils/trainingPrograms'
 import { isSupabaseRpcMissingError } from '@/utils/supabaseRpc'
 
@@ -72,7 +73,11 @@ const normalizeRosterMember = (row: any): TrainingLocationRosterMember => ({
   role: row?.role ? String(row.role) : null,
   team_group: row?.team_group ? String(row.team_group) : null,
   training_program: row?.training_program ? String(row.training_program) : row?.program_key ? String(row.program_key) : null,
-  training_program_label: row?.training_program_label ? String(row.training_program_label) : row?.program_label ? String(row.program_label) : null,
+  training_program_label: row?.training_program_label
+    ? normalizeTrainingProgramLabel(row.training_program_label)
+    : row?.program_label
+      ? normalizeTrainingProgramLabel(row.program_label)
+      : null,
   jersey_number: row?.jersey_number === null || row?.jersey_number === undefined
     ? null
     : String(row.jersey_number),
@@ -106,7 +111,7 @@ const normalizeSession = (row: any): TrainingLocationSession => ({
   session_id: String(row?.session_id || ''),
   program_key: normalizeTrainingProgramKey(row?.program_key),
   program_label: row?.program_label
-    ? String(row.program_label)
+    ? normalizeTrainingProgramLabel(row.program_label)
     : getTrainingProgramLabel(getTrainingProgramFallbackSettings(), normalizeTrainingProgramKey(row?.program_key)),
   title: String(row?.title || ''),
   training_date: String(row?.training_date || ''),

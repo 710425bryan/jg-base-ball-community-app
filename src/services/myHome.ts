@@ -33,7 +33,8 @@ import {
   getTrainingProgramFallbackSettings,
   getTrainingProgramKeyForMember,
   getTrainingProgramSettingByKey,
-  normalizeTrainingProgramKey
+  normalizeTrainingProgramKey,
+  normalizeTrainingProgramLabel
 } from '@/utils/trainingPrograms'
 import type { TrainingProgramSetting } from '@/types/trainingProgram'
 
@@ -81,7 +82,7 @@ const normalizeMember = (member: Partial<MyHomeMember> & Record<string, unknown>
   role: member.role ? String(member.role) : null,
   team_group: member.team_group ? String(member.team_group) : null,
   training_program: member.training_program ? String(member.training_program) : null,
-  training_program_label: member.training_program_label ? String(member.training_program_label) : null,
+  training_program_label: member.training_program_label ? normalizeTrainingProgramLabel(member.training_program_label) : null,
   status: member.status ? String(member.status) : null,
   is_inactive_or_graduated: Boolean(member.is_inactive_or_graduated),
   jersey_number: member.jersey_number === null || member.jersey_number === undefined
@@ -98,7 +99,7 @@ const normalizeTrainingLocation = (row: Partial<MyHomeTrainingLocation>): MyHome
   member_id: String(row?.member_id || ''),
   member_name: String(row?.member_name || ''),
   program_key: row?.program_key ? String(row.program_key) : null,
-  program_label: row?.program_label ? String(row.program_label) : null,
+  program_label: row?.program_label ? normalizeTrainingProgramLabel(row.program_label) : null,
   title: String(row?.title || ''),
   training_date: String(row?.training_date || ''),
   start_time: row?.start_time ? String(row.start_time) : null,

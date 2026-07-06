@@ -16,6 +16,7 @@ import {
   getTrainingProgramFallbackSettings,
   getTrainingProgramSettingByKey,
   normalizeTrainingProgramKey,
+  normalizeTrainingProgramLabel,
   normalizeTrainingProgramWeekdays
 } from '@/utils/trainingPrograms'
 import { isSupabaseRpcMissingError } from '@/utils/supabaseRpc'
@@ -36,7 +37,7 @@ const getFallbackProgramMeta = (options: TrainingMonthDateProgramOptions = {}) =
   const setting = getTrainingProgramSettingByKey(settings, options.programKey)
   return {
     programKey: normalizeTrainingProgramKey(options.programKey || setting.program_key),
-    programLabel: options.programLabel || setting.label || DEFAULT_TRAINING_PROGRAM_LABEL,
+    programLabel: normalizeTrainingProgramLabel(options.programLabel || setting.label || DEFAULT_TRAINING_PROGRAM_LABEL),
     defaultWeekdays: normalizeTrainingProgramWeekdays(options.defaultWeekdays || setting.default_weekdays)
   }
 }
@@ -50,7 +51,7 @@ const normalizeMonthDates = (
   const normalizedMonth = normalizeTrainingMonth(monthStart)
   const fallbackMeta = getFallbackProgramMeta(options)
   const programKey = normalizeTrainingProgramKey(payload?.program_key || fallbackMeta.programKey)
-  const programLabel = String(payload?.program_label || fallbackMeta.programLabel)
+  const programLabel = normalizeTrainingProgramLabel(payload?.program_label || fallbackMeta.programLabel)
   const defaultWeekdays = normalizeTrainingProgramWeekdays(payload?.default_weekdays || fallbackMeta.defaultWeekdays)
   const trainingDates = normalizeTrainingMonthDateList(
     normalizeStringArray(payload?.training_dates),
@@ -85,7 +86,7 @@ const normalizeSaveResult = (
     changed: Boolean(payload?.changed),
     month_start: getTrainingMonthStartDate(normalizedMonth),
     program_key: normalizeTrainingProgramKey(payload?.program_key || fallbackMeta.programKey),
-    program_label: String(payload?.program_label || fallbackMeta.programLabel),
+    program_label: normalizeTrainingProgramLabel(payload?.program_label || fallbackMeta.programLabel),
     training_dates: normalizeTrainingMonthDateList(
       normalizeStringArray(payload?.training_dates),
       normalizedMonth

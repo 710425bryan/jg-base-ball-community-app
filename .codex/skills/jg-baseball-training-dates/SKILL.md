@@ -31,7 +31,7 @@ description: "Monthly training date and training program settings workflow for j
 - 後台路由為 `/training-program-settings` 與 `/training-dates`。
 - feature key 為 `training_dates`，actions 為 `VIEW / EDIT`。
 - `training_program_settings` 管理 program 名稱、舊資料 `team_group` fallback、預設星期、時間與場地；執行時不可把週六 / 週日、時間或場地寫死在畫面邏輯。
-- `role = 校隊` 不新增 DB 角色；中港 / 新泰身分優先存於 `team_members.training_program`，`team_group` 只作所屬群組（熊隊）使用。舊資料沒有 `training_program` 時才以 `team_group = 國中校隊` 對應 program，找不到對應時校隊與計次月費成員 fallback 到中港校隊。
+- `role = 校隊` 不新增 DB 角色；中港 / 新泰身分優先存於 `team_members.training_program`，`team_group` 只作所屬群組（熊隊）使用。舊資料沒有 `training_program` 時才以 `team_group = 國中校隊` 對應 program，找不到對應時校隊與計次月費成員 fallback 到中港總部 program。
 - 資料表 `training_month_date_settings` 以 `(month_start, program_key)` 管理每個 program 的月份日期。
 - 未設定月份依該 program 的 `default_weekdays` 顯示預設訓練日。
 - `ensure_training_month_date_setting()` 會在沒有設定時建立該 program 月份預設；DB cron `training-month-date-defaults-daily` 於台灣時間每日 00:05 執行，換月後自動補當月設定，不覆蓋手動設定，也不發通知。

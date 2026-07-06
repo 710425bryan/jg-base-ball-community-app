@@ -40,18 +40,18 @@ describe('trainingDateNotification', () => {
   it('builds title and body with normalized month dates', () => {
     const title = buildTrainingDateNotificationTitle({
       monthStart: '2026-07-01',
-      programLabel: '國中校隊'
+      programLabel: '新泰總部'
     })
     const body = buildTrainingDateNotificationBody({
       monthStart: '2026-07-01',
-      programLabel: '國中校隊',
+      programLabel: '新泰總部',
       trainingDates: ['2026-07-11', 'invalid', '2026-07-04', '2026-08-01'],
       addedDates: ['2026-07-18'],
       removedDates: ['2026-07-25'],
       changeKey: 'updated'
     })
 
-    expect(title).toBe('國中校隊 訓練日期異動：2026 年 7 月')
+    expect(title).toBe('新泰總部 訓練日期異動：2026 年 7 月')
     expect(body).toBe([
       '本月訓練日：7/4 週六、7/11 週六',
       '新增：7/18 週六',

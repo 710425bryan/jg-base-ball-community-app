@@ -23,17 +23,17 @@
 
 ## 2. AI 與文件
 
-| 檔案 | 用途 |
-| --- | --- |
-| `AGENTS.md` | AI / Codex 必讀入口規則 |
-| `.geminirules` | Gemini / Antigravity 相容入口，指向 `AGENTS.md` |
-| `AI_SKILLS.md` | repo 內 Codex skills 索引 |
-| `.codex/skills/*/SKILL.md` | 任務型 workflow |
-| `docs/PROJECT_LOGIC.md` | 功能邏輯與資料流 |
-| `docs/FILE_MAP.md` | 重要檔案地圖 |
-| `docs/MIGRATIONS.md` | migration、hotfix、repair 索引 |
-| `docs/EDGE_FUNCTIONS.md` | Edge Functions、外部服務與環境變數索引 |
-| `docs/EQUIPMENT_REFUND_FLOW.md` | 裝備退款 / 作廢收款流程 |
+| 檔案　　　　　　　　　　　　　　| 用途　　　　　　　　　　　　　　　　　　　　　　|
+| ---------------------------------| -------------------------------------------------|
+| `AGENTS.md`　　　　　　　　　　 | AI / Codex 必讀入口規則　　　　　　　　　　　　 |
+| `.geminirules`　　　　　　　　　| Gemini / Antigravity 相容入口，指向 `AGENTS.md` |
+| `AI_SKILLS.md`　　　　　　　　　| repo 內 Codex skills 索引　　　　　　　　　　　 |
+| `.codex/skills/*/SKILL.md`　　　| 任務型 workflow　　　　　　　　　　　　　　　　 |
+| `docs/PROJECT_LOGIC.md`　　　　 | 功能邏輯與資料流　　　　　　　　　　　　　　　　|
+| `docs/FILE_MAP.md`　　　　　　　| 重要檔案地圖　　　　　　　　　　　　　　　　　　|
+| `docs/MIGRATIONS.md`　　　　　　| migration、hotfix、repair 索引　　　　　　　　　|
+| `docs/EDGE_FUNCTIONS.md`　　　　| Edge Functions、外部服務與環境變數索引　　　　　|
+| `docs/EQUIPMENT_REFUND_FLOW.md` | 裝備退款 / 作廢收款流程　　　　　　　　　　　　 |
 
 規則：新增 route-level 頁面時，要同步更新本檔 Views、Services / Types / Utils 對照、`docs/PROJECT_LOGIC.md` 功能邏輯，以及對應 `.codex/skills/<feature>/SKILL.md`；若沒有對應 skill，需建立或說明併入既有 skill 的理由。
 
@@ -315,7 +315,7 @@
 | 廠商 | `supabase_vendor_management_migration.sql` |
 | 能力 / 體測 | `supabase_performance_data_migration.sql`、`supabase_performance_view_scope_migration.sql` |
 | 特訓 / 點數 | `supabase_training_points_migration.sql`、`supabase_zz_training_point_transaction_delete_migration.sql`、`supabase_zz_training_registration_notifications_migration.sql`、`supabase_zzzzzzzz_training_auto_select_notifications_migration.sql` |
-| 訓練項目 / 訓練日期設定 / 換月預設排程 | `supabase_training_dates_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzz_training_program_scope_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzzzz_team_member_training_program_hotfix.sql` |
+| 訓練項目 / 訓練日期設定 / 換月預設排程 | `supabase_training_dates_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzz_training_program_scope_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzzzz_team_member_training_program_hotfix.sql`、`supabase_zzzzzzzzzzzzzzzzzzzzz_training_program_label_rename_migration.sql` |
 | 場地與人員配置 | `supabase_training_locations_migration.sql`、`supabase_zzzzzzzzz_training_location_attendance_migration.sql`、`supabase_zzzzzzzzzz_training_location_venue_settings_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzz_training_location_leave_time_segment_migration.sql` |
 | 教練排班表 | `supabase_coach_schedules_migration.sql`、`supabase_coach_schedules_schedulable_coaches_hotfix.sql`、`supabase_coach_schedules_training_location_sync_hotfix.sql` |
 | 賽事同步 | `supabase_matches_google_calendar_sync_migration.sql`、`supabase_match_calendar_daily_sync_schedule.sql`、`supabase_match_leave_absences_migration.sql` |
