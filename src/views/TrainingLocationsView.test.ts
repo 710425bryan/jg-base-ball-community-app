@@ -167,4 +167,14 @@ describe('TrainingLocationsView', () => {
     expect(wrapper.vm.form.title).toBe('訓練課程')
     expect(wrapper.vm.form.venues[0].title).toBe('訓練課程')
   })
+
+  it('keeps shared settings controls readable until extra-wide desktop widths', async () => {
+    const wrapper = await mountView()
+
+    const sharedSettingsGridClasses = wrapper.get('[data-test="training-location-shared-settings-grid"]').classes()
+
+    expect(sharedSettingsGridClasses).toContain('md:grid-cols-2')
+    expect(sharedSettingsGridClasses).toContain('2xl:grid-cols-4')
+    expect(sharedSettingsGridClasses).not.toContain('xl:grid-cols-4')
+  })
 })

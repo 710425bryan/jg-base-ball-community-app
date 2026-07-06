@@ -1006,7 +1006,7 @@ onMounted(() => {
                     <el-checkbox v-model="syncFields.note" label="備註" />
                   </div>
                 </div>
-                <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <div data-test="training-location-shared-settings-grid" class="grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
                   <el-form-item label="訓練項目" class="mb-0 font-bold">
                     <el-select v-model="selectedProgramKey" class="w-full" size="large">
                       <el-option
@@ -1017,7 +1017,7 @@ onMounted(() => {
                       />
                     </el-select>
                   </el-form-item>
-                  <el-form-item label="訓練標題" class="mb-0 font-bold xl:col-span-2">
+                  <el-form-item label="訓練標題" class="mb-0 font-bold 2xl:col-span-2">
                     <el-input v-model="form.title" size="large" placeholder="例如：訓練課程" />
                   </el-form-item>
                   <el-form-item label="訓練日期" class="mb-0 font-bold">
@@ -1116,7 +1116,7 @@ onMounted(() => {
                         </a>
                       </div>
 
-                      <div class="mt-4 grid gap-3 border-t border-slate-100 pt-4 md:grid-cols-2 lg:col-span-2 lg:row-start-2 xl:grid-cols-3">
+                      <div class="mt-4 grid gap-3 border-t border-slate-100 pt-4 md:grid-cols-2 lg:col-span-2 lg:row-start-2 2xl:grid-cols-3">
                         <el-form-item label="訓練標題" class="mb-0 font-bold">
                           <el-input v-model="venue.title" :disabled="syncFields.title" size="large" placeholder="例如：訓練課程" />
                         </el-form-item>
