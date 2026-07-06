@@ -32,7 +32,8 @@ import {
   getScopedTrainingProgramForMember,
   getTrainingProgramFallbackSettings,
   getTrainingProgramKeyForMember,
-  getTrainingProgramSettingByKey
+  getTrainingProgramSettingByKey,
+  normalizeTrainingProgramKey
 } from '@/utils/trainingPrograms'
 import type { TrainingProgramSetting } from '@/types/trainingProgram'
 
@@ -287,6 +288,42 @@ const enrichSnapshotWithTrainingPrograms = (
   })
 })
 
+const getSnapshotTrainingProgramKeys = (
+  snapshot: MyHomeSnapshot,
+  settings: TrainingProgramSetting[]
+) => {
+  const programKeys = Array.from(new Set(
+    snapshot.members
+      .map((member) => getTrainingProgramKeyForMember(member, settings))
+      .filter((programKey): programKey is string => Boolean(programKey))
+  ))
+  if (programKeys.length === 0) programKeys.push(DEFAULT_TRAINING_PROGRAM_KEY)
+  return programKeys
+}
+
+const fetchTrainingMonthDateEntry = async (
+  programKey: string,
+  settings: TrainingProgramSetting[],
+  month: string,
+  today?: string | null
+) => {
+  const setting = getTrainingProgramSettingByKey(settings, programKey)
+  try {
+    const result = await trainingDatesApi.getMonthDates(month, {
+      programKey: setting.program_key,
+      programLabel: setting.label,
+      defaultWeekdays: setting.default_weekdays
+    })
+    return [setting.program_key, buildTrainingMonthDateItems(result.training_dates, today)] as const
+  } catch (error) {
+    console.warn(`get_training_month_dates RPC 無法補齊 ${setting.label} 首頁訓練日期，暫以項目預設星期顯示。`, error)
+    return [
+      setting.program_key,
+      buildTrainingMonthDateItems(getDefaultTrainingMonthDates(month, setting.default_weekdays), today)
+    ] as const
+  }
+}
+
 const enrichSnapshotWithTrainingMonthDates = async (
   snapshot: MyHomeSnapshot,
   rawPayload: Partial<MyHomeSnapshot> | null | undefined,
@@ -294,73 +331,40 @@ const enrichSnapshotWithTrainingMonthDates = async (
   today?: string | null
 ): Promise<MyHomeSnapshot> => {
   const month = normalizeTrainingMonth(today)
+  const programKeys = getSnapshotTrainingProgramKeys(snapshot, settings)
+  const datesByProgram: Record<string, MyHomeTrainingMonthDate[]> = {}
 
   const rawDatesByProgram = rawPayload && 'training_month_dates_by_program' in rawPayload
     ? (rawPayload as any).training_month_dates_by_program
     : null
 
   if (rawDatesByProgram && typeof rawDatesByProgram === 'object' && !Array.isArray(rawDatesByProgram)) {
-    const nextDatesByProgram = Object.fromEntries(
-      Object.entries(rawDatesByProgram as Record<string, unknown>).map(([programKey, dates]) => [
-        programKey,
-        buildTrainingMonthDateItems(
-          ensureArray<Partial<MyHomeTrainingMonthDate> | string>(dates).map((item) => (
-            typeof item === 'string' ? item : String(item?.date || '')
-          )),
-          today
-        )
-      ])
-    )
-    const defaultKey = snapshot.members[0]?.training_program || DEFAULT_TRAINING_PROGRAM_KEY
-    return {
-      ...snapshot,
-      training_month_dates_by_program: nextDatesByProgram,
-      training_month_dates: nextDatesByProgram[defaultKey] || snapshot.training_month_dates
-    }
+    Object.entries(rawDatesByProgram as Record<string, unknown>).forEach(([programKey, dates]) => {
+      datesByProgram[normalizeTrainingProgramKey(programKey)] = buildTrainingMonthDateItems(
+        ensureArray<Partial<MyHomeTrainingMonthDate> | string>(dates).map((item) => (
+          typeof item === 'string' ? item : String(item?.date || '')
+        )),
+        today
+      )
+    })
   }
 
   if (rawPayload && 'training_month_dates' in rawPayload) {
-    const defaultKey = DEFAULT_TRAINING_PROGRAM_KEY
-    const dates = buildTrainingMonthDateItems(
+    datesByProgram[DEFAULT_TRAINING_PROGRAM_KEY] = buildTrainingMonthDateItems(
       snapshot.training_month_dates.map((item) => item.date),
       today
     )
-    return {
-      ...snapshot,
-      training_month_dates: dates,
-      training_month_dates_by_program: {
-        ...snapshot.training_month_dates_by_program,
-        [defaultKey]: dates
-      }
-    }
   }
 
-  const programKeys = Array.from(new Set(
-    snapshot.members
-      .map((member) => getTrainingProgramKeyForMember(member, settings))
-      .filter(Boolean)
+  const missingProgramKeys = programKeys.filter((programKey) => !datesByProgram[programKey])
+  const fetchedEntries = await Promise.all(missingProgramKeys.map((programKey) =>
+    fetchTrainingMonthDateEntry(programKey, settings, month, today)
   ))
-  if (programKeys.length === 0) programKeys.push(DEFAULT_TRAINING_PROGRAM_KEY)
 
-  const entries = await Promise.all(programKeys.map(async (programKey) => {
-    const setting = getTrainingProgramSettingByKey(settings, programKey)
-    try {
-      const result = await trainingDatesApi.getMonthDates(month, {
-        programKey: setting.program_key,
-        programLabel: setting.label,
-        defaultWeekdays: setting.default_weekdays
-      })
-      return [setting.program_key, buildTrainingMonthDateItems(result.training_dates, today)] as const
-    } catch (error) {
-      console.warn(`get_training_month_dates RPC 無法補齊 ${setting.label} 首頁訓練日期，暫以項目預設星期顯示。`, error)
-      return [
-        setting.program_key,
-        buildTrainingMonthDateItems(getDefaultTrainingMonthDates(month, setting.default_weekdays), today)
-      ] as const
-    }
-  }))
+  fetchedEntries.forEach(([programKey, dates]) => {
+    datesByProgram[programKey] = dates
+  })
 
-  const datesByProgram = Object.fromEntries(entries)
   const defaultKey = snapshot.members[0]?.training_program || DEFAULT_TRAINING_PROGRAM_KEY
   return {
     ...snapshot,
