@@ -31,6 +31,33 @@ describe('memberBilling', () => {
     expect(getMemberBillingLabel(fixedPlayer)).toBe('社區月繳')
   })
 
+  it('treats Xintai school team members as fixed monthly billing', () => {
+    const xintaiSchoolMember = {
+      role: '校隊',
+      fee_billing_mode: 'role_default',
+      training_program: 'junior_high_school_team'
+    }
+    const chunggangSchoolMember = {
+      role: '校隊',
+      fee_billing_mode: 'role_default',
+      training_program: 'chunggang_school_team'
+    }
+    const schoolMemberWithoutProgram = {
+      role: '校隊',
+      fee_billing_mode: 'role_default'
+    }
+
+    expect(isFixedMonthlyBillingMember(xintaiSchoolMember)).toBe(true)
+    expect(getEffectivePaymentBillingMode(xintaiSchoolMember)).toBe('monthly')
+    expect(getMonthlyFeeCalculationType(xintaiSchoolMember)).toBe('monthly_fixed')
+    expect(getMemberBillingLabel(xintaiSchoolMember)).toBe('新泰月繳')
+    expect(isFixedMonthlyBillingMember(chunggangSchoolMember)).toBe(false)
+    expect(getMonthlyFeeCalculationType(chunggangSchoolMember)).toBe('per_session')
+    expect(getMemberBillingLabel(chunggangSchoolMember)).toBe('校隊月繳')
+    expect(isFixedMonthlyBillingMember(schoolMemberWithoutProgram)).toBe(false)
+    expect(getMonthlyFeeCalculationType(schoolMemberWithoutProgram)).toBe('per_session')
+  })
+
   it('keeps normal players on quarterly billing', () => {
     const quarterlyPlayer = { role: '球員', fee_billing_mode: 'role_default' }
 
@@ -51,13 +78,22 @@ describe('memberBilling', () => {
   it('treats no-fee school team members and players as non-billable', () => {
     const noFeePlayer = { role: '球員', fee_billing_mode: 'no_fee' }
     const noFeeSchoolMember = { role: '校隊', fee_billing_mode: 'no_fee' }
+    const noFeeXintaiSchoolMember = {
+      role: '校隊',
+      fee_billing_mode: 'no_fee',
+      training_program: 'junior_high_school_team'
+    }
 
     expect(isNoFeeBillingMember(noFeePlayer)).toBe(true)
     expect(isNoFeeBillingMember(noFeeSchoolMember)).toBe(true)
+    expect(isNoFeeBillingMember(noFeeXintaiSchoolMember)).toBe(true)
     expect(getEffectivePaymentBillingMode(noFeePlayer)).toBe('none')
     expect(getEffectivePaymentBillingMode(noFeeSchoolMember)).toBe('none')
+    expect(isFixedMonthlyBillingMember(noFeeXintaiSchoolMember)).toBe(false)
+    expect(getMonthlyFeeCalculationType(noFeeXintaiSchoolMember)).toBe('per_session')
     expect(getMemberBillingLabel(noFeePlayer)).toBe('不收費')
     expect(getMemberBillingLabel(noFeeSchoolMember)).toBe('不收費')
+    expect(getMemberBillingLabel(noFeeXintaiSchoolMember)).toBe('不收費')
   })
 
   it('uses 2000 as the fixed monthly default and allows explicit overrides', () => {

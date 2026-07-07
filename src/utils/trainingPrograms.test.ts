@@ -4,6 +4,7 @@ import {
   JUNIOR_HIGH_SCHOOL_TEAM_PROGRAM_KEY,
   getTrainingProgramFallbackSettings,
   getTrainingProgramKeyForMember,
+  getTrainingProgramTagClass,
   normalizeTrainingProgramSetting,
   normalizeTrainingProgramWeekdays
 } from './trainingPrograms'
@@ -45,6 +46,12 @@ describe('trainingPrograms', () => {
       role: '校隊',
       team_group: null
     }, getTrainingProgramFallbackSettings())).toBe(CHUNGGANG_SCHOOL_TEAM_PROGRAM_KEY)
+  })
+
+  it('assigns distinct tag colors for headquarters programs', () => {
+    expect(getTrainingProgramTagClass(CHUNGGANG_SCHOOL_TEAM_PROGRAM_KEY)).toContain('emerald')
+    expect(getTrainingProgramTagClass(JUNIOR_HIGH_SCHOOL_TEAM_PROGRAM_KEY)).toContain('sky')
+    expect(getTrainingProgramTagClass(null)).toContain('slate')
   })
 
   it('falls back per-session monthly players but does not scope regular players', () => {

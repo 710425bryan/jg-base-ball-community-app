@@ -237,6 +237,76 @@ describe('myHome service', () => {
     ])
   })
 
+  it('loads training month dates for the dashboard month switcher', async () => {
+    apiMocks.trainingProgramsApi.listSettings.mockResolvedValue([
+      {
+        program_key: 'chunggang_school_team',
+        label: '中港總部',
+        team_group: '中港校隊',
+        default_weekdays: [6],
+        default_start_time: '09:00',
+        default_end_time: '12:30',
+        default_venue_name: '中港國小',
+        default_venue_address: null,
+        default_venue_maps_url: null,
+        sort_order: 10,
+        is_active: true,
+        created_at: null,
+        updated_at: null
+      },
+      {
+        program_key: 'junior_high_school_team',
+        label: '新泰總部',
+        team_group: '國中校隊',
+        default_weekdays: [0],
+        default_start_time: '09:00',
+        default_end_time: '12:00',
+        default_venue_name: '新泰國中',
+        default_venue_address: null,
+        default_venue_maps_url: null,
+        sort_order: 20,
+        is_active: true,
+        created_at: null,
+        updated_at: null
+      }
+    ])
+    apiMocks.trainingDatesApi.getMonthDates.mockResolvedValue({
+      month_start: '2027-01-01',
+      month: '2027-01',
+      program_key: 'junior_high_school_team',
+      program_label: '新泰總部',
+      training_dates: ['2027-01-10', '2027-01-03'],
+      note: null,
+      is_default: false,
+      updated_at: null
+    })
+
+    const { getMyHomeTrainingMonthDates } = await import('./myHome')
+    const dates = await getMyHomeTrainingMonthDates({
+      month: '2027-01',
+      programKey: 'junior_high_school_team',
+      today: '2026-12-31'
+    })
+
+    expect(apiMocks.trainingDatesApi.getMonthDates).toHaveBeenCalledWith('2027-01', {
+      programKey: 'junior_high_school_team',
+      programLabel: '新泰總部',
+      defaultWeekdays: [0]
+    })
+    expect(dates).toEqual([
+      expect.objectContaining({
+        date: '2027-01-03',
+        label: '1/3 週日',
+        is_past: false
+      }),
+      expect.objectContaining({
+        date: '2027-01-10',
+        label: '1/10 週日',
+        is_past: false
+      })
+    ])
+  })
+
   it('returns and caches an empty snapshot when the RPC is missing', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     rpcMock.mockResolvedValue({

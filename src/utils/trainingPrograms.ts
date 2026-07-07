@@ -76,6 +76,20 @@ export const normalizeTrainingProgramKey = (
   return normalized || fallback
 }
 
+export const getTrainingProgramTagClass = (programKey?: string | null) => {
+  const normalizedKey = normalizeTrainingProgramKey(programKey, '')
+
+  if (normalizedKey === JUNIOR_HIGH_SCHOOL_TEAM_PROGRAM_KEY) {
+    return 'border-sky-200 bg-sky-50 text-sky-700'
+  }
+
+  if (normalizedKey === CHUNGGANG_SCHOOL_TEAM_PROGRAM_KEY) {
+    return 'border-emerald-200 bg-emerald-50 text-emerald-700'
+  }
+
+  return 'border-slate-200 bg-slate-50 text-slate-600'
+}
+
 export const normalizeTrainingProgramWeekdays = (value: unknown, fallback: number[] = [6]) => {
   const rawValues = Array.isArray(value) ? value : [value]
   const weekdays = rawValues

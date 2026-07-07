@@ -325,6 +325,26 @@ const fetchTrainingMonthDateEntry = async (
   }
 }
 
+export const getMyHomeTrainingMonthDates = async (input: {
+  programKey?: string | null
+  month?: string | null
+  today?: string | null
+}) => {
+  const month = normalizeTrainingMonth(input.month || input.today)
+  const programSettings = await trainingProgramsApi.listSettings().catch((error) => {
+    console.warn('訓練項目設定無法載入，首頁訓練日期暫以預設項目顯示。', error)
+    return getTrainingProgramFallbackSettings()
+  })
+  const [, dates] = await fetchTrainingMonthDateEntry(
+    input.programKey || DEFAULT_TRAINING_PROGRAM_KEY,
+    programSettings,
+    month,
+    input.today
+  )
+
+  return dates
+}
+
 const enrichSnapshotWithTrainingMonthDates = async (
   snapshot: MyHomeSnapshot,
   rawPayload: Partial<MyHomeSnapshot> | null | undefined,

@@ -829,7 +829,8 @@ const getPaymentMemberBillingConfig = (member?: MyPaymentMember | null) => ({
       (member?.role === '球員' && member.billing_mode === 'monthly'
         ? FIXED_MONTHLY_FEE_BILLING_MODE
         : ROLE_DEFAULT_FEE_BILLING_MODE)
-    )
+    ),
+  training_program: member?.training_program
 })
 const isFixedMonthlyPaymentMember = (member?: MyPaymentMember | null) =>
   getMonthlyFeeCalculationType(getPaymentMemberBillingConfig(member)) === 'monthly_fixed'
@@ -974,7 +975,7 @@ const createDialogEstimateHelperText = computed(() => {
 
   if (createDialogMember.value.billing_mode === 'monthly') {
     if (isFixedMonthlyPaymentMember(createDialogMember.value)) {
-      return '社區固定月繳會依收費設定的固定金額與既有月費扣減自動帶入金額。'
+      return `${getPaymentMemberBillingLabel(createDialogMember.value)}會依收費設定的固定金額與既有月費扣減自動帶入金額。`
     }
 
     return '計次月費會依單次收費設定、請假天數與既有月費扣減自動帶入金額。'
@@ -1036,7 +1037,7 @@ const createDialogMonthlyFormulaText = computed(() => {
   }
 
   if (estimate.calculation_type === 'monthly_fixed') {
-    return `固定月繳 ${formatCurrency(estimate.fixed_monthly_fee || 0)}，扣減 ${formatCurrency(estimate.deduction_amount)}`
+    return `${createDialogBillingModeLabel.value} ${formatCurrency(estimate.fixed_monthly_fee || 0)}，扣減 ${formatCurrency(estimate.deduction_amount)}`
   }
 
   if (
@@ -1879,7 +1880,7 @@ const submissionRules = {
           const openPeriodKey = getMonthlyPaymentOpenPeriodKey(getPaymentMemberBillingConfig(targetMember))
           callback(new Error(
             isFixedMonthlyPaymentMember(targetMember)
-              ? `固定月繳目前只能新增 ${openPeriodKey} 或更早月份`
+              ? `${getPaymentMemberBillingLabel(targetMember)}目前只能新增 ${openPeriodKey} 或更早月份`
               : `計次月費需等月份結束，目前只能新增 ${openPeriodKey} 或更早月份`
           ))
           return

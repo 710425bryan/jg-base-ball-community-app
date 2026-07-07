@@ -257,9 +257,12 @@
                   <el-tooltip v-if="fee.is_discounted" content="符合手足同行半價優惠" placement="top">
                     <span class="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded leading-none shrink-0 border border-primary/20">半價優惠</span>
                   </el-tooltip>
-                  <span v-if="isFixedMonthlyFee(fee)" class="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded leading-none shrink-0 border border-amber-200">社區月繳</span>
+                  <span v-if="isFixedMonthlyFee(fee)" class="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded leading-none shrink-0 border border-amber-200">{{ getFixedMonthlyFeeLabel(fee) }}</span>
                   <span v-else-if="isPlayerPerSessionMonthlyFee(fee)" class="text-[10px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded leading-none shrink-0 border border-blue-200">計次月費</span>
-                  <span class="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded leading-none shrink-0 border border-emerald-200">{{ fee.training_program_label || '中港總部' }}</span>
+                  <span
+                    class="text-[10px] font-bold px-1.5 py-0.5 rounded leading-none shrink-0 border"
+                    :class="getTrainingProgramTagClass(fee.training_program)"
+                  >{{ fee.training_program_label || '中港總部' }}</span>
                 </div>
               </td>
               <td class="py-3 px-4">
@@ -347,7 +350,8 @@ import {
   buildTrainingProgramOptions,
   getTrainingProgramFallbackSettings,
   getTrainingProgramForMember,
-  getTrainingProgramSettingByKey
+  getTrainingProgramSettingByKey,
+  getTrainingProgramTagClass
 } from '@/utils/trainingPrograms'
 import {
   calculateDiscountedPerSessionFee,
@@ -532,6 +536,17 @@ const formatCurrency = (amount: number) => {
 const isFixedMonthlyFee = (fee: any) => fee.calculation_type === 'monthly_fixed'
 const isPlayerPerSessionMonthlyFee = (fee: any) =>
   fee.role === '球員' && fee.calculation_type === 'per_session'
+const getBillingModeMember = (member: any) => ({
+  ...member,
+  training_program: member.billing_training_program
+})
+const getFixedMonthlyFeeLabel = (fee: any) =>
+  fee.role === '校隊' ? '新泰月繳' : '社區月繳'
+const getMonthlyFeeModeLabel = (fee: any) => {
+  if (isFixedMonthlyFee(fee)) return getFixedMonthlyFeeLabel(fee)
+  if (isPlayerPerSessionMonthlyFee(fee)) return '計次月費'
+  return '校隊月繳'
+}
 
 const getFeeReceivableAmount = (fee: any) => {
   if (isFixedMonthlyFee(fee)) {
@@ -661,7 +676,7 @@ const calculateFees = async () => {
     // 1. 撈取月費成員名單
     const { data: membersData, error: membersErr } = await supabase
       .from('team_members')
-      .select('id, name, role, team_group, status, is_inactive_or_graduated, sibling_ids, is_primary_payer, is_half_price, fee_billing_mode')
+      .select('id, name, role, team_group, training_program, status, is_inactive_or_graduated, sibling_ids, is_primary_payer, is_half_price, fee_billing_mode')
       .in('role', ['校隊', '球員'])
     if (membersErr) throw membersErr
 
@@ -673,6 +688,7 @@ const calculateFees = async () => {
       const program = getTrainingProgramForMember(member, programSettings.value)
       return {
         ...member,
+        billing_training_program: member.training_program,
         training_program: program.program_key,
         training_program_label: program.label
       }
@@ -785,7 +801,7 @@ const calculateFees = async () => {
 
     // 組裝
     feesList.value = members.map(m => {
-      const calculationType = getMonthlyFeeCalculationType(m)
+      const calculationType = getMonthlyFeeCalculationType(getBillingModeMember(m))
       const isFixedMonthly = calculationType === 'monthly_fixed'
       const programKey = m.training_program
       const programDates = nextTrainingMonthDatesByProgram[programKey] || []
@@ -948,7 +964,7 @@ const exportCSV = () => {
       fee.member_name,
       fee.training_program_label || '-',
       fee.month,
-      isFixedMonthlyFee(fee) ? '社區月繳' : '計次月費',
+      getMonthlyFeeModeLabel(fee),
       isFixedMonthlyFee(fee) ? '-' : String(fee.total_sessions || 0),
       fee.leave_sessions.toString(),
       leaveDates,

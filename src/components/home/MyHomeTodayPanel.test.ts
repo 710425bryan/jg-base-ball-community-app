@@ -1,9 +1,14 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it, vi } from 'vitest'
-import { RouterLinkStub, mount } from '@vue/test-utils'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { RouterLinkStub, flushPromises, mount } from '@vue/test-utils'
+import { getMyHomeTrainingMonthDates } from '@/services/myHome'
 import MyHomeTodayPanel from './MyHomeTodayPanel.vue'
 import { createEmptyMyHomeSnapshot, type MyHomeSnapshot } from '@/types/myHome'
+
+vi.mock('@/services/myHome', () => ({
+  getMyHomeTrainingMonthDates: vi.fn()
+}))
 
 vi.mock('vue-router', async () => {
   const actual = await vi.importActual<typeof import('vue-router')>('vue-router')
@@ -14,6 +19,8 @@ vi.mock('vue-router', async () => {
     })
   }
 })
+
+const getMyHomeTrainingMonthDatesMock = vi.mocked(getMyHomeTrainingMonthDates)
 
 const buildSnapshot = (matchLevel: string | null): MyHomeSnapshot => ({
   ...createEmptyMyHomeSnapshot(),
@@ -82,6 +89,16 @@ const mountPanel = (snapshot: MyHomeSnapshot) => mount(MyHomeTodayPanel, {
 })
 
 describe('MyHomeTodayPanel', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-05-15T04:00:00.000Z'))
+    getMyHomeTrainingMonthDatesMock.mockReset()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('links to training registration when Next Up is a training class', () => {
     const wrapper = mountPanel(buildSnapshot('特訓課'))
 
@@ -143,5 +160,53 @@ describe('MyHomeTodayPanel', () => {
     expect(wrapper.text()).toContain('新泰總部')
     expect(wrapper.text()).toContain('5/3 週日')
     expect(wrapper.text()).not.toContain('5/2 週六')
+  })
+
+  it('loads the next month training dates from the month controls', async () => {
+    getMyHomeTrainingMonthDatesMock.mockResolvedValue([
+      {
+        date: '2026-06-06',
+        weekday: '週六',
+        label: '6/6 週六',
+        is_today: false,
+        is_past: false
+      }
+    ])
+
+    const wrapper = mountPanel(buildSnapshot('友誼賽'))
+    await wrapper.find('[data-test="training-month-next"]').trigger('click')
+    await flushPromises()
+
+    expect(getMyHomeTrainingMonthDatesMock).toHaveBeenCalledWith({
+      month: '2026-06',
+      programKey: 'chunggang_school_team'
+    })
+    expect(wrapper.text()).toContain('6 月訓練日期')
+    expect(wrapper.text()).toContain('6/6 週六')
+    expect(wrapper.text()).toContain('共 1 天上課')
+  })
+
+  it('shows the year when the selected training month crosses years', async () => {
+    vi.setSystemTime(new Date('2026-12-15T04:00:00.000Z'))
+    getMyHomeTrainingMonthDatesMock.mockResolvedValue([
+      {
+        date: '2027-01-03',
+        weekday: '週日',
+        label: '1/3 週日',
+        is_today: false,
+        is_past: false
+      }
+    ])
+
+    const wrapper = mountPanel(buildSnapshot('友誼賽'))
+    await wrapper.find('[data-test="training-month-next"]').trigger('click')
+    await flushPromises()
+
+    expect(getMyHomeTrainingMonthDatesMock).toHaveBeenCalledWith({
+      month: '2027-01',
+      programKey: 'chunggang_school_team'
+    })
+    expect(wrapper.text()).toContain('2027 年 1 月訓練日期')
+    expect(wrapper.text()).toContain('1/3 週日')
   })
 })

@@ -2,7 +2,7 @@
   <div class="mx-auto flex max-w-4xl animate-fade-in flex-col gap-5">
     <div class="flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary/10 p-4 text-sm font-bold leading-relaxed text-primary">
       <el-icon class="mt-0.5 text-lg"><InfoFilled /></el-icon>
-      <div>校隊與開啟計次月費的球員會依單次金額進入月費表；開啟固定月繳的社區球員會以這裡設定的月繳金額進入月費表。不收費成員不會產生新的隊費與比賽費，裝備加購仍依實際申請付款。</div>
+      <div>中港校隊與開啟計次月費的球員會依單次金額進入月費表；新泰校隊與開啟固定月繳的社區球員會以這裡設定的月繳金額進入月費表。不收費成員不會產生新的隊費與比賽費，裝備加購仍依實際申請付款。</div>
     </div>
 
     <section class="overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-sm" v-loading="isCompensationDefaultsLoading">
@@ -64,7 +64,10 @@
             <tr v-for="member in schoolMembers" :key="member.id" class="transition-colors hover:bg-gray-50/50">
               <td class="flex items-center gap-2 px-4 py-3">
                 <span class="font-black text-gray-800">{{ member.name }}</span>
-                <span class="whitespace-nowrap rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
+                <span
+                  class="whitespace-nowrap rounded border px-1.5 py-0.5 text-[10px] font-bold"
+                  :class="getTrainingProgramTagClass(member.training_program)"
+                >
                   {{ member.training_program_label || '中港總部' }}
                 </span>
                 <span v-if="hasActiveFeeSibling(member)" class="whitespace-nowrap rounded border px-1.5 py-0.5 text-[10px] font-bold" :class="member.is_primary_payer ? 'border-green-200 bg-green-50 text-green-600' : 'border-primary/20 bg-primary/10 text-primary'">
@@ -100,27 +103,32 @@
 
     <section class="overflow-hidden rounded-2xl border border-amber-100 bg-white shadow-sm" v-loading="isLoading">
       <div class="border-b border-amber-100 bg-amber-50/80 px-4 py-3">
-        <h3 class="text-base font-black text-gray-800">社區球員固定月繳</h3>
-        <p class="mt-1 text-xs font-medium text-amber-700/80">只顯示球員名單中已開啟「固定月繳」的球員。</p>
+        <h3 class="text-base font-black text-gray-800">固定月繳 / 新泰月繳</h3>
+        <p class="mt-1 text-xs font-medium text-amber-700/80">顯示球員名單中已開啟「固定月繳」的社區球員，以及新泰校隊成員。</p>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full min-w-[560px]">
           <thead>
             <tr class="border-b border-gray-100 bg-gray-50/60">
-              <th class="w-1/2 px-4 py-3 text-left text-sm font-bold text-gray-500">球員姓名</th>
+              <th class="w-1/2 px-4 py-3 text-left text-sm font-bold text-gray-500">成員姓名</th>
               <th class="px-4 py-3 text-left text-sm font-bold text-gray-500">固定月繳金額 (元)</th>
               <th class="w-32 px-4 py-3 text-center text-sm font-bold text-gray-500">操作</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
             <tr v-if="fixedMonthlyMembers.length === 0">
-              <td colspan="3" class="px-4 py-8 text-center text-sm font-bold text-gray-400">目前沒有開啟固定月繳的社區球員</td>
+              <td colspan="3" class="px-4 py-8 text-center text-sm font-bold text-gray-400">目前沒有固定月繳或新泰月繳成員</td>
             </tr>
             <tr v-for="member in fixedMonthlyMembers" :key="member.id" class="transition-colors hover:bg-amber-50/40">
               <td class="px-4 py-3">
                 <div class="flex items-center gap-2">
                   <span class="font-black text-gray-800">{{ member.name }}</span>
-                  <span class="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">固定月繳</span>
+                  <span class="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">{{ getFeeSettingMemberBillingLabel(member) }}</span>
+                  <span
+                    v-if="member.role === '校隊'"
+                    class="rounded border px-1.5 py-0.5 text-[10px] font-bold"
+                    :class="getTrainingProgramTagClass(member.training_program)"
+                  >{{ member.training_program_label || '新泰總部' }}</span>
                 </div>
               </td>
               <td class="px-4 py-3">
@@ -199,7 +207,8 @@ import type { QuarterlyFeeCompensationDefaults } from '@/types/quarterlyFeeCompe
 import type { TrainingProgramSetting } from '@/types/trainingProgram'
 import {
   DEFAULT_FIXED_MONTHLY_FEE,
-  FIXED_MONTHLY_FEE_BILLING_MODE,
+  getMemberBillingLabel,
+  isFixedMonthlyBillingMember,
   isPerSessionMonthlyBillingMember,
   NO_FEE_BILLING_MODE,
   normalizeFixedMonthlyFee
@@ -207,7 +216,8 @@ import {
 import { getActiveSiblingIds, isActiveRosterMember } from '@/utils/memberLifecycle'
 import {
   getTrainingProgramFallbackSettings,
-  getTrainingProgramForMember
+  getTrainingProgramForMember,
+  getTrainingProgramTagClass
 } from '@/utils/trainingPrograms'
 import {
   DEFAULT_QUARTERLY_COMPENSATION_DISCOUNT_DAILY_CREDIT,
@@ -250,6 +260,14 @@ const isCompensationDefaultsDirty = computed(() => {
 const hasActiveFeeSibling = (member: any) =>
   getActiveSiblingIds(member, activeFeeMembers.value).length > 0
 
+const getBillingModeMember = (member: any) => ({
+  ...member,
+  training_program: member.billing_training_program
+})
+
+const getFeeSettingMemberBillingLabel = (member: any) =>
+  getMemberBillingLabel(getBillingModeMember(member))
+
 const markDirty = (memberId: string, kind: FeeSettingKind) => {
   if (kind === 'per_session') {
     isPerSessionDirty.value[memberId] = true
@@ -269,7 +287,7 @@ const fetchData = async () => {
 
     const { data: teamMembers, error: membersError } = await supabase
       .from('team_members')
-      .select('id, name, role, team_group, status, is_inactive_or_graduated, sibling_ids, is_primary_payer, fee_billing_mode')
+      .select('id, name, role, team_group, training_program, status, is_inactive_or_graduated, sibling_ids, is_primary_payer, fee_billing_mode')
       .in('role', ['校隊', '球員'])
       .order('name')
 
@@ -281,18 +299,19 @@ const fetchData = async () => {
         const program = getTrainingProgramForMember(member, programSettings.value)
         return {
           ...member,
+          billing_training_program: member.training_program,
           training_program: program.program_key,
           training_program_label: program.label
         }
       })
     schoolMembers.value = activeFeeMembers.value.filter(
-      (member) => isPerSessionMonthlyBillingMember(member)
+      (member) => isPerSessionMonthlyBillingMember(getBillingModeMember(member))
     ).sort((left, right) =>
       String(left.training_program_label || '').localeCompare(String(right.training_program_label || ''), 'zh-Hant')
       || String(left.name || '').localeCompare(String(right.name || ''), 'zh-Hant')
     )
     fixedMonthlyMembers.value = activeFeeMembers.value.filter(
-      (member) => member.role === '球員' && member.fee_billing_mode === FIXED_MONTHLY_FEE_BILLING_MODE
+      (member) => isFixedMonthlyBillingMember(getBillingModeMember(member))
     )
     noFeeMembers.value = activeFeeMembers.value.filter(
       (member) =>

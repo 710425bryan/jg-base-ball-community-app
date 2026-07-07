@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
-import { Calendar, Location, Refresh, Tickets, UserFilled } from '@element-plus/icons-vue'
-import type { MyHomeSnapshot, MyHomeTodoItem } from '@/types/myHome'
+import { ArrowLeft, ArrowRight, Calendar, Location, Refresh, Tickets, UserFilled } from '@element-plus/icons-vue'
+import { getMyHomeTrainingMonthDates } from '@/services/myHome'
+import type { MyHomeSnapshot, MyHomeTodoItem, MyHomeTrainingMonthDate } from '@/types/myHome'
 import {
   buildMyHomeTodoItems,
   formatMyHomeCurrency,
@@ -10,6 +11,7 @@ import {
   getSelectedMyHomeMember
 } from '@/utils/myHomeSnapshot'
 import { getLeaveTimeSegmentLabel } from '@/utils/leaveRequests'
+import { getCurrentTaipeiMonth, normalizeTrainingMonth } from '@/utils/trainingMonthDates'
 
 const props = defineProps<{
   snapshot: MyHomeSnapshot
@@ -50,14 +52,67 @@ const selectedTrainingLocations = computed(() =>
 )
 const selectedProgramKey = computed(() => selectedMember.value?.training_program || 'chunggang_school_team')
 const selectedProgramLabel = computed(() => selectedMember.value?.training_program_label || selectedMember.value?.team_group || '中港總部')
-const trainingMonthDates = computed(() =>
+const selectedTrainingMonth = ref(getCurrentTaipeiMonth())
+const trainingMonthDatesCache = ref<Record<string, MyHomeTrainingMonthDate[]>>({})
+const isTrainingMonthLoading = ref(false)
+const trainingMonthError = ref('')
+let trainingMonthRequestId = 0
+
+const pad2 = (value: number) => String(value).padStart(2, '0')
+const parseTrainingMonth = (month: string) => {
+  const normalized = normalizeTrainingMonth(month)
+  const [year, monthNumber] = normalized.split('-').map(Number)
+  return { year, month: monthNumber, value: normalized }
+}
+
+const addTrainingMonth = (month: string, offset: number) => {
+  const parsed = parseTrainingMonth(month)
+  const date = new Date(Date.UTC(parsed.year, parsed.month - 1 + offset, 1))
+  return `${date.getUTCFullYear()}-${pad2(date.getUTCMonth() + 1)}`
+}
+
+const currentTrainingMonth = computed(() => getCurrentTaipeiMonth())
+const isSelectedCurrentTrainingMonth = computed(() =>
+  normalizeTrainingMonth(selectedTrainingMonth.value) === currentTrainingMonth.value
+)
+const selectedTrainingMonthMeta = computed(() => parseTrainingMonth(selectedTrainingMonth.value))
+const selectedTrainingMonthLabel = computed(() => {
+  const current = parseTrainingMonth(currentTrainingMonth.value)
+  const selected = selectedTrainingMonthMeta.value
+  return selected.year === current.year
+    ? `${selected.month} 月`
+    : `${selected.year} 年 ${selected.month} 月`
+})
+const trainingMonthTitle = computed(() =>
+  isSelectedCurrentTrainingMonth.value ? '本月訓練日期' : `${selectedTrainingMonthLabel.value}訓練日期`
+)
+const trainingMonthCacheKey = computed(() =>
+  `${selectedProgramKey.value}:${normalizeTrainingMonth(selectedTrainingMonth.value)}`
+)
+const currentTrainingMonthDates = computed(() =>
   props.snapshot.training_month_dates_by_program[selectedProgramKey.value]
   || props.snapshot.training_month_dates
 )
+const trainingMonthDates = computed(() => {
+  if (isSelectedCurrentTrainingMonth.value) return currentTrainingMonthDates.value
+  return trainingMonthDatesCache.value[trainingMonthCacheKey.value] || []
+})
 const upcomingTrainingMonthDate = computed(() =>
-  trainingMonthDates.value.find((item) => !item.is_past)
-  || trainingMonthDates.value[trainingMonthDates.value.length - 1]
-  || null
+  trainingMonthDates.value.find((item) => !item.is_past) || null
+)
+const trainingMonthSummaryText = computed(() => {
+  if (isTrainingMonthLoading.value) return '讀取上課日中...'
+  if (trainingMonthError.value) return trainingMonthError.value
+  if (isSelectedCurrentTrainingMonth.value && upcomingTrainingMonthDate.value) {
+    return `下一次 ${upcomingTrainingMonthDate.value.label}`
+  }
+  if (trainingMonthDates.value.length > 0) return `共 ${trainingMonthDates.value.length} 天上課`
+  return '當月訓練日會顯示在這裡'
+})
+const trainingMonthEmptyText = computed(() =>
+  isSelectedCurrentTrainingMonth.value
+    ? '本月尚未設定訓練日期。'
+    : `${selectedTrainingMonthLabel.value}尚未設定訓練日期。`
 )
 const paymentSummary = computed(() => props.snapshot.payment_summary)
 const equipmentSummary = computed(() => props.snapshot.equipment_summary)
@@ -137,6 +192,57 @@ const handleMemberChange = (value: string) => {
   emit('update:selectedMemberId', value)
 }
 
+const shiftTrainingMonth = (offset: number) => {
+  trainingMonthError.value = ''
+  selectedTrainingMonth.value = addTrainingMonth(selectedTrainingMonth.value, offset)
+}
+
+const resetTrainingMonth = () => {
+  trainingMonthError.value = ''
+  selectedTrainingMonth.value = currentTrainingMonth.value
+}
+
+const loadSelectedTrainingMonthDates = async () => {
+  const requestId = ++trainingMonthRequestId
+
+  if (isSelectedCurrentTrainingMonth.value) {
+    isTrainingMonthLoading.value = false
+    trainingMonthError.value = ''
+    return
+  }
+
+  const month = normalizeTrainingMonth(selectedTrainingMonth.value)
+  const cacheKey = trainingMonthCacheKey.value
+  if (trainingMonthDatesCache.value[cacheKey]) {
+    trainingMonthError.value = ''
+    return
+  }
+
+  isTrainingMonthLoading.value = true
+  trainingMonthError.value = ''
+
+  try {
+    const dates = await getMyHomeTrainingMonthDates({
+      month,
+      programKey: selectedProgramKey.value
+    })
+    if (requestId !== trainingMonthRequestId) return
+    trainingMonthDatesCache.value = {
+      ...trainingMonthDatesCache.value,
+      [cacheKey]: dates
+    }
+  } catch (error) {
+    console.warn('Error loading dashboard training month dates:', error)
+    if (requestId === trainingMonthRequestId) {
+      trainingMonthError.value = '訓練日期暫時無法載入'
+    }
+  } finally {
+    if (requestId === trainingMonthRequestId) {
+      isTrainingMonthLoading.value = false
+    }
+  }
+}
+
 const navigateToTodo = (todo: MyHomeTodoItem) => {
   if (!todo.route) return
   void router.push(todo.route)
@@ -145,6 +251,10 @@ const navigateToTodo = (todo: MyHomeTodoItem) => {
 watch(() => selectedMember.value?.id, () => {
   isPointCardFlipped.value = false
 })
+
+watch([selectedTrainingMonth, selectedProgramKey], () => {
+  void loadSelectedTrainingMonthDates()
+}, { immediate: true })
 </script>
 
 <template>
@@ -206,18 +316,52 @@ watch(() => selectedMember.value?.id, () => {
             <div class="min-w-0">
               <div class="flex items-center gap-2 text-base font-black text-slate-900">
                 <el-icon class="text-emerald-700"><Calendar /></el-icon>
-                本月訓練日期
+                {{ trainingMonthTitle }}
               </div>
               <p class="mt-1 text-sm font-bold text-emerald-700">
                 <span class="mr-1">{{ selectedProgramLabel }}</span>
-                <span v-if="upcomingTrainingMonthDate">下一次 {{ upcomingTrainingMonthDate.label }}</span>
-                <span v-else>當月訓練日會顯示在這裡</span>
+                <span>{{ trainingMonthSummaryText }}</span>
               </p>
             </div>
             <span class="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-black text-emerald-700">{{ trainingMonthDates.length }} 天</span>
           </div>
 
-          <div v-if="trainingMonthDates.length > 0" class="mt-3 grid grid-cols-2 gap-2">
+          <div class="mt-3 grid grid-cols-3 gap-2" data-test="mobile-training-month-controls">
+            <button
+              type="button"
+              class="inline-flex h-10 w-full items-center justify-center gap-1 rounded-xl border border-emerald-200 bg-white px-2 text-xs font-black leading-none text-emerald-700 transition-colors hover:border-emerald-300 hover:bg-emerald-100"
+              data-test="training-month-prev"
+              @click="shiftTrainingMonth(-1)"
+            >
+              <el-icon><ArrowLeft /></el-icon>
+              上個月
+            </button>
+            <button
+              type="button"
+              class="inline-flex h-10 w-full items-center justify-center gap-1 rounded-xl border px-2 text-xs font-black leading-none transition-colors"
+              :class="isSelectedCurrentTrainingMonth ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-emerald-200 bg-white text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100'"
+              data-test="training-month-current"
+              @click="resetTrainingMonth"
+            >
+              <el-icon><Calendar /></el-icon>
+              本月
+            </button>
+            <button
+              type="button"
+              class="inline-flex h-10 w-full items-center justify-center gap-1 rounded-xl border border-emerald-200 bg-white px-2 text-xs font-black leading-none text-emerald-700 transition-colors hover:border-emerald-300 hover:bg-emerald-100"
+              data-test="training-month-next"
+              @click="shiftTrainingMonth(1)"
+            >
+              下個月
+              <el-icon><ArrowRight /></el-icon>
+            </button>
+          </div>
+
+          <div v-if="isTrainingMonthLoading" class="mt-3 rounded-xl border border-dashed border-emerald-200 bg-white/85 px-3 py-4 text-center text-sm font-bold text-emerald-700">
+            讀取上課日中...
+          </div>
+
+          <div v-else-if="trainingMonthDates.length > 0" class="mt-3 grid grid-cols-2 gap-2">
             <span
               v-for="date in trainingMonthDates"
               :key="`mobile-${date.date}`"
@@ -229,7 +373,7 @@ watch(() => selectedMember.value?.id, () => {
           </div>
 
           <div v-else class="mt-3 rounded-xl border border-dashed border-emerald-200 bg-white/85 px-3 py-4 text-center text-sm font-bold text-slate-500">
-            本月尚未設定訓練日期。
+            {{ trainingMonthEmptyText }}
           </div>
         </section>
 
@@ -365,17 +509,51 @@ watch(() => selectedMember.value?.id, () => {
             <section class="hidden rounded-2xl border border-emerald-100 bg-emerald-50 p-5 shadow-sm md:block">
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
-                <div class="text-sm font-black text-slate-900">本月訓練日期</div>
+                <div class="text-sm font-black text-slate-900">{{ trainingMonthTitle }}</div>
                 <p class="mt-1 text-xs font-bold text-emerald-700">
                   <span class="mr-1">{{ selectedProgramLabel }}</span>
-                  <span v-if="upcomingTrainingMonthDate">下一次 {{ upcomingTrainingMonthDate.label }}</span>
-                  <span v-else>當月訓練日會顯示在這裡</span>
+                  <span>{{ trainingMonthSummaryText }}</span>
                 </p>
               </div>
               <span class="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-black text-emerald-700">{{ trainingMonthDates.length }} 天</span>
             </div>
 
-            <div v-if="trainingMonthDates.length > 0" class="mt-3 flex flex-wrap gap-2">
+            <div class="mt-3 flex flex-wrap items-center gap-2" data-test="desktop-training-month-controls">
+              <button
+                type="button"
+                class="inline-flex h-8 min-w-[4.75rem] items-center justify-center gap-1 rounded-lg border border-emerald-200 bg-white px-2 text-[11px] font-black leading-none text-emerald-700 transition-colors hover:border-emerald-300 hover:bg-emerald-100"
+                data-test="training-month-prev"
+                @click="shiftTrainingMonth(-1)"
+              >
+                <el-icon><ArrowLeft /></el-icon>
+                上個月
+              </button>
+              <button
+                type="button"
+                class="inline-flex h-8 min-w-[4.25rem] items-center justify-center gap-1 rounded-lg border px-2 text-[11px] font-black leading-none transition-colors"
+                :class="isSelectedCurrentTrainingMonth ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-emerald-200 bg-white text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100'"
+                data-test="training-month-current"
+                @click="resetTrainingMonth"
+              >
+                <el-icon><Calendar /></el-icon>
+                本月
+              </button>
+              <button
+                type="button"
+                class="inline-flex h-8 min-w-[4.75rem] items-center justify-center gap-1 rounded-lg border border-emerald-200 bg-white px-2 text-[11px] font-black leading-none text-emerald-700 transition-colors hover:border-emerald-300 hover:bg-emerald-100"
+                data-test="training-month-next"
+                @click="shiftTrainingMonth(1)"
+              >
+                下個月
+                <el-icon><ArrowRight /></el-icon>
+              </button>
+            </div>
+
+            <div v-if="isTrainingMonthLoading" class="mt-3 rounded-xl border border-dashed border-emerald-200 bg-white/85 px-3 py-4 text-center text-sm font-bold text-emerald-700">
+              讀取上課日中...
+            </div>
+
+            <div v-else-if="trainingMonthDates.length > 0" class="mt-3 flex flex-wrap gap-2">
               <span
                 v-for="date in trainingMonthDates"
                 :key="date.date"
@@ -387,7 +565,7 @@ watch(() => selectedMember.value?.id, () => {
             </div>
 
             <div v-else class="mt-3 rounded-xl border border-dashed border-emerald-200 bg-white/85 px-3 py-4 text-center text-sm font-bold text-slate-500">
-              本月尚未設定訓練日期。
+              {{ trainingMonthEmptyText }}
             </div>
             </section>
 

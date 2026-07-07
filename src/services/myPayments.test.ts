@@ -20,7 +20,12 @@ describe('myPayments service', () => {
   it('filters payment members through active roster metadata', async () => {
     rpcMock.mockResolvedValue({
       data: [
-        { member_id: 'member-1', name: '小明' },
+        {
+          member_id: 'member-1',
+          name: '小明',
+          training_program: 'junior_high_school_team',
+          training_program_label: '新泰總部'
+        },
         { member_id: 'member-2', name: '小華' }
       ],
       error: null
@@ -36,7 +41,12 @@ describe('myPayments service', () => {
     const { listMyPaymentMembers } = await import('./myPayments')
 
     await expect(listMyPaymentMembers()).resolves.toEqual([
-      { member_id: 'member-1', name: '小明' }
+      {
+        member_id: 'member-1',
+        name: '小明',
+        training_program: 'junior_high_school_team',
+        training_program_label: '新泰總部'
+      }
     ])
   })
 

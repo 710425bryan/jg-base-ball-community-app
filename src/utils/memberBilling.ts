@@ -3,6 +3,7 @@ export const FIXED_MONTHLY_FEE_BILLING_MODE = 'monthly_fixed'
 export const MONTHLY_PER_SESSION_FEE_BILLING_MODE = 'monthly_per_session'
 export const NO_FEE_BILLING_MODE = 'no_fee'
 export const DEFAULT_FIXED_MONTHLY_FEE = 2000
+export const XINTAI_FIXED_MONTHLY_TRAINING_PROGRAM_KEY = 'junior_high_school_team'
 
 export type MemberFeeBillingMode =
   | typeof ROLE_DEFAULT_FEE_BILLING_MODE
@@ -16,7 +17,15 @@ export type MonthlyFeeCalculationType = 'per_session' | 'monthly_fixed'
 export type BillingModeMember = {
   role?: string | null
   fee_billing_mode?: string | null
+  training_program?: string | null
 }
+
+const normalizeTrainingProgramKeyForBilling = (value?: string | null) =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_:-]+/g, '_')
+    .replace(/^_+|_+$/g, '')
 
 export const normalizeMemberFeeBillingMode = (value?: string | null): MemberFeeBillingMode =>
   value === FIXED_MONTHLY_FEE_BILLING_MODE ||
@@ -29,8 +38,14 @@ export const isNoFeeBillingMember = (member: BillingModeMember) =>
   (member.role === '球員' || member.role === '校隊') &&
   normalizeMemberFeeBillingMode(member.fee_billing_mode) === NO_FEE_BILLING_MODE
 
+export const isXintaiFixedMonthlyBillingMember = (member: BillingModeMember) =>
+  member.role === '校隊' &&
+  normalizeMemberFeeBillingMode(member.fee_billing_mode) !== NO_FEE_BILLING_MODE &&
+  normalizeTrainingProgramKeyForBilling(member.training_program) === XINTAI_FIXED_MONTHLY_TRAINING_PROGRAM_KEY
+
 export const isFixedMonthlyBillingMember = (member: BillingModeMember) =>
-  member.role === '球員' && normalizeMemberFeeBillingMode(member.fee_billing_mode) === FIXED_MONTHLY_FEE_BILLING_MODE
+  (member.role === '球員' && normalizeMemberFeeBillingMode(member.fee_billing_mode) === FIXED_MONTHLY_FEE_BILLING_MODE) ||
+  isXintaiFixedMonthlyBillingMember(member)
 
 export const isMonthlyPerSessionBillingMember = (member: BillingModeMember) =>
   member.role === '球員' &&
@@ -101,6 +116,7 @@ export const calculateDiscountedPerSessionFee = (
 
 export const getMemberBillingLabel = (member: BillingModeMember) => {
   if (isNoFeeBillingMember(member)) return '不收費'
+  if (isXintaiFixedMonthlyBillingMember(member)) return '新泰月繳'
   if (isFixedMonthlyBillingMember(member)) return '社區月繳'
   if (isMonthlyPerSessionBillingMember(member)) return '計次月費'
   if (member.role === '校隊') return '校隊月繳'
