@@ -405,6 +405,7 @@ const notificationSourceLabels: Record<NotificationSource, string> = {
   member: '球員通知',
   join: '入隊詢問',
   fee: '繳費提醒',
+  fee_payment_reminder: '催繳通知',
   match: '賽事提醒',
   announcement: '公告',
   equipment: '裝備通知',

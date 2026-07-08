@@ -245,6 +245,7 @@
 - 比賽費走 `src/services/matchFees.ts`、`match_fee_items`、`match_payment_submissions`、`match_payment_submission_items`，可在 `/my-payments` 合併回報，在 `/fees` 審核。
 - 匯款表單匯入走 `supabase/functions/record-fee-remittance/index.ts` 與 `scripts/google-form-remittance-apps-script.js`，不得硬編碼 secret。
 - 費用提醒走 `src/services/feeManagementReminders.ts` 與 `supabase_fee_management_reminders_migration.sql`，改提醒時要檢查通知中心 `get_notification_feed()`。
+- 手動催繳通知走 `src/components/fees/FeePaymentReminderDialog.vue`、`src/services/feePaymentReminders.ts` 與 `supabase/functions/send-fee-payment-reminders/index.ts`；只處理月費 / 季費未繳，不含比賽費或裝備款，不做 cron / 自動排程。`preview/send` 需 `fees:EDIT` 或 `ADMIN`，測試通知只允許 `ADMIN` 且只通知目前登入管理員；正式通知寫入 `push_dispatch_events` targeted event，通知中心 source 為 `fee_payment_reminder`，URL 為 `/my-payments`。
 
 ### 裝備管理與加購
 
@@ -289,7 +290,7 @@
 ### 推播與 Web Push
 
 - 前端派送入口統一走 `src/utils/pushNotifications.ts` 的 `dispatchPushNotification()`。
-- Edge Function：`supabase/functions/send-push-notification/index.ts`；排程型通知可用專屬 Edge Function，例如 `send-match-reminders`、`send-training-registration-notifications`；共用 helper 在 `supabase/functions/_shared/push.ts`。
+- Edge Function：`supabase/functions/send-push-notification/index.ts`；排程型通知可用專屬 Edge Function，例如 `send-match-reminders`、`send-training-registration-notifications`；手動 targeted 通知也可用專屬 Edge Function，例如 `send-fee-payment-reminders`；共用 helper 在 `supabase/functions/_shared/push.ts`。
 - 訂閱資料表：`web_push_subscriptions`。
 - 同一事件可能由表單、Realtime、重試或多入口觸發時，必須提供穩定 `eventKey`，由 `send-push-notification` 搭配 `push_dispatch_events` 去重。
 - 收件對象以 `feature` + `action` 權限決定；`targetRoles` 只能縮小範圍，不可取代權限查詢。
@@ -345,7 +346,7 @@
 - 裝備：`pnpm exec vitest run src/utils/equipmentInventory.test.ts src/utils/equipmentPricing.test.ts src/utils/equipmentRequestStatus.test.ts`
 - 賽事同步：`pnpm exec vitest run src/utils/googleCalendarParser.test.ts src/services/matchesApi.test.ts`
 - 賽事紀錄 / 媒體：`pnpm exec vitest run src/services/matchesApi.test.ts src/utils/matchFieldEditor.test.ts src/utils/liveMatchScoreboard.test.ts src/utils/matchAudioTranscription.test.ts src/utils/lineupPhotoParser.test.ts src/services/weatherApi.test.ts`
-- 收費 / 付款：`pnpm exec vitest run src/utils/memberBilling.test.ts src/utils/monthlyPaymentPeriods.test.ts src/utils/monthlyFeeSettlement.test.ts src/utils/quarterlyFeeFamilies.test.ts src/utils/quarterlyFeeCompensation.test.ts src/utils/playerBalance.test.ts src/utils/feeManagementReminders.test.ts`
+- 收費 / 付款：`pnpm exec vitest run src/utils/memberBilling.test.ts src/utils/monthlyPaymentPeriods.test.ts src/utils/monthlyFeeSettlement.test.ts src/utils/quarterlyFeeFamilies.test.ts src/utils/quarterlyFeeCompensation.test.ts src/utils/playerBalance.test.ts src/utils/feeManagementReminders.test.ts src/utils/feePaymentReminders.test.ts src/services/feePaymentReminders.test.ts`
 - 請假 / 點名：`pnpm exec vitest run src/utils/leaveRequests.test.ts src/utils/dashboardHome.test.ts`
 - 訓練日期設定：`pnpm exec vitest run src/utils/trainingMonthDates.test.ts src/components/home/MyHomeTodayPanel.test.ts src/composables/useNotificationFeed.test.ts`
 - 教練排班表：`pnpm exec vitest run src/utils/coachSchedules.test.ts src/views/HomeView.test.ts`

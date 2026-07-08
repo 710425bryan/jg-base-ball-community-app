@@ -55,7 +55,7 @@ export interface DashboardSnapshot {
   recentAnnouncements: DashboardAnnouncement[]
 }
 
-export type NotificationSource = 'leave' | 'member' | 'join' | 'fee' | 'match' | 'announcement' | 'equipment' | 'training' | 'training_date' | 'training_location'
+export type NotificationSource = 'leave' | 'member' | 'join' | 'fee' | 'fee_payment_reminder' | 'match' | 'announcement' | 'equipment' | 'training' | 'training_date' | 'training_location'
 
 export interface NotificationFeedRow {
   id: string

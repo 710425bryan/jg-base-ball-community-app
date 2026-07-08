@@ -16,6 +16,7 @@ const componentImports = [
   { name: 'EquipmentTransactionDialog', load: () => import('../equipment/EquipmentTransactionDialog.vue') },
   { name: 'MyEquipmentPaymentsPanel', load: () => import('../equipment/MyEquipmentPaymentsPanel.vue') },
   { name: 'FeeManagementReminderPanel', load: () => import('../fees/FeeManagementReminderPanel.vue') },
+  { name: 'FeePaymentReminderDialog', load: () => import('../fees/FeePaymentReminderDialog.vue') },
   { name: 'FeeSettings', load: () => import('../fees/FeeSettings.vue') },
   { name: 'MatchFeeManagementPanel', load: () => import('../fees/MatchFeeManagementPanel.vue') },
   { name: 'MatchPaymentSubmissionInbox', load: () => import('../fees/MatchPaymentSubmissionInbox.vue') },

@@ -1,13 +1,13 @@
 ---
 name: jg-baseball-finance-payments
-description: "Finance, fees, payment submissions, player balances, match fees, remittance ingestion, and finance reminder workflow for jg-base-ball-community-app. Use when changing /fees, /my-payments, src/components/fees/*, src/services/myPayments.ts, src/services/playerBalances.ts, src/services/matchFees.ts, feeManagementReminders, monthly_fees, quarterly_fees, profile_payment_submissions, match_fee_items, match_payment_submissions, player_balance_transactions, record-fee-remittance, or Google Form remittance scripts."
+description: "Finance, fees, payment submissions, player balances, match fees, remittance ingestion, and finance reminder workflow for jg-base-ball-community-app. Use when changing /fees, /my-payments, src/components/fees/*, src/services/myPayments.ts, src/services/playerBalances.ts, src/services/matchFees.ts, feeManagementReminders, feePaymentReminders, monthly_fees, quarterly_fees, profile_payment_submissions, match_fee_items, match_payment_submissions, player_balance_transactions, record-fee-remittance, or Google Form remittance scripts."
 ---
 
 # JG Baseball Finance Payments
 
 ## Overview
 
-用這個 skill 處理收費、付款回報、球員餘額、比賽費、匯款表單匯入與費用提醒。這個功能會影響家長端 `/my-payments`、後台 `/fees`、裝備付款整合、通知中心與多個付款 RPC。
+用這個 skill 處理收費、付款回報、球員餘額、比賽費、匯款表單匯入、費用提醒與手動催繳通知。這個功能會影響家長端 `/my-payments`、後台 `/fees`、裝備付款整合、通知中心與多個付款 RPC。
 
 ## 必讀檔案
 
@@ -21,10 +21,10 @@ description: "Finance, fees, payment submissions, player balances, match fees, r
 8. `src/services/playerBalances.ts`
 9. `src/services/quarterlyFeeCompensations.ts`
 10. `src/services/matchFees.ts`
-11. `src/services/feeManagementReminders.ts`
-12. `src/types/payments.ts`、`src/types/playerBalances.ts`、`src/types/quarterlyFeeCompensation.ts`、`src/types/matchFees.ts`、`src/types/feeManagementReminders.ts`
-13. `src/utils/memberBilling.ts`、`src/utils/monthlyFeeSettlement.ts`、`src/utils/quarterlyFeeFamilies.ts`、`src/utils/quarterlyFeeCompensation.ts`、`src/utils/playerBalance.ts`、`src/utils/siblingGroups.ts`
-14. 相關 migration：`supabase_fees_migration.sql`、`supabase_quarterly_fees_migration.sql`、`supabase_profile_payment_submissions_migration.sql`、`supabase_player_balance_transactions_migration.sql`、`supabase_fixed_monthly_billing_migration.sql`、`supabase_quarterly_fee_compensation_migration.sql`、`supabase_match_fees_migration.sql`、`supabase_fee_management_reminders_migration.sql`
+11. `src/services/feeManagementReminders.ts`、`src/services/feePaymentReminders.ts`
+12. `src/types/payments.ts`、`src/types/playerBalances.ts`、`src/types/quarterlyFeeCompensation.ts`、`src/types/matchFees.ts`、`src/types/feeManagementReminders.ts`、`src/types/feePaymentReminders.ts`
+13. `src/utils/memberBilling.ts`、`src/utils/monthlyFeeSettlement.ts`、`src/utils/quarterlyFeeFamilies.ts`、`src/utils/quarterlyFeeCompensation.ts`、`src/utils/playerBalance.ts`、`src/utils/siblingGroups.ts`、`src/utils/feePaymentReminders.ts`
+14. 相關 migration：`supabase_fees_migration.sql`、`supabase_quarterly_fees_migration.sql`、`supabase_profile_payment_submissions_migration.sql`、`supabase_player_balance_transactions_migration.sql`、`supabase_fixed_monthly_billing_migration.sql`、`supabase_quarterly_fee_compensation_migration.sql`、`supabase_match_fees_migration.sql`、`supabase_fee_management_reminders_migration.sql`、`supabase_fee_payment_reminders_migration.sql`
 15. 若改到匯款表單，再讀 `supabase/functions/record-fee-remittance/index.ts` 與 `scripts/google-form-remittance-apps-script.js`
 16. 若改到裝備付款，再同時讀 `jg-baseball-equipment-management` skill
 
@@ -41,6 +41,7 @@ description: "Finance, fees, payment submissions, player balances, match fees, r
 - 裝備付款確認只代表已收款完成，不代表商品已備貨或已領取；不要把付款 `approved` 自動同步成申請 `picked_up`。
 - 裝備付款退款 / 作廢收款要走 `refunded` 狀態；有付款單時需建立反向 `player_balance_transactions`，直接標記已收款且無付款單時只作廢交易收款狀態。不可直接刪 paid 交易；退款後才允許刪除測試請購或取消請購。
 - 費用提醒進通知中心時要確認 `get_notification_feed()` 是否包含對應 source。
+- 手動催繳通知只處理月費與季費未繳；不含比賽費或裝備款，不做 cron / 自動排程。正式 preview / send 使用既有 `fees:EDIT` 或 `ADMIN`，測試通知只給 `ADMIN` 且只通知目前登入者。
 
 ## 不可破壞規則
 
@@ -74,6 +75,6 @@ description: "Finance, fees, payment submissions, player balances, match fees, r
 ## 驗證
 
 - 基本檢查：`pnpm exec vue-tsc --noEmit`
-- 費用純邏輯：`pnpm exec vitest run src/utils/memberBilling.test.ts src/utils/monthlyFeeSettlement.test.ts src/utils/quarterlyFeeFamilies.test.ts src/utils/quarterlyFeeCompensation.test.ts src/utils/playerBalance.test.ts src/utils/feeManagementReminders.test.ts`
+- 費用純邏輯：`pnpm exec vitest run src/utils/memberBilling.test.ts src/utils/monthlyFeeSettlement.test.ts src/utils/quarterlyFeeFamilies.test.ts src/utils/quarterlyFeeCompensation.test.ts src/utils/playerBalance.test.ts src/utils/feeManagementReminders.test.ts src/utils/feePaymentReminders.test.ts src/services/feePaymentReminders.test.ts`
 - 比賽費或付款 UI 風險高時跑：`pnpm build`
 - 人工 sanity check：家長 linked member 可見性、管理端審核、餘額扣抵、固定月繳 / 新泰月繳與球員計次月費排除季費、不收費排除隊費與比賽費、比賽費付款、裝備付款整合。

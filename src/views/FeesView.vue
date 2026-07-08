@@ -8,7 +8,18 @@
           subtitle="管理月費、球員季費、比賽費用、裝備付款與收費設定"
           :icon="Money"
           as="h2"
-        />
+        >
+          <template #actions>
+            <el-button
+              v-if="canSendPaymentReminders"
+              type="warning"
+              :icon="BellFilled"
+              @click="paymentReminderDialogVisible = true"
+            >
+              發送催繳通知
+            </el-button>
+          </template>
+        </AppPageHeader>
       </div>
       
       <div
@@ -138,6 +149,12 @@
         </template>
       </div>
     </div>
+
+    <FeePaymentReminderDialog
+      v-if="canSendPaymentReminders"
+      v-model="paymentReminderDialogVisible"
+      :is-admin="isAdmin"
+    />
   </div>
 </template>
 
@@ -145,10 +162,11 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { usePermissionsStore } from '@/stores/permissions'
-import { Money, Lock } from '@element-plus/icons-vue'
+import { BellFilled, Money, Lock } from '@element-plus/icons-vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
 
 // Import Sub Components
+import FeePaymentReminderDialog from '@/components/fees/FeePaymentReminderDialog.vue'
 import SchoolTeamFees from '@/components/fees/SchoolTeamFees.vue'
 import QuarterlyFees from '@/components/fees/QuarterlyFees.vue'
 import FeeSettings from '@/components/fees/FeeSettings.vue'
@@ -162,6 +180,8 @@ import EquipmentPaymentSubmissionInbox from '@/components/equipment/EquipmentPay
 const route = useRoute()
 const permissionsStore = usePermissionsStore()
 const hasAccess = computed(() => permissionsStore.can('fees', 'VIEW'))
+const canSendPaymentReminders = computed(() => permissionsStore.can('fees', 'EDIT'))
+const isAdmin = computed(() => permissionsStore.currentRole === 'ADMIN')
 
 type FeeSummarySnapshot = {
   periodLabel: string
@@ -184,6 +204,7 @@ const activeTab = ref('monthly')
 const contentScrollContainer = ref<HTMLElement | null>(null)
 const contentScrollTop = ref(0)
 const isSummaryCollapsed = ref(false)
+const paymentReminderDialogVisible = ref(false)
 const createEmptySummary = (): FeeSummarySnapshot => ({
   periodLabel: '',
   total: 0,

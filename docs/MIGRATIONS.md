@@ -127,6 +127,7 @@
 | `supabase_zzzzzzzzzzzzzzzzzzzzzz_xintai_fixed_monthly_billing_migration.sql` | 新泰校隊固定月繳先收 | 新增 3 參數月費計算 helper；新泰校隊依 raw `team_members.training_program = junior_high_school_team` 使用 `monthly_fixed`，每月 25 日起開放下月，既有 `monthly_fees` 不回寫 |
 | `supabase_match_fees_migration.sql` | 比賽費 items / submissions | 比賽費與餘額整合 |
 | `supabase_fee_management_reminders_migration.sql` | 費用提醒與通知中心 | 覆寫 `get_notification_feed()` |
+| `supabase_fee_payment_reminders_migration.sql` | 手動催繳通知與通知中心 | 新增 `fee_payment_reminder` targeted feed source，覆寫 `get_notification_feed()` |
 
 ## 裝備
 

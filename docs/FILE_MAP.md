@@ -97,6 +97,7 @@
 | `src/services/vendorsApi.ts` | 廠商名單、交易類別與照片 signed URL API | `vendors` / `vendor_trade_categories` / `vendors` bucket |
 | `src/services/performanceApi.ts` | 棒球能力 / 體測 API | performance tables / RPC |
 | `src/services/feeManagementReminders.ts` | 費用管理提醒 RPC | `get_fee_management_reminders()` |
+| `src/services/feePaymentReminders.ts` | 手動催繳通知 preview / send / test 呼叫 | `send-fee-payment-reminders` |
 | `src/services/supabase.ts` | Supabase client | env vars |
 
 ## 6. Composables
@@ -141,6 +142,7 @@
 | `src/utils/playerBalance.ts` | 球員餘額扣抵金額與顯示文字 |
 | `src/utils/paymentMethods.ts` | 付款方式與顯示文字 |
 | `src/utils/feeManagementReminders.ts` | 費用提醒摘要純邏輯 |
+| `src/utils/feePaymentReminders.ts` | 催繳分類、期間、通知文案、event key 與收件分組 |
 | `src/utils/siblingGroups.ts` | 手足 / 家庭分組 |
 | `src/utils/teamGroups.ts` | team group normalize、排序與樣式 |
 | `src/utils/performanceConfig.ts` | 能力 / 體測欄位與圖表設定 |
@@ -228,6 +230,7 @@
 | `src/components/fees/MatchPaymentSubmissionInbox.vue` | 比賽費付款回報審核 |
 | `src/components/fees/MyMatchFeesPanel.vue` | 個人比賽費付款面板 |
 | `src/components/fees/FeeManagementReminderPanel.vue` | 費用管理提醒 |
+| `src/components/fees/FeePaymentReminderDialog.vue` | 手動催繳通知預覽、正式發送與 ADMIN 測試 |
 
 ### Payments
 
@@ -300,6 +303,7 @@
 | `src/types/trainingLocation.ts` | 場地與人員配置型別 |
 | `src/types/coachSchedule.ts` | 教練排班、教練指派與 Dashboard 排班型別 |
 | `src/types/feeManagementReminders.ts` | 費用提醒型別 |
+| `src/types/feePaymentReminders.ts` | 手動催繳通知型別 |
 
 ## 11. Supabase Migrations
 
@@ -310,7 +314,7 @@
 | 公開首頁 / Dashboard | `supabase_dashboard_snapshot_migration.sql`、`supabase_my_home_snapshot_migration.sql`、`supabase_zz_my_home_training_points_migration.sql` |
 | 假單 | `supabase_my_leave_requests_migration.sql`、`supabase_match_leave_absences_migration.sql`、`supabase_zzzzzzzzzzzzzzzz_leave_time_segments_migration.sql` |
 | 個人成績 | `supabase_my_player_records_migration.sql` |
-| 收費 / 付款 | `supabase_fees_migration.sql`、`supabase_quarterly_fees_migration.sql`、`supabase_profile_payment_submissions_migration.sql`、`supabase_player_balance_transactions_migration.sql`、`supabase_fixed_monthly_billing_migration.sql`、`supabase_zzzzzzzzzzzzzzz_monthly_per_session_billing_migration.sql`、`supabase_zzzzzzzzzzzzzzzzz_monthly_fee_leave_time_segment_migration.sql`、`supabase_quarterly_fee_compensation_migration.sql`、`supabase_match_fees_migration.sql`、`supabase_fee_management_reminders_migration.sql`、`supabase_zzzzzzzzzzzz_quarterly_payment_open_period_migration.sql`、`supabase_zzzzzzzzzzzzzz_monthly_payment_open_period_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzzzzzz_xintai_fixed_monthly_billing_migration.sql` |
+| 收費 / 付款 | `supabase_fees_migration.sql`、`supabase_quarterly_fees_migration.sql`、`supabase_profile_payment_submissions_migration.sql`、`supabase_player_balance_transactions_migration.sql`、`supabase_fixed_monthly_billing_migration.sql`、`supabase_zzzzzzzzzzzzzzz_monthly_per_session_billing_migration.sql`、`supabase_zzzzzzzzzzzzzzzzz_monthly_fee_leave_time_segment_migration.sql`、`supabase_quarterly_fee_compensation_migration.sql`、`supabase_match_fees_migration.sql`、`supabase_fee_management_reminders_migration.sql`、`supabase_fee_payment_reminders_migration.sql`、`supabase_zzzzzzzzzzzz_quarterly_payment_open_period_migration.sql`、`supabase_zzzzzzzzzzzzzz_monthly_payment_open_period_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzzzzzz_xintai_fixed_monthly_billing_migration.sql` |
 | 裝備 | `supabase_equipment_management_migration.sql`、`supabase_equipment_inventory_adjustments_migration.sql`、`supabase_equipment_manual_purchase_records_migration.sql`、`supabase_equipment_multiple_photos_migration.sql`、`supabase_zzzzzz_equipment_inventory_snapshot_rpc_migration.sql`、`supabase_zzzzzzzz_equipment_ready_for_pickup_payment_scope_migration.sql`、`supabase_zzzzzzzzz_equipment_custom_order_migration.sql`、`supabase_zzzzzzzzzz_equipment_approved_payment_scope_migration.sql`、`supabase_zzzzzzzzzzz_equipment_payment_refund_migration.sql`、`supabase_zzzzzzzzzzzz_equipment_create_request_inventory_guard_transaction_fix_migration.sql` |
 | 廠商 | `supabase_vendor_management_migration.sql` |
 | 能力 / 體測 | `supabase_performance_data_migration.sql`、`supabase_performance_view_scope_migration.sql` |
@@ -319,7 +323,7 @@
 | 場地與人員配置 | `supabase_training_locations_migration.sql`、`supabase_zzzzzzzzz_training_location_attendance_migration.sql`、`supabase_zzzzzzzzzz_training_location_venue_settings_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzz_training_location_leave_time_segment_migration.sql` |
 | 教練排班表 | `supabase_coach_schedules_migration.sql`、`supabase_coach_schedules_schedulable_coaches_hotfix.sql`、`supabase_coach_schedules_training_location_sync_hotfix.sql` |
 | 賽事同步 | `supabase_matches_google_calendar_sync_migration.sql`、`supabase_match_calendar_daily_sync_schedule.sql`、`supabase_match_leave_absences_migration.sql` |
-| 推播 | `supabase_web_push_subscriptions_migration.sql`、`supabase_push_dispatch_events_migration.sql`、`supabase_match_reminder_notifications_migration.sql`、`supabase_match_reminder_schedule_config_migration.sql`、`supabase_match_reminder_health_migration.sql` |
+| 推播 | `supabase_web_push_subscriptions_migration.sql`、`supabase_push_dispatch_events_migration.sql`、`supabase_match_reminder_notifications_migration.sql`、`supabase_match_reminder_schedule_config_migration.sql`、`supabase_match_reminder_health_migration.sql`、`supabase_fee_payment_reminders_migration.sql` |
 | 節日主題 | `supabase_holiday_theme_migration.sql` |
 
 完整 migration / hotfix / repair 索引請讀 `docs/MIGRATIONS.md`。注意：同一 function / policy 可能在後續 migration 被覆寫。修改 DB 規則前要用 `rg` 查所有同名 function / policy。
@@ -338,6 +342,7 @@
 | `supabase/functions/send-training-selection-notifications/index.ts` | 特訓錄取名單公布通知 |
 | `supabase/functions/send-training-date-notifications/index.ts` | 訓練日期異動通知 |
 | `supabase/functions/send-training-location-notifications/index.ts` | 訓練場地通知 |
+| `supabase/functions/send-fee-payment-reminders/index.ts` | 收費管理手動催繳通知 |
 | `supabase/functions/sync-match-calendar/index.ts` | 賽事日曆同步 |
 | `supabase/functions/leave-webhook/index.ts` | 請假 webhook |
 | `supabase/functions/record-fee-remittance/index.ts` | 繳費匯款紀錄 |
@@ -384,6 +389,8 @@
 - `src/utils/quarterlyPaymentSubmissions.test.ts`
 - `src/utils/playerBalance.test.ts`
 - `src/utils/feeManagementReminders.test.ts`
+- `src/utils/feePaymentReminders.test.ts`
+- `src/services/feePaymentReminders.test.ts`
 - `src/utils/equipmentInventory.test.ts`
 - `src/utils/equipmentPricing.test.ts`
 - `src/utils/equipmentRequestStatus.test.ts`

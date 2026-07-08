@@ -306,4 +306,29 @@ describe('notification feed controller', () => {
       }
     ])
   })
+
+  it('maps targeted fee payment reminder notifications', async () => {
+    const fetcher = vi.fn().mockResolvedValue([
+      {
+        id: 'fee_payment_reminder:user-1:2026-06:2026-Q3:community:2026-07-08',
+        source: 'fee_payment_reminder',
+        title: '繳費提醒',
+        body: '王小明 的 2026-06 月費 尚未繳費，金額 $2,000。請至繳費資訊查看。',
+        created_at: '2026-07-08T12:00:00.000Z',
+        link: '/my-payments',
+        highlight_member_id: 'member-1'
+      }
+    ])
+
+    const controller = createNotificationFeedController(fetcher)
+    await controller.loadNotificationFeed(10)
+
+    expect(controller.notifications.value[0]).toMatchObject({
+      id: 'fee_payment_reminder:fee_payment_reminder:user-1:2026-06:2026-Q3:community:2026-07-08',
+      source: 'fee_payment_reminder',
+      title: '繳費提醒',
+      link: '/my-payments',
+      highlightMemberId: 'member-1'
+    })
+  })
 })
