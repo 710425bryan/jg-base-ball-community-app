@@ -52,7 +52,7 @@
 | `supabase/functions/send-training-selection-notifications/index.ts` | 特訓錄取名單公布通知 | 手動觸發需檢查使用者權限 |
 | `supabase/functions/send-training-date-notifications/index.ts` | 訓練日期異動通知 | bearer user 驗證 `training_dates:EDIT`，只通知 linked users |
 | `supabase/functions/send-training-location-notifications/index.ts` | 訓練場地通知 | 排除已請假球員，只通知 linked users |
-| `supabase/functions/send-fee-payment-reminders/index.ts` | 收費催繳通知 | 不走排程；`preview/send` 需 bearer user 具 `fees:EDIT` 或 `ADMIN`，`test` 只允許 `ADMIN` 且目標固定為自己；targeted event source 為 `fee_payment_reminder`，URL 使用 `/my-payments` |
+| `supabase/functions/send-fee-payment-reminders/index.ts` | 收費催繳通知 | 不走排程；`preview/send` 需 bearer user 具 `fees:EDIT` 或 `ADMIN`，`test` 只允許 `ADMIN` 且目標固定為自己，文案取目前管理員綁定球員的未繳帳款；targeted event source 為 `fee_payment_reminder`，URL 使用 `/my-payments` |
 | `supabase/functions/sync-match-calendar/index.ts` | iCal 賽事同步 | 排程同步走 `MATCH_CALENDAR_SYNC_SECRET`；前端手動解析只允許 bearer user 的 `dry_run` 預覽並檢查 `matches:CREATE/EDIT` |
 | `supabase/functions/leave-webhook/index.ts` | 外部請假 webhook | member match、請假 RPC、通知 target 要一致 |
 | `supabase/functions/record-fee-remittance/index.ts` | 匯款表單匯入 | secret 驗證、付款資料 normalize、通知去重 |

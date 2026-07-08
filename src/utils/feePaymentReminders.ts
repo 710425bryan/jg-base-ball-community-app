@@ -272,9 +272,6 @@ export const buildFeePaymentReminderBody = (
   return `${group.member_names.length} 位球員有 ${group.items.length} 筆未繳款項，合計 ${formatFeePaymentReminderCurrency(group.total_amount)}。請至繳費資訊查看。`
 }
 
-export const buildFeePaymentReminderTestBody = () =>
-  '這是收費催繳通知測試，只有目前管理員會收到，不會通知家長或球員。'
-
 export const buildFeePaymentReminderEventKey = (input: {
   userId: string
   monthlyPeriod: string

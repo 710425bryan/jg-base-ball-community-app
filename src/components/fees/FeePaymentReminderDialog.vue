@@ -23,8 +23,10 @@ import {
 const props = withDefaults(defineProps<{
   modelValue: boolean
   isAdmin?: boolean
+  unsavedMonthlyFeeCount?: number
 }>(), {
-  isAdmin: false
+  isAdmin: false,
+  unsavedMonthlyFeeCount: 0
 })
 
 const emit = defineEmits<{
@@ -68,6 +70,10 @@ const hasValidRequest = computed(() =>
 )
 
 const hasPreviewTargets = computed(() => (previewResult.value?.target_user_count || 0) > 0)
+const hasUnsavedMonthlyFees = computed(() => Number(props.unsavedMonthlyFeeCount || 0) > 0)
+const unsavedMonthlyFeeMessage = computed(() =>
+  `月費結算目前有 ${Number(props.unsavedMonthlyFeeCount || 0)} 筆尚未存檔的變更。請先回到月費結算按「一鍵存檔」，存檔後才能預覽或發送催繳通知。`
+)
 
 const summaryItems = computed(() => [
   { label: '未繳球員', value: String(previewResult.value?.member_count || 0) },
@@ -115,6 +121,12 @@ const loadPreview = async () => {
     return
   }
 
+  if (hasUnsavedMonthlyFees.value) {
+    previewResult.value = null
+    errorMessage.value = ''
+    return
+  }
+
   const requestId = ++previewRequestId
   isPreviewing.value = true
   errorMessage.value = ''
@@ -135,6 +147,11 @@ const loadPreview = async () => {
 }
 
 const handleSend = async () => {
+  if (hasUnsavedMonthlyFees.value) {
+    ElMessage.warning('月費結算尚未存檔，請先按「一鍵存檔」後再發送催繳通知。')
+    return
+  }
+
   const request = buildRequest()
   if (!request || !previewResult.value) {
     ElMessage.warning('請先完成催繳預覽')
@@ -182,6 +199,11 @@ const handleSend = async () => {
 }
 
 const handleTest = async () => {
+  if (hasUnsavedMonthlyFees.value) {
+    ElMessage.warning('月費結算尚未存檔，請先按「一鍵存檔」後再發送測試通知。')
+    return
+  }
+
   const request = buildRequest()
   if (!request) {
     ElMessage.warning('請先選擇催繳分類與期間')
@@ -191,8 +213,12 @@ const handleTest = async () => {
   isTesting.value = true
   try {
     const result = await sendFeePaymentReminderTest(request)
-    if ((result.dispatched_count || 0) > 0) {
+    if ((result.target_user_count || 0) === 0) {
+      ElMessage.warning('目前管理員綁定的球員沒有符合條件的未繳款項。')
+    } else if ((result.dispatched_count || 0) > 0) {
       ElMessage.success('已發送測試通知給目前管理員。')
+    } else if ((result.duplicate_count || 0) > 0) {
+      ElMessage.warning('已建立測試通知，但這次測試事件已重複。')
     } else {
       ElMessage.warning('已建立測試通知，但目前管理員沒有可推播裝置。')
     }
@@ -208,6 +234,15 @@ watch(
   (nextVisible) => {
     if (nextVisible) {
       resetForm()
+      void loadPreview()
+    }
+  }
+)
+
+watch(
+  () => props.unsavedMonthlyFeeCount,
+  () => {
+    if (visible.value) {
       void loadPreview()
     }
   }
@@ -242,6 +277,14 @@ watch(
           只會手動發送一次瀏覽器通知，不會建立自動排程。正式催繳只包含月費與季費，通知會導向「我的繳費」。
         </div>
       </el-alert>
+
+      <el-alert
+        v-if="hasUnsavedMonthlyFees"
+        type="warning"
+        :closable="false"
+        show-icon
+        :title="unsavedMonthlyFeeMessage"
+      />
 
       <section class="space-y-3">
         <div class="flex items-center gap-2 text-sm font-black text-gray-700">
@@ -313,6 +356,7 @@ watch(
             plain
             :icon="Refresh"
             :loading="isPreviewing"
+            :disabled="hasUnsavedMonthlyFees"
             @click="loadPreview"
           >
             重新預覽
@@ -320,7 +364,16 @@ watch(
         </div>
 
         <el-alert
-          v-if="errorMessage"
+          v-if="hasUnsavedMonthlyFees"
+          class="mt-4"
+          type="warning"
+          :closable="false"
+          show-icon
+          title="請先儲存月費結算，系統才會用最新帳款計算催繳名單。"
+        />
+
+        <el-alert
+          v-else-if="errorMessage"
           class="mt-4"
           type="error"
           :closable="false"
@@ -417,7 +470,7 @@ watch(
           type="info"
           :icon="Promotion"
           :loading="isTesting"
-          :disabled="!hasValidRequest || isSending"
+          :disabled="!hasValidRequest || hasUnsavedMonthlyFees || isSending"
           @click="handleTest"
         >
           發送測試通知
@@ -430,7 +483,7 @@ watch(
             type="warning"
             :icon="BellFilled"
             :loading="isSending"
-            :disabled="!hasValidRequest || isPreviewing || !hasPreviewTargets"
+            :disabled="!hasValidRequest || hasUnsavedMonthlyFees || isPreviewing || !hasPreviewTargets"
             @click="handleSend"
           >
             發送催繳通知

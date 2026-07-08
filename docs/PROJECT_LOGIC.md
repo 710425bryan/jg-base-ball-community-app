@@ -522,7 +522,7 @@ UI 約定：
 - 手足主要繳費人退隊、離隊或關閉 / 畢業後，剩餘有效手足的新一期月費 / 季費試算不得沿用手足半價；主要繳費人恢復有效後，若 `sibling_ids` 與 `is_primary_payer` 仍保留，另一位有效手足可恢復手足減免。既有已保存帳款金額不自動覆寫，需由管理端重算或手動調整。
 - 比賽費由 `matches.match_fee_amount` 產生 `match_fee_items`，家長可在 `/my-payments` 合併回報，管理端在 `/fees` 審核。
 - 費用提醒由 `get_fee_management_reminders()` 與 `get_notification_feed()` 整合進通知中心。
-- 手動催繳通知在 `/fees` 頁首開啟 `FeePaymentReminderDialog`，只給 `fees:EDIT` / `ADMIN` 使用；管理者可勾選中港校隊、新泰校隊與社區，選擇月費月份與季費季度後手動 preview / send，不做 cron 或自動排程。正式催繳只處理月費與季費未繳，依 linked profile 發送 targeted Web Push，通知 URL 為 `/my-payments`；測試通知只給 `ADMIN`，且目標固定為目前登入管理員。
+- 手動催繳通知在 `/fees` 頁首開啟 `FeePaymentReminderDialog`，只給 `fees:EDIT` / `ADMIN` 使用；管理者可勾選中港校隊、新泰校隊與社區，選擇月費月份與季費季度後手動 preview / send，不做 cron 或自動排程。正式催繳只處理已存檔月費與季費未繳，依 linked profile 發送 targeted Web Push，通知 URL 為 `/my-payments`；月費結算若仍有「一鍵存檔」待儲存變更，Dialog 會提醒管理者先存檔並阻擋預覽 / 測試 / 發送；測試通知只給 `ADMIN`，且目標固定為目前登入管理員，文案與正式催繳相同，但只用該管理員綁定球員的未繳帳款組成內容。
 - Google Form 匯款資料走 `record-fee-remittance`，以 secret 驗證並建立付款 / 通知資料。
 
 重要規則：
@@ -714,7 +714,7 @@ UI 約定：
 5. 過期 subscription 由 Edge Function 清理。
 6. 通知中心透過 `get_notification_feed()` 匯整顯示。
 7. 排程型通知如賽事提醒、特訓報名開始 / 截止前提醒、訓練日期異動、場地通知，使用專屬 Edge Function 建立 `push_dispatch_events` 並派送 Web Push；單筆特訓報名 / 錄取通知也使用專屬 Edge Function 寫入 targeted `push_dispatch_events`。
-8. 手動催繳通知走 `send-fee-payment-reminders`，只允許 `fees:EDIT` / `ADMIN` preview / send，`test` 只允許 `ADMIN` 且只通知本人；通知中心 source 為 `fee_payment_reminder`。
+8. 手動催繳通知走 `send-fee-payment-reminders`，只允許 `fees:EDIT` / `ADMIN` preview / send，`test` 只允許 `ADMIN` 且只通知本人；測試文案使用目前管理員綁定球員的未繳月費 / 季費組成；通知中心 source 為 `fee_payment_reminder`。
 9. 使用者點擊 Web Push 時，`public/push-sw.js` 同步啟動 client 導向，並把 target 寫入 IndexedDB `jg-baseball-push-deeplink/pendingTargets/latest` 與 Cache Storage `jg-baseball-push-deeplink-cache`；前端用 `pushDeepLink.ts` 正規化、短時間重試 consume pending target 後交給 router，推播設定可查看最後一次 click 診斷。
 
 重要規則：

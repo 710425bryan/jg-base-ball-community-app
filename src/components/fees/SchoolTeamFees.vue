@@ -373,6 +373,8 @@ const emit = defineEmits<{
     paid: number
     unpaid: number
     isReady: boolean
+    hasUnsavedChanges: boolean
+    unsavedCount: number
   }): void
 }>()
 
@@ -637,7 +639,9 @@ watchEffect(() => {
     total: summary.total,
     paid: summary.paid,
     unpaid: summary.unpaid,
-    isReady: !isLoading.value
+    isReady: !isLoading.value,
+    hasUnsavedChanges: hasChanges.value,
+    unsavedCount: pendingChanges.value.length
   })
 })
 

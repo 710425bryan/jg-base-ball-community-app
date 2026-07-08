@@ -41,7 +41,7 @@ description: "Finance, fees, payment submissions, player balances, match fees, r
 - 裝備付款確認只代表已收款完成，不代表商品已備貨或已領取；不要把付款 `approved` 自動同步成申請 `picked_up`。
 - 裝備付款退款 / 作廢收款要走 `refunded` 狀態；有付款單時需建立反向 `player_balance_transactions`，直接標記已收款且無付款單時只作廢交易收款狀態。不可直接刪 paid 交易；退款後才允許刪除測試請購或取消請購。
 - 費用提醒進通知中心時要確認 `get_notification_feed()` 是否包含對應 source。
-- 手動催繳通知只處理月費與季費未繳；不含比賽費或裝備款，不做 cron / 自動排程。正式 preview / send 使用既有 `fees:EDIT` 或 `ADMIN`，測試通知只給 `ADMIN` 且只通知目前登入者。
+- 手動催繳通知只處理已存檔月費與季費未繳；不含比賽費或裝備款，不做 cron / 自動排程。正式 preview / send 使用既有 `fees:EDIT` 或 `ADMIN`，月費結算若有待「一鍵存檔」變更需先提醒並阻擋預覽 / 測試 / 發送；測試通知只給 `ADMIN` 且只通知目前登入者，文案使用目前管理員綁定球員的未繳帳款組成。
 
 ## 不可破壞規則
 

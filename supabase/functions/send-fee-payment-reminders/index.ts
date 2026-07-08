@@ -11,7 +11,6 @@ import {
   FEE_PAYMENT_REMINDER_CATEGORIES,
   FEE_PAYMENT_REMINDER_URL,
   buildFeePaymentReminderEventKey,
-  buildFeePaymentReminderTestBody,
   buildFeePaymentReminderTestEventKey,
   buildFeePaymentReminderTitle,
   getDefaultFeePaymentReminderPeriods,
@@ -40,6 +39,7 @@ type CallerProfile = {
   is_active?: boolean | null;
   access_start?: string | null;
   access_end?: string | null;
+  linked_team_member_ids?: string[] | null;
 };
 
 type MemberRow = {
@@ -168,7 +168,7 @@ const fetchCallerProfile = async (req: Request, now: Date): Promise<CallerProfil
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id, role, is_active, access_start, access_end")
+    .select("id, role, is_active, access_start, access_end, linked_team_member_ids")
     .eq("id", userId)
     .single();
 
@@ -458,24 +458,75 @@ const createReminderEvent = async (event: {
   return { created: true, id: data?.id || null, duplicate: false };
 };
 
+const buildTestReminderGroup = async (caller: CallerProfile, payload: NormalizedPayload) => {
+  const linkedMemberIds = new Set(Array.isArray(caller.linked_team_member_ids)
+    ? caller.linked_team_member_ids
+    : []);
+  if (linkedMemberIds.size === 0) return null;
+
+  const membersById = await fetchBillableMembers(payload.categories);
+  const monthlyItems = await buildMonthlyItems(payload.monthlyPeriod, membersById);
+  const quarterlyItems = payload.categories.includes("community")
+    ? await buildQuarterlyItems(payload.quarterlyPeriod, membersById)
+    : [];
+  const linkedItems = [...monthlyItems, ...quarterlyItems]
+    .filter((item) => item.member_ids.some((memberId) => linkedMemberIds.has(memberId)));
+
+  const groups = groupFeePaymentReminderTargets(
+    linkedItems.map((item) => ({ user_id: caller.id, item })),
+    {
+      monthlyPeriod: payload.monthlyPeriod,
+      quarterlyPeriod: payload.quarterlyPeriod,
+      categories: payload.categories,
+      dispatchDate: getTaipeiDateString(payload.now),
+    },
+  );
+
+  return groups[0] || null;
+};
+
 const dispatchTestReminder = async (caller: CallerProfile, payload: NormalizedPayload) => {
+  const group = await buildTestReminderGroup(caller, payload);
+  const emptySummary = {
+    dispatched_count: 0,
+    expired_count: 0,
+    failed_count: 0,
+    provider_counts: {},
+  };
+
+  if (!group) {
+    return jsonResponse({
+      success: true,
+      mode: payload.mode,
+      monthly_period: payload.monthlyPeriod,
+      quarterly_period: payload.quarterlyPeriod,
+      categories: sortFeePaymentReminderCategories(payload.categories),
+      member_count: 0,
+      target_user_count: 0,
+      subscription_count: 0,
+      total_amount: 0,
+      created_count: 0,
+      duplicate_count: 0,
+      ...emptySummary,
+      targets: [],
+    });
+  }
+
   const timestamp = payload.now.toISOString();
-  const title = "收費催繳通知測試";
-  const body = buildFeePaymentReminderTestBody();
   const eventKey = buildFeePaymentReminderTestEventKey(caller.id, timestamp);
   const event = await createReminderEvent({
     eventKey,
-    title,
-    body,
-    url: FEE_PAYMENT_REMINDER_URL,
+    title: group.title || buildFeePaymentReminderTitle(),
+    body: group.body,
+    url: group.url || FEE_PAYMENT_REMINDER_URL,
     targetUserId: caller.id,
-    targetMemberIds: [],
+    targetMemberIds: group.member_ids,
   });
   const subscriptions = await fetchEnabledPushSubscriptions(supabase, [caller.id]);
   const summary = await sendPushToSubscriptions(supabase, subscriptions, {
-    title,
-    body,
-    url: FEE_PAYMENT_REMINDER_URL,
+    title: group.title,
+    body: group.body,
+    url: group.url,
   });
 
   return jsonResponse({
@@ -484,23 +535,18 @@ const dispatchTestReminder = async (caller: CallerProfile, payload: NormalizedPa
     monthly_period: payload.monthlyPeriod,
     quarterly_period: payload.quarterlyPeriod,
     categories: sortFeePaymentReminderCategories(payload.categories),
-    member_count: 0,
+    member_count: group.member_ids.length,
     target_user_count: 1,
     subscription_count: subscriptions.length,
-    total_amount: 0,
+    total_amount: group.total_amount,
     created_count: event.created ? 1 : 0,
     duplicate_count: event.duplicate ? 1 : 0,
     ...summary,
     targets: [{
-      user_id: caller.id,
-      items: [],
-      member_ids: [],
-      member_names: [],
-      total_amount: 0,
-      title,
-      body,
-      url: FEE_PAYMENT_REMINDER_URL,
+      ...group,
       event_key: eventKey,
+      event_id: event.id,
+      created: event.created,
     }],
   });
 };

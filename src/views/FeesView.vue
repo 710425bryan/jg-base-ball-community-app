@@ -154,6 +154,7 @@
       v-if="canSendPaymentReminders"
       v-model="paymentReminderDialogVisible"
       :is-admin="isAdmin"
+      :unsaved-monthly-fee-count="monthlySummary.unsavedCount || 0"
     />
   </div>
 </template>
@@ -189,6 +190,8 @@ type FeeSummarySnapshot = {
   paid: number
   unpaid: number
   isReady: boolean
+  hasUnsavedChanges?: boolean
+  unsavedCount?: number
 }
 
 const tabs = [
@@ -210,7 +213,9 @@ const createEmptySummary = (): FeeSummarySnapshot => ({
   total: 0,
   paid: 0,
   unpaid: 0,
-  isReady: false
+  isReady: false,
+  hasUnsavedChanges: false,
+  unsavedCount: 0
 })
 
 const monthlySummary = ref<FeeSummarySnapshot>(createEmptySummary())

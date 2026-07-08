@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import {
   buildFeePaymentReminderBody,
   buildFeePaymentReminderEventKey,
-  buildFeePaymentReminderTestBody,
   getDefaultFeePaymentReminderPeriods,
   getFeePaymentReminderBillingMode,
   getFeePaymentReminderMemberCategory,
@@ -67,7 +66,7 @@ describe('feePaymentReminders', () => {
     expect(getFeePaymentReminderBillingMode({ role: '校隊', fee_billing_mode: 'no_fee' })).toBe('none')
   })
 
-  it('builds stable daily event keys and test body copy', () => {
+  it('builds stable daily event keys', () => {
     expect(buildFeePaymentReminderEventKey({
       userId: 'user-1',
       monthlyPeriod: '2026-06',
@@ -75,7 +74,6 @@ describe('feePaymentReminders', () => {
       categories: ['community', 'chunggang_school_team'],
       dispatchDate: '2026-07-08'
     })).toBe('fee_payment_reminder:user-1:2026-06:2026-Q3:chunggang_school_team,community:2026-07-08')
-    expect(buildFeePaymentReminderTestBody()).toContain('測試')
   })
 
   it('groups target items per user and builds single-item copy', () => {
