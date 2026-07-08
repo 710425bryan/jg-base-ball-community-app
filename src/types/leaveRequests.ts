@@ -1,6 +1,6 @@
 export type LeaveType = '事假' | '病假' | '公假' | '其他'
 
-export type LeaveMode = '單日請假' | '連續多日' | '固定週期'
+export type LeaveMode = '上課日期快選' | '單日請假' | '連續多日' | '固定週期'
 
 export type LeaveTimeSegment = 'full_day' | 'morning' | 'afternoon'
 
@@ -10,6 +10,7 @@ export type LeaveRequestFormState = {
   leave_type: LeaveType
   leave_mode: LeaveMode
   leave_time_segment: LeaveTimeSegment
+  selected_training_dates: string[]
   date_single: string
   date_range: LeaveDateRange
   recurring_days: number[]

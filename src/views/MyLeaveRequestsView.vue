@@ -173,9 +173,9 @@
         </div>
 
         <el-form-item label="請假模式" prop="leave_mode" class="font-bold mb-5">
-          <el-radio-group v-model="form.leave_mode" class="w-full flex custom-segmented" @change="handleLeaveDateSelectionChange">
+          <el-radio-group v-model="form.leave_mode" class="w-full flex custom-segmented leave-mode-selector" @change="handleLeaveDateSelectionChange">
             <el-radio-button
-              v-for="option in LEAVE_MODE_OPTIONS"
+              v-for="option in MY_LEAVE_MODE_OPTIONS"
               :key="option"
               :label="option"
               class="flex-1"
@@ -183,7 +183,103 @@
           </el-radio-group>
         </el-form-item>
 
-        <template v-if="form.leave_mode === '單日請假'">
+        <template v-if="form.leave_mode === '上課日期快選'">
+          <el-form-item label="上課日期" prop="selected_training_dates" class="font-bold">
+            <section data-test="training-date-quick-select" class="w-full rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4">
+              <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div class="text-sm font-black text-slate-800">
+                    {{ selectedProgram.label }} 上課日期
+                  </div>
+                  <p class="mt-1 text-xs font-medium leading-relaxed text-slate-500">
+                    可直接多選要請假的上課日期，若要請未來月份可繼續載入下個月。
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  data-test="load-next-training-month"
+                  class="shrink-0 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-700 transition-colors hover:bg-emerald-50 disabled:opacity-60"
+                  :disabled="isTrainingDateQuickSelectLoading"
+                  @click="loadNextTrainingMonth"
+                >
+                  載入下個月
+                </button>
+              </div>
+
+              <div v-if="isTrainingDateQuickSelectLoading && trainingDateQuickSelectMonths.length === 0" class="mt-4 rounded-xl border border-dashed border-emerald-200 bg-white/70 px-4 py-5 text-center text-sm font-bold text-emerald-700">
+                載入上課日期中...
+              </div>
+
+              <el-alert
+                v-if="trainingDateQuickSelectError"
+                type="warning"
+                show-icon
+                :closable="false"
+                class="!mt-4 !rounded-xl"
+              >
+                <template #title>
+                  {{ trainingDateQuickSelectError }}
+                </template>
+              </el-alert>
+
+              <div v-if="trainingDateQuickSelectMonthItems.length > 0" class="mt-4 space-y-4">
+                <div
+                  v-for="monthItem in trainingDateQuickSelectMonthItems"
+                  :key="monthItem.month"
+                  class="rounded-xl border border-emerald-100 bg-white p-3"
+                >
+                  <div class="flex items-center justify-between gap-3">
+                    <div class="text-sm font-black text-slate-700">
+                      {{ formatTrainingMonthLabel(monthItem.month) }}
+                    </div>
+                    <div class="text-xs font-bold text-slate-400">
+                      {{ monthItem.dates.length }} 天
+                    </div>
+                  </div>
+
+                  <div v-if="monthItem.dates.length === 0" class="mt-3 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-center text-xs font-bold text-slate-400">
+                    這個月目前沒有上課日期
+                  </div>
+
+                  <div v-else class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    <button
+                      v-for="date in monthItem.dates"
+                      :key="date"
+                      type="button"
+                      data-test="training-date-option"
+                      :data-date="date"
+                      :disabled="isTrainingDateDisabled(date)"
+                      :title="isTrainingDateDisabled(date) ? '已超過今天，不能選擇' : ''"
+                      class="min-h-[44px] rounded-xl border px-3 py-2 text-sm font-black transition-all"
+                      :class="isTrainingDateDisabled(date)
+                        ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 opacity-70'
+                        : isTrainingDateSelected(date)
+                          ? 'border-primary bg-primary text-white shadow-sm'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-primary/50 hover:text-primary'"
+                      :aria-disabled="isTrainingDateDisabled(date)"
+                      :aria-pressed="isTrainingDateSelected(date)"
+                      @click="toggleTrainingDateSelection(date)"
+                    >
+                      {{ formatTrainingMonthDateLabel(date) }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-4 rounded-xl border border-primary/10 bg-white px-4 py-3 text-sm font-bold text-slate-600">
+                <span v-if="selectedTrainingDates.length > 0">
+                  已選 {{ selectedTrainingDates.length }} 天：{{ selectedTrainingDatesSummary }}
+                </span>
+                <span v-else class="text-slate-400">
+                  請至少選擇一個上課日期。
+                </span>
+              </div>
+            </section>
+          </el-form-item>
+        </template>
+
+        <template v-else-if="form.leave_mode === '單日請假'">
           <el-form-item label="請假時段" prop="leave_time_segment" class="font-bold">
             <el-radio-group v-model="form.leave_time_segment" class="w-full flex custom-segmented">
               <el-radio-button
@@ -298,6 +394,7 @@
 
           <button
             type="button"
+            data-test="submit-leave-request"
             class="rounded-2xl bg-primary hover:bg-primary-hover text-white font-bold px-6 py-3 transition-colors disabled:opacity-70"
             :disabled="isSubmitting"
             @click="submitLeaveRequest"
@@ -338,10 +435,10 @@ import {
   createDefaultLeaveRequestFormState,
   findNonTrainingLeaveDates,
   getLeaveTimeSegmentLabel,
-  LEAVE_MODE_OPTIONS,
   LEAVE_TIME_SEGMENT_OPTIONS,
   LEAVE_TYPE_OPTIONS,
   LEAVE_WEEKDAY_OPTIONS,
+  MY_LEAVE_MODE_OPTIONS,
   leaveRequestBaseRules
 } from '@/utils/leaveRequests'
 import {
@@ -349,7 +446,10 @@ import {
   describePushDispatchIssue,
   dispatchPushNotification
 } from '@/utils/pushNotifications'
-import { formatTrainingMonthDateLabel } from '@/utils/trainingMonthDates'
+import {
+  formatTrainingMonthDateLabel,
+  formatTrainingMonthLabel
+} from '@/utils/trainingMonthDates'
 import {
   DEFAULT_TRAINING_PROGRAM_KEY,
   getTrainingProgramFallbackSettings,
@@ -366,12 +466,19 @@ const isRefreshing = ref(false)
 const isCreateDialogOpen = ref(false)
 const isSubmitting = ref(false)
 const nonTrainingLeaveDates = ref<string[]>([])
+const trainingDateQuickSelectMonths = ref<string[]>([])
+const trainingDateQuickSelectDatesByMonth = ref<Record<string, string[]>>({})
+const isTrainingDateQuickSelectLoading = ref(false)
+const trainingDateQuickSelectError = ref('')
 const trainingDateCheckToken = ref(0)
+const trainingDateQuickSelectToken = ref(0)
 const lastTrainingDateWarningKey = ref('')
 const formRef = ref()
 const trainingDateCache = new Map<string, string[]>()
 
-const form = reactive<LeaveRequestFormState>(createDefaultLeaveRequestFormState())
+const form = reactive<LeaveRequestFormState>(createDefaultLeaveRequestFormState(dayjs(), {
+  leaveMode: '上課日期快選'
+}))
 const formRules = leaveRequestBaseRules
 
 const selectedMember = computed(() => {
@@ -404,6 +511,30 @@ const nonTrainingLeaveDatesSummary = computed(() => {
 
   return `${previewDates.join('、')}${suffix}`
 })
+
+const selectedTrainingDates = computed(() => (
+  [...new Set(form.selected_training_dates || [])].sort((left, right) => left.localeCompare(right))
+))
+
+const selectedTrainingDateSet = computed(() => new Set(selectedTrainingDates.value))
+
+const selectedTrainingDatesSummary = computed(() => {
+  const previewDates = selectedTrainingDates.value.slice(0, 5).map(formatTrainingMonthDateLabel)
+  const suffix = selectedTrainingDates.value.length > 5
+    ? ` 等 ${selectedTrainingDates.value.length} 天`
+    : ''
+
+  return `${previewDates.join('、')}${suffix}`
+})
+
+const trainingDateQuickSelectMonthItems = computed(() => (
+  [...trainingDateQuickSelectMonths.value]
+    .sort((left, right) => left.localeCompare(right))
+    .map((month) => ({
+      month,
+      dates: trainingDateQuickSelectDatesByMonth.value[month] || []
+    }))
+))
 
 const sortLeaveRequests = (rows: MyLeaveRequest[]) => {
   return [...rows].sort((left, right) => {
@@ -457,9 +588,12 @@ const formatDateTime = (value?: string | null) => {
 }
 
 const hydrateFormDefaults = () => {
-  Object.assign(form, createDefaultLeaveRequestFormState())
+  Object.assign(form, createDefaultLeaveRequestFormState(dayjs(), {
+    leaveMode: '上課日期快選'
+  }))
   nonTrainingLeaveDates.value = []
   lastTrainingDateWarningKey.value = ''
+  resetTrainingDateQuickSelect()
 }
 
 const enrichLeaveMembersWithPrograms = (rows: MyLeaveMember[]) =>
@@ -491,6 +625,106 @@ const getTrainingDatesForMonth = async (month: string, programKey = selectedProg
   return result.training_dates
 }
 
+const getInitialTrainingDateQuickSelectMonths = () => {
+  const currentMonth = dayjs().format('YYYY-MM')
+  return [currentMonth, getAdjacentTrainingMonth(currentMonth, 1)]
+}
+
+const getAdjacentTrainingMonth = (month: string, amount: number) =>
+  dayjs(`${month}-01`).add(amount, 'month').format('YYYY-MM')
+
+const resetTrainingDateQuickSelect = () => {
+  trainingDateQuickSelectMonths.value = []
+  trainingDateQuickSelectDatesByMonth.value = {}
+  trainingDateQuickSelectError.value = ''
+  isTrainingDateQuickSelectLoading.value = false
+  trainingDateQuickSelectToken.value += 1
+}
+
+const loadTrainingDateQuickSelectMonths = async (months: string[]) => {
+  const currentMonth = dayjs().format('YYYY-MM')
+  const nextMonths = [...new Set(months)]
+    .filter((month) => dayjs(`${month}-01`).isValid())
+    .filter((month) => month >= currentMonth)
+    .filter((month) => !trainingDateQuickSelectDatesByMonth.value[month])
+    .sort((left, right) => left.localeCompare(right))
+
+  if (nextMonths.length === 0) {
+    return
+  }
+
+  const currentToken = trainingDateQuickSelectToken.value + 1
+  trainingDateQuickSelectToken.value = currentToken
+  isTrainingDateQuickSelectLoading.value = true
+  trainingDateQuickSelectError.value = ''
+  const programKey = selectedProgram.value.program_key
+
+  try {
+    const entries = await Promise.all(nextMonths.map(async (month) => [
+      month,
+      await getTrainingDatesForMonth(month, programKey)
+    ] as const))
+
+    if (currentToken !== trainingDateQuickSelectToken.value) {
+      return
+    }
+
+    trainingDateQuickSelectDatesByMonth.value = {
+      ...trainingDateQuickSelectDatesByMonth.value,
+      ...Object.fromEntries(entries)
+    }
+    trainingDateQuickSelectMonths.value = [...new Set([
+      ...trainingDateQuickSelectMonths.value,
+      ...entries.map(([month]) => month)
+    ])].sort((left, right) => left.localeCompare(right))
+  } catch (error) {
+    console.warn('無法載入上課日期快選資料', error)
+    if (currentToken === trainingDateQuickSelectToken.value) {
+      trainingDateQuickSelectError.value = '上課日期載入失敗，請稍後再試。'
+    }
+  } finally {
+    if (currentToken === trainingDateQuickSelectToken.value) {
+      isTrainingDateQuickSelectLoading.value = false
+    }
+  }
+}
+
+const loadInitialTrainingDateQuickSelectMonths = () =>
+  loadTrainingDateQuickSelectMonths(getInitialTrainingDateQuickSelectMonths())
+
+const ensureTrainingDateQuickSelectMonths = () => {
+  if (trainingDateQuickSelectMonths.value.length === 0) {
+    void loadInitialTrainingDateQuickSelectMonths()
+  }
+}
+
+const loadNextTrainingMonth = () => {
+  const items = trainingDateQuickSelectMonthItems.value
+  const lastMonth = items[items.length - 1]?.month || dayjs().format('YYYY-MM')
+  void loadTrainingDateQuickSelectMonths([getAdjacentTrainingMonth(lastMonth, 1)])
+}
+
+const isTrainingDateSelected = (date: string) => selectedTrainingDateSet.value.has(date)
+
+const getTodayDate = () => dayjs().format('YYYY-MM-DD')
+
+const isTrainingDateDisabled = (date: string) => date < getTodayDate()
+
+const toggleTrainingDateSelection = (date: string) => {
+  if (isTrainingDateDisabled(date)) {
+    return
+  }
+
+  const selected = new Set(selectedTrainingDates.value)
+  if (selected.has(date)) {
+    selected.delete(date)
+  } else {
+    selected.add(date)
+  }
+
+  form.selected_training_dates = [...selected].sort((left, right) => left.localeCompare(right))
+}
+
 const buildNonTrainingLeaveDatesMessage = (dates: string[]) => {
   const previewDates = dates.slice(0, 5).map(formatTrainingMonthDateLabel)
   const suffix = dates.length > 5 ? ` 等 ${dates.length} 天` : ''
@@ -498,6 +732,12 @@ const buildNonTrainingLeaveDatesMessage = (dates: string[]) => {
 }
 
 const refreshTrainingDateWarning = async ({ notify = false }: { notify?: boolean } = {}) => {
+  if (form.leave_mode === '上課日期快選') {
+    nonTrainingLeaveDates.value = []
+    lastTrainingDateWarningKey.value = ''
+    return []
+  }
+
   const leaveDates = collectLeaveRequestDates(form)
   const currentToken = trainingDateCheckToken.value + 1
   trainingDateCheckToken.value = currentToken
@@ -544,6 +784,14 @@ const handleLeaveDateSelectionChange = () => {
   if (form.leave_mode !== '單日請假') {
     form.leave_time_segment = 'full_day'
   }
+
+  if (form.leave_mode === '上課日期快選') {
+    nonTrainingLeaveDates.value = []
+    lastTrainingDateWarningKey.value = ''
+    ensureTrainingDateQuickSelectMonths()
+    return
+  }
+
   void nextTick().then(() => refreshTrainingDateWarning({ notify: true }))
 }
 
@@ -574,7 +822,7 @@ const openCreateDialog = async () => {
   isCreateDialogOpen.value = true
   await nextTick()
   formRef.value?.clearValidate?.()
-  void refreshTrainingDateWarning()
+  void loadInitialTrainingDateQuickSelectMonths()
 }
 
 const submitLeaveRequest = async () => {
@@ -696,7 +944,13 @@ watch(selectedMemberId, async (nextMemberId, previousMemberId) => {
 
   await refreshCurrentMemberData()
   if (isCreateDialogOpen.value) {
-    void refreshTrainingDateWarning({ notify: true })
+    form.selected_training_dates = []
+    resetTrainingDateQuickSelect()
+    if (form.leave_mode === '上課日期快選') {
+      void loadInitialTrainingDateQuickSelectMonths()
+    } else {
+      void refreshTrainingDateWarning({ notify: true })
+    }
   }
 })
 </script>
@@ -752,5 +1006,44 @@ watch(selectedMemberId, async (nextMemberId, previousMemberId) => {
   border-color: var(--color-primary) !important;
   box-shadow: -1px 0 0 0 var(--color-primary) !important;
   color: #fff !important;
+}
+
+.leave-mode-selector {
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.leave-mode-selector :deep(.el-radio-button) {
+  flex: 1 1 calc(50% - 0.5rem);
+}
+
+.leave-mode-selector :deep(.el-radio-button__inner) {
+  border-left: 1px solid #e5e7eb;
+  border-radius: 8px !important;
+}
+
+@media (min-width: 640px) {
+  .leave-mode-selector {
+    flex-wrap: nowrap;
+    gap: 0;
+  }
+
+  .leave-mode-selector :deep(.el-radio-button) {
+    flex: 1 1 0;
+  }
+
+  .leave-mode-selector :deep(.el-radio-button__inner) {
+    border-radius: 0 !important;
+  }
+
+  .leave-mode-selector :deep(.el-radio-button:first-child .el-radio-button__inner) {
+    border-top-left-radius: 8px !important;
+    border-bottom-left-radius: 8px !important;
+  }
+
+  .leave-mode-selector :deep(.el-radio-button:last-child .el-radio-button__inner) {
+    border-top-right-radius: 8px !important;
+    border-bottom-right-radius: 8px !important;
+  }
 }
 </style>

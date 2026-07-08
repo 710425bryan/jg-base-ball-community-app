@@ -167,4 +167,64 @@ describe('leaveRequests', () => {
       ['2026-06-06']
     )).toEqual(['2026-06-05', '2026-06-07'])
   })
+
+  it('builds single-day records from selected training dates', () => {
+    const form = createDefaultLeaveRequestFormState(undefined, {
+      leaveMode: '上課日期快選'
+    })
+
+    expect(buildLeaveRequestRecords({
+      memberId: 'member-6',
+      form: {
+        ...form,
+        selected_training_dates: ['2026-07-04', '2026-07-11'],
+        reason: '家庭活動'
+      }
+    })).toEqual([
+      {
+        member_id: 'member-6',
+        leave_type: '事假',
+        leave_time_segment: 'full_day',
+        start_date: '2026-07-04',
+        end_date: '2026-07-04',
+        reason: '家庭活動'
+      },
+      {
+        member_id: 'member-6',
+        leave_type: '事假',
+        leave_time_segment: 'full_day',
+        start_date: '2026-07-11',
+        end_date: '2026-07-11',
+        reason: '家庭活動'
+      }
+    ])
+  })
+
+  it('dedupes and sorts selected training dates across months', () => {
+    const form = createDefaultLeaveRequestFormState(undefined, {
+      leaveMode: '上課日期快選'
+    })
+
+    const records = buildLeaveRequestRecords({
+      memberId: 'member-7',
+      form: {
+        ...form,
+        selected_training_dates: ['2026-08-01', '2026-07-25', '2026-08-01', 'bad-date']
+      }
+    })
+
+    expect(records.map((record) => record.start_date)).toEqual(['2026-07-25', '2026-08-01'])
+    expect(records.every((record) => record.leave_time_segment === 'full_day')).toBe(true)
+  })
+
+  it('requires at least one selected training date for quick select leave', () => {
+    const form = createDefaultLeaveRequestFormState(undefined, {
+      leaveMode: '上課日期快選'
+    })
+
+    expect(() => buildLeaveRequestRecords({
+      memberId: 'member-8',
+      form
+    })).toThrow('請至少選擇一個上課日期')
+  })
 })

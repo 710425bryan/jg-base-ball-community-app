@@ -12,6 +12,8 @@ export const LEAVE_TYPE_OPTIONS: LeaveType[] = ['事假', '病假', '公假', '�
 
 export const LEAVE_MODE_OPTIONS: LeaveMode[] = ['單日請假', '連續多日', '固定週期']
 
+export const MY_LEAVE_MODE_OPTIONS: LeaveMode[] = ['上課日期快選', ...LEAVE_MODE_OPTIONS]
+
 export const LEAVE_TIME_SEGMENT_OPTIONS: Array<{ label: string; value: LeaveTimeSegment }> = [
   { label: '全日', value: 'full_day' },
   { label: '上午', value: 'morning' },
@@ -28,13 +30,17 @@ export const LEAVE_WEEKDAY_OPTIONS = [
   { label: '日', value: 0 }
 ] as const
 
-export const createDefaultLeaveRequestFormState = (baseDate = dayjs()): LeaveRequestFormState => {
+export const createDefaultLeaveRequestFormState = (
+  baseDate = dayjs(),
+  options: { leaveMode?: LeaveMode } = {}
+): LeaveRequestFormState => {
   const formattedToday = baseDate.format('YYYY-MM-DD')
 
   return {
     leave_type: '事假',
-    leave_mode: '單日請假',
+    leave_mode: options.leaveMode || '單日請假',
     leave_time_segment: 'full_day',
+    selected_training_dates: [],
     date_single: formattedToday,
     date_range: [formattedToday, formattedToday],
     recurring_days: [],
@@ -103,6 +109,14 @@ export const collectLeaveRequestDates = (
   form: LeaveRequestFormState,
   maxIterations = 365
 ) => {
+  if (form.leave_mode === '上課日期快選') {
+    return dedupeSortedDates(
+      (form.selected_training_dates || [])
+        .map(normalizeDateValue)
+        .filter((date): date is string => Boolean(date))
+    )
+  }
+
   if (form.leave_mode === '單日請假') {
     const date = normalizeDateValue(form.date_single)
     return date ? [date] : []
@@ -154,6 +168,22 @@ export const buildLeaveRequestRecords = ({
   }
 
   const finalReason = buildLeaveReasonText(form.reason)
+
+  if (form.leave_mode === '上課日期快選') {
+    const selectedDates = collectLeaveRequestDates(form)
+    if (selectedDates.length === 0) {
+      throw new Error('請至少選擇一個上課日期')
+    }
+
+    return selectedDates.map((date) => ({
+      member_id: memberId,
+      leave_type: form.leave_type,
+      leave_time_segment: 'full_day',
+      start_date: date,
+      end_date: date,
+      reason: finalReason
+    }))
+  }
 
   if (form.leave_mode === '單日請假') {
     if (!form.date_single) {
@@ -230,6 +260,13 @@ export const buildLeaveNotificationDateLabel = ({
   form: LeaveRequestFormState
   recordCount: number
 }) => {
+  if (leaveMode === '上課日期快選') {
+    const dates = collectLeaveRequestDates(form)
+    const previewDates = dates.slice(0, 3).join('、')
+    const suffix = dates.length > 3 ? ` 等 ${recordCount} 天` : ''
+    return `上課日期：${previewDates}${suffix}`
+  }
+
   if (leaveMode === '單日請假') {
     return `日期：${form.date_single}（${getLeaveTimeSegmentLabel(form.leave_time_segment)}）`
   }
