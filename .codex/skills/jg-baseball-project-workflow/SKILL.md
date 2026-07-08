@@ -22,6 +22,7 @@ description: "Project-specific workflow for jg-base-ball-community-app. Use when
 - 把可重用 UI 放在 `src/components/`。
 - 把可測試邏輯優先放在 `src/utils/` 或 `src/composables/`。
 - 把外部資料存取與 Supabase 溝通集中在 `src/services/`。
+- 若目標原始碼檔案已超過約 600 行，或修改後預估會超過約 700 行，優先做局部瘦身與拆分；Vue SFC 盡可能拆出單一職責子元件、composable、utils、services 或 types，不要繼續把新流程堆進過長檔案。若受限於任務範圍不能拆，回報原因與後續拆分方向。
 - 把資料庫變更做成新的 `supabase_*_migration.sql`，不要直接覆寫既有 migration。
 - 把 `public/version.json`、`dev-dist/`、`dist/` 視為產物，除非任務明確是建置或 PWA 輸出。
 - 新增 route-level 頁面或新功能域時，同步建立 / 更新流程規則：`AGENTS.md`、`docs/PROJECT_LOGIC.md`、`docs/FILE_MAP.md`、`AI_SKILLS.md`，以及對應 `.codex/skills/<feature>/SKILL.md`。若併入既有 skill，要在回報中說明。
