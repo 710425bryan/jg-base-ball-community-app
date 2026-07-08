@@ -249,20 +249,22 @@
             </tr>
             <tr :id="`fee-row-${fee.member_id}`" v-for="fee in displayedFeesList" :key="fee.member_id" class="hover:bg-gray-50/50 transition-colors duration-1000">
               <td class="py-3 px-4">
-                <div class="flex items-center gap-2">
+                <div class="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-2">
                   <div class="font-black text-gray-800 shrink-0">{{ fee.member_name }}</div>
-                  <el-tooltip v-if="fee.has_leave_overlap" content="此月有請假紀錄" placement="top">
-                    <span class="text-[10px] font-bold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded leading-none shrink-0 border border-blue-100">有假單</span>
-                  </el-tooltip>
-                  <el-tooltip v-if="fee.is_discounted" content="符合手足同行半價優惠" placement="top">
-                    <span class="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded leading-none shrink-0 border border-primary/20">半價優惠</span>
-                  </el-tooltip>
-                  <span v-if="isFixedMonthlyFee(fee)" class="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded leading-none shrink-0 border border-amber-200">{{ getFixedMonthlyFeeLabel(fee) }}</span>
-                  <span v-else-if="isPlayerPerSessionMonthlyFee(fee)" class="text-[10px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded leading-none shrink-0 border border-blue-200">計次月費</span>
-                  <span
-                    class="text-[10px] font-bold px-1.5 py-0.5 rounded leading-none shrink-0 border"
-                    :class="getTrainingProgramTagClass(fee.training_program)"
-                  >{{ fee.training_program_label || '中港總部' }}</span>
+                  <div class="flex flex-col items-start gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
+                    <el-tooltip v-if="fee.has_leave_overlap" content="此月有請假紀錄" placement="top">
+                      <span class="w-fit text-[10px] font-bold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded leading-none shrink-0 border border-blue-100">有假單</span>
+                    </el-tooltip>
+                    <el-tooltip v-if="fee.is_discounted" content="符合手足同行半價優惠" placement="top">
+                      <span class="w-fit text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded leading-none shrink-0 border border-primary/20">半價優惠</span>
+                    </el-tooltip>
+                    <span v-if="isFixedMonthlyFee(fee)" class="w-fit text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded leading-none shrink-0 border border-amber-200">{{ getFixedMonthlyFeeLabel(fee) }}</span>
+                    <span v-else-if="isPlayerPerSessionMonthlyFee(fee)" class="w-fit text-[10px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded leading-none shrink-0 border border-blue-200">計次月費</span>
+                    <span
+                      class="w-fit text-[10px] font-bold px-1.5 py-0.5 rounded leading-none shrink-0 border"
+                      :class="getTrainingProgramTagClass(fee.training_program)"
+                    >{{ fee.training_program_label || '中港總部' }}</span>
+                  </div>
                 </div>
               </td>
               <td class="py-3 px-4">
