@@ -436,34 +436,14 @@
                     </p>
                   </div>
                 </div>
-                <div
-                  class="grid gap-2"
-                  :class="getQuarterlyCandidateAvailableBalance(member) > 0 ? 'sm:grid-cols-2' : ''"
-                >
-                  <div class="grid gap-1">
-                    <span class="text-[11px] font-black text-slate-400">季費金額</span>
-                    <el-input-number
-                      v-model="quarterlyMemberAmounts[member.member_id]"
-                      class="!w-full"
-                      :min="0"
-                      :step="100"
-                      size="large"
-                      :disabled="!selectedQuarterlyMemberIds.includes(member.member_id)"
-                    />
-                  </div>
-                  <div v-if="getQuarterlyCandidateAvailableBalance(member) > 0" class="grid gap-1">
-                    <span class="text-[11px] font-black text-slate-400">餘額扣抵</span>
-                    <el-input-number
-                      v-model="quarterlyMemberBalanceAmounts[member.member_id]"
-                      class="!w-full"
-                      :min="0"
-                      :max="Math.min(Number(quarterlyMemberAmounts[member.member_id] || 0), getQuarterlyCandidateAvailableBalance(member))"
-                      :step="100"
-                      size="large"
-                      :disabled="!selectedQuarterlyMemberIds.includes(member.member_id)"
-                    />
-                  </div>
-                </div>
+                <QuarterlyPaymentAmountControls
+                  v-model:amount="quarterlyMemberAmounts[member.member_id]"
+                  v-model:balance-amount="quarterlyMemberBalanceAmounts[member.member_id]"
+                  :member-name="member.name"
+                  :available-balance="getQuarterlyCandidateAvailableBalance(member)"
+                  :disabled="!selectedQuarterlyMemberIds.includes(member.member_id)"
+                  :format-currency="formatCurrency"
+                />
               </article>
             </div>
 
@@ -600,6 +580,7 @@ import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
 import PaymentAccountInfoCard from '@/components/payments/PaymentAccountInfoCard.vue'
 import PaymentSubmissionSummary from '@/components/payments/PaymentSubmissionSummary.vue'
+import QuarterlyPaymentAmountControls from '@/components/payments/QuarterlyPaymentAmountControls.vue'
 import {
   createMyQuarterlyPaymentSubmission,
   createMyPaymentSubmission,
