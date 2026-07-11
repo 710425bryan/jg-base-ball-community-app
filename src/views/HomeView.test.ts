@@ -4,12 +4,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { RouterLinkStub, flushPromises, shallowMount, type VueWrapper } from '@vue/test-utils'
 import dayjs from 'dayjs'
+import { createEmptyMyHomeSnapshot } from '@/types/myHome'
 
 const pushMock = vi.fn()
 const fetchMock = vi.fn()
 const fetchEquipmentsMock = vi.fn()
 const listCoachScheduleDashboardMonthMock = vi.fn()
 const rpcMock = vi.fn()
+const myHomeServiceMocks = vi.hoisted(() => ({
+  getMyHomeSnapshot: vi.fn(),
+  getMyHomeNextEvent: vi.fn()
+}))
 let latestTeamMembersRealtimeHandler: (() => void) | null = null
 
 const teamMembersInMock = vi.fn()
@@ -99,6 +104,8 @@ vi.mock('@/services/supabase', () => ({
     removeChannel: removeChannelMock
   }
 }))
+
+vi.mock('@/services/myHome', () => myHomeServiceMocks)
 
 vi.mock('@/services/equipmentApi', () => ({
   fetchEquipments: fetchEquipmentsMock,
@@ -318,6 +325,7 @@ vi.stubGlobal('fetch', fetchMock)
 
 const mountHomeView = async ({
   role = 'MANAGER',
+  linkedTeamMemberIds = [] as string[],
   permissions = [] as string[],
   matches = sampleMatches,
   announcements = sampleAnnouncements,
@@ -343,7 +351,8 @@ const mountHomeView = async ({
   authStore.profile = {
     id: 'user-1',
     name: 'Bryan',
-    role
+    role,
+    linked_team_member_ids: linkedTeamMemberIds
   }
 
   permissionsStore.currentRole = role
@@ -424,6 +433,8 @@ const mountHomeView = async ({
 beforeEach(() => {
   vi.clearAllMocks()
   latestTeamMembersRealtimeHandler = null
+  myHomeServiceMocks.getMyHomeSnapshot.mockResolvedValue(createEmptyMyHomeSnapshot())
+  myHomeServiceMocks.getMyHomeNextEvent.mockResolvedValue(null)
 })
 
 afterEach(() => {
@@ -433,6 +444,102 @@ afterEach(() => {
 })
 
 describe('HomeView dashboard redesign', () => {
+  it('loads a personalized Next Up event and refreshes it when the selected member changes', async () => {
+    const snapshot = {
+      ...createEmptyMyHomeSnapshot(),
+      members: [
+        { id: 'member-1', name: '小安', role: '球員', team_group: null, status: '在隊', jersey_number: null, avatar_url: null },
+        { id: 'member-2', name: '小宇', role: '球員', team_group: null, status: '在隊', jersey_number: null, avatar_url: null }
+      ],
+      next_event: {
+        id: 'unregistered-training',
+        type: 'match' as const,
+        title: '未報名特訓',
+        date: '2026-07-12',
+        time: '09:00 - 11:00',
+        location: '中港國小',
+        opponent: null,
+        category_group: null,
+        match_level: '特訓課',
+        coaches: null,
+        players: null,
+        route: '/calendar?match_id=unregistered-training'
+      }
+    }
+    const regularEvent = {
+      ...snapshot.next_event,
+      id: 'regular-match',
+      title: '週末友誼賽',
+      match_level: '友誼賽',
+      route: '/calendar?match_id=regular-match'
+    }
+    const registeredTrainingEvent = {
+      ...snapshot.next_event,
+      id: 'registered-training',
+      title: '已報名特訓',
+      training_registration_status: 'selected' as const,
+      is_training_registration_open: true,
+      route: '/calendar?match_id=registered-training'
+    }
+    myHomeServiceMocks.getMyHomeSnapshot.mockResolvedValue(snapshot)
+    myHomeServiceMocks.getMyHomeNextEvent
+      .mockResolvedValueOnce(regularEvent)
+      .mockResolvedValueOnce(registeredTrainingEvent)
+
+    const { wrapper } = await mountHomeView({
+      role: 'MEMBER',
+      linkedTeamMemberIds: ['member-1', 'member-2']
+    })
+    const panel = wrapper.findComponent({ name: 'MyHomeTodayPanel' })
+
+    expect(myHomeServiceMocks.getMyHomeNextEvent).toHaveBeenNthCalledWith(1, {
+      memberId: 'member-1',
+      today: dayjs().format('YYYY-MM-DD')
+    })
+    expect(panel.props('nextEvent')).toMatchObject({ id: 'regular-match' })
+
+    panel.vm.$emit('update:selectedMemberId', 'member-2')
+    await flushPromises()
+
+    expect(myHomeServiceMocks.getMyHomeNextEvent).toHaveBeenNthCalledWith(2, {
+      memberId: 'member-2',
+      today: dayjs().format('YYYY-MM-DD')
+    })
+    expect(panel.props('nextEvent')).toMatchObject({ id: 'registered-training' })
+  })
+
+  it('does not fall back to an unverified training event when the personalized RPC fails', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    myHomeServiceMocks.getMyHomeSnapshot.mockResolvedValue({
+      ...createEmptyMyHomeSnapshot(),
+      members: [
+        { id: 'member-1', name: '小安', role: '球員', team_group: null, status: '在隊', jersey_number: null, avatar_url: null }
+      ],
+      next_event: {
+        id: 'unverified-training',
+        type: 'match',
+        title: '特訓課',
+        date: '2026-07-12',
+        time: '09:00 - 11:00',
+        location: '中港國小',
+        opponent: null,
+        category_group: null,
+        match_level: '特訓課',
+        coaches: null,
+        players: null,
+        route: '/calendar?match_id=unverified-training'
+      }
+    })
+    myHomeServiceMocks.getMyHomeNextEvent.mockRejectedValue(new Error('RPC unavailable'))
+
+    const { wrapper } = await mountHomeView({
+      role: 'MEMBER',
+      linkedTeamMemberIds: ['member-1']
+    })
+
+    expect(wrapper.findComponent({ name: 'MyHomeTodayPanel' }).props('nextEvent')).toBeNull()
+  })
+
   it('shows the admin stats cards for ADMIN users', async () => {
     const { wrapper } = await mountHomeView({
       role: 'ADMIN'

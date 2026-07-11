@@ -1,4 +1,5 @@
 import type { NotificationFeedRow } from '@/types/dashboard'
+import type { TrainingRegistrationStatus } from '@/types/training'
 
 export type MyHomeMember = {
   id: string
@@ -31,6 +32,8 @@ export type MyHomeNextEvent = {
   coaches: string | null
   players: string | null
   route: string
+  training_registration_status?: TrainingRegistrationStatus | null
+  is_training_registration_open?: boolean
 }
 
 export type MyHomeLeaveStatus = {

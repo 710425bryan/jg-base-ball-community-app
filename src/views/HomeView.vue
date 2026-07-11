@@ -12,9 +12,8 @@ import FeeManagementReminderPanel from '@/components/fees/FeeManagementReminderP
 import EquipmentPhotoCarousel from '@/components/equipment/EquipmentPhotoCarousel.vue'
 import { listCoachScheduleDashboardMonth } from '@/services/coachSchedulesApi'
 import { getDashboardTodayAttendanceStatus } from '@/services/dashboardAttendance'
-import { getMyHomeSnapshot } from '@/services/myHome'
+import { getMyHomeNextEvent, getMyHomeSnapshot } from '@/services/myHome'
 import { supabase } from '@/services/supabase'
-import { trainingApi } from '@/services/trainingApi'
 import { getMatchWeatherForecast, type WeatherSnapshot } from '@/services/weatherApi'
 import { useAuthStore } from '@/stores/auth'
 import { useEquipmentStore } from '@/stores/equipment'
@@ -23,8 +22,7 @@ import { usePermissionsStore } from '@/stores/permissions'
 import { createEmptyDashboardStats, type DashboardAnnouncement, type DashboardTodayAttendanceEvent } from '@/types/dashboard'
 import type { Equipment } from '@/types/equipment'
 import type { MatchRecord } from '@/types/match'
-import { createEmptyMyHomeSnapshot } from '@/types/myHome'
-import type { TrainingSession } from '@/types/training'
+import { createEmptyMyHomeSnapshot, type MyHomeNextEvent } from '@/types/myHome'
 import type { CoachScheduleMonthPayload } from '@/types/coachSchedule'
 import {
   getEquipmentRemainingOverallQuantity,
@@ -132,8 +130,8 @@ const selectedMatchId = ref<string | null>(null)
 const now = ref(dayjs())
 const weatherStatus = ref<WeatherStatus>('loading')
 const myHomeSnapshot = ref(createEmptyMyHomeSnapshot())
+const myHomeNextEvent = ref<MyHomeNextEvent | null>(null)
 const selectedMyHomeMemberId = ref('')
-const myHomeTrainingSessions = ref<TrainingSession[]>([])
 const isMyHomeLoading = ref(false)
 const myHomeError = ref('')
 const isTodayAttendanceOpen = ref(false)
@@ -145,7 +143,7 @@ const coachSchedulePayload = ref<CoachScheduleMonthPayload | null>(null)
 const isCoachScheduleLoading = ref(false)
 
 let clockId: ReturnType<typeof setInterval> | null = null
-let myHomeTrainingSessionsRequestId = 0
+let myHomeNextEventRequestId = 0
 let isMyHomeSnapshotRefreshInFlight = false
 let lastMyHomeScheduleRefreshAt = 0
 let adminStatsChannel: any = null
@@ -166,14 +164,8 @@ const shouldShowMyHomePanel = computed(() => {
   return role === 'MEMBER' || role === 'PARENT' || hasLinkedTeamMembers.value
 })
 const shouldShowCoachSchedulePanel = computed(() => canViewCoachSchedules.value || isCoachProfile.value)
-const isMyHomeNextTrainingEvent = computed(() =>
-  myHomeSnapshot.value.next_event?.match_level === '特訓課'
-)
 const showMyHomeTrainingRegistrationAction = computed(() =>
-  canShowMyHomeTrainingRegistrationAction(
-    myHomeSnapshot.value.next_event,
-    myHomeTrainingSessions.value
-  )
+  canShowMyHomeTrainingRegistrationAction(myHomeNextEvent.value)
 )
 
 const userName = computed(() => authStore.profile?.nickname || authStore.profile?.name || '球隊夥伴')
@@ -399,7 +391,7 @@ const getDashboardWeatherTarget = () => {
     }
   }
 
-  const nextPersonalEvent = myHomeSnapshot.value.next_event
+  const nextPersonalEvent = myHomeNextEvent.value
   if (nextPersonalEvent?.type === 'match' && nextPersonalEvent.location) {
     return {
       location: nextPersonalEvent.location,
@@ -646,23 +638,31 @@ const fetchEquipmentAddonData = async () => {
   }
 }
 
-const fetchMyHomeTrainingSessions = async (memberId = selectedMyHomeMemberId.value) => {
-  const requestId = ++myHomeTrainingSessionsRequestId
+const getSafeMyHomeNextEventFallback = () => {
+  const fallback = myHomeSnapshot.value.next_event
+  return fallback?.match_level === '特訓課' ? null : fallback
+}
 
-  if (!shouldShowMyHomePanel.value || !isMyHomeNextTrainingEvent.value || !memberId) {
-    myHomeTrainingSessions.value = []
+const fetchMyHomeNextEvent = async (memberId = selectedMyHomeMemberId.value) => {
+  const requestId = ++myHomeNextEventRequestId
+  myHomeNextEvent.value = null
+
+  if (!shouldShowMyHomePanel.value) {
     return
   }
 
   try {
-    const sessions = await trainingApi.listTrainingSessions(memberId)
-    if (requestId === myHomeTrainingSessionsRequestId) {
-      myHomeTrainingSessions.value = sessions
+    const nextEvent = await getMyHomeNextEvent({
+      memberId: memberId || null,
+      today: now.value.format('YYYY-MM-DD')
+    })
+    if (requestId === myHomeNextEventRequestId) {
+      myHomeNextEvent.value = nextEvent
     }
   } catch (error) {
-    console.warn('Error fetching my home training registration state:', error)
-    if (requestId === myHomeTrainingSessionsRequestId) {
-      myHomeTrainingSessions.value = []
+    console.warn('Error fetching personalized my home Next Up event:', error)
+    if (requestId === myHomeNextEventRequestId) {
+      myHomeNextEvent.value = getSafeMyHomeNextEventFallback()
     }
   }
 }
@@ -670,8 +670,8 @@ const fetchMyHomeTrainingSessions = async (memberId = selectedMyHomeMemberId.val
 const fetchMyHomeSnapshotData = async (options: MyHomeSnapshotFetchOptions = {}) => {
   if (!shouldShowMyHomePanel.value) {
     myHomeSnapshot.value = createEmptyMyHomeSnapshot()
+    myHomeNextEvent.value = null
     selectedMyHomeMemberId.value = ''
-    myHomeTrainingSessions.value = []
     return
   }
 
@@ -692,15 +692,15 @@ const fetchMyHomeSnapshotData = async (options: MyHomeSnapshotFetchOptions = {})
       selectedMyHomeMemberId.value = snapshot.members[0]?.id || ''
     }
 
-    await fetchMyHomeTrainingSessions(selectedMyHomeMemberId.value)
+    await fetchMyHomeNextEvent(selectedMyHomeMemberId.value)
   } catch (error: any) {
     console.error('Error fetching personal home snapshot:', error)
     if (options.silent) return
 
     myHomeError.value = error?.message || '無法載入個人化首頁資料'
     myHomeSnapshot.value = createEmptyMyHomeSnapshot()
+    myHomeNextEvent.value = null
     selectedMyHomeMemberId.value = ''
-    myHomeTrainingSessions.value = []
   } finally {
     isMyHomeSnapshotRefreshInFlight = false
     if (!options.silent) {
@@ -713,7 +713,7 @@ const refreshMyHomeSnapshotWhenScheduleMoves = (currentNow: Dayjs, previousNow: 
   if (!shouldShowMyHomePanel.value) return
 
   const isNewDay = currentNow.format('YYYY-MM-DD') !== previousNow.format('YYYY-MM-DD')
-  const nextEventExpired = isMyHomeNextEventExpired(myHomeSnapshot.value.next_event, currentNow)
+  const nextEventExpired = isMyHomeNextEventExpired(myHomeNextEvent.value, currentNow)
 
   if (isNewDay || nextEventExpired) {
     if (currentNow.valueOf() - lastMyHomeScheduleRefreshAt < MY_HOME_SCHEDULE_REFRESH_COOLDOWN_MS) return
@@ -805,12 +805,7 @@ onMounted(() => {
 
 watch(selectedMyHomeMemberId, (next, prev) => {
   if (next === prev || isMyHomeLoading.value) return
-  if (!next) {
-    myHomeTrainingSessions.value = []
-    return
-  }
-
-  void fetchMyHomeTrainingSessions(next)
+  void fetchMyHomeNextEvent(next)
 })
 
 onUnmounted(() => {
@@ -1165,6 +1160,7 @@ onUnmounted(() => {
       v-if="shouldShowMyHomePanel"
       v-model:selected-member-id="selectedMyHomeMemberId"
       :snapshot="myHomeSnapshot"
+      :next-event="myHomeNextEvent"
       :is-loading="isMyHomeLoading"
       :error-message="myHomeError"
       :show-training-registration-action="showMyHomeTrainingRegistrationAction"

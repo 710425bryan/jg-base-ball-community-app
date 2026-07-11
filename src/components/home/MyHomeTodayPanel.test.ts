@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RouterLinkStub, flushPromises, mount } from '@vue/test-utils'
 import { getMyHomeTrainingMonthDates } from '@/services/myHome'
 import MyHomeTodayPanel from './MyHomeTodayPanel.vue'
-import { createEmptyMyHomeSnapshot, type MyHomeSnapshot } from '@/types/myHome'
+import { createEmptyMyHomeSnapshot, type MyHomeNextEvent, type MyHomeSnapshot } from '@/types/myHome'
 
 vi.mock('@/services/myHome', () => ({
   getMyHomeTrainingMonthDates: vi.fn()
@@ -72,9 +72,13 @@ const buildSnapshot = (matchLevel: string | null): MyHomeSnapshot => ({
   ]
 })
 
-const mountPanel = (snapshot: MyHomeSnapshot) => mount(MyHomeTodayPanel, {
+const mountPanel = (
+  snapshot: MyHomeSnapshot,
+  nextEvent: MyHomeNextEvent | null = snapshot.next_event
+) => mount(MyHomeTodayPanel, {
   props: {
     snapshot,
+    nextEvent,
     selectedMemberId: 'member-1',
     showTrainingRegistrationAction: true
   },
@@ -100,7 +104,12 @@ describe('MyHomeTodayPanel', () => {
   })
 
   it('links to training registration when Next Up is a training class', () => {
-    const wrapper = mountPanel(buildSnapshot('特訓課'))
+    const snapshot = buildSnapshot('特訓課')
+    const wrapper = mountPanel(snapshot, {
+      ...snapshot.next_event!,
+      training_registration_status: 'selected',
+      is_training_registration_open: true
+    })
 
     expect(wrapper.text()).toContain('特訓報名')
     expect(wrapper.findAllComponents(RouterLinkStub).some((link) => link.props('to') === '/training')).toBe(true)
@@ -114,6 +123,30 @@ describe('MyHomeTodayPanel', () => {
     expect(wrapper.findAllComponents(RouterLinkStub).some((link) => link.props('to') === '/training')).toBe(false)
     expect(wrapper.text()).not.toContain('我要請假')
     expect(wrapper.findAllComponents(RouterLinkStub).some((link) => link.props('to') === '/my-leave-requests')).toBe(false)
+  })
+
+  it('shows the next eligible regular match after an unregistered training class is skipped', () => {
+    const snapshot = buildSnapshot('特訓課')
+    const wrapper = mountPanel(snapshot, {
+      ...snapshot.next_event!,
+      id: 'regular-match-2',
+      title: '週末友誼賽',
+      match_level: '友誼賽',
+      training_registration_status: null,
+      is_training_registration_open: false
+    })
+
+    expect(wrapper.find('[data-test="next-event-card"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('週末友誼賽')
+    expect(wrapper.text()).not.toContain('特訓報名')
+  })
+
+  it('hides the Next Up card when there is no eligible event', () => {
+    const wrapper = mountPanel(buildSnapshot('特訓課'), null)
+
+    expect(wrapper.find('[data-test="next-event-card"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Next Up')
+    expect(wrapper.text()).toContain('本月訓練日期')
   })
 
   it('shows all training dates for the current month', () => {

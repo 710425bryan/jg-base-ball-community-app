@@ -7,8 +7,8 @@ import type {
   MyHomeSnapshot,
   MyHomeTodoItem
 } from '@/types/myHome'
-import type { TrainingSession } from '@/types/training'
 import dayjs, { type Dayjs } from 'dayjs'
+import { isActiveTrainingRegistrationStatus } from '@/utils/training'
 
 const TIME_TOKEN_PATTERN = /\d{1,2}:\d{2}/g
 const PLAYER_LIST_SEPARATOR_PATTERN = /[,，、\n\r;；/]+/
@@ -86,19 +86,18 @@ export const normalizeMyHomeNextEvent = (value: unknown): MyHomeNextEvent | null
     match_level: optionalString(value.match_level),
     coaches: optionalString(value.coaches),
     players: optionalString(value.players),
-    route: normalizeNextEventRoute(optionalString(value.route), id)
+    route: normalizeNextEventRoute(optionalString(value.route), id),
+    training_registration_status: optionalString(value.training_registration_status) as MyHomeNextEvent['training_registration_status'],
+    is_training_registration_open: Boolean(value.is_training_registration_open)
   }
 }
 
 export const canShowMyHomeTrainingRegistrationAction = (
-  nextEvent: MyHomeNextEvent | null,
-  sessions: Array<Pick<TrainingSession, 'match_id' | 'is_registration_open'>>
+  nextEvent: MyHomeNextEvent | null
 ) => {
   if (nextEvent?.type !== 'match' || nextEvent.match_level !== '特訓課') return false
-
-  return sessions.some((session) =>
-    session.match_id === nextEvent.id && session.is_registration_open
-  )
+  return isActiveTrainingRegistrationStatus(nextEvent.training_registration_status)
+    && nextEvent.is_training_registration_open === true
 }
 
 const getMyHomeNextEventTimeTokens = (nextEvent: MyHomeNextEvent | null) =>

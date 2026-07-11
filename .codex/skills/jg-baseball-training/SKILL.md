@@ -70,6 +70,7 @@ description: "Training registration and player points workflow for jg-base-ball-
 - 負數調整必須避免讓可用點數低於已保留點數，這個檢查在 DB RPC 中維持。
 - 點數餘額由 `get_player_point_balance()` 與 `get_player_reserved_training_points()` 推導，不新增前端自算權威餘額。
 - 後台大廳 `MyHomeTodayPanel` 的特訓點數卡優先讀 `get_my_home_snapshot()` 回傳的 linked member 點數欄位；若 snapshot 尚未部署點數欄位，`src/services/myHome.ts` 會用 `list_my_training_members()` 補齊，只顯示目前選取成員，不直接查 raw table。
+- 後台大廳 Next Up 走 `get_my_home_next_event(p_member_id, p_today)`；特訓課只有報名狀態為 `applied / selected / waitlisted` 才可成為目前選取 linked member 的下一場賽事，`cancelled / rejected` 或未報名時必須跳過。
 
 ## 點名與禁報
 

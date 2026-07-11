@@ -307,6 +307,42 @@ describe('myHome service', () => {
     ])
   })
 
+  it('loads and normalizes the personalized Next Up event', async () => {
+    rpcMock.mockResolvedValueOnce({
+      data: {
+        id: 'training-match-1',
+        type: 'match',
+        title: '投捕特訓課',
+        date: '2026-07-12',
+        time: '09:00 - 11:00',
+        location: '中港國小',
+        match_level: '特訓課',
+        training_registration_status: 'selected',
+        is_training_registration_open: true,
+        route: '/match-records?match_id=training-match-1'
+      },
+      error: null
+    })
+
+    const { getMyHomeNextEvent } = await import('./myHome')
+    const nextEvent = await getMyHomeNextEvent({
+      memberId: 'member-1',
+      today: '2026-07-11'
+    })
+
+    expect(rpcMock).toHaveBeenCalledWith('get_my_home_next_event', {
+      p_member_id: 'member-1',
+      p_today: '2026-07-11'
+    })
+    expect(nextEvent).toMatchObject({
+      id: 'training-match-1',
+      match_level: '特訓課',
+      training_registration_status: 'selected',
+      is_training_registration_open: true,
+      route: '/calendar?match_id=training-match-1'
+    })
+  })
+
   it('returns and caches an empty snapshot when the RPC is missing', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     rpcMock.mockResolvedValue({

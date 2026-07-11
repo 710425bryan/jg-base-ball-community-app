@@ -186,12 +186,16 @@ describe('myHomeSnapshot utilities', () => {
       title: 'Morning game',
       date: '2026-04-20',
       time: '09:00 - 11:00',
+      training_registration_status: 'waitlisted',
+      is_training_registration_open: true,
       route: '/match-records?match_id=match-1'
     })).toMatchObject({
       id: 'match-1',
       type: 'match',
       title: 'Morning game',
       date: '2026-04-20',
+      training_registration_status: 'waitlisted',
+      is_training_registration_open: true,
       route: '/calendar?match_id=match-1'
     })
   })
@@ -250,7 +254,7 @@ describe('myHomeSnapshot utilities', () => {
     expect(isMyHomeNextEventExpired(snapshot.next_event, dayjs('2026-04-20T11:00:00'))).toBe(true)
   })
 
-  it('shows the training registration shortcut only when the next training session is open', () => {
+  it('shows the training registration shortcut for active registrations while the session is open', () => {
     const nextEvent = {
       id: 'match-1',
       type: 'match',
@@ -263,22 +267,37 @@ describe('myHomeSnapshot utilities', () => {
       match_level: '特訓課',
       coaches: null,
       players: null,
-      route: '/match-records?match_id=match-1'
+      route: '/match-records?match_id=match-1',
+      training_registration_status: 'applied',
+      is_training_registration_open: true
     } as const
 
-    expect(canShowMyHomeTrainingRegistrationAction(nextEvent, [
-      { match_id: 'match-1', is_registration_open: true }
-    ])).toBe(true)
+    expect(canShowMyHomeTrainingRegistrationAction(nextEvent)).toBe(true)
+    expect(canShowMyHomeTrainingRegistrationAction({
+      ...nextEvent,
+      training_registration_status: 'selected'
+    })).toBe(true)
+    expect(canShowMyHomeTrainingRegistrationAction({
+      ...nextEvent,
+      training_registration_status: 'waitlisted'
+    })).toBe(true)
 
-    expect(canShowMyHomeTrainingRegistrationAction(nextEvent, [
-      { match_id: 'match-1', is_registration_open: false }
-    ])).toBe(false)
+    expect(canShowMyHomeTrainingRegistrationAction({
+      ...nextEvent,
+      is_training_registration_open: false
+    })).toBe(false)
+    expect(canShowMyHomeTrainingRegistrationAction({
+      ...nextEvent,
+      training_registration_status: 'cancelled'
+    })).toBe(false)
+    expect(canShowMyHomeTrainingRegistrationAction({
+      ...nextEvent,
+      training_registration_status: 'rejected'
+    })).toBe(false)
 
     expect(canShowMyHomeTrainingRegistrationAction({
       ...nextEvent,
       match_level: '正式賽'
-    }, [
-      { match_id: 'match-1', is_registration_open: true }
-    ])).toBe(false)
+    })).toBe(false)
   })
 })

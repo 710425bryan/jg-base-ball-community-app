@@ -7,6 +7,7 @@ import {
   type MyHomeEquipmentRequest,
   type MyHomeLeaveStatus,
   type MyHomeMember,
+  type MyHomeNextEvent,
   type MyHomePaymentDueItem,
   type MyHomeSnapshot,
   type MyHomeTrainingMonthDate,
@@ -39,6 +40,7 @@ import {
 import type { TrainingProgramSetting } from '@/types/trainingProgram'
 
 const RPC_NAME = 'get_my_home_snapshot'
+const NEXT_EVENT_RPC_NAME = 'get_my_home_next_event'
 
 const ensureArray = <T>(value: unknown): T[] => Array.isArray(value) ? (value as T[]) : []
 
@@ -343,6 +345,19 @@ export const getMyHomeTrainingMonthDates = async (input: {
   )
 
   return dates
+}
+
+export const getMyHomeNextEvent = async (input: {
+  memberId?: string | null
+  today?: string | null
+}): Promise<MyHomeNextEvent | null> => {
+  const { data, error } = await supabase.rpc(NEXT_EVENT_RPC_NAME, {
+    p_member_id: input.memberId || null,
+    p_today: input.today || null
+  })
+  if (error) throw error
+
+  return normalizeMyHomeNextEvent(data)
 }
 
 const enrichSnapshotWithTrainingMonthDates = async (

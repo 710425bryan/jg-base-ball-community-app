@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { ArrowLeft, ArrowRight, Calendar, Location, Refresh, Tickets, UserFilled } from '@element-plus/icons-vue'
 import { getMyHomeTrainingMonthDates } from '@/services/myHome'
-import type { MyHomeSnapshot, MyHomeTodoItem, MyHomeTrainingMonthDate } from '@/types/myHome'
+import type { MyHomeNextEvent, MyHomeSnapshot, MyHomeTodoItem, MyHomeTrainingMonthDate } from '@/types/myHome'
 import {
   buildMyHomeTodoItems,
   formatMyHomeCurrency,
@@ -15,6 +15,7 @@ import { getCurrentTaipeiMonth, normalizeTrainingMonth } from '@/utils/trainingM
 
 const props = defineProps<{
   snapshot: MyHomeSnapshot
+  nextEvent: MyHomeNextEvent | null
   selectedMemberId: string
   isLoading?: boolean
   errorMessage?: string
@@ -36,7 +37,7 @@ const members = computed(() => props.snapshot.members)
 const selectedMember = computed(() => getSelectedMyHomeMember(members.value, props.selectedMemberId))
 const selectedLeave = computed(() => getMyHomeMemberLeave(props.snapshot, selectedMember.value?.id))
 const todoItems = computed(() => buildMyHomeTodoItems(props.snapshot, selectedMember.value?.id))
-const nextEvent = computed(() => props.snapshot.next_event)
+const nextEvent = computed(() => props.nextEvent)
 const isNextTrainingEvent = computed(() => nextEvent.value?.match_level === '特訓課')
 const shouldShowTrainingRegistrationAction = computed(() =>
   isNextTrainingEvent.value && props.showTrainingRegistrationAction === true
@@ -458,12 +459,16 @@ watch([selectedTrainingMonth, selectedProgramKey], () => {
           </section>
 
           <div class="grid content-start gap-4">
-            <section class="rounded-2xl border border-primary/20 bg-amber-50 p-5 shadow-sm">
+            <section
+              v-if="nextEvent"
+              class="rounded-2xl border border-primary/20 bg-amber-50 p-5 shadow-sm"
+              data-test="next-event-card"
+            >
             <div class="flex items-start justify-between gap-4">
               <div>
                 <div class="text-[11px] font-black uppercase tracking-[0.18em] text-primary/80">Next Up</div>
                 <h3 class="mt-2 text-xl font-black leading-tight text-slate-900">
-                  {{ nextEvent?.title || '目前沒有即將到來的賽程' }}
+                  {{ nextEvent.title }}
                 </h3>
               </div>
               <el-icon class="shrink-0 text-2xl text-primary"><Calendar /></el-icon>
