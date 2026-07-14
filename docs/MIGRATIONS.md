@@ -83,6 +83,7 @@
 | `supabase_coach_schedules_migration.sql` | 教練排班表 | 新增 `coach_schedule_events` / `coach_schedule_assignments`、`coach_schedules` 權限與 Dashboard / 管理頁 RPC；候選日需搭配 `/training-dates` 與場地配置 |
 | `supabase_coach_schedules_schedulable_coaches_hotfix.sql` | 可排班教練清單 hotfix | 覆寫 `list_schedulable_coaches()`，放寬 role 空白 / 中文歷史值並維持 active access 檢查 |
 | `supabase_coach_schedules_training_location_sync_hotfix.sql` | 教練排班場地同步 hotfix | 場地配置區塊更新時同步已儲存 `coach_schedule_events` 的來源日期 / 時間 / 標題 / 地點快照 |
+| `supabase_zzz_coach_schedule_match_source_integrity_migration.sql` | 教練排班賽事來源完整性 | 驗證比賽 / 特訓排班來源 UUID、刪除賽事時連動清理排班、同步 `match_level` 對應的 `source_type`，並一次修復既有孤兒資料 |
 | `supabase_training_sessions_location_assignment_hotfix.sql` | 特訓 session 場地指派 hotfix | 串 training session 時讀 |
 | `supabase_training_admin_registrations_location_assignment_hotfix.sql` | 管理端報名與場地指派 hotfix | 教練管理流程讀 |
 

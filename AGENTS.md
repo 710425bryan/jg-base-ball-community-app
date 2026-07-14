@@ -221,6 +221,7 @@
 - 後台路由 `/coach-schedules`，feature key 為 `coach_schedules`，actions：`VIEW / CREATE / EDIT / DELETE`。
 - 資料表為 `coach_schedule_events`、`coach_schedule_assignments`；排班對象綁定 `profiles.id`，候選教練只列 active 且可登入期間內的 `HEAD_COACH`、`COACH`。
 - 候選活動由 `list_coach_schedule_admin_month()` 產生：場地配置區塊優先，其次 `/training-dates` 的訓練日期；同月 `matches.match_level = '特訓課'` 顯示特訓，其餘 `matches` 顯示比賽。
+- 比賽 / 特訓排班以 `matches.id` 作為來源身分，不以日期、標題或 Google Calendar 備註去重；刪除 `matches` 時必須連動刪除同 `source_id` 的 `coach_schedule_events`，`match_level` 在一般比賽與特訓課之間切換時也要同步排班 `source_type`。`supabase_zzz_coach_schedule_match_source_integrity_migration.sql` 負責來源驗證、刪除連動與既有孤兒排班修復。
 - 已儲存的場地訓練排班只保留教練指派與排班備註；日期、時間、標題、地點與地圖連結需跟著 `training_location_session_venues` / `training_location_sessions` 同步。
 - `/training-dates` 只決定訓練日；教練上課日與指派在 `/coach-schedules` 設定，並可由訓練日期設定頁帶同月份跳轉。
 - Dashboard 走 `list_coach_schedule_dashboard()`；具 `coach_schedules:VIEW` 者看全體教練排班，`HEAD_COACH` / `COACH` 只看自己被指派的排班，一般使用者不顯示。

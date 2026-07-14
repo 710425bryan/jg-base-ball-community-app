@@ -21,6 +21,7 @@ description: "Match calendar sync workflow for jg-base-ball-community-app. Use w
 
 - 保留 `matchesApi` 對 `google_calendar_event_id` 缺欄或 schema cache 未更新時的 fallback 行為。
 - 先用 `google_calendar_event_id` 比對既有資料，再用日期 + 開始時間 + 標題 fallback 比對。
+- 同步重新建立已刪除賽事時可能取得新的 `matches.id`；`supabase_zzz_coach_schedule_match_source_integrity_migration.sql` 必須在刪除舊賽事時同步清掉舊 UUID 的教練排班，不可改用日期或標題合併新舊排班。
 - 讓同步規劃維持在 `create`、`update`、`skip` 三種結果。
 - 修改 payload 生成時，保留 lineup、缺席名單、note 與 Google Calendar 來源資訊。
 - 需要 schema 變更時，新增 migration，不要重寫舊 migration。
