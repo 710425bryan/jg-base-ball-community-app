@@ -177,4 +177,37 @@ describe('TrainingLocationsView', () => {
     expect(sharedSettingsGridClasses).toContain('2xl:grid-cols-4')
     expect(sharedSettingsGridClasses).not.toContain('xl:grid-cols-4')
   })
+
+  it('filters the player pool across name, group, and jersey fields on touch devices', async () => {
+    mocks.listRoster.mockResolvedValue([
+      {
+        member_id: 'member-1',
+        name: '王小明',
+        role: '球員',
+        team_group: 'U12熊戰組',
+        jersey_number: '10',
+        fee_billing_mode: 'role_default',
+        is_on_leave: false
+      },
+      {
+        member_id: 'member-2',
+        name: '陳大華',
+        role: '校隊',
+        team_group: '校隊',
+        jersey_number: '18',
+        fee_billing_mode: 'role_default',
+        is_on_leave: false
+      }
+    ])
+
+    const wrapper = await mountView()
+
+    wrapper.vm.searchQuery = '王 U12 #10'
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.vm.unassignedRoster.map((member) => member.member_id)).toEqual(['member-1'])
+    const rows = wrapper.findAll('[data-test="training-location-player-row"]')
+    expect(rows).toHaveLength(1)
+    expect(rows[0].attributes('draggable')).toBe('false')
+  })
 })

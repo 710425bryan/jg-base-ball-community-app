@@ -15,12 +15,15 @@ import {
 } from '@element-plus/icons-vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
+import AppSearchInput from '@/components/common/AppSearchInput.vue'
+import { usePointerDragSupport } from '@/composables/usePointerDragSupport'
 import { TrainingLocationAuthError, trainingLocationsApi } from '@/services/trainingLocationsApi'
 import { trainingProgramsApi } from '@/services/trainingProgramsApi'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
 import { useTeamGroupsStore } from '@/stores/teamGroups'
 import { getMemberBillingLabel, isNoFeeBillingMember } from '@/utils/memberBilling'
+import { matchesMemberSearch } from '@/utils/memberSearch'
 import { getUniqueTeamGroupOptions, normalizeTeamGroup } from '@/utils/teamGroups'
 import {
   DEFAULT_TRAINING_PROGRAM_KEY,
@@ -83,6 +86,7 @@ const selectedVenueIndex = ref(0)
 const selectedPoolMemberIds = ref<string[]>([])
 const draggedMemberId = ref<string | null>(null)
 const searchQuery = ref('')
+const canUsePointerDrag = usePointerDragSupport()
 const isLoading = ref(false)
 const isSaving = ref(false)
 const isDispatching = ref(false)
@@ -158,20 +162,20 @@ const teamGroupOptions = computed(() =>
   ).map((option) => option.value)
 )
 
-const normalizedSearchQuery = computed(() => searchQuery.value.trim().toLowerCase())
+const normalizedSearchQuery = computed(() => searchQuery.value.trim())
 
 const filteredRoster = computed(() => {
   const query = normalizedSearchQuery.value
   if (!query) return scopedRoster.value
 
   return scopedRoster.value.filter((member) =>
-    [
+    matchesMemberSearch(query, [
       member.name,
       member.role,
       member.team_group,
       member.jersey_number,
       getMemberBillingLabel(member)
-    ].filter(Boolean).some((value) => String(value).toLowerCase().includes(query))
+    ])
   )
 })
 
@@ -393,6 +397,7 @@ const resetForm = () => {
   selectedSessionId.value = null
   selectedVenueIndex.value = 0
   selectedPoolMemberIds.value = []
+  searchQuery.value = ''
   resetSyncFields()
   Object.assign(form, {
     session_id: null,
@@ -412,6 +417,7 @@ const hydrateSession = async (session: TrainingLocationSession) => {
   selectedSessionId.value = session.session_id
   selectedVenueIndex.value = 0
   selectedPoolMemberIds.value = []
+  searchQuery.value = ''
   Object.assign(form, {
     session_id: session.session_id,
     program_key: selectedProgramKey.value,
@@ -869,6 +875,7 @@ watch(selectedProgramKey, async () => {
     form.venues = [createEmptyVenue()]
     selectedVenueIndex.value = 0
     selectedPoolMemberIds.value = []
+    searchQuery.value = ''
     resetSyncFields()
   }
   await Promise.all([loadSessions(), loadRoster()])
@@ -1239,7 +1246,13 @@ onMounted(() => {
                 </div>
               </div>
 
-              <el-input v-model="searchQuery" class="mt-3" size="large" placeholder="搜尋姓名、組別、背號" clearable />
+              <AppSearchInput
+                v-model="searchQuery"
+                data-test="training-location-player-search"
+                class="mt-3"
+                placeholder="搜尋姓名、組別、背號"
+                aria-label="搜尋球員池"
+              />
 
               <div class="mt-3 grid grid-cols-2 gap-2">
                 <button
@@ -1312,12 +1325,15 @@ onMounted(() => {
                   <div
                     v-for="member in unassignedRoster"
                     :key="member.member_id"
-                    :draggable="isSelectableRosterMember(member)"
+                    :draggable="canUsePointerDrag && isSelectableRosterMember(member)"
+                    data-test="training-location-player-row"
                     class="flex items-center gap-2 rounded-xl border bg-white px-3 py-2 transition-colors"
                     :class="[
                       isNoFeeBillingMember(member)
                         ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 opacity-75'
-                        : 'cursor-grab active:cursor-grabbing',
+                        : canUsePointerDrag
+                          ? 'cursor-grab active:cursor-grabbing'
+                          : 'cursor-pointer active:bg-slate-50',
                       isNoFeeBillingMember(member)
                         ? ''
                         : member.is_on_leave
@@ -1348,7 +1364,7 @@ onMounted(() => {
                 </div>
 
                 <div v-if="unassignedRoster.length === 0" class="rounded-xl border border-dashed border-slate-200 bg-white p-5 text-center text-sm font-bold text-slate-400">
-                  目前沒有未配置球員。
+                  {{ normalizedSearchQuery ? '找不到符合搜尋條件的球員。' : '目前沒有未配置球員。' }}
                 </div>
               </div>
             </aside>

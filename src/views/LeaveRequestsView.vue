@@ -390,9 +390,23 @@
         
         <!-- 當是管理員代為請假時，可選擇球員 -->
         <el-form-item v-if="isAdminOrManager" label="選擇請假球員" prop="user_id" class="font-bold">
-          <el-select v-model="form.user_id" placeholder="請選擇要請假的人員" size="large" class="w-full" filterable>
+          <el-select
+            v-if="isDesktopViewport"
+            v-model="form.user_id"
+            placeholder="請選擇要請假的人員"
+            size="large"
+            class="w-full"
+            filterable
+          >
             <el-option v-for="p in team_members_list" :key="p.id" :label="`${p.name} (${p.role})`" :value="p.id" />
           </el-select>
+          <LeaveMemberPicker
+            v-else
+            :model-value="form.user_id"
+            :members="team_members_list"
+            :open="isModalOpen"
+            @update:model-value="selectLeaveMember"
+          />
         </el-form-item>
 
         <div class="flex gap-4 w-full flex-col sm:flex-row">
@@ -520,6 +534,7 @@
 import { ref, reactive, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import PushSettingsDialog from '@/components/PushSettingsDialog.vue'
+import LeaveMemberPicker from '@/components/leave/LeaveMemberPicker.vue'
 import { supabase } from '@/services/supabase'
 import {
   buildGroupedPushEventKey,
@@ -658,6 +673,11 @@ const defaultSelfMemberId = computed(() => {
 
   return activeLinkedMember?.id || ''
 })
+
+const selectLeaveMember = (memberId: string) => {
+  form.user_id = memberId
+  void formRef.value?.validateField?.('user_id').catch(() => undefined)
+}
 
 const canDeleteLeaveRecord = (memberId: string) => {
   return isAdminOrManager.value || linkedMemberIds.value.includes(memberId)
