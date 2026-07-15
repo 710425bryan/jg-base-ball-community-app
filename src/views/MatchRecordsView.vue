@@ -27,7 +27,7 @@ const router = useRouter()
 
 type MatchRecordsTab = 'past' | 'future' | 'tournament_stats' | 'attendance'
 
-const activeMainTab = ref<MatchRecordsTab>('past')
+const activeMainTab = ref<MatchRecordsTab>('future')
 
 const searchQuery = ref('')
 const selectedGroup = ref('')
@@ -461,18 +461,8 @@ const handleNotifyMatch = async (id: string) => {
       
     <!-- Modern Tabs under Sticky Header -->
     <div class="px-4 md:px-6 flex gap-6 mt-1 lg:mt-0 bg-white/50 backdrop-blur-sm shadow-[0_1px_0_0_#f3f4f6] overflow-x-auto">
-      <button 
-        @click="activeMainTab = 'past'" 
-        :class="[
-          'pb-3 pt-1 font-bold text-sm px-1 transition-colors relative whitespace-nowrap',
-          activeMainTab === 'past' ? 'text-primary' : 'text-gray-500 hover:text-gray-800'
-        ]"
-      >
-        賽事紀錄
-        <div v-if="activeMainTab === 'past'" class="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-full"></div>
-      </button>
-      <button 
-        @click="activeMainTab = 'future'" 
+      <button
+        @click="activeMainTab = 'future'"
         :class="[
           'pb-3 pt-1 font-bold text-sm px-1 transition-colors relative whitespace-nowrap',
           activeMainTab === 'future' ? 'text-primary' : 'text-gray-500 hover:text-gray-800'
@@ -480,6 +470,16 @@ const handleNotifyMatch = async (id: string) => {
       >
         未來賽事
         <div v-if="activeMainTab === 'future'" class="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-full"></div>
+      </button>
+      <button
+        @click="activeMainTab = 'past'"
+        :class="[
+          'pb-3 pt-1 font-bold text-sm px-1 transition-colors relative whitespace-nowrap',
+          activeMainTab === 'past' ? 'text-primary' : 'text-gray-500 hover:text-gray-800'
+        ]"
+      >
+        賽事紀錄
+        <div v-if="activeMainTab === 'past'" class="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-full"></div>
       </button>
       <button
         @click="activeMainTab = 'tournament_stats'"
