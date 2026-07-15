@@ -180,6 +180,7 @@
 
 ## 6. Dialog 規則
 
+- 全站 `<el-dialog>` 由 `src/main.ts` 註冊的 `AppGlobalDialog` 統一包裝，預設 `append-to-body`；不可改回掛在 route / `MainLayout` 內容樹內，避免固定 App shell 裁切 overlay 或讓底部導覽蓋住 footer。
 - 手機模式 `<768px` 的目標是滿版 Dialog；640–767px 不應回退成擁擠的桌面 Dialog。
 - Header 必須避讓 `env(safe-area-inset-top/right)`，關閉按鈕觸控區至少 44px。
 - Body 是 Dialog 內唯一主要捲動區，使用 `min-height: 0` 並保留慣性捲動。

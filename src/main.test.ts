@@ -3,9 +3,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mountMock = vi.hoisted(() => vi.fn())
+const componentMock = vi.hoisted(() => vi.fn())
 const useMock = vi.hoisted(() => vi.fn(() => ({ use: useMock, mount: mountMock })))
 const appMock = vi.hoisted(() => ({
   use: useMock,
+  component: componentMock,
   mount: mountMock
 }))
 const createAppMock = vi.hoisted(() => vi.fn(() => appMock))
@@ -65,6 +67,12 @@ vi.mock('./App.vue', () => ({
   }
 }))
 
+vi.mock('@/components/common/AppGlobalDialog.vue', () => ({
+  default: {
+    name: 'AppGlobalDialog'
+  }
+}))
+
 vi.mock('./router', () => ({
   default: routerMock
 }))
@@ -93,6 +101,7 @@ describe('main app entry', () => {
     expect(createAppMock).toHaveBeenCalledTimes(1)
     expect(createPiniaMock).toHaveBeenCalledTimes(1)
     expect(useMock).toHaveBeenCalledTimes(4)
+    expect(componentMock).toHaveBeenCalledWith('el-dialog', { name: 'AppGlobalDialog' })
     expect(mountMock).toHaveBeenCalledWith('#app')
   })
 

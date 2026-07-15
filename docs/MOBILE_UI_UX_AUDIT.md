@@ -25,7 +25,7 @@
 | P0-01 | `src/style.css` | 44px 與滿版 Dialog 主要只套用 `<640px` | `<768px` 使用完整手機控制與 Dialog；`<640px` 只保留窄手機微調 | 待驗收 | `vue-tsc`、build 通過；待 360–767px 驗收 |
 | P0-02 | `MainLayout`／route root | 底部導覽已在排版流內，頁面仍重複預留 4.5rem；部分 route root 以 `h-full + overflow-hidden` 裁切內容 | Layout 的 `.app-main-scroll` 單一負責垂直捲動、導覽高度與 safe area；route root 使用 `min-h-full` 且保留約 20px 尾距 | 待驗收 | MainLayout＋24 頁 source contract 通過；2026-07-15 已修正捲軸回歸，待 iOS 實機驗收 |
 | P0-03 | 共用 actions／檢視切換 | icon、toolbar、overflow 尺寸與 ARIA 不一致；檢視切換選取項目的白底面積過重 | 共用 44px icon button、toolbar 與 `AppActionOverflow`；檢視切換使用淡橘選取狀態與灰色未選取狀態 | 待驗收 | AppActionOverflow／ViewModeSwitch tests 通過；全站 11 個檢視切換位置共用同一元件 |
-| P0-04 | 共用 Dialog | footer 排列、寬度與 safe area 不一致 | `AppDialogFooter` 手機等寬、取消在前、確認在後 | 待驗收 | AppDialogFooter 3 tests 通過；待實機 home indicator 驗收 |
+| P0-04 | 共用 Dialog | footer 排列、寬度與 safe area 不一致；未掛到 `body` 的 Dialog 會被固定 App shell 裁切 | `AppGlobalDialog` 統一掛到 `body`；`AppDialogFooter` 手機等寬、取消在前、確認在後 | 待驗收 | 全站 Dialog wrapper、註冊與 AppDialogFooter tests 通過；待實機 home indicator／鍵盤驗收 |
 | P0-05 | 場地／節日活動卡片 | 可點擊卡片內含另一個按鈕 | 拆成獨立卡片選取區與操作區，HTML 不再巢狀互動 | 待驗收 | TrainingLocations／HolidayTheme tests 與 source contract 通過 |
 | P0-06 | 共用搜尋／篩選 | 手機搜尋欄與篩選、檢視及操作按鈕同列，搜尋寬度不足；低頻篩選在頁內向下展開 | 搜尋使用剩餘完整寬度；進階條件使用 `AppMobileFilterSheet` 自底部展開；快速 chips 保留頁面內 | 待驗收 | AppMobileFilterSheet 3 tests＋6 個搜尋／篩選介面 source contract 通過；待 360–767px 視覺驗收 |
 
@@ -36,7 +36,7 @@
 | P1-01 | `/dashboard` | Hero CTA 圓角及文字連結觸控範圍不一致 | 保留 Hero 視覺，功能操作至少 44px、`rounded-xl` | 待驗收 | HomeView 16 tests＋source contract 通過 |
 | P1-02 | `/calendar` | 頁首按鈕、segmented ARIA、Dialog 斷點與底距不一致 | actions 與 Dialog 符合規則，切換有 `aria-pressed` | 待驗收 | `vue-tsc`、build＋source contract 通過 |
 | P1-03 | `/profile` | 功能按鈕圓角不一；Passkey icon 小於 44px | 功能按鈕 `rounded-xl`；icon 44px 並有 ARIA/title | 待驗收 | passkey 5 tests＋source contract 通過 |
-| P1-04 | `/my-payments` | 重複主操作；Dialog footer 不一致 | 每區一個 Primary，付款 Dialog 使用共用 footer | 待驗收 | 比賽費開放 gate、既有付款歷程與 myPayments targeted regression 納入 10 files、48 tests；待登入後 360–767px 驗收 |
+| P1-04 | `/my-payments` | 重複主操作；Dialog footer 不一致；手機底部導覽會蓋住付款送出按鈕 | 每區一個 Primary；付款 Dialog 使用共用 footer 並掛到 `body`，不受 App shell／底部導覽裁切 | 待驗收 | 全站 Dialog wrapper 回歸＋比賽費開放 gate、既有付款歷程與 myPayments targeted regression 通過；待登入後 360–767px 驗收 |
 | P1-05 | `/my-records` | 成員選擇器位於 header actions | 搜尋／選擇移到獨立 toolbar，導航操作至少 44px | 待驗收 | MyPlayerRecords 4 tests＋service 2 tests 通過 |
 | P1-06 | `/equipment-addons` | tabs、移除與歷史操作尺寸／數量不一致 | 44px、segmented ARIA；每筆最多兩個可見操作 | 待驗收 | equipment API／inventory 19 tests＋source contract 通過 |
 | P1-07 | `/my-leave-requests` | 刪除、載入月份與 footer 偏小 | 44px 並使用共用 Dialog footer | 待驗收 | MyLeaveRequests 2 tests＋service 2 tests 通過 |
@@ -72,6 +72,14 @@
 | P3-05 | 能力／體測明細 | 返回及紀錄操作偏小 | 44px、`rounded-xl`、ARIA 與 Danger 確認 | 待驗收 | performance API/config 5 tests＋build 通過 |
 
 ## 驗收紀錄
+
+### 2026-07-16 全站手機 Dialog 底部操作列
+
+- 全站小寫 `<el-dialog>` 由 `AppGlobalDialog` 統一包裝並預設掛到 `body`，避免 `MainLayout` 的固定高度／內容裁切與手機底部導覽蓋住 Dialog footer。
+- `/my-payments`「新增付款回報」沿用既有 `AppDialogFooter`，付款計算、餘額扣抵與送出 RPC 均未變更；本次只修正 overlay 掛載層級。
+- 重點回歸 5 files、65 tests 通過，驗證 wrapper 預設 teleport、內容／footer／`v-model` 事件轉送，以及 App 啟動時的全站元件註冊；`vue-tsc` 通過。
+- 全量回歸 158 files、787 tests 與 production build 通過；build 僅有既有 chunk size warning。
+- 尚無 linked-member 登入實機環境，360px、390px、640–767px、iOS safe area 與鍵盤展開後送出按鈕可見性維持「待驗收」。
 
 ### 2026-07-16 比賽費用開放繳費保護
 

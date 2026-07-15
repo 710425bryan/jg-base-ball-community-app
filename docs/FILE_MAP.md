@@ -53,6 +53,7 @@
 | `src/components/common/AppLoadingState.vue` | 頁面級 / 大區塊 loading 標準元件，文字用 `text` 傳入 |
 | `src/components/common/AppActionOverflow.vue` | 手機與桌機共用的 44px「更多操作」下拉按鈕 |
 | `src/components/common/AppCollapseButton.vue` | 區塊收合共用按鈕，統一 44px 觸控高度、圖示與 ARIA 關聯 |
+| `src/components/common/AppGlobalDialog.vue` | 全站 Element Plus Dialog 包裝，預設掛到 `body`，避免固定 App shell 與手機底部導覽裁切內容／footer |
 | `src/components/common/AppDialogFooter.vue` | Dialog 取消／確認按鈕順序、loading、Danger 與手機等寬 footer |
 | `src/components/common/AppMobileFilterSheet.vue` | `<768px` 進階條件自底部展開的共用篩選面板，含 safe area footer |
 | `src/components/common/PreviewableImage.vue` | 可預覽圖片 |

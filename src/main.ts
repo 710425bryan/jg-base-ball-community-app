@@ -6,6 +6,7 @@ import zhTw from 'element-plus/es/locale/lang/zh-tw'
 import 'element-plus/dist/index.css'
 import './style.css'
 import App from './App.vue'
+import AppGlobalDialog from '@/components/common/AppGlobalDialog.vue'
 
 import router from './router'
 import {
@@ -131,6 +132,7 @@ app.use(VueQueryPlugin)
 app.use(ElementPlus, {
   locale: zhTw,
 })
+app.component('el-dialog', AppGlobalDialog)
 
 app.mount('#app')
 
