@@ -706,7 +706,6 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { supabase } from '@/services/supabase'
 import { compressImage } from '@/utils/imageCompressor'
-import { buildPushEventKey, dispatchPushNotification } from '@/utils/pushNotifications'
 import {
   buildPlayerSyncCsvHeaderMap,
   buildGuardianAccountSyncRows,
@@ -953,21 +952,6 @@ const getMemberGroupMeta = (member: any) => {
 }
 
 const getMemberAccentClass = (member: any) => getMemberGroupMeta(member).accentClass
-
-const notifyInsertedMembers = (insertedMembers: Array<{ id: string; name: string; role: string | null | undefined }>) => {
-  insertedMembers.forEach((member) => {
-    void dispatchPushNotification({
-      title: `[新進通知] 歡迎 ${member.name} 入隊！`,
-      body: `剛從表單收到了 ${member.name} (${member.role || '球員'}) 的球員資料。`,
-      url: '/players',
-      feature: 'players',
-      action: 'VIEW',
-      eventKey: buildPushEventKey('team_member', member.id)
-    }).catch((error) => {
-      console.warn('球員通知推播傳送失敗', error)
-    })
-  })
-}
 
 const buildMembersWithNormalizedSiblings = (memberList: any[]) => {
   const normalizedSiblingMembers = normalizeSiblingIds(
@@ -2032,12 +2016,10 @@ const syncFromGoogleSheet = async () => {
     }
     
     if (dedupedInserts.length > 0) {
-      const { data: insertedMembers, error } = await supabase
+      const { error } = await supabase
         .from('team_members')
-        .insert(dedupedInserts)
-        .select('id, name, role');
+        .insert(dedupedInserts);
       if (error) throw error;
-      notifyInsertedMembers(insertedMembers || [])
     }
 
     const refreshedMembers = await fetchMembersForSiblingSync()
@@ -2222,13 +2204,10 @@ const submitForm = async () => {
       const { error } = await supabase.from('team_members').update(payload).eq('id', form.id)
       if (error) throw error
     } else {
-      const { data: insertedMember, error } = await supabase
+      const { error } = await supabase
         .from('team_members')
         .insert(payload)
-        .select('id, name, role')
-        .single()
       if (error) throw error
-      notifyInsertedMembers([insertedMember])
     }
 
     const siblingSyncMembers = await fetchMembersForSiblingSync()

@@ -16,7 +16,7 @@
 - 後端：Supabase Auth、Database、Storage、Edge Functions。
 - 使用者角色：`ADMIN`、`MANAGER`、`HEAD_COACH`、`COACH`、`MEMBER`、`PARENT` 等。
 - 權限模型：前端以 `permissionsStore.can(feature, action)` 控制 UX；資料安全以 DB RLS / policy / RPC / Edge Function 驗證為準。
-- 主要安全原則：公開頁讀公開安全 RPC，非敏感球員資料優先讀 `team_members_safe`，完整個資只在已確認 DB 權限時讀 `team_members`。
+- 主要安全原則：公開頁讀公開安全 RPC，非敏感球員資料讀 `security_invoker` 的 `team_members_safe`；完整個資名單只由 `players:EDIT` / `ADMIN` 呼叫 `list_team_members_for_edit()`。
 
 ## 2. App 啟動流程
 
@@ -133,7 +133,7 @@ UI 約定：
 
 資料流：
 
-- 個人化首頁摘要走 `get_my_home_snapshot(p_today)`，`MyHomeTodayPanel` 的 Next Up 另走 `get_my_home_next_event(p_member_id, p_today)` 依目前選取 linked member 篩選；一般賽事維持原本時間順序，特訓課只有報名狀態為審核中、已錄取或候補時納入，未報名、已取消與未錄取會跳過並顯示下一場符合資格的賽事，沒有後續賽事時隱藏卡片；點名狀態固定留在「今日訓練點名狀態」區塊；點數欄位優先由 snapshot 的 `members[*]` 帶入，若線上 RPC 尚未更新則由 `list_my_training_members()` 補齊，只呈現自己的 linked member。
+- 個人化首頁摘要走 `get_my_home_snapshot(p_today)`，`MyHomeTodayPanel` 的 Next Up 另走 `get_my_home_next_event(p_member_id, p_today)` 依目前選取 linked member 篩選；一般賽事維持原本時間順序，特訓課只有報名狀態為審核中、已錄取或候補時納入，未報名、已取消與未錄取會跳過並顯示下一場符合資格的賽事，沒有後續賽事時隱藏卡片；點名狀態固定留在「今日訓練點名狀態」區塊；點數欄位優先由 snapshot 的 `members[*]` 帶入，若線上 RPC 尚未更新則由 `list_my_training_members()` 補齊，只呈現自己的 linked member；付款待辦只統計依月費 / 季費付款規則已開放回報的期別，尚未開放的當月計次月費或未來期別不可提前顯示為待處理。
 - 後台大廳的「今日訓練點名狀態」走 `get_dashboard_today_attendance_status(p_today)`，會列出今日所有點名單，只給具備 `leave_requests:VIEW` 的角色顯示。
 - 我的假單：
   - `list_my_leave_members()`
@@ -186,8 +186,8 @@ UI 約定：
 
 資料流：
 
-- 球員名單管理讀寫 `team_members`。
-- 展示型名單或非敏感選項優先使用 `team_members_safe` 或安全 RPC。
+- 球員名單寫入 `team_members`；safe scope 查 `team_members_safe`，full scope 呼叫 `list_team_members_for_edit()`，不從前端 raw table 讀完整資料。
+- `team_members_safe` 使用 invoker 權限與底層 RLS：linked user 只看綁定球員，`players:VIEW` / `players:EDIT` / ADMIN 看全隊安全欄位；一般使用者擁有 `training`、`matches`、`equipment` 等功能 VIEW 不會放大全隊名單範圍。raw table 對 authenticated 只授予同一組安全欄位。
 - `status in ('退隊', '離隊')` 或 `is_inactive_or_graduated = true` 的成員視為非有效名單；比賽資料下載、後台大廳統計 / 今日請假名單、個人首頁、個人假單新增、後續繳費成員選單都不可再顯示或納入新一期計算。
 - 球員名單顯示使用 session 內記憶體快取；進頁先呼叫 `get_team_members_cache_meta()` 比對 `row_count` / `latest_changed_at`，有差異才重新抓完整名單。
 - `get_team_members_cache_meta()` 只回傳版本資訊，不回傳球員個資，且需通過 `players:VIEW`。
@@ -208,6 +208,7 @@ UI 約定：
 - Google Form / Sheet 未提供年級來源時，不覆蓋既有 `grade`；新增球員或既有空值才依生日預設年級，年度升級由 `team-member-grade-yearly-refresh` 排程在 6 月 19 日刷新。
 - 新增球員時主要繳費人 / 半價預設為 `false`，收費模式預設 `role_default`。
 - dedupe key 空白時不可把多筆資料合併成同一人。
+- 每筆新球員 INSERT 會在同一交易建立 `team_member:<member_id>` Outbox 事件；事件寫入失敗時球員新增也失敗，前端不另行發送推播。
 
 ## 8. 請假與點名
 
@@ -697,6 +698,7 @@ UI 約定：
 - `src/components/PushSettingsDialog.vue`
 - `public/push-sw.js`
 - `supabase/functions/send-push-notification/index.ts`
+- `supabase/functions/process-team-member-notification-outbox/index.ts`
 - `supabase/functions/send-training-registration-notifications/index.ts`
 - `supabase/functions/send-training-registration-status-notifications/index.ts`
 - `supabase/functions/send-training-date-notifications/index.ts`
@@ -708,12 +710,13 @@ UI 約定：
 
 - `web_push_subscriptions`
 - `push_dispatch_events`
+- `push_dispatch_deliveries`
 - `get_notification_feed(p_limit, p_include_fee_reminders)`
 
 資料流：
 
-1. 前端以 `dispatchPushNotification()` 發送通知。
-2. Edge Function 根據 `feature` + `action` 找可接收使用者。
+1. 一般互動型通知可由前端以 `dispatchPushNotification()` 發送；新球員通知改由 DB trigger 持久化 Outbox。
+2. Edge Function 根據 `feature` + `action` 找可接收使用者；新球員 worker 固定使用 `players:VIEW` 與有效帳號條件。
 3. `targetRoles` 或 `targetUserIds` 只能縮小收件範圍。
 4. `eventKey` 進 `push_dispatch_events` 去重。
 5. 過期 subscription 由 Edge Function 清理。
@@ -721,11 +724,13 @@ UI 約定：
 7. 排程型通知如賽事提醒、特訓報名開始 / 截止前提醒、訓練日期異動、場地通知，使用專屬 Edge Function 建立 `push_dispatch_events` 並派送 Web Push；單筆特訓報名 / 錄取通知也使用專屬 Edge Function 寫入 targeted `push_dispatch_events`。
 8. 手動催繳通知走 `send-fee-payment-reminders`，只允許 `fees:EDIT` / `ADMIN` preview / send，`test` 只允許 `ADMIN` 且只通知本人；測試文案使用目前管理員綁定球員的未繳月費 / 季費組成；通知中心 source 為 `fee_payment_reminder`。
 9. 使用者點擊 Web Push 時，`public/push-sw.js` 同步啟動 client 導向，並把 target 寫入 IndexedDB `jg-baseball-push-deeplink/pendingTargets/latest` 與 Cache Storage `jg-baseball-push-deeplink-cache`；前端用 `pushDeepLink.ts` 正規化、短時間重試 consume pending target 後交給 router，推播設定可查看最後一次 click 診斷。
+10. `process-team-member-notification-outbox` 每分鐘領取最多 25 個新球員事件與 100 個到期 delivery，逐 subscription 派送；暫時失敗依 1 / 5 / 15 / 60 / 360 分鐘重試，404 / 410 清除 subscription，處理鎖超過 5 分鐘可重新領取。
 
 重要規則：
 
 - 不要把所有通知硬綁 `leave_requests`。
 - 多入口可能重複觸發的事件一定要有穩定 `eventKey`。
+- 新球員通知只由 DB Outbox 建立與派送；`PlayersView`、`MainLayout`、raw `team_members` Realtime 不得建立第二條發送路徑。通知中心仍由 `get_notification_feed()` 直接讀球員事件，因此沒有推播裝置時仍可補看。
 - 賽事提醒 URL 統一使用 `/calendar?match_id=<id>`；舊 `/match-records?match_id=<id>` 必須正規化到 `/calendar`，由 `CalendarView` 開啟 `MatchDetailDialog`。
 - 推播 click target 不可只靠 hash route、search param、IndexedDB 或 `postMessage`，避免 iOS PWA 關閉啟動時只開 root 或持久化延遲造成導向遺失。
 

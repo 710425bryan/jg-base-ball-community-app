@@ -31,7 +31,7 @@ description: "Player roster, users, profile binding, team groups, roster cache, 
 ## 功能邊界
 
 - 球員主檔存在 `team_members`。
-- 非敏感展示名單優先使用 `team_members_safe` 或安全 RPC。
+- 非敏感展示名單使用 `team_members_safe`；完整編輯名單使用 `list_team_members_for_edit()`。
 - 名單 cache meta 使用 `get_team_members_cache_meta()`，只回 row count / latest changed at。
 - 使用者主檔存在 `profiles`，綁定球員使用 `profiles.linked_team_member_ids`。
 - 使用者新增 / 更新 / 刪除優先走 `admin_insert_profile()`、`admin_update_profile()`、`admin_delete_user()`。
@@ -45,6 +45,8 @@ description: "Player roster, users, profile binding, team groups, roster cache, 
 
 - 敏感欄位包含 `national_id`、`guardian_phone`、`contact_line_id`；除非流程需要完整個資且 DB 權限一致，否則不直接擴散。
 - `team_members_safe` 是預設展示來源；不要為了表格方便改回 raw `team_members`。
+- authenticated 的 raw table 只授予安全欄位 SELECT；完整個資讀取不得繞過 `players:EDIT` / `ADMIN` RPC。
+- 新球員 INSERT 由 DB trigger 建立 `team_member:<member_id>` Outbox；`PlayersView` 不自行呼叫推播。
 - linked member 綁定會影響 `/my-records`、`/my-payments`、`/my-leave-requests`、`/training`、`/equipment-addons` 與個人首頁。
 - Google 同步不得覆蓋人工維護欄位：`is_primary_payer`、`is_half_price`、`fee_billing_mode`、既有 `joined_date`、既有 `grade`。
 - `fee_billing_mode` 可為 `role_default`、`monthly_fixed`、`monthly_per_session`、`no_fee`；新增球員預設 `role_default`，既有球員同步不得覆蓋人工設定。
@@ -54,7 +56,7 @@ description: "Player roster, users, profile binding, team groups, roster cache, 
 ## 工作流程
 
 1. 判斷修改點是球員欄位、名單顯示、使用者 profile、綁定成員、team group、快取或權限 UI。
-2. 先確認是否需要 raw `team_members`；若只是顯示或選項，優先走 `team_members_safe`。
+2. 顯示或選項走 `team_members_safe`；完整編輯資料走 `list_team_members_for_edit()`，raw `team_members` 只保留必要寫入。
 3. 若改球員欄位，同步更新 form、table/card、type normalize、player sync 保護欄位與 migration。
 4. 若改使用者綁定，同步檢查所有個人功能是否依 linked member 正確限制。
 5. 若改 team group，同步檢查 `PlayersView`、`TrainingView`、`TrainingLocationsView`、`LeaveRequestsView`、`RollCallView` 的分組選項。

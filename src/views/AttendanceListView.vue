@@ -165,7 +165,7 @@ const fetchEvents = async () => {
     // 先取得目前有效球員總數，作為尚未進行點名（records 為 0）時的總數參考
     const { count: memberCount } = await supabase
       .from('team_members')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .in('role', ['球員', '校隊'])
       .neq('status', '退隊')
       .or('fee_billing_mode.is.null,fee_billing_mode.neq.no_fee')

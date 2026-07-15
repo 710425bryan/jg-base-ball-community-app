@@ -57,6 +57,7 @@ description: "Finance, fees, payment submissions, player balances, match fees, r
 - 球員 / 校隊不收費以 `team_members.fee_billing_mode = 'no_fee'` 表示；不產生新的月費、季費與比賽費，但既有帳款保留，裝備付款仍維持自費。
 - 月繳付款回報開放期別要依 `monthly_fees.calculation_type` / 有效收費模式區分：中港校隊與球員計次月費只開放已結束月份，社區固定月繳與新泰校隊月繳每月 25 日起開放下月；前端 helper 與 DB trigger 必須同步，既有 `monthly_fees` 帳款不自動回寫或重算。
 - 季繳付款回報的開放期別以台灣日期為準，每季最後一個月 25 日起開放下一季；前端 helper 與 DB helper / trigger 必須同步，未開放的未來季不可新增付款回報，過去未繳季度可補繳。
+- 個人首頁 `get_my_home_snapshot()` 的付款待辦摘要必須沿用相同的月費 / 季費開放期別；尚未開放的帳款可保留在正式費用紀錄，但不可顯示成一般會員現在就要處理的欠費。
 - 季費補償的堂數不足只看當月週六數與 `/training-dates` 設定日期總數，補課日不限定週六。
 - `is_primary_payer`、`is_half_price`、sibling / family grouping 會影響金額，改費用時要同步檢查。
 - 手足主要繳費人退隊、離隊或關閉 / 畢業後，剩餘有效手足的新一期月費 / 季費試算不得沿用手足半價；主要繳費人恢復有效後，若 `sibling_ids` 與 `is_primary_payer` 仍保留，另一位有效手足可恢復手足減免。既有已保存帳款金額不自動覆寫，需由管理端重算或手動調整。

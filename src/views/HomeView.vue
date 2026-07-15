@@ -146,7 +146,6 @@ let clockId: ReturnType<typeof setInterval> | null = null
 let myHomeNextEventRequestId = 0
 let isMyHomeSnapshotRefreshInFlight = false
 let lastMyHomeScheduleRefreshAt = 0
-let adminStatsChannel: any = null
 
 const canViewMatches = computed(() => permissionsStore.can('matches', 'VIEW'))
 const canViewAnnouncements = computed(() => permissionsStore.can('announcements', 'VIEW'))
@@ -370,13 +369,6 @@ const resetAdminStats = () => {
   Object.assign(stats, createEmptyDashboardStats())
 }
 
-const stopAdminStatsRealtime = () => {
-  if (!adminStatsChannel) return
-
-  supabase.removeChannel(adminStatsChannel)
-  adminStatsChannel = null
-}
-
 const resetTodayAttendanceStatus = () => {
   todayAttendanceEvents.value = []
   todayAttendanceLeaveNames.value = []
@@ -528,22 +520,6 @@ const fetchAdminStats = async () => {
     console.error('Error fetching admin dashboard stats:', error)
     resetAdminStats()
   }
-}
-
-const startAdminStatsRealtime = () => {
-  if (!isAdmin.value || adminStatsChannel) return
-
-  adminStatsChannel = supabase
-    .channel('dashboard-admin-team-members-stats')
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'team_members' },
-      () => {
-        if (!isAdmin.value) return
-        void fetchAdminStats()
-      }
-    )
-    .subscribe()
 }
 
 const refreshAdminStatsWhenVisible = () => {
@@ -798,7 +774,6 @@ onMounted(() => {
     fetchEquipmentAddonData()
   ])
 
-  startAdminStatsRealtime()
   document.addEventListener('visibilitychange', refreshAdminStatsWhenVisible)
   window.addEventListener('focus', refreshAdminStatsWhenVisible)
 })
@@ -816,7 +791,6 @@ onUnmounted(() => {
 
   document.removeEventListener('visibilitychange', refreshAdminStatsWhenVisible)
   window.removeEventListener('focus', refreshAdminStatsWhenVisible)
-  stopAdminStatsRealtime()
 })
 </script>
 

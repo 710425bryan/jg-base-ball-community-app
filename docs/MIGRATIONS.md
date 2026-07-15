@@ -16,6 +16,9 @@
 | --- | --- | --- |
 | `supabase_access_control_rls_migration.sql` | `has_app_permission()`、`has_any_app_permission()`、`team_members_safe`、主要 RLS 初版 | 新增 feature/action 時先看這裡 |
 | `supabase_access_control_policy_cleanup_migration.sql` | 重新整理多個核心表 policy | 若 policy 名稱重複，以後續檔案為準 |
+| `supabase_zzzzzzzzzzzzzzzzzzzzzzzz_team_member_notification_outbox_migration.sql` | 完整名單 RPC 與新球員通知 Outbox | 先於前端部署；新增 trigger、delivery、claim/finalize RPC 與每分鐘 cron |
+| `supabase_zzzzzzzzzzzzzzzzzzzzzzzzz_team_members_safe_security_hardening_migration.sql` | 球員安全 view / RLS / 欄位權限 hardening | 最後部署；`security_invoker`、linked scope、撤銷 raw table 整表 SELECT |
+| `supabase_zzzzzzzzzzzzzzzzzzzzzzzzzz_team_members_safe_role_scope_hotfix.sql` | 收斂安全球員名單的全隊可見權限 | 只有 `players:VIEW`、`players:EDIT` 或 ADMIN 可看全隊；一般 linked user 僅看綁定球員 |
 | `supabase_profile_access_control_migration.sql` | profile access state / 登入可用性 | 影響 auth store 與登入限制 |
 | `supabase_profiles_personal_settings_migration.sql` | 個人設定與大頭照欄位 / RPC | 搭配 profile settings |
 | `supabase_profiles_personal_settings_function_fix_migration.sql` | 個人設定 function 修正 | 覆寫個人設定 RPC 時必讀 |
@@ -126,6 +129,7 @@
 | `supabase_quarterly_fee_compensation_migration.sql` | 季費堂數不足補償 | 產生待審核補償單，核准後寫入球員餘額 |
 | `supabase_zzzzzzzzzzzz_quarterly_payment_open_period_migration.sql` | 季繳付款回報開放期別 | 每季最後一個月 25 日起開放下一季；覆寫付款估算 RPC，新增付款回報 trigger 防止未開放未來季寫入 |
 | `supabase_zzzzzzzzzzzzzz_monthly_payment_open_period_migration.sql` | 月繳付款回報開放期別 | 計次月費只開放已結束月份；固定月繳球員每月 25 日起開放下月，並以 trigger 防止未開放月份寫入 |
+| `supabase_zzzzzzzzzzzzzzzzzzzzzzzzzzzzz_my_home_payment_open_period_migration.sql` | 個人首頁付款待辦開放期別 hotfix | 覆寫 `get_my_home_snapshot()` 欠費摘要，只統計已開放付款的月費 / 季費期別 |
 | `supabase_zzzzzzzzzzzzzzzzzzzzzz_xintai_fixed_monthly_billing_migration.sql` | 新泰校隊固定月繳先收 | 新增 3 參數月費計算 helper；新泰校隊依 raw `team_members.training_program = junior_high_school_team` 使用 `monthly_fixed`，每月 25 日起開放下月，既有 `monthly_fees` 不回寫 |
 | `supabase_match_fees_migration.sql` | 比賽費 items / submissions | 比賽費與餘額整合 |
 | `supabase_fee_management_reminders_migration.sql` | 費用提醒與通知中心 | 覆寫 `get_notification_feed()` |
@@ -177,6 +181,7 @@
 | `supabase_web_push_subscriptions_migration.sql` | Web Push subscription | 前端訂閱 / Edge Function |
 | `supabase_web_push_subscription_claim_rpc_migration.sql` | subscription claim RPC | 多裝置 / 登入後認領 |
 | `supabase_push_dispatch_events_migration.sql` | 通知事件去重 | 多個通知來源共用 |
+| `supabase_zzzzzzzzzzzzzzzzzzzzzzzz_team_member_notification_outbox_migration.sql` | 新球員逐裝置可靠派送 | `push_dispatch_deliveries`、6 次重試、stale lock reclaim、pg_cron worker |
 
 ## 維運與效能
 

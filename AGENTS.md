@@ -133,8 +133,8 @@
 - `permissionsStore.can()`、按鈕顯示、router guard 只算 UX 控制，不是資料安全邊界。
 - 真正安全邊界在 DB RLS、policy、`security definer` RPC、Edge Function 驗證。
 - 新增或調整 `feature/action` 時要同步三層：DB helper / RLS、前端 permission store / UI、AI 文件與 skill。
-- 敏感欄位包含 `national_id`、`guardian_phone`、`contact_line_id`；展示名單預設走 `team_members_safe` 或安全 RPC。
-- 只有確定流程需要完整個資，且 DB 與畫面權限一致時，才查 `team_members` raw table。
+- 敏感欄位包含 `national_id`、`guardian_phone`、`contact_line_id`；`team_members_safe` 使用 `security_invoker = true`，展示名單預設走此 view 或安全 RPC。
+- authenticated 對 `team_members` 只具有安全欄位 SELECT；完整個資名單必須由 `players:EDIT` / `ADMIN` 呼叫 `list_team_members_for_edit()`，不可從 raw REST table 繞過。
 
 ## 7. 目前功能邏輯地圖
 
@@ -162,7 +162,9 @@
 ### 球員、使用者與權限
 
 - 球員名單主要在 `PlayersView`，資料表為 `team_members`；同步邏輯與 dedupe 在 `src/utils/playerSync.ts`。
+- 球員名單讀取分流：linked user 只看綁定球員安全欄位、相關 `*:VIEW` 權限可看全隊安全欄位、`players:EDIT` / `ADMIN` 由 `list_team_members_for_edit()` 讀完整資料。
 - 球員名單顯示經由 `src/stores/playerRoster.ts` 做 session 內記憶體快取；進頁先呼叫 `get_team_members_cache_meta()` 比對 `team_members` 的 `row_count` / `latest_changed_at`，有差異才重新抓完整名單。
+- 新增球員後由 `team_members` trigger 寫入 `push_dispatch_events` Outbox，`process-team-member-notification-outbox` 每分鐘逐 subscription 派送與重試；`PlayersView` / `MainLayout` 不可再發送新球員推播或訂閱 raw `team_members` Realtime。
 - team group 設定經由 `src/stores/teamGroups.ts`、`src/services/teamGroupsApi.ts` 與 `TeamGroupSettingsDialog.vue` 管理；改名、排序、刪除轉移時要檢查 `PlayersView`、`TrainingView`、`TrainingLocationsView`、`LeaveRequestsView`、`RollCallView` 的分組選項。
 - Google 表單 / Sheet 同步不得覆蓋既有 `team_members.is_primary_payer`、`team_members.is_half_price` 與 `team_members.fee_billing_mode`；新增球員時前兩者預設 `false`，收費模式預設 `role_default`。
 - 使用者管理在 `UsersView`，profile 新增 / 更新 / 刪除優先走 `admin_insert_profile()`、`admin_update_profile()`、`admin_delete_user()`。
@@ -295,6 +297,7 @@
 - Edge Function：`supabase/functions/send-push-notification/index.ts`；排程型通知可用專屬 Edge Function，例如 `send-match-reminders`、`send-training-registration-notifications`；手動 targeted 通知也可用專屬 Edge Function，例如 `send-fee-payment-reminders`；共用 helper 在 `supabase/functions/_shared/push.ts`。
 - 訂閱資料表：`web_push_subscriptions`。
 - 同一事件可能由表單、Realtime、重試或多入口觸發時，必須提供穩定 `eventKey`，由 `send-push-notification` 搭配 `push_dispatch_events` 去重。
+- 新球員通知是持久化 Outbox 例外：event key 為 `team_member:<member_id>`，由 DB trigger 建立，`push_dispatch_deliveries` 逐裝置記錄 `pending / processing / sent / expired / failed`，最多嘗試 6 次。
 - 收件對象以 `feature` + `action` 權限決定；`targetRoles` 只能縮小範圍，不可取代權限查詢。
 - 通知點擊導向必須同時考慮 iOS PWA 與已開啟 client：`public/push-sw.js` 在 `notificationclick` 需同步啟動 client 導向，並把 target 寫入 IndexedDB `jg-baseball-push-deeplink/pendingTargets/latest` 與 Cache Storage `jg-baseball-push-deeplink-cache`；前端用 `src/utils/pushDeepLink.ts` 正規化、短時間重試 consume pending target，並保留推播設定診斷，避免只靠單一 hash、search、IndexedDB 或 `postMessage` deep link。
 - 賽事提醒與舊 `/match-records?match_id=...` 通知點擊，必須正規化到 `/calendar?match_id=...`，讓「賽程與行事曆」開啟 `MatchDetailDialog`；新增比賽通知 URL 不要再直接指向 `/match-records`。

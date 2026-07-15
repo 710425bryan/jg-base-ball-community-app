@@ -15,7 +15,6 @@ const myHomeServiceMocks = vi.hoisted(() => ({
   getMyHomeSnapshot: vi.fn(),
   getMyHomeNextEvent: vi.fn()
 }))
-let latestTeamMembersRealtimeHandler: (() => void) | null = null
 
 const teamMembersInMock = vi.fn()
 const teamMembersSelectMock = vi.fn(() => ({
@@ -74,12 +73,7 @@ const fromMock = vi.fn((table: string) => {
   throw new Error(`Unexpected table: ${table}`)
 })
 const realtimeChannelMock = {
-  on: vi.fn((_event: string, config: { table?: string }, callback: () => void) => {
-    if (config?.table === 'team_members') {
-      latestTeamMembersRealtimeHandler = callback
-    }
-    return realtimeChannelMock
-  }),
+  on: vi.fn(() => realtimeChannelMock),
   subscribe: vi.fn(() => realtimeChannelMock)
 }
 const channelMock = vi.fn(() => realtimeChannelMock)
@@ -432,7 +426,6 @@ const mountHomeView = async ({
 
 beforeEach(() => {
   vi.clearAllMocks()
-  latestTeamMembersRealtimeHandler = null
   myHomeServiceMocks.getMyHomeSnapshot.mockResolvedValue(createEmptyMyHomeSnapshot())
   myHomeServiceMocks.getMyHomeNextEvent.mockResolvedValue(null)
 })
@@ -559,12 +552,7 @@ describe('HomeView dashboard redesign', () => {
     expect(wrapper.find('[data-test="today-attendance-events-count"]').text()).toContain('點名單 2')
     expect(teamMembersInMock).toHaveBeenCalledWith('role', ['球員', '校隊', '教練'])
     expect(attendanceEventsSelectMock).toHaveBeenCalledWith('id, attendance_records(member_id, status)')
-    expect(channelMock).toHaveBeenCalledWith('dashboard-admin-team-members-stats')
-    expect(realtimeChannelMock.on).toHaveBeenCalledWith(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'team_members' },
-      expect.any(Function)
-    )
+    expect(channelMock).not.toHaveBeenCalled()
   })
 
   it('excludes coaches from the Team Members total while keeping the coach count visible', async () => {
@@ -585,13 +573,12 @@ describe('HomeView dashboard redesign', () => {
     expect(wrapper.find('[data-test="coach-members-count"]').text()).toContain('教練 6')
   })
 
-  it('refreshes admin stats when team member rows change', async () => {
+  it('refreshes admin stats when the app window regains focus', async () => {
     const { wrapper } = await mountHomeView({
       role: 'ADMIN'
     })
 
     expect(wrapper.find('[data-test="team-members-total"]').text()).toContain('3')
-    expect(latestTeamMembersRealtimeHandler).toEqual(expect.any(Function))
 
     teamMembersInMock.mockResolvedValueOnce({
       data: [
@@ -604,7 +591,7 @@ describe('HomeView dashboard redesign', () => {
       error: null
     })
 
-    latestTeamMembersRealtimeHandler?.()
+    window.dispatchEvent(new Event('focus'))
     await flushPromises()
 
     expect(wrapper.find('[data-test="team-members-total"]').text()).toContain('4')

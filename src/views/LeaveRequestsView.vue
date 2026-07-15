@@ -1127,7 +1127,7 @@ const fetchData = async () => {
     // 1. 撈取使用者名單 (給下拉選單用)
     if (team_members_list.value.length === 0) {
       const { data: pData, error: memberError } = await supabase
-        .from('team_members')
+        .from('team_members_safe')
         .select('*')
         .order('role', { ascending: true })
         .order('name', { ascending: true })

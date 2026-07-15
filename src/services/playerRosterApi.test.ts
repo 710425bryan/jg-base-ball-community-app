@@ -18,7 +18,7 @@ describe('playerRosterApi', () => {
     vi.clearAllMocks()
   })
 
-  it('fetches full or safe roster rows from the correct source table', async () => {
+  it('fetches safe roster rows from the invoker-safe view', async () => {
     orderMock
       .mockReturnValueOnce(queryBuilder)
       .mockResolvedValueOnce({ data: [{ id: 'member-1' }], error: null })
@@ -31,6 +31,21 @@ describe('playerRosterApi', () => {
     expect(orderMock).toHaveBeenNthCalledWith(1, 'role')
     expect(orderMock).toHaveBeenNthCalledWith(2, 'name')
     expect(rows).toEqual([{ id: 'member-1' }])
+  })
+
+  it('fetches full roster rows through the permission-checked RPC', async () => {
+    rpcMock.mockResolvedValue({
+      data: [{ id: 'member-full', national_id: 'A123456789' }],
+      error: null
+    })
+
+    const { fetchPlayerRosterRows } = await import('./playerRosterApi')
+
+    await expect(fetchPlayerRosterRows('full')).resolves.toEqual([
+      { id: 'member-full', national_id: 'A123456789' }
+    ])
+    expect(rpcMock).toHaveBeenCalledWith('list_team_members_for_edit')
+    expect(fromMock).not.toHaveBeenCalledWith('team_members')
   })
 
   it('normalizes roster cache metadata returned as an array', async () => {
@@ -49,13 +64,11 @@ describe('playerRosterApi', () => {
   })
 
   it('throws Supabase errors from roster queries', async () => {
-    orderMock
-      .mockReturnValueOnce(queryBuilder)
-      .mockResolvedValueOnce({ data: null, error: new Error('denied') })
+    rpcMock.mockResolvedValue({ data: null, error: new Error('denied') })
 
     const { fetchPlayerRosterRows } = await import('./playerRosterApi')
 
     await expect(fetchPlayerRosterRows('full')).rejects.toThrow('denied')
-    expect(fromMock).toHaveBeenCalledWith('team_members')
+    expect(rpcMock).toHaveBeenCalledWith('list_team_members_for_edit')
   })
 })

@@ -155,6 +155,14 @@ afterEach(() => {
 })
 
 describe('LeaveRequestsView', () => {
+  it('loads the roster picker from the safe team member view', async () => {
+    const { supabase } = await import('@/services/supabase')
+
+    await mountView()
+
+    expect(supabase.from).toHaveBeenCalledWith('team_members_safe')
+  })
+
   it('uses the direct mobile member picker and applies its selection', async () => {
     const wrapper = await mountView()
     wrapper.vm.isDesktopViewport = false

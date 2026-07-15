@@ -48,4 +48,5 @@ description: "Role-based auth and permission workflow for jg-base-ball-community
 - `profiles`、`team_members`、`leave_requests`、`announcements`、`attendance_*`、`matches`、`fees` 相關表已改成 feature/action 驅動的 RLS；新增功能時要沿用同一套命名與檢查。
 - 公開頁面請改走公開 RPC，例如 `get_public_landing_snapshot()`；不要在匿名情境直查 raw table。
 - 登入前的 email 驗證要走 `can_request_magic_link()`，不要再匿名 `select profiles`.
-- `team_members_safe` 僅供非敏感讀取；若要讀 `national_id`、`guardian_phone`、`contact_line_id`，必須改查 `team_members` 並確認 `players:EDIT` 或其他必要權限。
+- `team_members_safe` 使用 invoker 權限與底層 RLS：linked user 只看綁定球員，相關 VIEW 權限看全隊安全欄位。
+- 若要讀 `national_id`、`guardian_phone`、`contact_line_id`，必須以 `players:EDIT` / `ADMIN` 呼叫 `list_team_members_for_edit()`；不可直接改查 raw `team_members`。

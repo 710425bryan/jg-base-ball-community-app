@@ -44,8 +44,8 @@
 ### `jg-baseball-push-notifications`
 
 - 路徑：`.codex/skills/jg-baseball-push-notifications/SKILL.md`
-- 用途：推播入口、收件對象權限、事件去重。
-- 典型情境：新增通知事件、調整 `eventKey`、修改 `send-push-notification` 與 `push_dispatch_events` 流程。
+- 用途：推播入口、收件對象權限、事件去重與可靠 Outbox。
+- 典型情境：新增通知事件、調整 `eventKey`、修改 `send-push-notification`、`push_dispatch_events`、`push_dispatch_deliveries` 或 Outbox worker 流程。
 
 ### `jg-baseball-match-calendar-sync`
 
@@ -129,5 +129,5 @@
 - 前端 `permissionsStore.can()` 與路由守衛不能取代 DB 權限；skill 若牽涉敏感資料，必須檢查 RLS / RPC 是否同步到位。
 - 公開頁面預設只能讀公開安全摘要，不能直接查 `profiles`、`team_members`、`leave_requests`、`announcements`、`attendance_*`、`matches` 等 raw table。
 - email 登入前檢查必須走 `can_request_magic_link()`；不要再匿名 `select profiles`.
-- `team_members_safe` 現在是去敏感欄位的預設讀路徑；若實作需要完整個資，必須明確確認 `players:EDIT` 與 DB policy。
+- `team_members_safe` 是 `security_invoker` 的去敏感讀路徑；完整名單只能用 `players:EDIT` / `ADMIN` 的 `list_team_members_for_edit()`，authenticated raw table SELECT 只保留安全欄位。
 - 之後若 skill 指引有提到權限或敏感資料讀取，請把 DB helper / policy 名稱一起寫清楚，例如 `has_app_permission()`、`has_any_app_permission()`、`get_public_landing_snapshot()`。

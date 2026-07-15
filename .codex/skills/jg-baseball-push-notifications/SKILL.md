@@ -14,7 +14,8 @@ description: "Push notification workflow for jg-base-ball-community-app. Use whe
 1. 先讀 `AGENTS.md`。
 2. 讀 `src/utils/pushNotifications.ts` 與 `src/utils/pushNotifications.test.ts`。
 3. 讀 `supabase/functions/send-push-notification/index.ts` 與 `supabase/functions/_shared/push.ts`。
-4. 再讀實際發送通知的 `view`、`service`、`webhook` 或 Realtime 入口。
+4. 若是新球員通知，再讀 `process-team-member-notification-outbox/*` 與對應 migration。
+5. 再讀實際發送通知的 `view`、`service`、`webhook`、Outbox 或 Realtime 入口。
 
 ## 不可破壞規則
 
@@ -24,6 +25,7 @@ description: "Push notification workflow for jg-base-ball-community-app. Use whe
 - 同一事件若可能從表單、Realtime、重試或多個入口觸發，必須提供穩定 `eventKey`。
 - 讓 `send-push-notification` 與 `push_dispatch_events` 負責 dedupe，不要在各入口各做一套。
 - 排程型通知可用專屬 Edge Function，但仍必須寫入 `push_dispatch_events`，並確認 `get_notification_feed()` 可顯示對應 source。
+- 新球員通知只由 `team_members` AFTER INSERT trigger 建立 Outbox；前端與 raw Realtime 不可再發送，worker 以 `push_dispatch_deliveries` 逐裝置記錄與重試。
 - 通知 click deep link 不可只靠單一 hash、search、IndexedDB 或 `postMessage`。`public/push-sw.js` 必須同步啟動 client 導向，並把 target 寫入 IndexedDB `jg-baseball-push-deeplink/pendingTargets/latest` 與 Cache Storage `jg-baseball-push-deeplink-cache`；前端統一透過 `src/utils/pushDeepLink.ts` 正規化、短時間重試 consume target，推播設定需保留可供 iPhone 截圖的 click 診斷資訊。
 - 賽事提醒或舊 `/match-records?match_id=...` 連結都要導到 `/calendar?match_id=...`，讓「賽程與行事曆」負責開啟比賽詳情 dialog。
 - `/match-records` 未來賽事的手動通知走 `send-match-reminders`，由 bearer user 的 `matches:EDIT` 權限控制，通知中心事件使用 `matches` + `REMINDER`。
@@ -37,6 +39,7 @@ description: "Push notification workflow for jg-base-ball-community-app. Use whe
 3. 若事件從前端發起，優先用 `dispatchPushNotification()`。
 4. 若事件從 Edge Function 或 webhook 發起，沿用 `_shared/push.ts` 的權限與 subscription helper，不要重寫查詢。
 5. 若可以定位新資料，讓 URL 帶入 highlight 或深連結參數；賽事通知使用 `/calendar?match_id=<id>`。
+6. Outbox worker 必須以 `FOR UPDATE SKIP LOCKED` claim、保留 5 分鐘 stale recovery，且不得處理 legacy `direct/recorded` 事件。
 
 ## 派送細節
 

@@ -31,6 +31,7 @@
 | `TRAINING_NOTIFICATION_SECRET` | 特訓報名通知排程驗證 | `send-training-registration-notifications` |
 | `TRAINING_SELECTION_NOTIFICATION_SECRET` | 特訓錄取通知驗證 | `send-training-selection-notifications` |
 | `TRAINING_LOCATION_NOTIFICATION_SECRET` | 場地通知排程驗證 | `send-training-location-notifications` |
+| `TEAM_MEMBER_OUTBOX_SECRET` | 新球員通知 Outbox worker 驗證 | `process-team-member-notification-outbox` |
 | `GEMINI_API_KEY` | 陣容照片解析 | `parse-lineup` |
 | `GEMINI_LINEUP_MODEL` | 陣容照片解析模型，預設 `gemini-2.5-pro` | `parse-lineup` |
 | `OPENAI_API_KEY` | 語音轉文字與結構化紀錄 | `transcribe-match-audio` |
@@ -44,6 +45,8 @@
 | --- | --- | --- |
 | `supabase/functions/send-push-notification/index.ts` | Web Push 派送入口 | bearer user 驗證、feature/action 收件、`eventKey` 去重 |
 | `supabase/functions/_shared/push.ts` | 推播共用 helper | 權限查詢、subscription 讀取、過期 subscription 清理 |
+| `supabase/functions/process-team-member-notification-outbox/index.ts` | 新球員 Outbox worker | secret + JWT；每批 25 events / 100 deliveries、逐裝置派送、6 次重試與 stale lock reclaim |
+| `supabase/functions/process-team-member-notification-outbox/logic.ts` | Outbox 重試與 concurrency 純邏輯 | 有 Vitest coverage |
 | `supabase/functions/notify-holiday-theme/index.ts` | 節日主題通知 | 手動需使用者權限，自動需 secret |
 | `supabase/functions/notify-holiday-theme/logic.ts` | 節日通知純邏輯 | 有 Vitest coverage |
 | `supabase/functions/send-match-reminders/index.ts` | 賽事提醒 | 排程走 `MATCH_REMINDER_SECRET`，每分鐘讀 `match_reminder_schedule_config` 判斷 Asia/Taipei 到期規則；手動單場發送需 bearer user 具 `matches:EDIT`；URL 使用 `/calendar?match_id=...`；自動模式會用 `HEALTH_ALERT` targeted event 通知 active `ADMIN` 排程漏發或派送異常 |
@@ -63,12 +66,13 @@
 
 ## 本地注意事項
 
+- 新球員 Outbox cron 需要 Vault entries：`team_member_outbox_function_url`、`team_member_outbox_authorization`、`team_member_outbox_secret`；最後一項需與 Edge secret `TEAM_MEMBER_OUTBOX_SECRET` 相同。
 - `supabase/functions/send-training-location-reminders/` 目前是空目錄，沒有 `index.ts`，不要當成已部署 function。
 - `supabase/functions/deno.json` 與 `supabase/functions/import_map.json` 是 Edge Function runtime 設定，改 import 或 Deno test 時要檢查。
 - `.env` 與 `.env.example` 目前被 `.gitignore` 排除；AI 不應假設 repo 內一定有完整環境變數範本。
 
 ## 驗證
 
-- Edge Function 純邏輯：跑對應 `*.test.ts`，例如 `supabase/functions/resolve-location/logic.test.ts` 或 `supabase/functions/notify-holiday-theme/logic.test.ts`。
+- Edge Function 純邏輯：跑對應 `*.test.ts`，例如 `supabase/functions/resolve-location/logic.test.ts`、`supabase/functions/notify-holiday-theme/logic.test.ts` 或 `supabase/functions/process-team-member-notification-outbox/logic.test.ts`。
 - 前端呼叫端改動：至少跑 `pnpm exec vue-tsc --noEmit`。
 - 通知類改動：人工檢查 `push_dispatch_events` source、event key、target user / member、通知中心與 Web Push URL。

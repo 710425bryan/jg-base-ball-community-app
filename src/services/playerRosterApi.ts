@@ -13,9 +13,15 @@ const normalizeMetaRow = (row: any): PlayerRosterCacheMeta => ({
 })
 
 export const fetchPlayerRosterRows = async (sourceScope: PlayerRosterSourceScope) => {
-  const sourceTable = sourceScope === 'full' ? 'team_members' : 'team_members_safe'
+  if (sourceScope === 'full') {
+    const { data, error } = await supabase.rpc('list_team_members_for_edit')
+
+    if (error) throw error
+    return data || []
+  }
+
   const { data, error } = await supabase
-    .from(sourceTable)
+    .from('team_members_safe')
     .select('*')
     .order('role')
     .order('name')
