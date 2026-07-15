@@ -36,7 +36,7 @@
 | P1-01 | `/dashboard` | Hero CTA 圓角及文字連結觸控範圍不一致 | 保留 Hero 視覺，功能操作至少 44px、`rounded-xl` | 待驗收 | HomeView 16 tests＋source contract 通過 |
 | P1-02 | `/calendar` | 頁首按鈕、segmented ARIA、Dialog 斷點與底距不一致 | actions 與 Dialog 符合規則，切換有 `aria-pressed` | 待驗收 | `vue-tsc`、build＋source contract 通過 |
 | P1-03 | `/profile` | 功能按鈕圓角不一；Passkey icon 小於 44px | 功能按鈕 `rounded-xl`；icon 44px 並有 ARIA/title | 待驗收 | passkey 5 tests＋source contract 通過 |
-| P1-04 | `/my-payments` | 重複主操作；Dialog footer 不一致 | 每區一個 Primary，付款 Dialog 使用共用 footer | 待驗收 | myPayments 3 tests＋source contract 通過 |
+| P1-04 | `/my-payments` | 重複主操作；Dialog footer 不一致 | 每區一個 Primary，付款 Dialog 使用共用 footer | 待驗收 | 比賽費開放 gate、既有付款歷程與 myPayments targeted regression 納入 10 files、48 tests；待登入後 360–767px 驗收 |
 | P1-05 | `/my-records` | 成員選擇器位於 header actions | 搜尋／選擇移到獨立 toolbar，導航操作至少 44px | 待驗收 | MyPlayerRecords 4 tests＋service 2 tests 通過 |
 | P1-06 | `/equipment-addons` | tabs、移除與歷史操作尺寸／數量不一致 | 44px、segmented ARIA；每筆最多兩個可見操作 | 待驗收 | equipment API／inventory 19 tests＋source contract 通過 |
 | P1-07 | `/my-leave-requests` | 刪除、載入月份與 footer 偏小 | 44px 並使用共用 Dialog footer | 待驗收 | MyLeaveRequests 2 tests＋service 2 tests 通過 |
@@ -57,7 +57,7 @@
 | P2-09 | `/join-inquiries` | 手機清單在載入失敗或零筆資料時沒有狀態內容，會呈現整頁空白 | 手機卡片；共用 loading、可重試錯誤與明確空狀態；Danger 44px＋ARIA | 待驗收 | JoinInquiriesView tests、`vue-tsc`、build＋source contract 通過 |
 | P2-10 | `/announcements` | 每筆最多四個可見操作；卡片／表格切換仍使用頁面自製白底樣式 | 保留兩個高頻操作，其餘 overflow；共用 footer 與 `ViewModeSwitch` | 待驗收 | `vue-tsc`、build＋共用檢視切換 source contract 通過 |
 | P2-11 | `/equipment` | 卡片／表格最多六個操作；搜尋與分類在手機互相壓縮 | 每筆最多兩個可見操作，其餘 overflow；分類篩選由底部展開 | 待驗收 | equipment 19 tests＋search/filter source contract 通過 |
-| P2-12 | `/fees` | tabs 與子元件 Dialog 規格不一；校隊月費搜尋與 program 篩選並排 | tabs 44px＋ARIA；可見 Dialog footer 統一；手機 program 篩選由底部展開；裝備請購／付款移至獨立管理頁 | 待驗收 | 全域 mobile Dialog contract＋search/filter source contract 通過；待逐 tab 視覺驗收 |
+| P2-12 | `/fees` | tabs 與子元件 Dialog 規格不一；校隊月費搜尋與 program 篩選並排 | tabs 44px＋ARIA；可見 Dialog footer 統一；手機 program 篩選由底部展開；裝備請購／付款移至獨立管理頁 | 待驗收 | 比賽費卡預設收合、ARIA、44px actions、排序與開關 / 刪除 targeted tests 通過；手機操作固定為管理動作左欄、展開 / 收合右欄的等寬雙欄，桌機恢復緊湊排列；production build 通過，待逐 tab 與 360–767px 視覺驗收 |
 | P2-13 | `/vendors` | 卡片三個操作；table icons 偏小；手機分類在頁內向下展開 | 每筆最多兩個操作，其他 overflow；icons 44px＋ARIA；分類篩選由底部展開 | 待驗收 | vendors 5 tests＋search/filter source contract 通過 |
 | P2-14 | `/equipment-purchases` | 原本付款與請購六個狀態區塊同時堆疊於 `/fees`，桌機與手機資訊量過高 | 付款／請購雙頁籤；`>=1024px` 主清單＋明細，較小螢幕全螢幕 Drawer；摘要／進階篩選預設收起；進階條件統一 Element Plus 控制；付款狀態沿用藍／綠／橘語意色與原說明文字；主清單依狀態顯示淡色外框／底色；分頁後捲到新頁第一筆；刪除請購使用獨立 Danger 按鈕；44px、safe area、深層連結與單一頁面捲動 | 待驗收 | 搬移後全量 154 files、754 tests；Element Plus 篩選回歸 3 files、90 tests；狀態色彩、主清單外框／底色與文案回歸測試通過；請購刪除操作 targeted tests 通過；分頁捲動回歸 3 files、73 tests；`vue-tsc`、build 通過；管理台仍待登入後裝置驗收 |
 
@@ -72,6 +72,15 @@
 | P3-05 | 能力／體測明細 | 返回及紀錄操作偏小 | 44px、`rounded-xl`、ARIA 與 Danger 確認 | 待驗收 | performance API/config 5 tests＋build 通過 |
 
 ## 驗收紀錄
+
+### 2026-07-16 比賽費用開放繳費保護
+
+- `/fees` 比賽費卡預設收合，依日期與開始時間由早到晚排列，未知時間置於當日最後；卡頭保留應收 / 已收 / 未處理與已開放 / 未開放狀態，操作區使用至少 44px 按鈕與 `aria-expanded` / `aria-controls`。
+- 比賽費卡手機操作區固定為等寬雙欄：開放 / 關閉 / 刪除位於左欄，展開 / 收合固定於右欄；即使沒有管理操作，展開按鈕也不再左右跳動，`>=768px` 恢復內容寬度的靠右排列。
+- `/my-payments` 只有管理者已開放的未繳比賽費可進入摘要、勾選與合併付款；駁回 / 回滾後保留的未開放歷程改列「已關閉」，不再呈現為可付款。
+- targeted regression：10 files、48 tests 通過；`vue-tsc` 與 production build 通過，build 僅有既有 chunk size warning；migration 以 PostgreSQL parser 驗證 70 statements，`git diff --check` 通過。
+- Supabase security / performance advisors 已在目前 production schema 做部署前基線檢查；本 migration 會撤銷比賽費相關 anon SECURITY DEFINER 執行權、移除重複管理 policy、包裝 RLS `auth.uid()` 並補付款歷程反查索引。migration 尚未部署，需部署後再跑 advisors 確認結果。
+- 尚未取得已套用 migration 的 ADMIN / linked-member 登入環境，因此 360px、390px、640–767px 與桌機實際確認視窗 / 橫向明細捲動仍維持「待驗收」。
 
 ### 2026-07-16 裝備主清單分頁捲動
 

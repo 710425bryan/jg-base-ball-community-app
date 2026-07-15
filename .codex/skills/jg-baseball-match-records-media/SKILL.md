@@ -53,6 +53,8 @@ description: "Match records, schedule detail, lineup, media, live controller, au
 - `parse-lineup` 與 `transcribe-match-audio` 使用 service role 時，要先驗證 bearer token 使用者，再以 user scoped client 檢查 `matches:CREATE` 或 `matches:EDIT`。
 - AI 解析不可把未在照片或語音中明確出現的球員硬塞進結果；未匹配球員要走 unresolved flow。
 - 假單同步請假列不可刪除手動請假列；刪除 / 修改假單後，今日與未來賽事的自動列必須可移除並讓比賽費重算。
+- 比賽刪除必須保留比賽費稽核邊界：待審 / 已付款或仍有目前付款關聯時由 DB 阻擋並在 `MatchDetailDialog` 顯示原因；無付款歷程費用直接清除，已駁回 / 回滾歷史解除 `match_id` 後保留。
+- 修改賽事時間要沿用 `matches.id`；Google Calendar 同步以 event UID 更新既有賽事。不可用名稱 / 日期模糊合併比賽或比賽費，也不可因文字 / 時間異動重建費用。
 - 修改 `matches` 欄位時，同步更新 type、service select / payload、form dialog、grid/table/detail、相關 test 與 migration。
 - 修改天氣或地點解析時，避免讓外部 API 失敗造成首頁或賽程頁崩潰；保留 fallback。
 

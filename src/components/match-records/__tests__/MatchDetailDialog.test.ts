@@ -5,6 +5,13 @@ import MatchDetailDialog from '../MatchDetailDialog.vue'
 import type { MatchRecord } from '@/types/match'
 import { getMatchLeaveAbsences } from '@/services/matchLeaveAbsences'
 
+const mocks = vi.hoisted(() => ({
+  deleteMatch: vi.fn(),
+  confirm: vi.fn(),
+  error: vi.fn(),
+  success: vi.fn()
+}))
+
 vi.mock('@/components/match-records/VisualField.vue', () => ({
   default: { template: '<div data-testid="visual-field-stub" />' }
 }))
@@ -14,8 +21,18 @@ vi.mock('@/stores/matches', () => ({
     matches: [],
     loading: false,
     fetchMatch: vi.fn(),
-    deleteMatch: vi.fn()
+    deleteMatch: mocks.deleteMatch
   })
+}))
+
+vi.mock('element-plus', () => ({
+  ElMessage: {
+    error: mocks.error,
+    success: mocks.success
+  },
+  ElMessageBox: {
+    confirm: mocks.confirm
+  }
 }))
 
 vi.mock('@/services/matchLeaveAbsences', () => ({
@@ -70,6 +87,7 @@ const mountDialog = async (matchRecord: MatchRecord = baseMatch) => {
 }
 
 beforeEach(() => {
+  vi.clearAllMocks()
   vi.mocked(getMatchLeaveAbsences).mockReset()
   vi.mocked(getMatchLeaveAbsences).mockResolvedValue([])
 })
@@ -110,5 +128,18 @@ describe('MatchDetailDialog leave request absence display', () => {
     expect(text).toContain('假單同步')
     expect(text).toContain('集合時間: 13:00')
     expect(text).not.toContain('舊假單球員')
+  })
+
+  it('shows the database reason when fee payment history blocks match deletion', async () => {
+    mocks.confirm.mockResolvedValue(undefined)
+    mocks.deleteMatch.mockRejectedValue(new Error('此比賽仍有待確認或已付款的費用'))
+    const wrapper = await mountDialog()
+
+    await wrapper.get('[title="刪除紀錄"]').trigger('click')
+    await flushPromises()
+
+    expect(mocks.deleteMatch).toHaveBeenCalledWith('match-1')
+    expect(mocks.error).toHaveBeenCalledWith('此比賽仍有待確認或已付款的費用')
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined()
   })
 })

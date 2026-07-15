@@ -191,6 +191,7 @@
 - 個人成績頁 `/my-records` 不直接使用後台 `matchesApi` 讀列表，而是透過 `myPlayerRecords` RPC 依球員可見範圍取回比賽紀錄；打擊 / 投球彙總邏輯在 `src/utils/matchRecordStats.ts`。
 - `matchesApi` 保留 `google_calendar_event_id` 欄位缺失 / schema cache 尚未更新時的 fallback。
 - Google Calendar / iCal parsing 與同步規劃在 `src/utils/googleCalendarParser.ts`，UI 在 `SyncCalendarDialog.vue`。
+- 比賽刪除前會由 DB trigger 檢查比賽費：待確認、已付款或仍有目前付款關聯時必須阻擋；無付款歷程的未繳 / 取消費用可直接清除，曾付款但已駁回 / 回滾的明細要解除 `match_id` 並保留取消稽核紀錄。`MatchDetailDialog` 必須顯示 DB 阻擋原因。
 - 比賽紀錄相關元件在 `src/components/match-records/*`，照片使用 `matches-photos` bucket。
 - `/match-records` 的「未來賽事」可由具 `matches:EDIT` 的使用者手動發送單場賽事通知；「提醒排程」同樣只給 `matches:EDIT` 使用者管理，設定存在 `system_settings.match_reminder_schedule_config`，前端走 `src/services/matchReminderNotifications.ts` 呼叫 RPC 或 `send-match-reminders`，通知 URL 仍使用 `/calendar?match_id=...`；排程健康檢查由 `get_match_reminder_health_status()` 與 `send-match-reminders` 自動檢查，異常只通知 active `ADMIN`。
 - 陣容照片解析走 `src/utils/lineupPhotoParser.ts` 與 `supabase/functions/parse-lineup/index.ts`；比賽語音轉紀錄走 `MatchAudioRecorder`、`src/services/matchAudioApi.ts`、`src/utils/matchAudioTranscription.ts` 與 `supabase/functions/transcribe-match-audio/index.ts`。
@@ -251,7 +252,9 @@
 - 季費堂數不足補償以當月週六數對比 `/training-dates` 訓練日期設定總天數；任何設定日期都算一堂，達當月週六數就不補償。補償先產生 `quarterly_fee_compensation_items` 待審核單，核准後才用 `quarterly_compensation` source 寫入 `player_balance_transactions`。
 - sibling / quarter fee / monthly settlement 等邏輯已拆在 `src/utils/*fee*` 與相關測試。
 - 手足主要繳費人退隊、離隊或關閉 / 畢業後，剩餘有效手足的新一期月費 / 季費試算不得沿用手足半價；主要繳費人恢復有效後，若 `sibling_ids` 與 `is_primary_payer` 仍保留，另一位有效手足可恢復手足減免。既有已保存帳款金額不自動覆寫，需由管理端重算或手動調整。
-- 比賽費走 `src/services/matchFees.ts`、`match_fee_items`、`match_payment_submissions`、`match_payment_submission_items`，可在 `/my-payments` 合併回報，在 `/fees` 審核。
+- 比賽費走 `src/services/matchFees.ts`、`match_fee_items`、`match_payment_submissions`、`match_payment_submission_items`，可在 `/my-payments` 合併回報，在 `/fees` 審核。費用先在管理端產生並預設未開放；只有具 `fees:EDIT` 的管理者呼叫 `set_match_fee_payment_open_state()` 開放後，linked member 才可看見未繳項目並送出付款。
+- 比賽費開放後若金額或非取消應繳球員集合改變，且整場沒有付款歷程，應收簽章會自動清除並改回未開放；名稱、日期、時間、盃賽或組別更新不改開放狀態。任一明細曾送出付款後不得關閉，付款 RPC 必須鎖定場次並重新驗證仍為開放。
+- 全場明細皆為 `cancelled` 時，只有 `fees:DELETE` 可呼叫 `delete_cancelled_match_fee_group()` 整場刪除；任何目前或歷史付款關聯都必須保留。比賽費不可直接由 authenticated 寫入 / 刪除，開關與群組刪除都走固定 `search_path` 的 security-definer RPC。
 - 匯款表單匯入走 `supabase/functions/record-fee-remittance/index.ts` 與 `scripts/google-form-remittance-apps-script.js`，不得硬編碼 secret。
 - 費用提醒走 `src/services/feeManagementReminders.ts` 與 `supabase_fee_management_reminders_migration.sql`，改提醒時要檢查通知中心 `get_notification_feed()`。
 - 手動催繳通知走 `src/components/fees/FeePaymentReminderDialog.vue`、`src/services/feePaymentReminders.ts` 與 `supabase/functions/send-fee-payment-reminders/index.ts`；只處理月費 / 季費未繳，不含比賽費或裝備款，不做 cron / 自動排程。`preview/send` 需 `fees:EDIT` 或 `ADMIN`，測試通知只允許 `ADMIN` 且只通知目前登入管理員；正式通知寫入 `push_dispatch_events` targeted event，通知中心 source 為 `fee_payment_reminder`，URL 為 `/my-payments`。

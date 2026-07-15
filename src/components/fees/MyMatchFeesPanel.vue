@@ -20,6 +20,10 @@ import {
   clampBalanceDeduction,
   getExternalPaymentAmount
 } from '@/utils/playerBalance'
+import {
+  getPayableMatchFeeItems,
+  isClosedMatchFeeHistory
+} from '@/utils/matchFeePaymentAvailability'
 import { buildGroupedPushEventKey, dispatchPushNotification } from '@/utils/pushNotifications'
 
 const props = withDefaults(defineProps<{
@@ -83,10 +87,11 @@ const form = reactive({
 
 const paymentMethodOptions = PAYMENT_METHOD_OPTIONS
 
-const unpaidItems = computed(() => items.value.filter((item) => item.payment_status === 'unpaid'))
+const unpaidItems = computed(() => getPayableMatchFeeItems(items.value))
 const pendingItems = computed(() => items.value.filter((item) => item.payment_status === 'pending_review'))
 const paidItems = computed(() => items.value.filter((item) => item.payment_status === 'paid'))
 const cancelledItems = computed(() => items.value.filter((item) => item.payment_status === 'cancelled'))
+const closedHistoryItems = computed(() => items.value.filter(isClosedMatchFeeHistory))
 const hasAnyItems = computed(() => items.value.length > 0)
 
 const summary = computed<PaymentPanelSummary>(() => ({
@@ -98,7 +103,7 @@ const summary = computed<PaymentPanelSummary>(() => ({
 }))
 
 const selectedItems = computed(() =>
-  items.value.filter((item) => selectedItemIds.value.includes(item.id))
+  unpaidItems.value.filter((item) => selectedItemIds.value.includes(item.id))
 )
 
 const selectedTotal = computed(() =>
@@ -231,6 +236,8 @@ const loadItems = async () => {
       getPlayerBalance(props.memberId)
     ])
     items.value = nextItems
+    const payableIds = new Set(getPayableMatchFeeItems(nextItems).map((item) => item.id))
+    selectedItemIds.value = selectedItemIds.value.filter((id) => payableIds.has(id))
     currentBalance.value = nextBalance
     await highlightFromRoute()
   } catch (error: any) {
@@ -369,7 +376,7 @@ defineExpose({
     <div class="px-5 md:px-6 py-4 border-b border-gray-100 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <div>
         <h3 class="text-lg font-black text-slate-800">比賽費用</h3>
-        <p class="text-xs text-gray-400 mt-1">有設定比賽費用的場次會依出賽名單列在這裡，可勾選後送出付款回報。</p>
+        <p class="text-xs text-gray-400 mt-1">管理者開放繳費後才會顯示，可勾選已開放的場次送出付款回報。</p>
       </div>
       <div class="flex items-center gap-2">
         <button
@@ -405,7 +412,7 @@ defineExpose({
     </div>
 
     <div v-else-if="!hasAnyItems" class="p-6 text-sm text-gray-400 font-bold">
-      目前沒有比賽費用項目。
+      目前沒有已開放的比賽費用項目。
     </div>
 
     <div v-else class="p-4 md:p-5 space-y-4">
@@ -486,6 +493,21 @@ defineExpose({
             <div class="font-black text-slate-700">{{ item.match_name }}</div>
             <p class="mt-1 text-xs text-gray-400">{{ getMatchSubtitle(item) }}</p>
             <p class="mt-2 text-xs font-bold text-gray-500">{{ item.cancelled_reason || '已取消收費' }}</p>
+          </article>
+        </div>
+      </div>
+
+      <div v-if="closedHistoryItems.length > 0" class="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+        <div class="mb-3 font-black text-slate-600">已關閉</div>
+        <div class="grid gap-3 md:grid-cols-2">
+          <article
+            v-for="item in closedHistoryItems"
+            :key="item.id"
+            class="rounded-2xl border border-white bg-white/90 p-4 shadow-sm"
+          >
+            <div class="font-black text-slate-700">{{ item.match_name }}</div>
+            <p class="mt-1 text-xs text-gray-400">{{ getMatchSubtitle(item) }}</p>
+            <p class="mt-2 text-xs font-bold text-slate-500">保留過往付款歷程，管理者重新開放前無法再次付款。</p>
           </article>
         </div>
       </div>

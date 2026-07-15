@@ -139,8 +139,9 @@ const handleDelete = async () => {
     await matchesStore.deleteMatch(matchData.value.id)
     ElMessage.success('已刪除比賽紀錄')
     visible.value = false
-  } catch (e) {
-    // cancelled
+  } catch (error: any) {
+    if (error === 'cancel' || error === 'close') return
+    ElMessage.error(error?.message || '刪除比賽紀錄失敗')
   }
 }
 

@@ -23,8 +23,8 @@ description: "Finance, fees, payment submissions, player balances, match fees, e
 10. `src/services/matchFees.ts`
 11. `src/services/feeManagementReminders.ts`、`src/services/feePaymentReminders.ts`
 12. `src/types/payments.ts`、`src/types/playerBalances.ts`、`src/types/quarterlyFeeCompensation.ts`、`src/types/matchFees.ts`、`src/types/feeManagementReminders.ts`、`src/types/feePaymentReminders.ts`
-13. `src/utils/memberBilling.ts`、`src/utils/monthlyFeeSettlement.ts`、`src/utils/quarterlyFeeFamilies.ts`、`src/utils/quarterlyFeeCompensation.ts`、`src/utils/playerBalance.ts`、`src/utils/siblingGroups.ts`、`src/utils/feePaymentReminders.ts`
-14. 相關 migration：`supabase_fees_migration.sql`、`supabase_quarterly_fees_migration.sql`、`supabase_profile_payment_submissions_migration.sql`、`supabase_player_balance_transactions_migration.sql`、`supabase_fixed_monthly_billing_migration.sql`、`supabase_quarterly_fee_compensation_migration.sql`、`supabase_match_fees_migration.sql`、`supabase_fee_management_reminders_migration.sql`、`supabase_fee_payment_reminders_migration.sql`
+13. `src/utils/memberBilling.ts`、`src/utils/monthlyFeeSettlement.ts`、`src/utils/quarterlyFeeFamilies.ts`、`src/utils/quarterlyFeeCompensation.ts`、`src/utils/playerBalance.ts`、`src/utils/matchFeePaymentAvailability.ts`、`src/utils/siblingGroups.ts`、`src/utils/feePaymentReminders.ts`
+14. 相關 migration：`supabase_fees_migration.sql`、`supabase_quarterly_fees_migration.sql`、`supabase_profile_payment_submissions_migration.sql`、`supabase_player_balance_transactions_migration.sql`、`supabase_fixed_monthly_billing_migration.sql`、`supabase_quarterly_fee_compensation_migration.sql`、`supabase_match_fees_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz_match_fee_payment_open_state_migration.sql`、`supabase_fee_management_reminders_migration.sql`、`supabase_fee_payment_reminders_migration.sql`
 15. 若改到匯款表單，再讀 `supabase/functions/record-fee-remittance/index.ts` 與 `scripts/google-form-remittance-apps-script.js`
 16. 若改到裝備付款，再同時讀 `jg-baseball-equipment-management` skill
 
@@ -36,6 +36,7 @@ description: "Finance, fees, payment submissions, player balances, match fees, e
 - 一般付款使用 `profile_payment_submissions` RPC。
 - 季費堂數不足補償使用 `quarterly_fee_compensation_items`，只產生待審核單；核准後才寫入 `player_balance_transactions`。
 - 比賽費使用 `match_fee_items`、`match_payment_submissions`、`match_payment_submission_items`。
+- 比賽費先產生供管理端核對，預設不提供家長付款；只有 `fees:EDIT` 可透過 `set_match_fee_payment_open_state()` 開放 / 關閉，`fees:DELETE` 才可透過 `delete_cancelled_match_fee_group()` 刪除安全的全取消群組。
 - 裝備付款使用 `equipment_payment_submissions`，在 `/equipment-purchases` 與 `/my-payments` 整合顯示；舊 `/fees?tab=equipment` 只作相容轉向。
 - `/equipment-purchases` 前端入口使用 `fees:VIEW`，異動與刪除分別使用 `fees:EDIT / DELETE`；既有 DB `fees OR equipment` 權限保持不變。
 - 裝備加購申請只要到 `approved`（已核准）即可回報付款，不需要等到 `ready_for_pickup` 或 `picked_up`；調整裝備付款時要同步前端可勾選條件與 RPC 可付範圍。
@@ -63,6 +64,9 @@ description: "Finance, fees, payment submissions, player balances, match fees, e
 - `is_primary_payer`、`is_half_price`、sibling / family grouping 會影響金額，改費用時要同步檢查。
 - 手足主要繳費人退隊、離隊或關閉 / 畢業後，剩餘有效手足的新一期月費 / 季費試算不得沿用手足半價；主要繳費人恢復有效後，若 `sibling_ids` 與 `is_primary_payer` 仍保留，另一位有效手足可恢復手足減免。既有已保存帳款金額不自動覆寫，需由管理端重算或手動調整。
 - 比賽費付款不得混入一般月費或裝備付款資料模型；只在 UI 與付款回報流程上整合。
+- linked member 只能看已開放比賽費，或自己既有付款歷程；不可只靠前端隱藏。付款 RPC 必須鎖定場次、同步名單並重驗開放狀態，防止管理者關閉與家長付款同時發生。
+- 開放後只以 `(member_id, amount)` 應收簽章判斷自動關閉：金額 / 名單改變且無付款歷程才關閉，賽事文字與時間修改不可關閉或建立重複費用。曾送出 / 已付款項目的金額快照不可回寫。
+- 刪除賽事時，待審 / 已付款 / 目前付款關聯必須阻擋；無歷程費用直接刪除，已駁回 / 回滾歷史則解除 `match_id` 並保留取消稽核紀錄。取消群組只要有任何歷史付款關聯就不可刪除。
 - 匯款表單 Edge Function 不硬編碼 secret，使用 `FORM_REMITTANCE_SECRET` 或環境設定。
 
 ## 工作流程
@@ -73,6 +77,7 @@ description: "Finance, fees, payment submissions, player balances, match fees, e
 4. 若新增付款欄位，同步更新：RPC return shape、service normalize、type、表單、審核 inbox、付款摘要元件與通知文字。
 5. 若新增付款來源，同步考慮 `/my-payments` 的合併付款、餘額分攤與審核後扣款。
 6. 若改通知或提醒，同時檢查 `push_dispatch_events`、`get_notification_feed()`、Web Push target 與 event key。
+7. 若改比賽費開放狀態，同步檢查管理端卡頭狀態、家長端清單 / 摘要 / 合併付款選項、RLS、付款 RPC 鎖定順序與賽事刪除 trigger。
 
 ## 驗證
 

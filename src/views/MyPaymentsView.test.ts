@@ -12,3 +12,12 @@ describe('MyPaymentsView equipment admin notification route', () => {
     expect(source).not.toContain('url: `/fees?tab=equipment')
   })
 })
+
+describe('MyPaymentsView match fee payment gate', () => {
+  it('only counts and selects unpaid match fees while the match is open', () => {
+    expect(source).toContain('getPayableMatchFeeItems(matchFeeItems.value)')
+    expect(source).toContain('selectable: isMatchFeeItemPayable(item)')
+    expect(source).toContain("isClosedHistory ? '已關閉'")
+    expect(source).toContain('管理者重新開放前無法再次付款')
+  })
+})

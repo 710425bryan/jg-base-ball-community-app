@@ -598,6 +598,11 @@ import {
   getExternalPaymentAmount
 } from '@/utils/playerBalance'
 import {
+  getPayableMatchFeeItems,
+  isClosedMatchFeeHistory,
+  isMatchFeeItemPayable
+} from '@/utils/matchFeePaymentAvailability'
+import {
   FIXED_MONTHLY_FEE_BILLING_MODE,
   getMemberBillingLabel,
   getMonthlyFeeCalculationType,
@@ -1328,9 +1333,7 @@ const equipmentUnpaidItems = computed(() =>
   )
 )
 
-const matchFeeUnpaidItems = computed(() =>
-  matchFeeItems.value.filter((item) => item.payment_status === 'unpaid')
-)
+const matchFeeUnpaidItems = computed(() => getPayableMatchFeeItems(matchFeeItems.value))
 
 const selectedEquipmentPaymentItems = computed(() => {
   const selectedIds = new Set(selectedEquipmentTransactionIds.value)
@@ -1701,21 +1704,24 @@ const unifiedPaymentRecords = computed<UnifiedPaymentRecord[]>(() => {
 
   matchFeeItems.value.forEach((item) => {
     const status = item.payment_status || 'unpaid'
+    const isClosedHistory = isClosedMatchFeeHistory(item)
+    const displayStatus = isClosedHistory ? 'cancelled' : status
     rows.push({
       id: `match-fee-${item.id}`,
       sourceId: item.id,
       kind: 'match-fee',
-      groupKey: getUnifiedGroupKey(status),
+      groupKey: getUnifiedGroupKey(displayStatus),
       typeLabel: '比賽費用',
       title: item.match_name,
       meta: `${item.member_name}｜${getMatchFeeSubtitle(item)}`,
       status,
-      statusLabel: getUnifiedStatusLabel(status, 'match-fee'),
+      statusLabel: isClosedHistory ? '已關閉' : getUnifiedStatusLabel(status, 'match-fee'),
       amount: Number(item.amount) || 0,
-      amountClass: getUnifiedAmountClass(status),
+      amountClass: getUnifiedAmountClass(displayStatus),
       dateKey: item.updated_at || item.match_date,
-      selectable: status === 'unpaid',
-      note: item.cancelled_reason || null
+      selectable: isMatchFeeItemPayable(item),
+      note: item.cancelled_reason
+        || (isClosedHistory ? '保留過往付款歷程，管理者重新開放前無法再次付款。' : null)
     })
   })
 
@@ -2368,16 +2374,16 @@ const refreshUnifiedPaymentSources = async () => {
 
   if (matchFeesResult.status === 'fulfilled') {
     matchFeeItems.value = matchFeesResult.value
+    const payableMatchFeeItems = getPayableMatchFeeItems(matchFeeItems.value)
     matchFeeSummary.value = {
-      unpaidCount: matchFeeItems.value.filter((item) => item.payment_status === 'unpaid').length,
-      unpaidTotal: matchFeeItems.value
-        .filter((item) => item.payment_status === 'unpaid')
+      unpaidCount: payableMatchFeeItems.length,
+      unpaidTotal: payableMatchFeeItems
         .reduce((total, item) => total + Number(item.amount || 0), 0),
       pendingCount: matchFeeItems.value.filter((item) => item.payment_status === 'pending_review').length,
       pendingTotal: matchFeeItems.value
         .filter((item) => item.payment_status === 'pending_review')
         .reduce((total, item) => total + Number(item.amount || 0), 0),
-      firstUnpaidItemId: matchFeeItems.value.find((item) => item.payment_status === 'unpaid')?.id || null
+      firstUnpaidItemId: payableMatchFeeItems[0]?.id || null
     }
   } else {
     console.warn('讀取比賽費用資料失敗', matchFeesResult.reason)

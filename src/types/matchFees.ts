@@ -15,6 +15,10 @@ export type MatchFeeItem = {
   category_group: string | null
   fee_month: string
   amount: number
+  match_fee_amount?: number | null
+  payment_opened_at?: string | null
+  payment_opened_by_name?: string | null
+  has_payment_history?: boolean
   payment_status: MatchFeePaymentStatus | string
   payment_submission_id: string | null
   payment_submission_status?: MatchPaymentSubmissionStatus | string | null
@@ -58,3 +62,11 @@ export type CreateMatchPaymentSubmissionPayload = {
 }
 
 export type ReviewMatchPaymentSubmissionStatus = 'approved' | 'rejected'
+
+export type MatchFeePaymentOpenState = {
+  match_id: string
+  is_payment_open: boolean
+  payment_opened_at: string | null
+  payable_item_count: number
+  payable_amount: number
+}
