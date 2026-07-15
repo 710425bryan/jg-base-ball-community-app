@@ -26,6 +26,7 @@ const auditedViews = [
   'EquipmentView',
   'VendorsView',
   'FeesView',
+  'EquipmentPurchasesView',
   'MatchRecordsView',
   'RollCallView',
   'HolidayThemeSettingsView'

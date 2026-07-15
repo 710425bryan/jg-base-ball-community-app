@@ -35,4 +35,11 @@ describe('MainLayout team member notification security', () => {
     expect(source).toContain('class="app-main-scroll flex-1 min-h-0 relative bg-background overflow-x-hidden overflow-y-auto w-full"')
     expect(source).not.toContain('<main class="flex-1 min-h-0 relative flex flex-col')
   })
+
+  it('shows the independent equipment purchase workspace only with fees visibility', () => {
+    expect(source).toContain("{ label: '裝備請購／付款', to: '/equipment-purchases', visible: permissionsStore.can('fees', 'VIEW') }")
+    expect(source).toContain('v-for="item in adminDesktopNavItems"')
+    expect(source).toContain('@click="router.push(item.to)"')
+    expect(source).not.toContain('@click="router.push(\'/fees\')"')
+  })
 })

@@ -622,6 +622,7 @@ import {
   validateQuarterlyPaymentSubmissionItems
 } from '@/utils/quarterlyPaymentSubmissions'
 import { formatEquipmentVariantLabel } from '@/utils/equipmentPricing'
+import { buildEquipmentAdminUrl } from '@/utils/equipmentPurchaseAdmin'
 import {
   EQUIPMENT_REQUEST_STATUS,
   getEquipmentFulfillmentStatusLabel,
@@ -2658,7 +2659,12 @@ const submitPaymentSubmission = async () => {
         void dispatchPushNotification({
           title: '收到裝備付款回報',
           body: `${equipmentSubmission.member_name} 回報裝備付款 ${formatCurrency(equipmentSubmission.amount)}，請協助確認。`,
-          url: `/fees?tab=equipment&highlight_equipment_submission_id=${equipmentSubmission.id}`,
+          url: buildEquipmentAdminUrl({
+            area: 'payments',
+            status: 'review',
+            recordType: 'payment_submission',
+            recordId: equipmentSubmission.id
+          }),
           feature: 'fees',
           action: 'EDIT',
           eventKey: buildGroupedPushEventKey('equipment-payment-submitted', transactionIds)

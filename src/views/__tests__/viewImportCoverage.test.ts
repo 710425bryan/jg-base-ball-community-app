@@ -12,6 +12,7 @@ const viewImports = [
   { name: 'EquipmentAddonsView', load: () => import('../EquipmentAddonsView.vue') },
   { name: 'EquipmentView', load: () => import('../EquipmentView.vue') },
   { name: 'FeesView', load: () => import('../FeesView.vue') },
+  { name: 'EquipmentPurchasesView', load: () => import('../EquipmentPurchasesView.vue') },
   { name: 'JoinInquiriesView', load: () => import('../JoinInquiriesView.vue') },
   { name: 'LandingView', load: () => import('../LandingView.vue') },
   { name: 'LeaveRequestsView', load: () => import('../LeaveRequestsView.vue') },

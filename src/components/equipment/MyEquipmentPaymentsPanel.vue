@@ -17,6 +17,7 @@ import {
   isEquipmentPaymentPayableRequestStatus
 } from '@/utils/equipmentRequestStatus'
 import { formatEquipmentVariantLabel } from '@/utils/equipmentPricing'
+import { buildEquipmentAdminUrl } from '@/utils/equipmentPurchaseAdmin'
 import {
   BALANCE_PAYMENT_METHOD,
   normalizeAccountLast5,
@@ -330,7 +331,12 @@ const submit = async () => {
     await dispatchPushNotification({
       title: '收到裝備付款回報',
       body: `${submission.member_name} 回報裝備付款 ${formatCurrency(submission.amount)}，請協助確認。`,
-      url: `/fees?tab=equipment&highlight_equipment_submission_id=${submission.id}`,
+      url: buildEquipmentAdminUrl({
+        area: 'payments',
+        status: 'review',
+        recordType: 'payment_submission',
+        recordId: submission.id
+      }),
       feature: 'fees',
       action: 'EDIT',
       eventKey: buildGroupedPushEventKey('equipment-payment-submitted', transactionIds)

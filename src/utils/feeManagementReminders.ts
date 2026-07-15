@@ -6,6 +6,7 @@ import {
   type FeeManagementReminderSeverity,
   type FeeManagementReminderSnapshot
 } from '@/types/feeManagementReminders'
+import { buildEquipmentAdminUrl } from '@/utils/equipmentPurchaseAdmin'
 
 const FALLBACK_CREATED_AT = '1970-01-01T00:00:00.000Z'
 const VALID_SEVERITIES = new Set<FeeManagementReminderSeverity>(['urgent', 'warning', 'info'])
@@ -81,7 +82,7 @@ export const normalizeFeeManagementReminderItem = (
     amount: normalizeNumber(row.amount),
     severity: normalizeSeverity(row.severity),
     link: kind === 'equipmentUnpaid'
-      ? '/fees?tab=equipment&section=equipment-unpaid'
+      ? buildEquipmentAdminUrl({ area: 'payments', status: 'unpaid' })
       : kind === 'matchFeesUnpaid'
         ? '/fees?tab=match-fees'
         : normalizeText(row.link, '/fees'),

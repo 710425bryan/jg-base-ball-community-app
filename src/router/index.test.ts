@@ -9,7 +9,7 @@ const authStoreMock = vi.hoisted(() => ({
   ensureInitialized: vi.fn()
 }))
 const permissionsStoreMock = vi.hoisted(() => ({
-  can: vi.fn(() => false)
+  can: vi.fn<(feature: string, action: string) => boolean>(() => false)
 }))
 
 vi.mock('@/stores/auth', () => ({
@@ -50,13 +50,41 @@ describe('router route and guard coverage', () => {
     expect(routes.find((route) => route.path === '/training-locations')?.meta.feature).toBe('training_locations')
     expect(routes.find((route) => route.path === '/coach-schedules')?.meta.feature).toBe('coach_schedules')
     expect(routes.find((route) => route.path === '/equipment')?.meta.feature).toBe('equipment')
+    expect(routes.find((route) => route.path === '/equipment-purchases')?.meta.feature).toBe('fees')
     expect(routes.find((route) => route.path === '/vendors')?.meta.feature).toBe('vendors')
+  })
+
+  it('redirects legacy equipment fee links to the independent workspace', async () => {
+    authStoreMock.isAuthenticated = true
+    permissionsStoreMock.can.mockImplementation((feature, action) => feature === 'fees' && action === 'VIEW')
+    const router = (await import('./index')).default
+
+    await router.push('/fees?tab=equipment&highlight_id=request-1')
+    await router.isReady()
+
+    expect(router.currentRoute.value.name).toBe('EquipmentPurchases')
+    expect(router.currentRoute.value.query).toMatchObject({
+      area: 'requests',
+      status: 'action',
+      record_type: 'request',
+      record_id: 'request-1'
+    })
+  })
+
+  it('keeps the independent workspace limited to fees visibility', async () => {
+    authStoreMock.isAuthenticated = true
+    permissionsStoreMock.can.mockImplementation((feature, action) => feature === 'equipment' && action === 'VIEW')
+    const router = (await import('./index')).default
+
+    await router.push('/equipment-purchases?area=requests&status=action')
+
+    expect(router.currentRoute.value.path).toBe('/dashboard')
   })
 
   it('redirects unauthenticated users away from authenticated routes', async () => {
     const router = (await import('./index')).default
 
-    await router.push('/dashboard')
+    await router.push('/calendar')
     await router.isReady()
 
     expect(router.currentRoute.value.path).toBe('/')

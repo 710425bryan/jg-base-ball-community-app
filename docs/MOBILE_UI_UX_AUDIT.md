@@ -4,7 +4,7 @@
 
 清單涵蓋 28 個登入後路由、26 個實作頁面；能力／體測列表與明細各自共用一套實作頁面。
 
-- 最後更新：2026-07-15
+- 最後更新：2026-07-16
 - 本輪範圍：P0 → P1 → P2 → P3 程式調整與自動檢查。
 - 本輪結論：自動檢查通過，因目前沒有可登入的一般 linked-member 與 ADMIN 裝置環境，全部維持「待驗收」。
 
@@ -57,8 +57,9 @@
 | P2-09 | `/join-inquiries` | 手機清單在載入失敗或零筆資料時沒有狀態內容，會呈現整頁空白 | 手機卡片；共用 loading、可重試錯誤與明確空狀態；Danger 44px＋ARIA | 待驗收 | JoinInquiriesView tests、`vue-tsc`、build＋source contract 通過 |
 | P2-10 | `/announcements` | 每筆最多四個可見操作；卡片／表格切換仍使用頁面自製白底樣式 | 保留兩個高頻操作，其餘 overflow；共用 footer 與 `ViewModeSwitch` | 待驗收 | `vue-tsc`、build＋共用檢視切換 source contract 通過 |
 | P2-11 | `/equipment` | 卡片／表格最多六個操作；搜尋與分類在手機互相壓縮 | 每筆最多兩個可見操作，其餘 overflow；分類篩選由底部展開 | 待驗收 | equipment 19 tests＋search/filter source contract 通過 |
-| P2-12 | `/fees` | tabs 與子元件 Dialog 規格不一；校隊月費搜尋與 program 篩選並排 | tabs 44px＋ARIA；可見 Dialog footer 統一；手機 program 篩選由底部展開 | 待驗收 | 全域 mobile Dialog contract＋search/filter source contract 通過；待逐 tab 視覺驗收 |
+| P2-12 | `/fees` | tabs 與子元件 Dialog 規格不一；校隊月費搜尋與 program 篩選並排 | tabs 44px＋ARIA；可見 Dialog footer 統一；手機 program 篩選由底部展開；裝備請購／付款移至獨立管理頁 | 待驗收 | 全域 mobile Dialog contract＋search/filter source contract 通過；待逐 tab 視覺驗收 |
 | P2-13 | `/vendors` | 卡片三個操作；table icons 偏小；手機分類在頁內向下展開 | 每筆最多兩個操作，其他 overflow；icons 44px＋ARIA；分類篩選由底部展開 | 待驗收 | vendors 5 tests＋search/filter source contract 通過 |
+| P2-14 | `/equipment-purchases` | 原本付款與請購六個狀態區塊同時堆疊於 `/fees`，桌機與手機資訊量過高 | 付款／請購雙頁籤；`>=1024px` 主清單＋明細，較小螢幕全螢幕 Drawer；摘要／進階篩選預設收起；進階條件統一 Element Plus 控制；付款狀態沿用藍／綠／橘語意色與原說明文字；主清單依狀態顯示淡色外框／底色；分頁後捲到新頁第一筆；刪除請購使用獨立 Danger 按鈕；44px、safe area、深層連結與單一頁面捲動 | 待驗收 | 搬移後全量 154 files、754 tests；Element Plus 篩選回歸 3 files、90 tests；狀態色彩、主清單外框／底色與文案回歸測試通過；請購刪除操作 targeted tests 通過；分頁捲動回歸 3 files、73 tests；`vue-tsc`、build 通過；管理台仍待登入後裝置驗收 |
 
 ## P3：特殊介面
 
@@ -71,6 +72,11 @@
 | P3-05 | 能力／體測明細 | 返回及紀錄操作偏小 | 44px、`rounded-xl`、ARIA 與 Danger 確認 | 待驗收 | performance API/config 5 tests＋build 通過 |
 
 ## 驗收紀錄
+
+### 2026-07-16 裝備主清單分頁捲動
+
+- `/equipment-purchases` 切換主清單頁碼後，使用既有 `MainLayout` 頁面捲動將新頁第一筆資料帶到可見位置；不捲回 route 頂端，也不新增清單內部捲軸。
+- `EquipmentPurchaseMasterList` 同名測試驗證第二頁第一筆與 `scrollIntoView` 行為；相關 3 files、73 tests、`vue-tsc` 與 production build 通過，仍待登入後桌機與手機實際捲動驗收。
 
 ### 2026-07-15 捲動與搜尋／篩選回歸修正
 
@@ -88,6 +94,15 @@
 
 ### 2026-07-15 自動檢查
 
+- `/equipment-purchases` 主清單由每頁 20 筆調整為每頁 10 筆，降低桌機與手機單頁清單長度；分頁、狀態與篩選行為維持不變。相關 2 files、14 tests 與 `vue-tsc` 通過。
+- `/equipment-purchases` 左側主清單依目前狀態恢復淡色外框與底色：處理中 blue、請購待審 amber、付款待審 emerald、尚未付款 sky、已收款可退款 orange；內容維持白色資料卡，選取狀態與文字 badge 仍清楚可辨。相關 3 files、18 tests、`vue-tsc` 與 production build 通過。
+- `/equipment-purchases` 請購明細的「刪除請購」由更多選單移為獨立紅色 Danger 按鈕，維持 `fees:DELETE` 顯示限制與既有二次確認；待審核的退回流程仍留在更多選單。相關 2 files、9 tests、`vue-tsc` 與 production build 通過。
+- `/equipment-purchases` 恢復既有付款狀態辨識：尚未付款為藍色、付款待審為綠色、已收款可退款為橘色，並在狀態切換、目前狀態說明、金額摘要與清單標籤保留一致色彩；舊版三段標題與說明文字逐字保留，不以顏色作為唯一資訊。相關 4 files、41 tests、`vue-tsc` 與 production build 通過。
+- `/equipment-purchases` 進階篩選由原生日期／選單改為 Element Plus `el-date-picker`／`el-select`，統一 large、滿寬、44px、明確日期格式與清除行為；相關 3 files、90 tests、`vue-tsc` 與 production build 通過。
+- `/equipment-purchases` 獨立主從式管理台：targeted tests 16 files、159 tests；全量 `pnpm exec vitest run` 154 files、754 tests，全部通過。
+- `pnpm exec vue-tsc --noEmit` 與 `pnpm build`：通過；build 僅有既有 chunk size warning。
+- Playwright 以 360／390／768／1024／1440px 開啟新保護路由，五種尺寸均無 console error、page error 或公開頁水平溢出；因測試瀏覽器無登入 session，路由依預期導回 `/`，主從欄位、Drawer、safe area 與操作焦點仍列為登入後待驗收。
+- `/fees` 裝備請購／付款收合調整：相關 12 files、134 tests、`vue-tsc`、production build 與 `git diff --check` 通過；build 僅有既有 chunk size warning。
 - `pnpm exec vitest run ...`（本次共用元件、頁面與相關 feature 測試）：36 files、163 tests 通過。
 - `pnpm exec vue-tsc --noEmit`：通過。
 - `pnpm build`：通過；僅保留既有 chunk size warning，建置產物與 `public/version.json` 未納入變更。
@@ -96,6 +111,7 @@
 
 ### 待登入環境驗收
 
-- 360px／390px／640px／767px：待登入後瀏覽器驗收。
+- `/equipment-purchases`：360px／390px／768px 的全螢幕 Drawer，以及 1024px／1440px 的 38%／62% 主從欄位，待登入後瀏覽器驗收。
+- 360px／390px／640px／767px：其他登入後頁面待瀏覽器驗收。
 - 一般 linked member／ADMIN 權限：待登入後瀏覽器驗收。
 - iOS safe area、文字放大、長文案、loading、disabled、Danger：待驗收。

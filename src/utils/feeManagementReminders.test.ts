@@ -70,7 +70,7 @@ describe('fee management reminder mapping', () => {
       link: '/fees?tab=equipment&highlight_id=request-1'
     })).toMatchObject({
       kind: 'equipmentUnpaid',
-      link: '/fees?tab=equipment&section=equipment-unpaid'
+      link: '/equipment-purchases?area=payments&status=unpaid'
     })
   })
 

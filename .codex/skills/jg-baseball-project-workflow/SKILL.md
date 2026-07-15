@@ -48,6 +48,7 @@ description: "Project-specific workflow for jg-base-ball-community-app. Use when
 - 逐頁調整狀態與驗證證據記錄在 `docs/MOBILE_UI_UX_AUDIT.md`；沒有完成指定裝置驗收前不可標示完成。
 - 登入後 route 的頁面級垂直捲動由 `MainLayout .app-main-scroll` 負責；route root 不得使用 `h-full + overflow-hidden` 裁切內容。
 - 手機搜尋／低頻進階條件優先使用 `app-search-filter-bar` 與 `AppMobileFilterSheet`；快速頁籤或狀態 chips 不收進底部面板。
+- 登入後表單與篩選預設沿用 Element Plus `el-input`、`el-select`、`el-date-picker`、`el-time-picker`；同一欄位群組不可混搭原生日期／選單控制。原生控制只保留給 Element Plus 無對應的檔案、顏色或平台能力，並需記錄例外。
 - 手機模式目標為 `<768px`，對齊 `MainLayout` 底部導覽；`<640px` 只作窄手機附加調整。
 - 延續既有 `#D88F22` 主色、白色 surface、slate 文字與圓角風格，不為單一頁面建立另一套功能按鈕色盤。
 - 手機互動區不得小於 44px；同一操作區最多一個 Primary，超過兩個可見操作時應收進 overflow menu。

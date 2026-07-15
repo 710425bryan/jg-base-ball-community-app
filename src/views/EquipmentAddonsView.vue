@@ -35,6 +35,7 @@ import {
   getEquipmentRequestStatusTagType
 } from '@/utils/equipmentRequestStatus'
 import { formatEquipmentVariantLabel, getEquipmentRequestItemTotalPrice } from '@/utils/equipmentPricing'
+import { buildEquipmentAdminUrl } from '@/utils/equipmentPurchaseAdmin'
 import { buildPushEventKey, dispatchPushNotification } from '@/utils/pushNotifications'
 
 type CartItem = {
@@ -614,8 +615,13 @@ const submitRequest = async () => {
       await dispatchPushNotification({
         title: '收到裝備加購申請',
         body: `${selectedMember.value.name} 送出 ${cart.value.length} 項裝備加購申請。`,
-        url: `/fees?tab=equipment&highlight_id=${request.id}`,
-        feature: 'equipment',
+        url: buildEquipmentAdminUrl({
+          area: 'requests',
+          status: 'pending',
+          recordType: 'request',
+          recordId: request.id
+        }),
+        feature: 'fees',
         action: 'EDIT',
         eventKey: buildPushEventKey('equipment-request-created', request.id)
       })

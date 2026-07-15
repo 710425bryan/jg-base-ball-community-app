@@ -5,6 +5,7 @@ import PushEntryView from '../views/PushEntryView.vue'
 import { useAuthStore } from '../stores/auth'
 import { usePermissionsStore } from '../stores/permissions'
 import { getCurrentRouteFullPathFromLocation, refreshAppShell } from '../utils/appUpdate'
+import { getLegacyEquipmentAdminRedirect } from '../utils/equipmentPurchaseAdmin'
 
 const CHUNK_RELOAD_SESSION_KEY = 'router:chunk-reload-target'
 const DEFAULT_AUTHENTICATED_ROUTE = '/dashboard'
@@ -196,6 +197,16 @@ const router = createRouter({
           path: 'fees',
           name: 'Fees',
           component: () => import('../views/FeesView.vue'),
+          meta: { feature: 'fees' },
+          beforeEnter: (to) => {
+            const query = getLegacyEquipmentAdminRedirect(to.query)
+            return query ? { name: 'EquipmentPurchases', query, replace: true } : true
+          }
+        },
+        {
+          path: 'equipment-purchases',
+          name: 'EquipmentPurchases',
+          component: () => import('../views/EquipmentPurchasesView.vue'),
           meta: { feature: 'fees' }
         },
         {

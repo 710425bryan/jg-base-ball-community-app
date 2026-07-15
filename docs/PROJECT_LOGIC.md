@@ -541,7 +541,7 @@ UI 約定：
 - 餘額屬於 `team_members`，不可扣成負數；家長只能看與使用自己綁定球員的餘額。
 - 修改付款或費用要檢查 sibling、primary payer、half price、固定月繳、球員計次月費與不收費排除規則。
 - `list_my_payment_members()` 與前端 `/my-payments` 會排除退隊、離隊、關閉 / 畢業成員；月費、季費與費用設定頁也只用有效成員建立後續繳費名單。
-- 裝備付款回報在 `/my-payments` 與 `/fees?tab=equipment` 整合，但不要混入一般月費資料模型。
+- 裝備付款回報在 `/my-payments` 與管理端 `/equipment-purchases` 整合，但不要混入一般月費資料模型；舊 `/fees?tab=equipment` 只保留相容轉向。
 - 比賽費付款回報在 UI 上可與一般付款合併，但資料模型仍使用 `match_payment_submissions`。
 
 ## 14. 裝備管理與加購
@@ -550,6 +550,7 @@ UI 約定：
 
 - `src/views/EquipmentView.vue`
 - `src/views/EquipmentAddonsView.vue`
+- `src/views/EquipmentPurchasesView.vue`
 - `src/types/equipment.ts`
 - `src/services/equipmentApi.ts`
 - `src/stores/equipment.ts`
@@ -579,7 +580,7 @@ UI 約定：
 1. 家長 / 管理端建立加購申請：`pending`。
 2. 管理端審核：`approved` 或 `rejected`；`approved` 後即產生 purchase transaction，家長可在 `/my-payments` 回報裝備付款。
 3. 家長在 `/my-payments` 回報裝備付款，資料走 `equipment_payment_submissions`，付款紀錄顯示 `pending_review` / 待審核。
-4. 管理端在 `/fees?tab=equipment` 審核付款回報：`approved` / 已收款完成或 `rejected`；已收款完成不代表商品已領取。
+4. 管理端在 `/equipment-purchases` 審核付款回報：`approved` / 已收款完成或 `rejected`；已收款完成不代表商品已領取。
 5. 若已確認收款後要作廢或退款，有付款回報單走 `refund_equipment_payment_submission()`：付款單與交易標記 `refunded`，球員餘額扣抵加回，溢繳轉入反向扣回；管理端直接標記已收款且無付款單的交易走 `refund_equipment_transactions()`，只作廢交易收款狀態。
 6. 備貨完成 / 可取貨：`ready_for_pickup`，只代表商品履約進度。
 7. 領取裝備：`picked_up`，只代表實際取貨完成，不再作為付款回報前置條件。
@@ -587,7 +588,13 @@ UI 約定：
 重要規則：
 
 - `/equipment` 需要 `equipment:VIEW`。
+- `/equipment-purchases` 需要 `fees:VIEW`；修改操作依 `fees:EDIT`，刪除依 `fees:DELETE`。此限制是前端路由與互動入口，DB 既有 `fees OR equipment` RPC / RLS 權限保持不變。
 - `/equipment-addons` 只要求登入，資料安全靠 `linked_team_member_ids` 與 DB RLS。
+- `/equipment-purchases` 上層分「付款管理／請購管理」；付款狀態為待處理、尚未付款、付款待審、已收款可退款，請購狀態為待處理、待審核、處理中、歷史紀錄。摘要與進階篩選預設收起，清單保持可見且每頁 10 筆；切換頁碼後將頁面捲動到新頁第一筆，不回到 route 頂端。
+- `/equipment-purchases` 視覺延續舊 `/fees` 裝備頁籤：sky＝尚未付款、emerald＝付款待審、orange＝退款、amber＝請購待審、blue＝請購處理中、slate＝歷史。淡色區塊使用對應 `*-100` 外框，清單選取與主要流程按鈕跟隨該筆狀態，不能全部改成品牌橘色。
+- 管理端金額只在 `/equipment-purchases` 計算：尚未付款／直接收款用交易 `total_amount`，付款單用 `amount` 並另列餘額扣抵與外部付款，請購用申請快照 `unit_price_snapshot × quantity`。只顯示各狀態筆數與金額，不提供跨生命週期總額，避免同筆請購重複計算。
+- 主從介面在 `>=1024px` 顯示左側清單與右側明細；較小螢幕點選清單後使用全螢幕 Drawer，底部操作需避讓 safe area。未選資料時明細維持空狀態，深層連結例外。
+- 新管理端連結使用 `area`、`status`、`record_type`、`record_id` query；舊 `/fees?tab=equipment` 的 `section=equipment-unpaid`、`highlight_equipment_submission_id`、`highlight_submission_id`、`highlight_id` 必須轉成新頁定位。
 - 裝備付款可付範圍包含管理員新增購買項目，以及加購申請狀態為 `approved`、`ready_for_pickup` 或 `picked_up` 且付款狀態仍為 `unpaid` 的 purchase transaction；前端可勾選狀態與 RPC 檢查必須一致。
 - 裝備付款狀態與商品履約狀態分離：`equipment_transactions.payment_status = paid` / 付款回報 `approved` 只代表已收款完成，不可自動把加購申請改成 `picked_up`。
 - 已付款裝備請購不可直接刪除；先退款 / 作廢收款，讓付款單與 / 或 `equipment_transactions.payment_status` 變成 `refunded`，再允許刪除交易並回補庫存。詳細流程見 `docs/EQUIPMENT_REFUND_FLOW.md`。

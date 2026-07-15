@@ -1,6 +1,6 @@
 ---
 name: jg-baseball-finance-payments
-description: "Finance, fees, payment submissions, player balances, match fees, remittance ingestion, and finance reminder workflow for jg-base-ball-community-app. Use when changing /fees, /my-payments, src/components/fees/*, src/services/myPayments.ts, src/services/playerBalances.ts, src/services/matchFees.ts, feeManagementReminders, feePaymentReminders, monthly_fees, quarterly_fees, profile_payment_submissions, match_fee_items, match_payment_submissions, player_balance_transactions, record-fee-remittance, or Google Form remittance scripts."
+description: "Finance, fees, payment submissions, player balances, match fees, equipment payment administration, remittance ingestion, and finance reminder workflow for jg-base-ball-community-app. Use when changing /fees, /equipment-purchases, /my-payments, src/components/fees/*, src/services/myPayments.ts, src/services/playerBalances.ts, src/services/matchFees.ts, feeManagementReminders, feePaymentReminders, monthly_fees, quarterly_fees, profile_payment_submissions, match_fee_items, match_payment_submissions, equipment_payment_submissions, player_balance_transactions, record-fee-remittance, or Google Form remittance scripts."
 ---
 
 # JG Baseball Finance Payments
@@ -16,7 +16,7 @@ description: "Finance, fees, payment submissions, player balances, match fees, r
 3. `docs/FILE_MAP.md`
 4. `docs/MIGRATIONS.md`
 5. `src/views/FeesView.vue`
-6. `src/views/MyPaymentsView.vue`
+6. `src/views/EquipmentPurchasesView.vue`、`src/views/MyPaymentsView.vue`
 7. `src/services/myPayments.ts`
 8. `src/services/playerBalances.ts`
 9. `src/services/quarterlyFeeCompensations.ts`
@@ -30,13 +30,14 @@ description: "Finance, fees, payment submissions, player balances, match fees, r
 
 ## 功能邊界
 
-- 後台 `/fees` 管理月費、季費、比賽費、付款回報、裝備付款審核與球員餘額。
+- 後台 `/fees` 管理月費、季費、比賽費、一般付款回報與球員餘額；裝備請購／付款改由 `/equipment-purchases` 管理。
 - 家長端 `/my-payments` 可合併一般繳費、裝備付款與比賽費付款回報。
 - 球員餘額以 `player_balance_transactions` 流水帳推導，不直接覆寫權威餘額。
 - 一般付款使用 `profile_payment_submissions` RPC。
 - 季費堂數不足補償使用 `quarterly_fee_compensation_items`，只產生待審核單；核准後才寫入 `player_balance_transactions`。
 - 比賽費使用 `match_fee_items`、`match_payment_submissions`、`match_payment_submission_items`。
-- 裝備付款使用 `equipment_payment_submissions`，但在 `/fees?tab=equipment` 與 `/my-payments` 整合顯示。
+- 裝備付款使用 `equipment_payment_submissions`，在 `/equipment-purchases` 與 `/my-payments` 整合顯示；舊 `/fees?tab=equipment` 只作相容轉向。
+- `/equipment-purchases` 前端入口使用 `fees:VIEW`，異動與刪除分別使用 `fees:EDIT / DELETE`；既有 DB `fees OR equipment` 權限保持不變。
 - 裝備加購申請只要到 `approved`（已核准）即可回報付款，不需要等到 `ready_for_pickup` 或 `picked_up`；調整裝備付款時要同步前端可勾選條件與 RPC 可付範圍。
 - 裝備付款確認只代表已收款完成，不代表商品已備貨或已領取；不要把付款 `approved` 自動同步成申請 `picked_up`。
 - 裝備付款退款 / 作廢收款要走 `refunded` 狀態；有付款單時需建立反向 `player_balance_transactions`，直接標記已收款且無付款單時只作廢交易收款狀態。不可直接刪 paid 交易；退款後才允許刪除測試請購或取消請購。

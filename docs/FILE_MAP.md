@@ -52,6 +52,7 @@
 | `src/components/common/AppPageHeader.vue` | 登入後功能頁 page title 標準元件 |
 | `src/components/common/AppLoadingState.vue` | 頁面級 / 大區塊 loading 標準元件，文字用 `text` 傳入 |
 | `src/components/common/AppActionOverflow.vue` | 手機與桌機共用的 44px「更多操作」下拉按鈕 |
+| `src/components/common/AppCollapseButton.vue` | 區塊收合共用按鈕，統一 44px 觸控高度、圖示與 ARIA 關聯 |
 | `src/components/common/AppDialogFooter.vue` | Dialog 取消／確認按鈕順序、loading、Danger 與手機等寬 footer |
 | `src/components/common/AppMobileFilterSheet.vue` | `<768px` 進階條件自底部展開的共用篩選面板，含 safe area footer |
 | `src/components/common/PreviewableImage.vue` | 可預覽圖片 |
@@ -191,6 +192,7 @@
 | `/coach-schedules` | `src/views/CoachSchedulesView.vue` | `coach_schedules:VIEW` |
 | `/match-records` | `src/views/MatchRecordsView.vue` | `matches:VIEW` |
 | `/fees` | `src/views/FeesView.vue` | `fees:VIEW` |
+| `/equipment-purchases` | `src/views/EquipmentPurchasesView.vue` | `fees:VIEW`；裝備請購／付款主從式管理台 |
 | `/equipment` | `src/views/EquipmentView.vue` | `equipment:VIEW` |
 | `/vendors` | `src/views/VendorsView.vue` | `vendors:VIEW` |
 | `/baseball-ability` | `src/views/BaseballAbilityView.vue` | `baseball_ability` + linked member exception |
@@ -208,10 +210,12 @@
 | `src/components/equipment/EquipmentPhotoCarousel.vue` | 裝備照片與處理照片輪播 |
 | `src/components/equipment/EquipmentHistoryDialog.vue` | 裝備交易 / 庫存 / 申請歷史 |
 | `src/components/equipment/EquipmentInventoryAdjustmentDialog.vue` | 庫存調整 |
-| `src/components/equipment/EquipmentPaymentSubmissionInbox.vue` | 管理端裝備付款審核 |
+| `src/components/equipment/EquipmentPurchaseMasterList.vue` | 管理端付款／請購共用主清單、搜尋與分頁 |
+| `src/components/equipment/EquipmentPaymentAdminDetail.vue` | 管理端尚未付款、付款審核與退款明細操作 |
+| `src/components/equipment/EquipmentRequestAdminDetail.vue` | 管理端請購審核、備貨、領取與歷史明細操作 |
 | `src/components/equipment/EquipmentRequestActionDialog.vue` | 加購申請操作 |
-| `src/components/equipment/EquipmentRequestReviewPanel.vue` | 加購審核面板 |
 | `src/components/equipment/EquipmentTransactionDialog.vue` | 裝備交易紀錄 |
+| `src/utils/equipmentPurchaseAdmin.ts` | 管理台資料正規化、狀態篩選、金額摘要與深層連結工具 |
 | `src/components/equipment/MyEquipmentPaymentsPanel.vue` | 個人裝備付款 |
 
 ### Vendors

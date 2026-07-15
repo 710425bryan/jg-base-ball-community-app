@@ -98,6 +98,7 @@
 - 沿用原檔案命名、排版、資料流與元件拆分方式。
 - 修改原始碼前若目標檔案已超過約 600 行，或修改後預估會超過約 700 行，必須優先評估並進行程式碼內容優化；Vue 單檔元件應盡可能拆出單一職責子元件、composable、utils、services 或 types，避免繼續把邏輯堆在同一檔。若因任務範圍或風險無法拆分，回報時需說明原因與後續建議拆分方向。
 - UI 文案以繁體中文為主，語氣貼近現有系統。
+- 登入後業務表單與篩選的文字、選項、日期／時間控制預設使用既有 Element Plus 元件（例如 `el-input`、`el-select`、`el-date-picker`、`el-time-picker`），同一欄位群組不可混用原生 `<input type="date">`／`<select>` 與 Element Plus；只有檔案、顏色或平台能力等 Element Plus 無對應控制時可使用原生元件，並需在測試或回報說明例外。
 - 頁面專屬邏輯留在 `views`；可重用 UI 放 `components`；可測試邏輯放 `utils` / `composables`；外部資料存取放 `services`。
 - 新增或調整型別時同步更新 `src/types/*` 與實際資料 normalize 流程。
 - 新增、修改或刪除原始碼檔案時，必須同步新增或更新對應 unit test；每個被動到的 `views`、`components`、`stores`、`services`、`composables`、`utils`、Edge Function logic 檔案，都要有同名測試或明確被既有測試涵蓋。若是文件、純型別、migration、產物或其他不適合 unit test 的例外，回報時必須說明原因與替代驗證。
@@ -124,7 +125,7 @@
 登入後頁面掛在 `MainLayout`，父層 `meta.requiresAuth = true`。
 
 - 不需額外 feature 的登入頁：`/dashboard`、`/calendar`、`/profile`、`/my-records`、`/my-payments`、`/equipment-addons`、`/my-leave-requests`。
-- 需要 `meta.feature` 的後台頁：`leave_requests`、`players`、`users`、`join_inquiries`、`announcements`、`holiday_theme_settings`、`attendance`、`training`、`training_dates`（含 `/training-dates`、`/training-program-settings`）、`training_locations`、`coach_schedules`、`matches`、`fees`、`baseball_ability`、`physical_tests`、`equipment`、`vendors`。
+- 需要 `meta.feature` 的後台頁：`leave_requests`、`players`、`users`、`join_inquiries`、`announcements`、`holiday_theme_settings`、`attendance`、`training`、`training_dates`（含 `/training-dates`、`/training-program-settings`）、`training_locations`、`coach_schedules`、`matches`、`fees`（含 `/fees`、`/equipment-purchases`）、`baseball_ability`、`physical_tests`、`equipment`、`vendors`。
 - `baseball_ability` 與 `physical_tests` 有 `allowLinkedMemberView` 例外：有綁定球員者可唯讀自己的資料；管理權限者可看全隊。
 - 無權限時導回 `/dashboard`。
 
@@ -235,6 +236,7 @@
 ### 收費與付款
 
 - 收費後台在 `FeesView` 與 `src/components/fees/*`。
+- 管理端裝備請購／付款工作台獨立於 `/equipment-purchases`，前端入口與操作顯示沿用 `fees:VIEW / EDIT / DELETE`；既有 DB RPC / RLS 仍保留 `fees OR equipment` 相容規則，不因頁面拆分而收緊。
 - 主要資料表包含 `fee_settings`、`monthly_fees`、`quarterly_fees`、`profile_payment_submissions`。
 - 個人繳費回報走 `profile_payment_submissions` RPC；管理端審核在費用頁。
 - 球員餘額以 `player_balance_transactions` 流水帳管理，餘額屬於 `team_members`；管理員可手動調整與確認溢繳入帳，家長自助使用餘額後仍需管理端確認才正式扣款。
@@ -257,10 +259,13 @@
 ### 裝備管理與加購
 
 - 後台裝備管理路由 `/equipment`，feature key 為 `equipment`。
+- 管理端裝備請購／付款路由 `/equipment-purchases`，feature key 為 `fees`；`/fees?tab=equipment` 舊連結必須轉向新頁並保留請購、付款回報或尚未付款定位。
 - 家長加購路由 `/equipment-addons`，只要求登入；資料安全由 `linked_team_member_ids` 與 DB RLS 限制，不要改成需要 `equipment:VIEW`。
 - 裝備資料流集中在 `src/types/equipment.ts`、`src/services/equipmentApi.ts`、`src/stores/equipment*.ts`、`src/components/equipment/*`。
 - 主要資料表包含 `equipment`、`equipment_transactions`、`equipment_inventory_adjustments`、`equipment_purchase_requests`、`equipment_purchase_request_items`、`equipment_payment_submissions`、`equipment_payment_submission_items`。
 - 裝備流程：加購申請 `pending` -> 審核 `approved` 後即可進行裝備付款回報 `pending_review`；備貨 / 可取貨 `ready_for_pickup` 與領取 `picked_up` 是後續履約狀態，不作為付款回報前置條件；費用端確認付款後為 `approved` / 已收款完成，也可退回 `rejected`，已收款測試或取消需求需改走 `refunded` 退款 / 作廢收款流程。
+- `/equipment-purchases` 使用付款／請購雙頁籤主從式介面：`>=1024px` 為清單＋明細，較小螢幕以全螢幕 Drawer 顯示明細；摘要與進階篩選可收合且預設收起，主清單保持可見。
+- 金額口徑：尚未付款與直接收款使用交易 `total_amount`；付款回報使用 `equipment_payment_submissions.amount` 並另列餘額／外部付款；請購使用 `unit_price_snapshot × quantity`。各狀態分開彙總，不跨請購與付款生命週期計算總額。
 - 裝備圖片與處理照片使用 `equipments` bucket；主檔 / 備貨 / 領取照片可多張，並保留 `image_url`、`ready_image_url`、`pickup_image_url` 首圖相容欄位。
 - 裝備交易 `purchase` 產生後才進入付款回報；不要把來源專案的 `fee_records` 或月結關帳模型直接搬進本專案。
 

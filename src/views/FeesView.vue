@@ -5,7 +5,7 @@
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <AppPageHeader
           title="收費管理系統"
-          subtitle="管理月費、球員季費、比賽費用、裝備付款與收費設定"
+          subtitle="管理月費、球員季費、比賽費用、球員餘額與收費設定"
           :icon="Money"
           as="h2"
         >
@@ -137,10 +137,6 @@
               @summary-change="handleMatchFeeSummaryChange"
             />
           </div>
-          <div v-show="activeTab === 'equipment'" class="space-y-6">
-            <EquipmentPaymentSubmissionInbox />
-            <EquipmentRequestReviewPanel />
-          </div>
           <div v-show="activeTab === 'balances'">
             <PlayerBalanceManager />
           </div>
@@ -176,8 +172,6 @@ import ProfilePaymentSubmissionInbox from '@/components/fees/ProfilePaymentSubmi
 import MatchFeeManagementPanel from '@/components/fees/MatchFeeManagementPanel.vue'
 import MatchPaymentSubmissionInbox from '@/components/fees/MatchPaymentSubmissionInbox.vue'
 import PlayerBalanceManager from '@/components/fees/PlayerBalanceManager.vue'
-import EquipmentRequestReviewPanel from '@/components/equipment/EquipmentRequestReviewPanel.vue'
-import EquipmentPaymentSubmissionInbox from '@/components/equipment/EquipmentPaymentSubmissionInbox.vue'
 
 const route = useRoute()
 const permissionsStore = usePermissionsStore()
@@ -199,7 +193,6 @@ const tabs = [
   { id: 'monthly', name: '月費結算' },
   { id: 'quarterly', name: '球員季費表單' },
   { id: 'match-fees', name: '比賽費用' },
-  { id: 'equipment', name: '裝備請購/付款' },
   { id: 'balances', name: '球員餘額' },
   { id: 'settings', name: '收費設定' }
 ]
@@ -226,15 +219,11 @@ const matchFeeManagementPanelRef = ref<InstanceType<typeof MatchFeeManagementPan
 const SUMMARY_COLLAPSE_SCROLL_TOP = 32
 const SUMMARY_EXPAND_SCROLL_TOP = 8
 
-watch(() => [route.query.tab, route.query.highlight_equipment_submission_id, route.query.highlight_match_submission_id], ([newTab, equipmentSubmissionId, matchSubmissionId]) => {
-  if (equipmentSubmissionId) {
-    activeTab.value = 'equipment'
-  } else if (matchSubmissionId) {
+watch(() => [route.query.tab, route.query.highlight_match_submission_id], ([newTab, matchSubmissionId]) => {
+  if (matchSubmissionId) {
     activeTab.value = 'match-fees'
-  } else if (newTab === 'monthly' || newTab === 'quarterly' || newTab === 'match-fees' || newTab === 'equipment' || newTab === 'balances' || newTab === 'settings') {
+  } else if (newTab === 'monthly' || newTab === 'quarterly' || newTab === 'match-fees' || newTab === 'balances' || newTab === 'settings') {
     activeTab.value = newTab as string
-  } else if (route.query.highlight_submission_id && activeTab.value === 'equipment') {
-    activeTab.value = 'monthly'
   }
 }, { immediate: true })
 
