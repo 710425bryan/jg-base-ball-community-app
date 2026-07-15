@@ -136,7 +136,7 @@ watch(detailVisible, (visible) => {
 </script>
 
 <template>
-  <div class="h-full flex-1 flex flex-col animate-fade-in bg-background text-text overflow-y-auto p-4 pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:p-6">
+  <div class="flex min-h-full w-full flex-col bg-background p-4 pb-5 text-text animate-fade-in md:p-6">
     <div class="mx-auto flex w-full max-w-7xl flex-col gap-5">
       <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <AppPageHeader
@@ -148,7 +148,7 @@ watch(detailVisible, (visible) => {
           <template #actions>
             <button
               type="button"
-              class="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-600 transition-colors hover:border-primary hover:text-primary disabled:opacity-60"
+              class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-600 transition-colors hover:border-primary hover:text-primary disabled:opacity-60"
               :disabled="matchesStore.loading"
               @click="fetchMatches"
             >
@@ -157,7 +157,7 @@ watch(detailVisible, (visible) => {
             </button>
             <button
               type="button"
-              class="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-600 transition-colors hover:border-primary hover:text-primary"
+              class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-600 transition-colors hover:border-primary hover:text-primary"
               @click="showParserInfo = true"
             >
               <el-icon><InfoFilled /></el-icon>
@@ -175,7 +175,7 @@ watch(detailVisible, (visible) => {
             type="button"
             class="min-h-11 rounded-xl px-4 text-sm font-black transition-colors"
             :class="activeScheduleTab === tab.key ? 'bg-primary text-white shadow-sm' : 'bg-gray-50 text-gray-500 hover:bg-gray-100 hover:text-slate-800'"
-            :aria-selected="activeScheduleTab === tab.key"
+            :aria-pressed="activeScheduleTab === tab.key"
             @click="activeScheduleTab = tab.key"
           >
             {{ tab.label }}

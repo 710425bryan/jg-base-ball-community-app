@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Search, Filter, Calendar, Plus, Trophy, Bell } from '@element-plus/icons-vue'
 import { useMatchesStore } from '@/stores/matches'
 import { usePermissionsStore } from '@/stores/permissions'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
+import AppActionOverflow from '@/components/common/AppActionOverflow.vue'
+import AppMobileFilterSheet from '@/components/common/AppMobileFilterSheet.vue'
 import MatchesGrid from '@/components/match-records/MatchesGrid.vue'
 import MatchesTable from '@/components/match-records/MatchesTable.vue'
 import MatchDetailDialog from '@/components/match-records/MatchDetailDialog.vue'
@@ -41,6 +43,7 @@ const createDefaultMonthRange = (): MonthRange => [
 ]
 
 const selectedMonthRange = ref<MonthRange>(createDefaultMonthRange())
+const isMobileFiltersOpen = ref(false)
 
 const selectedStartMonth = computed({
   get: () => selectedMonthRange.value[0],
@@ -64,9 +67,24 @@ const selectedEndMonth = computed({
   }
 })
 
-const hasAdvancedFilters = computed(() =>
-  Boolean(selectedGroup.value || selectedLevel.value || (selectedMonthRange.value[0] && selectedMonthRange.value[1]))
+const hasCustomMonthRange = computed(() => {
+  const defaultRange = createDefaultMonthRange()
+  return selectedMonthRange.value[0] !== defaultRange[0] || selectedMonthRange.value[1] !== defaultRange[1]
+})
+
+const activeAdvancedFilterCount = computed(() =>
+  Number(Boolean(selectedGroup.value))
+  + Number(Boolean(selectedLevel.value))
+  + Number(hasCustomMonthRange.value)
 )
+
+const hasAdvancedFilters = computed(() => activeAdvancedFilterCount.value > 0)
+
+const clearAdvancedFilters = () => {
+  selectedGroup.value = ''
+  selectedLevel.value = ''
+  selectedMonthRange.value = createDefaultMonthRange()
+}
 
 // Table vs Grid
 const viewMode = ref<'table' | 'grid'>('grid')
@@ -79,6 +97,20 @@ const reminderScheduleDialogVisible = ref(false)
 const selectedMatchId = ref<string | null>(null)
 const formMode = ref<'add' | 'edit'>('add')
 const notifyingMatchId = ref<string | null>(null)
+const stickyToolbarRef = ref<HTMLElement | null>(null)
+const stickyToolbarHeight = ref(0)
+let stickyToolbarResizeObserver: ResizeObserver | null = null
+
+const updateStickyToolbarHeight = () => {
+  const nextHeight = Math.ceil(stickyToolbarRef.value?.getBoundingClientRect().height ?? 0)
+  if (nextHeight !== stickyToolbarHeight.value) {
+    stickyToolbarHeight.value = nextHeight
+  }
+}
+
+const matchRecordsPageStyle = computed(() => ({
+  '--match-records-sticky-offset': `${stickyToolbarHeight.value}px`
+}))
 
 const canCreateMatches = computed(() => permissionsStore.can('matches', 'CREATE'))
 const canEditMatches = computed(() => permissionsStore.can('matches', 'EDIT'))
@@ -129,6 +161,19 @@ const initializeMatches = async () => {
 
 onMounted(() => {
   void initializeMatches()
+
+  updateStickyToolbarHeight()
+  window.addEventListener('resize', updateStickyToolbarHeight, { passive: true })
+
+  if (stickyToolbarRef.value && typeof ResizeObserver !== 'undefined') {
+    stickyToolbarResizeObserver = new ResizeObserver(updateStickyToolbarHeight)
+    stickyToolbarResizeObserver.observe(stickyToolbarRef.value)
+  }
+})
+
+onBeforeUnmount(() => {
+  stickyToolbarResizeObserver?.disconnect()
+  window.removeEventListener('resize', updateStickyToolbarHeight)
 })
 
 watch(
@@ -367,32 +412,55 @@ const handleNotifyMatch = async (id: string) => {
 </script>
 
 <template>
-  <div class="h-full flex flex-col pt-[env(safe-area-inset-top)] pb-[calc(1rem+env(safe-area-inset-bottom))] relative">
+  <div
+    class="min-h-full flex flex-col pt-[env(safe-area-inset-top)] pb-[calc(1rem+env(safe-area-inset-bottom))] relative"
+    :style="matchRecordsPageStyle"
+  >
     
     <!-- Sticky Toolbar -->
-    <div class="sticky top-0 z-20 bg-background/95 backdrop-blur-md pt-3 md:pt-4">
+    <div ref="stickyToolbarRef" class="sticky top-0 z-20 bg-background/95 backdrop-blur-md pt-3 md:pt-4">
       <div class="px-4 pb-0 md:px-6 flex flex-col lg:flex-row gap-4 lg:items-center justify-between">
-        <AppPageHeader
-          title="比賽紀錄"
-          subtitle="Match Records"
-          :icon="Trophy"
-        >
-          <template #actions>
-            <!-- Search -->
-            <div class="relative flex-1 sm:flex-none sm:min-w-[200px]">
+        <AppPageHeader title="比賽紀錄" subtitle="Match Records" :icon="Trophy" />
+
+        <div class="app-page-toolbar match-records-toolbar">
+            <div class="app-search-filter-bar md:hidden">
+              <el-input
+                v-model="searchQuery"
+                placeholder="搜尋比賽名稱、對手、地點..."
+                :prefix-icon="Search"
+                clearable
+                size="large"
+                class="app-search-control !rounded-xl"
+              />
+              <button
+                type="button"
+                class="app-mobile-filter-trigger"
+                aria-label="開啟比賽篩選"
+                title="開啟比賽篩選"
+                :aria-expanded="isMobileFiltersOpen"
+                @click="isMobileFiltersOpen = true"
+              >
+                <el-icon><Filter /></el-icon>
+                <span v-if="activeAdvancedFilterCount > 0" class="app-mobile-filter-badge">
+                  {{ activeAdvancedFilterCount }}
+                </span>
+              </button>
+            </div>
+
+            <div class="relative hidden min-w-0 flex-1 sm:min-w-[220px] md:block">
               <el-input
                 v-model="searchQuery"
                 placeholder="搜尋對手、地點、賽事..."
                 :prefix-icon="Search"
                 clearable
+                size="large"
                 class="w-full !rounded-xl"
               />
             </div>
 
-        <!-- Filter Popover -->
-        <el-popover placement="bottom" :width="280" trigger="click" popper-style="border-radius: 12px; padding: 16px;">
+          <el-popover placement="bottom" :width="280" trigger="click" popper-style="border-radius: 12px; padding: 16px;">
           <template #reference>
-            <el-button class="!rounded-xl px-3 bg-white hover:bg-gray-50 text-gray-700 border-gray-200">
+            <el-button class="!m-0 !hidden !h-11 !min-h-11 !rounded-xl px-4 bg-white hover:bg-gray-50 text-gray-700 border-gray-200 md:!inline-flex">
               <el-icon class="mr-1.5"><Filter /></el-icon>篩選
               <span v-if="hasAdvancedFilters" class="ml-1.5 w-2 h-2 rounded-full bg-primary"></span>
             </el-button>
@@ -437,34 +505,79 @@ const handleNotifyMatch = async (id: string) => {
               </div>
             </div>
           </div>
-        </el-popover>
+          </el-popover>
 
-        <ViewModeSwitch v-if="isListTab" v-model="viewMode" class="shrink-0" />
+          <ViewModeSwitch v-if="isListTab" v-model="viewMode" class="shrink-0" />
 
-        <!-- Tool Buttons -->
-        <div v-if="isListTab && (canSyncMatches || canCreateMatches || canManageReminderSchedule)" class="flex flex-wrap gap-2 w-full sm:w-auto mt-2 sm:mt-0">
-          <el-button v-if="canSyncMatches" @click="handleSyncCalendar" class="flex-1 sm:flex-none !rounded-xl text-gray-700 bg-white hover:bg-gray-50 border-gray-200">
-            <el-icon class="mr-1.5 text-blue-500"><Calendar /></el-icon>同步行事曆
-          </el-button>
+          <AppActionOverflow v-if="isListTab && (canSyncMatches || canManageReminderSchedule)">
+            <el-dropdown-item v-if="canSyncMatches" @click="handleSyncCalendar">
+              <el-icon class="mr-1.5 text-blue-500"><Calendar /></el-icon>同步行事曆
+            </el-dropdown-item>
+            <el-dropdown-item v-if="canManageReminderSchedule" @click="handleOpenReminderSchedule">
+              <el-icon class="mr-1.5 text-primary"><Bell /></el-icon>提醒排程
+            </el-dropdown-item>
+          </AppActionOverflow>
 
-          <el-button v-if="canManageReminderSchedule" @click="handleOpenReminderSchedule" class="flex-1 sm:flex-none !rounded-xl text-gray-700 bg-white hover:bg-gray-50 border-gray-200">
-            <el-icon class="mr-1.5 text-primary"><Bell /></el-icon>提醒排程
-          </el-button>
-          
-          <el-button v-if="canCreateMatches" @click="handleAddMatch" type="primary" class="flex-1 sm:flex-none !rounded-xl !bg-primary !border-primary hover:!bg-primary/90 !text-white shadow-sm shadow-primary/20 px-5 font-bold">
+          <el-button v-if="isListTab && canCreateMatches" @click="handleAddMatch" type="primary" class="!m-0 !h-11 !min-h-11 !rounded-xl !bg-primary !border-primary hover:!bg-primary/90 !text-white shadow-sm shadow-primary/20 px-5 font-bold">
             <el-icon class="mr-1.5 text-lg"><Plus /></el-icon>新增
           </el-button>
         </div>
-          </template>
-        </AppPageHeader>
     </div>
+
+    <AppMobileFilterSheet
+      v-model="isMobileFiltersOpen"
+      title="比賽篩選"
+      :active-count="activeAdvancedFilterCount"
+      :clear-disabled="!hasAdvancedFilters"
+      @clear="clearAdvancedFilters"
+    >
+      <div class="space-y-4">
+        <div>
+          <label class="mb-1.5 block text-sm font-bold text-slate-600">分組賽事</label>
+          <el-select v-model="selectedGroup" clearable placeholder="不限" size="large" class="w-full">
+            <el-option v-for="g in groups" :key="g" :label="g" :value="g" />
+          </el-select>
+        </div>
+        <div>
+          <label class="mb-1.5 block text-sm font-bold text-slate-600">賽事等級</label>
+          <el-select v-model="selectedLevel" clearable placeholder="不限" size="large" class="w-full">
+            <el-option v-for="l in levels" :key="l" :label="l" :value="l" />
+          </el-select>
+        </div>
+        <div>
+          <label class="mb-1.5 block text-sm font-bold text-slate-600">比賽月份</label>
+          <div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+            <el-date-picker
+              v-model="selectedStartMonth"
+              type="month"
+              format="YYYY-MM"
+              value-format="YYYY-MM"
+              placeholder="開始月份"
+              class="!w-full"
+              :clearable="false"
+            />
+            <span class="text-center text-sm font-bold text-slate-500">至</span>
+            <el-date-picker
+              v-model="selectedEndMonth"
+              type="month"
+              format="YYYY-MM"
+              value-format="YYYY-MM"
+              placeholder="結束月份"
+              class="!w-full"
+              :clearable="false"
+            />
+          </div>
+        </div>
+      </div>
+    </AppMobileFilterSheet>
       
     <!-- Modern Tabs under Sticky Header -->
     <div class="px-4 md:px-6 flex gap-6 mt-1 lg:mt-0 bg-white/50 backdrop-blur-sm shadow-[0_1px_0_0_#f3f4f6] overflow-x-auto">
       <button
         @click="activeMainTab = 'future'"
+        :aria-pressed="activeMainTab === 'future'"
         :class="[
-          'pb-3 pt-1 font-bold text-sm px-1 transition-colors relative whitespace-nowrap',
+          'min-h-11 pb-3 pt-1 font-bold text-sm px-1 transition-colors relative whitespace-nowrap',
           activeMainTab === 'future' ? 'text-primary' : 'text-gray-500 hover:text-gray-800'
         ]"
       >
@@ -473,8 +586,9 @@ const handleNotifyMatch = async (id: string) => {
       </button>
       <button
         @click="activeMainTab = 'past'"
+        :aria-pressed="activeMainTab === 'past'"
         :class="[
-          'pb-3 pt-1 font-bold text-sm px-1 transition-colors relative whitespace-nowrap',
+          'min-h-11 pb-3 pt-1 font-bold text-sm px-1 transition-colors relative whitespace-nowrap',
           activeMainTab === 'past' ? 'text-primary' : 'text-gray-500 hover:text-gray-800'
         ]"
       >
@@ -483,8 +597,9 @@ const handleNotifyMatch = async (id: string) => {
       </button>
       <button
         @click="activeMainTab = 'tournament_stats'"
+        :aria-pressed="activeMainTab === 'tournament_stats'"
         :class="[
-          'pb-3 pt-1 font-bold text-sm px-1 transition-colors relative whitespace-nowrap',
+          'min-h-11 pb-3 pt-1 font-bold text-sm px-1 transition-colors relative whitespace-nowrap',
           activeMainTab === 'tournament_stats' ? 'text-primary' : 'text-gray-500 hover:text-gray-800'
         ]"
       >
@@ -493,8 +608,9 @@ const handleNotifyMatch = async (id: string) => {
       </button>
       <button
         @click="activeMainTab = 'attendance'"
+        :aria-pressed="activeMainTab === 'attendance'"
         :class="[
-          'pb-3 pt-1 font-bold text-sm px-1 transition-colors relative whitespace-nowrap',
+          'min-h-11 pb-3 pt-1 font-bold text-sm px-1 transition-colors relative whitespace-nowrap',
           activeMainTab === 'attendance' ? 'text-primary' : 'text-gray-500 hover:text-gray-800'
         ]"
       >
@@ -506,7 +622,7 @@ const handleNotifyMatch = async (id: string) => {
     </div>
     
     <!-- Content Area -->
-    <div class="flex-1 overflow-y-auto p-4 md:p-6 pb-24" v-loading="matchesStore.loading">
+    <div class="min-h-0 flex-1 p-4 pb-5 md:p-6" v-loading="matchesStore.loading">
       
       <!-- Empty State -->
       <div v-if="isListTab && !matchesStore.loading && filteredMatches.length === 0" class="h-64 flex flex-col items-center justify-center text-center max-w-sm mx-auto">
@@ -566,5 +682,8 @@ const handleNotifyMatch = async (id: string) => {
 </template>
 
 <style scoped>
-/* Scoped overrides if necessary */
+.match-records-toolbar :deep(.el-input__wrapper) {
+  min-height: 44px;
+  border-radius: 0.75rem;
+}
 </style>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Delete,
@@ -15,7 +15,9 @@ import {
 } from '@element-plus/icons-vue'
 import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
+import AppActionOverflow from '@/components/common/AppActionOverflow.vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
+import AppMobileFilterSheet from '@/components/common/AppMobileFilterSheet.vue'
 import VendorFormDialog from '@/components/vendors/VendorFormDialog.vue'
 import VendorPhotoGallery from '@/components/vendors/VendorPhotoGallery.vue'
 import { usePermissionsStore } from '@/stores/permissions'
@@ -36,8 +38,9 @@ const viewMode = ref<'grid' | 'table'>('table')
 const isMobileFiltersOpen = ref(false)
 const isFormDialogOpen = ref(false)
 const editingVendor = ref<Vendor | null>(null)
-const scrollContainerRef = ref<HTMLElement | null>(null)
+const loadMoreSentinelRef = ref<HTMLElement | null>(null)
 let filterReloadTimer: ReturnType<typeof setTimeout> | null = null
+let loadMoreObserver: IntersectionObserver | null = null
 
 const canCreate = computed(() => permissionsStore.can('vendors', 'CREATE'))
 const canEdit = computed(() => permissionsStore.can('vendors', 'EDIT'))
@@ -61,9 +64,7 @@ const groupedVendors = computed(() => groupVendorsByCategory(visibleVendors.valu
 const hasActiveFilters = computed(() =>
   searchKeyword.value.trim().length > 0 || selectedCategory.value !== ALL_VENDOR_CATEGORIES
 )
-const mobileFilterLabel = computed(() =>
-  selectedCategory.value === ALL_VENDOR_CATEGORIES ? '篩選' : selectedCategory.value
-)
+const activeAdvancedFilterCount = computed(() => Number(selectedCategory.value !== ALL_VENDOR_CATEGORIES))
 const summary = computed(() => ({
   total: vendorsStore.total,
   categories: categoryOptions.value.length - 1,
@@ -76,10 +77,13 @@ const clearFilters = () => {
   isMobileFiltersOpen.value = false
 }
 
+const clearAdvancedFilters = () => {
+  selectedCategory.value = ALL_VENDOR_CATEGORIES
+}
+
 const resetScrollPosition = () => {
-  if (scrollContainerRef.value) {
-    scrollContainerRef.value.scrollTop = 0
-  }
+  const mainScroll = loadMoreSentinelRef.value?.closest<HTMLElement>('.app-main-scroll')
+  if (mainScroll) mainScroll.scrollTop = 0
 }
 
 const formatDate = (value?: string | null) => {
@@ -131,6 +135,7 @@ const refresh = async () => {
       filters: currentFilters.value
     })
     resetScrollPosition()
+    void observeLoadMoreSentinel()
   } catch (error: any) {
     ElMessage.error(error?.message || '無法載入廠商資料')
   }
@@ -151,38 +156,47 @@ const loadMoreVendors = async () => {
 
   try {
     await vendorsStore.loadNextVendors()
+    void observeLoadMoreSentinel()
   } catch (error: any) {
     ElMessage.error(error?.message || '無法載入更多廠商')
   }
 }
 
-const handleListScroll = (event: Event) => {
-  const target = event.currentTarget as HTMLElement | null
-  if (!target) return
+const observeLoadMoreSentinel = async () => {
+  await nextTick()
+  loadMoreObserver?.disconnect()
 
-  const distanceToBottom = target.scrollHeight - target.scrollTop - target.clientHeight
-  if (distanceToBottom < 360) {
-    void loadMoreVendors()
-  }
+  const sentinel = loadMoreSentinelRef.value
+  if (!sentinel || typeof IntersectionObserver === 'undefined') return
+
+  const mainScroll = sentinel.closest<HTMLElement>('.app-main-scroll')
+  loadMoreObserver = new IntersectionObserver((entries) => {
+    if (entries.some((entry) => entry.isIntersecting)) void loadMoreVendors()
+  }, {
+    root: mainScroll,
+    rootMargin: '360px 0px'
+  })
+  loadMoreObserver.observe(sentinel)
 }
 
 watch([searchKeyword, selectedCategory], () => {
   scheduleFilterReload()
 })
 
-onMounted(() => {
-  void refresh()
+onMounted(async () => {
+  await refresh()
 })
 
 onBeforeUnmount(() => {
   if (filterReloadTimer) {
     clearTimeout(filterReloadTimer)
   }
+  loadMoreObserver?.disconnect()
 })
 </script>
 
 <template>
-  <div class="h-full flex flex-col relative animate-fade-in bg-gray-50 text-text overflow-hidden">
+  <div class="min-h-full flex flex-col relative animate-fade-in bg-gray-50 text-text">
     <div class="bg-white px-3 py-3 md:px-6 md:py-4 border-b border-gray-200 shadow-sm shrink-0 z-10">
       <div class="max-w-7xl mx-auto flex flex-col gap-3 md:gap-4">
         <AppPageHeader
@@ -205,7 +219,7 @@ onBeforeUnmount(() => {
             <button
               v-if="canCreate"
               type="button"
-              class="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-primary px-3 text-sm font-bold text-white transition-colors hover:bg-primary-hover md:px-5"
+              class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-3 text-sm font-bold text-white transition-colors hover:bg-primary-hover md:px-5"
               @click="openCreateDialog"
             >
               <el-icon><Plus /></el-icon>
@@ -231,16 +245,18 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-          <div class="flex gap-2 md:grid md:grid-cols-[minmax(0,1fr)_220px] lg:min-w-[560px]">
-            <el-input v-model="searchKeyword" size="large" clearable placeholder="搜尋廠商、類別、聯絡人、電話或地址" />
+          <div class="app-search-filter-bar md:grid-cols-[minmax(0,1fr)_220px] lg:min-w-[560px]">
+            <el-input v-model="searchKeyword" size="large" clearable class="app-search-control" placeholder="搜尋廠商、類別、聯絡人、電話或地址" />
             <button
               type="button"
-              class="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-2xl border px-3 text-sm font-bold transition-colors md:hidden"
-              :class="hasActiveFilters ? 'border-primary/30 bg-primary/5 text-primary' : 'border-gray-200 bg-white text-gray-600'"
-              @click="isMobileFiltersOpen = !isMobileFiltersOpen"
+              class="app-mobile-filter-trigger md:hidden"
+              aria-label="開啟廠商篩選"
+              title="開啟廠商篩選"
+              :aria-expanded="isMobileFiltersOpen"
+              @click="isMobileFiltersOpen = true"
             >
               <el-icon><Filter /></el-icon>
-              <span class="max-w-[4.5rem] truncate">{{ mobileFilterLabel }}</span>
+              <span v-if="activeAdvancedFilterCount > 0" class="app-mobile-filter-badge">{{ activeAdvancedFilterCount }}</span>
             </button>
             <el-select v-model="selectedCategory" size="large" class="hidden w-full md:block">
               <el-option
@@ -256,35 +272,42 @@ onBeforeUnmount(() => {
 
           <div class="flex items-center justify-between text-xs font-bold text-gray-400 md:hidden">
             <span>顯示 {{ visibleVendors.length }} / {{ summary.total }}</span>
-            <button v-if="hasActiveFilters" type="button" class="text-primary" @click="clearFilters">清除篩選</button>
+            <button v-if="hasActiveFilters" type="button" class="min-h-11 rounded-xl px-3 text-primary hover:bg-orange-50" @click="clearFilters">清除篩選</button>
           </div>
 
-          <div
-            v-show="isMobileFiltersOpen"
-            class="grid gap-2 rounded-2xl border border-gray-100 bg-gray-50 p-2 md:hidden"
-          >
-            <el-select v-model="selectedCategory" size="large" class="w-full" @change="isMobileFiltersOpen = false">
-              <el-option
-                v-for="category in categoryOptions"
-                :key="category"
-                :label="category === ALL_VENDOR_CATEGORIES ? '全部類別' : category"
-                :value="category"
-              />
-            </el-select>
-            <div class="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2">
-              <span class="text-xs font-bold text-gray-400">顯示模式</span>
-              <ViewModeSwitch v-model="viewMode" grid-label="卡片" table-label="表格" />
-            </div>
-          </div>
         </div>
       </div>
     </div>
 
-    <div
-      ref="scrollContainerRef"
-      class="flex-1 overflow-y-auto min-h-0 p-3 md:p-6 pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:pb-6 custom-scrollbar"
-      @scroll="handleListScroll"
+    <AppMobileFilterSheet
+      v-model="isMobileFiltersOpen"
+      title="廠商篩選"
+      :active-count="activeAdvancedFilterCount"
+      :clear-disabled="activeAdvancedFilterCount === 0"
+      @clear="clearAdvancedFilters"
     >
+      <div class="space-y-4">
+        <div>
+          <label class="mb-1.5 block text-sm font-bold text-slate-600">交易分類</label>
+          <el-select v-model="selectedCategory" size="large" class="w-full">
+            <el-option
+              v-for="category in categoryOptions"
+              :key="category"
+              :label="category === ALL_VENDOR_CATEGORIES ? '全部類別' : category"
+              :value="category"
+            />
+          </el-select>
+        </div>
+        <div>
+          <label class="mb-1.5 block text-sm font-bold text-slate-600">顯示方式</label>
+          <div class="rounded-xl border border-slate-200 bg-white p-2">
+            <ViewModeSwitch v-model="viewMode" grid-label="卡片" table-label="表格" />
+          </div>
+        </div>
+      </div>
+    </AppMobileFilterSheet>
+
+    <div class="min-h-0 flex-1 p-3 pb-5 md:p-6 md:pb-6">
       <div class="max-w-7xl mx-auto">
         <AppLoadingState v-if="vendorsStore.isLoading" text="廠商資料載入中..." />
 
@@ -350,27 +373,15 @@ onBeforeUnmount(() => {
                       :href="normalizeExternalUrl(vendor.website_url)"
                       target="_blank"
                       rel="noopener noreferrer"
-                      class="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-sky-100 bg-sky-50 px-3 py-2 text-sm font-bold text-sky-700 transition-colors hover:bg-sky-100"
+                      class="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-sky-100 bg-sky-50 px-3 py-2 text-sm font-bold text-sky-700 transition-colors hover:bg-sky-100"
                     >
                       <el-icon><Link /></el-icon>
                       官網
                     </a>
-                    <button
-                      v-if="canEdit"
-                      type="button"
-                      class="rounded-xl border border-gray-200 px-3 py-2 text-sm font-bold text-gray-600 transition-colors hover:border-primary hover:text-primary"
-                      @click="openEditDialog(vendor)"
-                    >
-                      編輯
-                    </button>
-                    <button
-                      v-if="canDelete"
-                      type="button"
-                      class="rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-sm font-bold text-red-500 transition-colors hover:bg-red-100"
-                      @click="removeVendor(vendor)"
-                    >
-                      刪除
-                    </button>
+                    <AppActionOverflow v-if="canEdit || canDelete">
+                      <el-dropdown-item v-if="canEdit" @click="openEditDialog(vendor)">編輯</el-dropdown-item>
+                      <el-dropdown-item v-if="canDelete" class="!text-red-600" @click="removeVendor(vendor)">刪除</el-dropdown-item>
+                    </AppActionOverflow>
                   </div>
                 </div>
               </article>
@@ -438,7 +449,8 @@ onBeforeUnmount(() => {
                           <button
                             v-if="canEdit"
                             type="button"
-                            class="rounded-xl border border-gray-200 px-3 py-2 text-sm font-bold text-gray-600 transition-colors hover:border-primary hover:text-primary"
+                            class="app-icon-button border border-gray-200 text-gray-600 transition-colors hover:border-primary hover:text-primary"
+                            aria-label="編輯廠商"
                             title="編輯"
                             @click="openEditDialog(vendor)"
                           >
@@ -447,7 +459,8 @@ onBeforeUnmount(() => {
                           <button
                             v-if="canDelete"
                             type="button"
-                            class="rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-sm font-bold text-red-500 transition-colors hover:bg-red-100"
+                            class="app-icon-button border border-red-100 bg-red-50 text-red-500 transition-colors hover:bg-red-100"
+                            aria-label="刪除廠商"
                             title="刪除"
                             @click="removeVendor(vendor)"
                           >
@@ -462,7 +475,7 @@ onBeforeUnmount(() => {
             </section>
           </section>
 
-          <div class="flex justify-center py-2">
+          <div ref="loadMoreSentinelRef" class="flex justify-center py-2">
             <span v-if="vendorsStore.isLoadingMore" class="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-gray-500 shadow-sm">
               <el-icon class="is-loading"><Refresh /></el-icon>
               載入更多廠商

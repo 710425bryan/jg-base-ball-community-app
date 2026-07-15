@@ -155,7 +155,15 @@
           </div>
           
           <!-- Mobile Hamburger -->
-          <button @click="isMobileMenuOpen = !isMobileMenuOpen" class="ml-1 rounded-lg p-1 text-gray-600 transition-colors hover:text-primary focus:outline-none lg:hidden sm:ml-2">
+          <button
+            type="button"
+            class="ml-1 inline-flex h-11 w-11 items-center justify-center rounded-lg text-gray-600 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:hidden sm:ml-2"
+            aria-label="開啟更多導覽"
+            title="更多導覽"
+            aria-controls="mobile-app-menu"
+            :aria-expanded="isMobileMenuOpen"
+            @click="isMobileMenuOpen = !isMobileMenuOpen"
+          >
             <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
@@ -184,6 +192,7 @@
     <!-- Mobile Hamburger Menu (Dropdown/Overlay) -->
     <div
       v-if="isMobileMenuOpen"
+      id="mobile-app-menu"
       class="lg:hidden absolute left-0 w-full overflow-y-auto bg-white border-b border-gray-100 z-40 shadow-xl animate-fade-in-down"
       :style="mobileMenuStyle"
     >
@@ -300,7 +309,7 @@
     </div>
 
     <!-- Main Content Area -->
-    <main class="flex-1 min-h-0 relative flex flex-col bg-background overflow-y-auto w-full">
+    <main class="app-main-scroll flex-1 min-h-0 relative bg-background overflow-x-hidden overflow-y-auto w-full">
       <router-view />
     </main>
 
@@ -308,26 +317,26 @@
 
     <!-- Bottom Menu (Mobile Only) -->
     <nav class="mobile-bottom-nav md:hidden flex-none w-full bg-white border-t border-gray-200 z-50 text-[13px] text-gray-500 pb-[env(safe-area-inset-bottom)] shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
-      <div class="grid grid-cols-5 items-center pt-2 h-[4.5rem]">
-      <router-link to="/dashboard" @click="isMobileMenuOpen = false" class="mobile-bottom-nav-item flex flex-col items-center justify-center p-1 hover:text-primary transition-colors shrink-0">
+      <div class="grid h-[4.5rem] grid-cols-5 items-center pt-2">
+      <router-link to="/dashboard" @click="isMobileMenuOpen = false" class="mobile-bottom-nav-item flex h-full flex-col items-center justify-center p-1 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
         </svg>
         <span class="font-bold tracking-wide">大廳</span>
       </router-link>
-      <router-link :to="mobileSchedulePath" @click="isMobileMenuOpen = false" class="mobile-bottom-nav-item flex flex-col items-center justify-center p-1 hover:text-primary transition-colors shrink-0">
+      <router-link :to="mobileSchedulePath" @click="isMobileMenuOpen = false" class="mobile-bottom-nav-item flex h-full flex-col items-center justify-center p-1 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
         <span class="font-bold tracking-wide">賽程</span>
       </router-link>
-      <router-link to="/my-leave-requests" @click="isMobileMenuOpen = false" class="mobile-bottom-nav-item flex flex-col items-center justify-center p-1 hover:text-primary transition-colors shrink-0">
+      <router-link to="/my-leave-requests" @click="isMobileMenuOpen = false" class="mobile-bottom-nav-item flex h-full flex-col items-center justify-center p-1 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
         <span class="font-bold tracking-wide">請假</span>
       </router-link>
-      <router-link to="/my-payments" @click="isMobileMenuOpen = false" class="mobile-bottom-nav-item flex flex-col items-center justify-center p-1 hover:text-primary transition-colors shrink-0">
+      <router-link to="/my-payments" @click="isMobileMenuOpen = false" class="mobile-bottom-nav-item flex h-full flex-col items-center justify-center p-1 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-2.21 0-4 .895-4 2s1.79 2 4 2 4 .895 4 2-1.79 2-4 2m0-10c1.742 0 3.224.554 3.775 1.333M12 8V6m0 2v2m0 4v2m0-2c-1.742 0-3.224-.554-3.775-1.333M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
@@ -335,8 +344,12 @@
       </router-link>
       <button
         type="button"
-        class="mobile-bottom-nav-item flex flex-col items-center justify-center p-1 transition-colors shrink-0"
+        class="mobile-bottom-nav-item flex h-full flex-col items-center justify-center p-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
         :class="isMobileMenuOpen ? 'text-primary' : 'hover:text-primary'"
+        aria-label="開啟更多導覽"
+        title="更多導覽"
+        aria-controls="mobile-app-menu"
+        :aria-expanded="isMobileMenuOpen"
         @click="isMobileMenuOpen = !isMobileMenuOpen"
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">

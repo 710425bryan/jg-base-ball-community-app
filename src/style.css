@@ -37,7 +37,7 @@ body {
   overscroll-behavior-y: none; /* Prevent elastic scroll pull-down revealing background */
 }
 
-@media (max-width: 639px) {
+@media (max-width: 767px) {
   html,
   body,
   #app {
@@ -87,6 +87,130 @@ body {
   .app-page-header-actions {
     @apply flex w-full flex-wrap items-center gap-2 md:w-auto md:justify-end;
   }
+
+  .app-page-toolbar {
+    @apply flex w-full min-w-0 flex-wrap items-center gap-2;
+  }
+
+  .app-search-filter-bar {
+    @apply grid w-full min-w-0 grid-cols-[minmax(0,1fr)_44px] items-center gap-2;
+  }
+
+  .app-search-control {
+    @apply min-w-0 w-full;
+  }
+
+  .app-mobile-filter-trigger {
+    @apply relative inline-flex h-11 min-h-11 w-11 min-w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-colors hover:border-primary hover:text-primary active:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2;
+  }
+
+  .app-mobile-filter-badge {
+    @apply absolute -right-1 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-primary px-1 text-[10px] font-black leading-none text-white;
+  }
+
+  .app-icon-button {
+    @apply inline-flex h-11 min-h-11 w-11 min-w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-colors hover:border-primary hover:text-primary active:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2;
+  }
+
+  .app-dialog-footer {
+    @apply flex w-full min-w-0 flex-col gap-2 md:flex-row md:items-center md:justify-between;
+  }
+
+  .app-dialog-footer-leading {
+    @apply flex w-full min-w-0 items-center md:mr-auto md:w-auto;
+  }
+
+  .app-dialog-footer-actions {
+    @apply grid w-full min-w-0 grid-cols-2 gap-2 md:ml-auto md:flex md:w-auto md:justify-end;
+  }
+
+  .app-dialog-footer-actions--single {
+    @apply grid-cols-1;
+  }
+
+  .app-dialog-footer-button {
+    @apply !m-0 !min-h-11 !w-full !rounded-xl !px-4 !font-bold md:!w-auto;
+  }
+}
+
+.app-main-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+}
+
+.app-mobile-filter-overlay {
+  overscroll-behavior: contain;
+}
+
+.app-mobile-filter-sheet.el-drawer {
+  border-radius: 24px 24px 0 0;
+  height: auto !important;
+  max-height: min(82dvh, 42rem);
+  overflow: hidden;
+}
+
+.app-mobile-filter-sheet.el-drawer .el-drawer__body {
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.app-mobile-filter-sheet__layout {
+  display: flex;
+  height: 100%;
+  max-height: min(82dvh, 42rem);
+  min-height: 0;
+  flex-direction: column;
+}
+
+.app-mobile-filter-sheet__handle {
+  width: 2.5rem;
+  height: 0.25rem;
+  margin: 0.5rem auto 0;
+  flex: none;
+  border-radius: 9999px;
+  background: #cbd5e1;
+}
+
+.app-mobile-filter-sheet__header {
+  display: flex;
+  min-height: 4rem;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 0.625rem max(0.75rem, env(safe-area-inset-right)) 0.625rem max(0.75rem, env(safe-area-inset-left));
+}
+
+.app-mobile-filter-sheet__body {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.75rem max(0.75rem, env(safe-area-inset-right)) 1rem max(0.75rem, env(safe-area-inset-left));
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+.app-mobile-filter-sheet__footer {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  flex: none;
+  border-top: 1px solid #e2e8f0;
+  background: white;
+  padding: 0.75rem max(0.75rem, env(safe-area-inset-right)) calc(0.75rem + env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
+}
+
+.app-mobile-filter-sheet__button.el-button {
+  margin: 0;
+  min-height: 44px;
+  width: 100%;
+  border-radius: 12px;
+  font-weight: 700;
 }
 
 /* Readable text mode
@@ -205,6 +329,31 @@ html.app-readable-text-mode :where(.el-select-dropdown__item, .el-dropdown-menu_
   min-height: 52px !important;
   font-size: 1.0625rem !important;
   line-height: 1.35 !important;
+}
+
+@media (max-width: 767px) {
+  #app main :where(button:not(.el-switch__core), [role="button"], .el-button) {
+    min-height: 44px;
+  }
+
+  #app :where(.el-input__wrapper, .el-select__wrapper, .el-date-editor.el-input, .el-date-editor.el-input__wrapper) {
+    min-height: 44px !important;
+  }
+
+  #app :where(.el-input__inner, .el-select__placeholder, .el-select__selected-item, .el-textarea__inner, .el-input-number .el-input__inner) {
+    font-size: 16px !important;
+  }
+
+  .el-select-dropdown__item,
+  .el-dropdown-menu__item,
+  .el-cascader-node,
+  .el-autocomplete-suggestion li {
+    min-height: 44px !important;
+  }
+
+  #app .mobile-bottom-nav-item {
+    min-height: 44px;
+  }
 }
 
 @media (max-width: 639px) {
@@ -379,7 +528,7 @@ html {
 /* Mobile Dialog Standard
    All Element Plus dialogs use a full-screen layout on phones, with controls
    padded away from iOS notches and home indicators. */
-@media (max-width: 639px) {
+@media (max-width: 767px) {
   .el-overlay-dialog {
     overflow: hidden !important;
     overflow-x: hidden !important;
@@ -454,6 +603,20 @@ html {
     padding-bottom: calc(16px + env(safe-area-inset-bottom)) !important;
     padding-left: calc(16px + env(safe-area-inset-left)) !important;
     padding-right: calc(16px + env(safe-area-inset-right)) !important;
+  }
+
+  .el-overlay-dialog > .el-dialog .el-dialog__footer > :is(div, section):not(.app-dialog-footer) {
+    display: flex !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  .el-overlay-dialog > .el-dialog .el-dialog__footer > :is(div, section):not(.app-dialog-footer) > :is(button, .el-button) {
+    flex: 1 1 0 !important;
+    margin: 0 !important;
+    min-height: 44px !important;
+    min-width: 0 !important;
+    border-radius: 12px !important;
   }
 
   .mobile-dialog-safe-top-actions {

@@ -1,5 +1,5 @@
 <template>
-  <div class="players-view-page h-full flex flex-col relative animate-fade-in p-2 md:p-6 pb-0 md:pb-6 bg-background text-text overflow-hidden">
+  <div class="players-view-page min-h-full flex flex-col relative animate-fade-in p-2 md:p-6 pb-5 md:pb-6 bg-background text-text">
     <!-- 頂部標題與操作區 -->
     <div class="flex flex-col xl:flex-row justify-between xl:items-center mb-5 gap-4 shrink-0 players-page-header">
       <div class="shrink-0">
@@ -12,8 +12,30 @@
       </div>
       
       <div class="players-toolbar bg-white/90 border border-slate-200 rounded-lg shadow-sm p-2 flex flex-wrap items-center gap-2 xl:justify-end w-full xl:w-auto">
+        <div class="app-search-filter-bar md:hidden">
+          <el-input
+            v-model="searchQuery"
+            placeholder="搜尋姓名或學校..."
+            :prefix-icon="Search"
+            clearable
+            size="large"
+            class="app-search-control"
+          />
+          <button
+            type="button"
+            class="app-mobile-filter-trigger"
+            aria-label="開啟球員篩選"
+            title="開啟球員篩選"
+            :aria-expanded="isMobileFiltersOpen"
+            @click="isMobileFiltersOpen = true"
+          >
+            <el-icon><Filter /></el-icon>
+            <span v-if="activeAdvancedFilterCount > 0" class="app-mobile-filter-badge">{{ activeAdvancedFilterCount }}</span>
+          </button>
+        </div>
+
         <!-- 狀態、年齡與所屬群組過濾 -->
-        <div class="players-toolbar-filters w-full sm:w-auto flex flex-wrap items-center gap-2 shrink-0">
+        <div class="players-toolbar-filters hidden w-full flex-wrap items-center gap-2 shrink-0 md:flex md:w-auto">
           <el-select v-model="filterStatus" class="w-24" size="default" placeholder="狀態">
             <el-option label="全狀態" value="全部" />
             <el-option label="在隊" value="在隊" />
@@ -31,7 +53,7 @@
         </div>
 
         <!-- 搜尋列 -->
-        <div class="players-search-field w-full sm:w-auto flex-1 min-w-[180px] max-w-md transition-all duration-300">
+        <div class="players-search-field hidden w-full flex-1 min-w-[180px] max-w-md transition-all duration-300 md:block md:w-auto">
           <el-input
             v-model="searchQuery"
             placeholder="搜尋姓名或學校..."
@@ -41,35 +63,58 @@
         </div>
 
         <!-- 切換顯示模式 -->
-        <div class="players-view-switch bg-slate-100 p-1 rounded-lg flex items-center shrink-0">
-          <button @click="viewMode = 'grid'" :class="['px-3 py-2 rounded-md text-sm font-bold transition-all flex items-center gap-1.5 min-h-10', viewMode === 'grid' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700']">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
-            <span class="hidden sm:inline">卡片</span>
-          </button>
-          <button @click="viewMode = 'table'" :class="['px-3 py-2 rounded-md text-sm font-bold transition-all flex items-center gap-1.5 min-h-10', viewMode === 'table' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700']">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
-            <span class="hidden sm:inline">表格</span>
-          </button>
-        </div>
-        <button v-if="canEditPlayers" @click="openPlayerExportDialog" class="players-toolbar-button bg-white hover:bg-slate-50 active:scale-95 text-slate-700 border border-slate-200 px-4 py-2.5 min-h-10 rounded-lg shadow-sm text-sm font-bold transition-all flex items-center gap-2">
-          <el-icon class="text-primary"><Download /></el-icon>
-          <span class="hidden sm:inline">下載比賽資料</span>
-        </button>
-        <button v-if="canManageTeamGroups" @click="openTeamGroupSettingsDialog" class="players-toolbar-button bg-white hover:bg-slate-50 active:scale-95 text-slate-700 border border-slate-200 px-4 py-2.5 min-h-10 rounded-lg shadow-sm text-sm font-bold transition-all flex items-center gap-2">
-          <el-icon class="text-primary"><Setting /></el-icon>
-          <span class="hidden sm:inline">群組設定</span>
-        </button>
-        <button v-if="canEditPlayers" @click="syncFromGoogleSheet" :disabled="isSyncing" class="players-toolbar-button bg-[#ca8a04] hover:bg-[#a16207] active:scale-95 text-white px-4 py-2.5 min-h-10 rounded-lg shadow-sm text-sm font-bold transition-all flex items-center gap-2 disabled:opacity-70">
-          <el-icon v-if="isSyncing" class="is-loading"><Loading /></el-icon>
-          <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg>
-          <span class="hidden sm:inline">同步表單</span>
-        </button>
-        <button v-if="canCreatePlayers" @click="openCreateModal()" class="players-toolbar-button bg-primary hover:bg-primary-hover active:scale-95 text-white px-4 py-2.5 min-h-10 rounded-lg shadow-sm text-sm font-bold transition-all flex items-center gap-2">
+        <ViewModeSwitch v-model="viewMode" class="shrink-0" />
+        <AppActionOverflow v-if="canEditPlayers || canManageTeamGroups">
+          <el-dropdown-item v-if="canEditPlayers" @click="openPlayerExportDialog">
+            <el-icon><Download /></el-icon>下載比賽資料
+          </el-dropdown-item>
+          <el-dropdown-item v-if="canManageTeamGroups" @click="openTeamGroupSettingsDialog">
+            <el-icon><Setting /></el-icon>群組設定
+          </el-dropdown-item>
+          <el-dropdown-item v-if="canEditPlayers" :disabled="isSyncing" @click="syncFromGoogleSheet">
+            <el-icon :class="{ 'is-loading': isSyncing }"><Loading /></el-icon>{{ isSyncing ? '同步中' : '同步表單' }}
+          </el-dropdown-item>
+        </AppActionOverflow>
+        <button v-if="canCreatePlayers" @click="openCreateModal()" class="players-toolbar-button flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-primary-hover active:scale-95">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
           <span class="hidden sm:inline">新增成員</span>
         </button>
       </div>
     </div>
+
+    <AppMobileFilterSheet
+      v-model="isMobileFiltersOpen"
+      title="球員篩選"
+      :active-count="activeAdvancedFilterCount"
+      :clear-disabled="activeAdvancedFilterCount === 0"
+      @clear="clearAdvancedFilters"
+    >
+      <div class="space-y-4">
+        <div>
+          <label class="mb-1.5 block text-sm font-bold text-slate-600">名單狀態</label>
+          <el-select v-model="filterStatus" size="large" class="w-full">
+            <el-option label="全部" value="全部" />
+            <el-option label="在隊" value="在隊" />
+            <el-option label="退隊" value="退隊" />
+          </el-select>
+        </div>
+        <div>
+          <label class="mb-1.5 block text-sm font-bold text-slate-600">年齡組</label>
+          <el-select v-model="filterULevel" size="large" class="w-full">
+            <el-option label="全部年齡組" value="全部" />
+            <el-option v-for="level in uLevelFilterOptions" :key="level" :label="level" :value="level" />
+          </el-select>
+        </div>
+        <div>
+          <label class="mb-1.5 block text-sm font-bold text-slate-600">所屬群組</label>
+          <el-select v-model="filterMemberGroup" size="large" class="w-full">
+            <el-option label="全部群組" value="全部" />
+            <el-option label="教練" value="教練" />
+            <el-option v-for="option in teamGroupOptions" :key="option.value" :label="option.label" :value="option.value" />
+          </el-select>
+        </div>
+      </div>
+    </AppMobileFilterSheet>
 
     <!-- 頁籤與過濾區 -->
     <div class="player-tabs-shell mb-4 shrink-0 bg-white/80 border border-slate-200 rounded-lg p-1 shadow-sm">
@@ -82,7 +127,7 @@
     </div>
 
     <!-- 內容展示區 -->
-    <div class="players-content flex-1 overflow-y-auto min-h-0 pb-4 relative custom-scrollbar pr-2" v-loading="isLoading" element-loading-background="rgba(255, 255, 255, 0.8)">
+    <div class="players-content relative min-h-0 flex-1 pb-5 pr-2" v-loading="isLoading" element-loading-background="rgba(255, 255, 255, 0.8)">
       <div v-if="filteredMembers.length === 0 && !isLoading" class="flex flex-col justify-center items-center h-full text-slate-500 bg-white/80 border border-dashed border-slate-200 rounded-lg">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
         <span class="font-bold text-lg tracking-widest">NO DATA</span>
@@ -744,8 +789,11 @@ import { usePermissionsStore } from '@/stores/permissions'
 import { usePlayerRosterStore } from '@/stores/playerRoster'
 import { useTeamGroupsStore } from '@/stores/teamGroups'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Baseball, Loading, InfoFilled, Search, Download, Setting } from '@element-plus/icons-vue'
+import { Baseball, Loading, InfoFilled, Search, Download, Setting, Filter } from '@element-plus/icons-vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
+import AppActionOverflow from '@/components/common/AppActionOverflow.vue'
+import AppMobileFilterSheet from '@/components/common/AppMobileFilterSheet.vue'
+import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
 import PreviewableImage from '@/components/common/PreviewableImage.vue'
 import TeamGroupSettingsDialog from '@/components/players/TeamGroupSettingsDialog.vue'
 import { downloadUtf8BomCsv } from '@/utils/csvExport'
@@ -861,6 +909,17 @@ const searchQuery = ref('')
 const filterStatus = ref('在隊')
 const filterULevel = ref('全部')
 const filterMemberGroup = ref('全部')
+const isMobileFiltersOpen = ref(false)
+const activeAdvancedFilterCount = computed(() =>
+  Number(filterStatus.value !== '在隊')
+  + Number(filterULevel.value !== '全部')
+  + Number(filterMemberGroup.value !== '全部')
+)
+const clearAdvancedFilters = () => {
+  filterStatus.value = '在隊'
+  filterULevel.value = '全部'
+  filterMemberGroup.value = '全部'
+}
 
 const isSiblingEligibleRole = isTeamGroupEligibleRole
 const isFixedMonthlyMember = (member: any) => isFixedMonthlyBillingMember(member)
@@ -2574,12 +2633,7 @@ onMounted(() => {
     width: 100%;
   }
   .players-toolbar-filters {
-    display: grid;
-    grid-template-columns: minmax(0, 0.9fr) minmax(0, 0.9fr) minmax(0, 1.35fr);
-    gap: 0.375rem;
-  }
-  .players-toolbar-filters .el-select {
-    width: 100% !important;
+    display: none;
   }
   .players-toolbar .el-input__wrapper,
   .players-toolbar .el-select__wrapper {

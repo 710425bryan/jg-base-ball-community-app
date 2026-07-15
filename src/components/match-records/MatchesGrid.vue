@@ -130,7 +130,7 @@ const copyMatchInfo = (match: MatchRecord) => {
 <template>
   <div class="space-y-6">
     <div v-for="group in groupedMatches" :key="group.month" class="animate-fade-in">
-      <div class="sticky top-0 z-20 -mx-4 mb-3 flex items-center gap-3 bg-background/95 px-4 py-2.5 shadow-[0_1px_0_0_#e2e8f0] backdrop-blur-md md:-mx-6 md:px-6">
+      <div class="match-month-heading sticky z-10 -mx-4 mb-3 flex items-center gap-3 bg-background/95 px-4 py-2.5 shadow-[0_1px_0_0_#e2e8f0] backdrop-blur-md md:-mx-6 md:px-6">
         <h2 class="text-base font-black text-slate-800 md:text-lg">{{ group.month }}</h2>
         <div class="h-px flex-1 bg-slate-200"></div>
         <span class="rounded-full bg-slate-800 px-2 py-0.5 text-[11px] font-bold text-white">{{ group.items.length }} 場</span>
@@ -270,6 +270,10 @@ const copyMatchInfo = (match: MatchRecord) => {
 </template>
 
 <style scoped>
+.match-month-heading {
+  top: var(--match-records-sticky-offset, 0px);
+}
+
 .animate-fade-in {
   animation: fadeIn 0.4s ease-out;
 }

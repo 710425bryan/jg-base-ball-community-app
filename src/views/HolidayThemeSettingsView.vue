@@ -816,14 +816,14 @@ onMounted(async () => {
           :icon="StarFilled"
         >
           <template #actions>
-            <el-button :loading="isLoading" class="rounded-full px-5" plain @click="loadConfig">
+            <el-button :loading="isLoading" class="!min-h-11 !rounded-xl px-5" plain @click="loadConfig">
               <el-icon class="mr-1"><Refresh /></el-icon>
               {{ TEXTS.reload }}
             </el-button>
             <el-button
               v-if="canEditHolidayTheme"
               type="primary"
-              class="rounded-full px-6"
+              class="!min-h-11 !rounded-xl px-6"
               :loading="isSaving"
               data-test="holiday-save"
               @click="saveConfig"
@@ -860,7 +860,7 @@ onMounted(async () => {
               v-if="canEditHolidayTheme"
               type="primary"
               plain
-              class="rounded-full px-5"
+              class="!min-h-11 !rounded-xl px-5"
               data-test="holiday-add-activity"
               @click="addActivity"
             >
@@ -875,7 +875,7 @@ onMounted(async () => {
             <el-button
               v-if="canEditHolidayTheme"
               type="primary"
-              class="mt-5 rounded-full px-5"
+              class="mt-5 !min-h-11 !rounded-xl px-5"
               @click="addActivity"
             >
               {{ TEXTS.addActivity }}
@@ -887,18 +887,21 @@ onMounted(async () => {
             class="grid grid-cols-1 gap-3"
             data-test="holiday-activity-list"
           >
-            <button
+            <div
               v-for="activity in activities"
               :key="activity.id"
-              type="button"
-              class="rounded-3xl border px-4 py-4 text-left transition-all duration-200"
+              class="rounded-3xl border text-left transition-all duration-200"
               :class="activity.id === selectedActivityId
                 ? getActivityCardMeta(activity).selectedCardClass
                 : getActivityCardMeta(activity).idleCardClass"
               :data-test="`holiday-activity-card-${activity.id}`"
-              @click="selectedActivityId = activity.id"
             >
-              <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <button
+                type="button"
+                class="w-full rounded-3xl px-4 py-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                :aria-pressed="activity.id === selectedActivityId"
+                @click="selectedActivityId = activity.id"
+              >
                 <div class="min-w-0">
                   <div class="flex flex-wrap items-center gap-2">
                     <span class="rounded-full bg-white px-3 py-1 text-xs font-black tracking-[0.2em] text-slate-500">
@@ -921,32 +924,44 @@ onMounted(async () => {
                   </div>
                 </div>
 
-                <div
-                  v-if="canEditHolidayTheme"
-                  class="flex shrink-0 items-center gap-2"
-                >
+              </button>
+
+              <div
+                v-if="canEditHolidayTheme"
+                class="flex items-center justify-end gap-2 px-4 pb-4"
+              >
                   <el-button
-                    circle
                     plain
+                    class="!h-11 !w-11 !rounded-xl !p-0"
+                    :aria-label="`將${getActivityCardMeta(activity).title}往上移`"
+                    :title="`將${getActivityCardMeta(activity).title}往上移`"
                     :disabled="activities[0]?.id === activity.id"
-                    @click.stop="moveActivity(activity.id, 'up')"
+                    @click="moveActivity(activity.id, 'up')"
                   >
                     <el-icon><ArrowUp /></el-icon>
                   </el-button>
                   <el-button
-                    circle
                     plain
+                    class="!h-11 !w-11 !rounded-xl !p-0"
+                    :aria-label="`將${getActivityCardMeta(activity).title}往下移`"
+                    :title="`將${getActivityCardMeta(activity).title}往下移`"
                     :disabled="activities[activities.length - 1]?.id === activity.id"
-                    @click.stop="moveActivity(activity.id, 'down')"
+                    @click="moveActivity(activity.id, 'down')"
                   >
                     <el-icon><ArrowDown /></el-icon>
                   </el-button>
-                  <el-button circle plain type="danger" @click.stop="removeActivity(activity.id)">
+                  <el-button
+                    plain
+                    type="danger"
+                    class="!h-11 !w-11 !rounded-xl !p-0"
+                    :aria-label="`刪除${getActivityCardMeta(activity).title}`"
+                    :title="`刪除${getActivityCardMeta(activity).title}`"
+                    @click="removeActivity(activity.id)"
+                  >
                     <el-icon><Delete /></el-icon>
                   </el-button>
-                </div>
               </div>
-            </button>
+            </div>
           </div>
         </section>
 
@@ -1111,7 +1126,7 @@ onMounted(async () => {
 
               <el-button
                 v-if="canEditHolidayTheme"
-                class="rounded-full px-5"
+                class="!min-h-11 !rounded-xl px-5"
                 plain
                 @click="applyPresetCopy"
               >
@@ -1225,7 +1240,7 @@ onMounted(async () => {
                   v-if="canEditHolidayTheme"
                   type="primary"
                   plain
-                  class="rounded-full px-5"
+                  class="!min-h-11 !rounded-xl px-5"
                   :loading="isSendingNotification"
                   data-test="holiday-send-notification"
                   @click="sendSelectedActivityNotification"

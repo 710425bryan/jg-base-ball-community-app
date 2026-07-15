@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full flex flex-col relative animate-fade-in bg-gray-50 text-text overflow-hidden">
+  <div class="min-h-full flex flex-col relative animate-fade-in bg-gray-50 text-text">
     
     <!-- Header -->
     <div class="bg-white px-3 py-2 md:px-6 md:py-4 border-b border-gray-200 shadow-sm shrink-0 flex flex-col gap-2 md:gap-3 z-10">
@@ -13,7 +13,7 @@
           class="roll-call-header"
         >
           <template #before>
-            <button @click="router.push('/attendance')" class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 hover:text-primary hover:bg-primary/10 transition-colors">
+            <button type="button" aria-label="返回點名列表" title="返回點名列表" @click="router.push('/attendance')" class="app-icon-button bg-gray-50 text-gray-400 hover:text-primary hover:bg-primary/10">
               <el-icon><ArrowLeft /></el-icon>
             </button>
           </template>
@@ -31,9 +31,8 @@
                 <span class="text-xs font-bold text-gray-500 hidden sm:inline">出席率</span>
                 <span class="text-sm font-black text-primary">{{ attendanceRate }}%</span>
               </div>
-              <button v-if="canDelete" @click="confirmDelete" class="h-8 min-w-8 px-2 sm:w-auto sm:px-3 md:h-auto md:py-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg md:rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-1.5" title="刪除點名單">
+              <button v-if="canDelete" type="button" aria-label="刪除點名單" @click="confirmDelete" class="app-icon-button bg-red-50 text-red-600 hover:bg-red-100" title="刪除點名單">
                 <el-icon><Delete /></el-icon>
-                <span class="hidden sm:inline">刪除</span>
               </button>
 
               <div v-if="hasAccess" class="h-8 md:h-auto flex items-center gap-1.5 md:gap-2 text-sm font-bold bg-gray-50 border border-gray-100 px-2 md:px-3 py-1 md:py-2 rounded-lg md:rounded-xl transition-colors min-w-10 md:min-w-[100px] justify-center">
@@ -51,7 +50,7 @@
         </AppPageHeader>
 
         <div v-else-if="isLoading" class="flex items-center gap-3">
-          <button @click="router.push('/attendance')" class="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 hover:text-primary hover:bg-primary/10 transition-colors">
+          <button type="button" aria-label="返回點名列表" title="返回點名列表" @click="router.push('/attendance')" class="app-icon-button bg-gray-50 text-gray-400 hover:text-primary hover:bg-primary/10">
             <el-icon><ArrowLeft /></el-icon>
           </button>
           <span class="text-sm font-bold text-gray-500">讀取點名資料中...</span>
@@ -66,8 +65,10 @@
             <button
               v-for="filter in rollCallFilters"
               :key="filter"
+              type="button"
               @click="activeFilter = filter"
-              class="px-3 py-1.5 md:px-4 rounded-full text-xs md:text-sm font-bold whitespace-nowrap transition-all border"
+              :aria-pressed="activeFilter === filter"
+              class="min-h-11 px-3 py-1.5 md:px-4 rounded-xl text-xs md:text-sm font-bold whitespace-nowrap transition-all border"
               :class="[
                 activeFilter === filter 
                   ? 'bg-primary text-white border-primary shadow-sm' 
@@ -91,7 +92,7 @@
     </div>
 
     <!-- 點名列表 -->
-    <div class="flex-1 overflow-y-auto min-h-0 p-2 md:p-6 pb-2 md:pb-6 relative custom-scrollbar">
+    <div class="relative min-h-0 flex-1 p-2 pb-5 md:p-6 md:pb-6">
 
       <AppLoadingState v-if="isLoading" text="讀取點名資料中..." min-height="50vh" />
 
@@ -143,8 +144,10 @@
             <button 
               v-for="status in statusOptions" 
               :key="status.value"
+              type="button"
               @click="setPlayerStatus(player.id, status.value)"
-              class="flex-1 md:w-auto px-3 py-2 rounded-lg text-sm md:text-base font-extrabold transition-all duration-200 relative overflow-hidden flex flex-col md:flex-row items-center justify-center gap-1 min-w-[3.5rem]"
+              :aria-pressed="player.status === status.value"
+              class="min-h-11 flex-1 md:w-auto px-3 py-2 rounded-xl text-sm md:text-base font-extrabold transition-all duration-200 relative overflow-hidden flex flex-col md:flex-row items-center justify-center gap-1 min-w-[3.5rem]"
               :class="[
                 player.status === status.value 
                   ? `${status.bgClass} ${status.textClass} shadow-sm border border-current` 
@@ -753,12 +756,12 @@ onBeforeUnmount(() => {
   }
 
   .roll-call-search :deep(.el-input__wrapper) {
-    min-height: 34px;
+    min-height: 44px;
   }
 
   .roll-call-search :deep(.el-input__inner) {
-    height: 32px;
-    font-size: 0.8125rem;
+    height: 42px;
+    font-size: 1rem;
   }
 }
 

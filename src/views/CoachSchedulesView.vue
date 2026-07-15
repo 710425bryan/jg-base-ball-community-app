@@ -15,6 +15,7 @@ import {
 } from '@element-plus/icons-vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
+import AppDialogFooter from '@/components/common/AppDialogFooter.vue'
 import { coachSchedulesApi } from '@/services/coachSchedulesApi'
 import { usePermissionsStore } from '@/stores/permissions'
 import type {
@@ -347,7 +348,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="h-full min-w-0 overflow-y-auto bg-background p-2 text-text md:p-6">
+  <div class="min-h-full min-w-0 bg-background p-2 pb-5 text-text md:p-6">
     <div class="mx-auto flex max-w-7xl flex-col gap-4">
       <AppPageHeader
         title="教練排班表"
@@ -363,7 +364,7 @@ onMounted(async () => {
         <template #actions>
           <button
             type="button"
-            class="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-black text-slate-600 transition-colors hover:border-primary hover:text-primary"
+            class="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-600 transition-colors hover:border-primary hover:text-primary"
             :disabled="isLoading"
             @click="loadMonth"
           >
@@ -373,7 +374,7 @@ onMounted(async () => {
           <button
             v-if="canCreate"
             type="button"
-            class="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-black text-white shadow-md transition-colors hover:bg-primary-hover"
+            class="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-black text-white shadow-md transition-colors hover:bg-primary-hover"
             @click="openManualDialog"
           >
             <el-icon><Plus /></el-icon>
@@ -400,8 +401,9 @@ onMounted(async () => {
               v-for="filter in sourceFilters"
               :key="filter.key"
               type="button"
-              class="inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 text-sm font-black transition-colors"
+              class="inline-flex min-h-11 items-center gap-2 rounded-xl border px-3 text-sm font-black transition-colors"
               :class="sourceFilter === filter.key ? 'border-primary bg-primary text-white' : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-primary hover:text-primary'"
+              :aria-pressed="sourceFilter === filter.key"
               @click="sourceFilter = filter.key"
             >
               {{ filter.label }}
@@ -533,7 +535,7 @@ onMounted(async () => {
                 <button
                   v-if="event.is_persisted && canDelete"
                   type="button"
-                  class="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-4 text-sm font-black text-red-600 transition-colors hover:bg-red-50 disabled:opacity-60"
+                  class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 text-sm font-black text-red-600 transition-colors hover:bg-red-50 disabled:opacity-60"
                   :disabled="Boolean(event.id && deletingIds.has(event.id))"
                   @click="deleteEvent(event)"
                 >
@@ -543,7 +545,7 @@ onMounted(async () => {
                 <button
                   v-if="event.is_persisted ? canEdit : canCreate"
                   type="button"
-                  class="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 text-sm font-black text-white transition-colors hover:bg-slate-800 disabled:opacity-60"
+                  class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-black text-white transition-colors hover:bg-slate-800 disabled:opacity-60"
                   :disabled="savingKeys.has(getCoachScheduleEventKey(event))"
                   @click="saveEvent(event)"
                 >
@@ -608,24 +610,12 @@ onMounted(async () => {
       </el-form>
 
       <template #footer>
-        <div class="flex justify-end gap-3">
-          <button
-            type="button"
-            class="inline-flex min-h-10 items-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-black text-slate-600"
-            @click="isManualDialogOpen = false"
-          >
-            取消
-          </button>
-          <button
-            type="button"
-            class="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-black text-white transition-colors hover:bg-primary-hover disabled:opacity-60"
-            :disabled="isSavingManual"
-            @click="saveManualEvent"
-          >
-            <el-icon><Plus /></el-icon>
-            新增
-          </button>
-        </div>
+        <AppDialogFooter
+          confirm-label="新增"
+          :loading="isSavingManual"
+          @cancel="isManualDialogOpen = false"
+          @confirm="saveManualEvent"
+        />
       </template>
     </el-dialog>
   </div>

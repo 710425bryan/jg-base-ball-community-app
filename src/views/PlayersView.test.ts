@@ -12,3 +12,13 @@ describe('PlayersView new member notification ownership', () => {
     expect(source).not.toContain(".insert(payload)\n        .select")
   })
 })
+
+describe('PlayersView mobile filters', () => {
+  it('shows advanced selects only in the bottom sheet on narrow screens', () => {
+    expect(source).toContain('players-toolbar-filters hidden')
+
+    const narrowScreenStyles = source.slice(source.indexOf('@media (max-width: 639px)'))
+    expect(narrowScreenStyles).toMatch(/\.players-toolbar-filters\s*\{\s*display:\s*none;/)
+    expect(narrowScreenStyles).not.toMatch(/\.players-toolbar-filters\s*\{\s*display:\s*grid;/)
+  })
+})

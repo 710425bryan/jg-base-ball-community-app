@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full flex flex-col relative animate-fade-in bg-gray-50 text-text overflow-hidden">
+  <div class="min-h-full flex flex-col relative animate-fade-in bg-gray-50 text-text">
     <div class="bg-white px-4 md:px-6 py-4 border-b border-gray-200 shadow-sm shrink-0">
       <div class="max-w-6xl mx-auto flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <AppPageHeader
@@ -7,46 +7,22 @@
           subtitle="管理官方佈告欄，將會同步顯示於前台首頁"
           :icon="Bell"
           as="h2"
-        >
-          <template #actions>
-            <div class="flex flex-col sm:flex-row sm:items-center gap-3">
-              <div class="inline-grid grid-cols-2 gap-1 rounded-2xl border border-gray-200 bg-gray-100 p-1 text-sm font-black">
-                <button
-                  type="button"
-                  class="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-4 transition-colors"
-                  :class="viewMode === 'card' ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-slate-700'"
-                  @click="viewMode = 'card'"
-                >
-                  <el-icon><Grid /></el-icon>
-                  卡片
-                </button>
-                <button
-                  type="button"
-                  class="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-4 transition-colors"
-                  :class="viewMode === 'table' ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-slate-700'"
-                  @click="viewMode = 'table'"
-                >
-                  <el-icon><List /></el-icon>
-                  表格
-                </button>
-              </div>
-
-              <button
-                v-if="canCreateAnnouncements"
-                type="button"
-                class="inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-primary-hover active:scale-95"
-                @click="openCreateDialog"
-              >
-                <el-icon><Plus /></el-icon>
-                新增公告
-              </button>
-            </div>
-          </template>
-        </AppPageHeader>
+        />
+        <div class="app-page-toolbar">
+          <ViewModeSwitch v-model="viewMode" grid-label="卡片" table-label="表格" />
+          <button
+            v-if="canCreateAnnouncements"
+            type="button"
+            class="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-primary-hover active:scale-95 md:flex-none"
+            @click="openCreateDialog"
+          >
+            <el-icon><Plus /></el-icon>新增公告
+          </button>
+        </div>
       </div>
     </div>
 
-    <div class="flex-1 overflow-y-auto min-h-0 p-4 md:p-6 pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:pb-6 custom-scrollbar">
+    <div class="min-h-0 flex-1 p-4 pb-5 md:p-6 md:pb-6">
       <div class="max-w-6xl mx-auto relative">
         <AppLoadingState v-if="isLoading" text="載入公告資料中..." />
 
@@ -62,7 +38,7 @@
             <p class="mt-2 text-sm font-bold text-gray-400">新增第一則公告後，前台首頁就會開始顯示最新消息。</p>
           </section>
 
-          <section v-else-if="viewMode === 'card'" class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <section v-else-if="viewMode === 'grid'" class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             <article
               v-for="item in announcements"
               :id="getAnnouncementElementId(item.id)"
@@ -121,38 +97,14 @@
                       <el-icon><View /></el-icon>
                       查看
                     </button>
-                    <button
-                      v-if="canSendAnnouncementNotifications"
-                      type="button"
-                      class="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-3 text-sm font-bold text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
-                      :disabled="isSendingAnnouncementNotification(item.id)"
-                      title="發送通知"
-                      @click.stop="confirmSendNotification(item)"
+                    <AppActionOverflow
+                      v-if="canSendAnnouncementNotifications || canEditAnnouncements || canDeleteAnnouncements"
+                      @click.stop
                     >
-                      <el-icon :class="{ 'is-loading': isSendingAnnouncementNotification(item.id) }">
-                        <Loading v-if="isSendingAnnouncementNotification(item.id)" />
-                        <Bell v-else />
-                      </el-icon>
-                      發送通知
-                    </button>
-                    <button
-                      v-if="canEditAnnouncements"
-                      type="button"
-                      class="inline-flex h-10 w-10 items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-primary/10 hover:text-primary"
-                      title="編輯"
-                      @click.stop="openEditDialog(item)"
-                    >
-                      <el-icon><EditPen /></el-icon>
-                    </button>
-                    <button
-                      v-if="canDeleteAnnouncements"
-                      type="button"
-                      class="inline-flex h-10 w-10 items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
-                      title="刪除"
-                      @click.stop="confirmDelete(item.id)"
-                    >
-                      <el-icon><Delete /></el-icon>
-                    </button>
+                      <el-dropdown-item v-if="canSendAnnouncementNotifications" :disabled="isSendingAnnouncementNotification(item.id)" @click="confirmSendNotification(item)">發送通知</el-dropdown-item>
+                      <el-dropdown-item v-if="canEditAnnouncements" @click="openEditDialog(item)">編輯</el-dropdown-item>
+                      <el-dropdown-item v-if="canDeleteAnnouncements" class="!text-red-600" @click="confirmDelete(item.id)">刪除</el-dropdown-item>
+                    </AppActionOverflow>
                   </div>
                 </div>
               </div>
@@ -227,37 +179,11 @@
                         >
                           <el-icon><View /></el-icon>
                         </button>
-                        <button
-                          v-if="canSendAnnouncementNotifications"
-                          type="button"
-                          class="inline-flex h-10 w-10 items-center justify-center rounded-xl text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
-                          :disabled="isSendingAnnouncementNotification(item.id)"
-                          title="發送通知"
-                          @click.stop="confirmSendNotification(item)"
-                        >
-                          <el-icon :class="{ 'is-loading': isSendingAnnouncementNotification(item.id) }">
-                            <Loading v-if="isSendingAnnouncementNotification(item.id)" />
-                            <Bell v-else />
-                          </el-icon>
-                        </button>
-                        <button
-                          v-if="canEditAnnouncements"
-                          type="button"
-                          class="inline-flex h-10 w-10 items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-primary/10 hover:text-primary"
-                          title="編輯"
-                          @click.stop="openEditDialog(item)"
-                        >
-                          <el-icon><EditPen /></el-icon>
-                        </button>
-                        <button
-                          v-if="canDeleteAnnouncements"
-                          type="button"
-                          class="inline-flex h-10 w-10 items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
-                          title="刪除"
-                          @click.stop="confirmDelete(item.id)"
-                        >
-                          <el-icon><Delete /></el-icon>
-                        </button>
+                        <AppActionOverflow v-if="canSendAnnouncementNotifications || canEditAnnouncements || canDeleteAnnouncements">
+                          <el-dropdown-item v-if="canSendAnnouncementNotifications" :disabled="isSendingAnnouncementNotification(item.id)" @click="confirmSendNotification(item)">發送通知</el-dropdown-item>
+                          <el-dropdown-item v-if="canEditAnnouncements" @click="openEditDialog(item)">編輯</el-dropdown-item>
+                          <el-dropdown-item v-if="canDeleteAnnouncements" class="!text-red-600" @click="confirmDelete(item.id)">刪除</el-dropdown-item>
+                        </AppActionOverflow>
                       </div>
                     </td>
                   </tr>
@@ -345,38 +271,17 @@
       </el-form>
 
       <template #footer>
-        <div class="flex flex-col gap-3 border-t border-gray-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
-          <button
-            v-if="isEditing && canDeleteAnnouncements"
-            type="button"
-            class="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-bold text-red-500 transition-colors hover:bg-red-50"
-            :disabled="isSubmitting"
-            @click="confirmDelete(form.id)"
-          >
-            <el-icon><Delete /></el-icon>
-            刪除
-          </button>
-          <div v-else></div>
-
-          <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-            <button
-              type="button"
-              class="rounded-2xl border border-gray-200 px-5 py-3 font-bold text-gray-600 transition-colors hover:border-gray-300 hover:text-gray-800"
-              @click="closeDialog"
-            >
-              取消
-            </button>
-            <button
-              type="button"
-              class="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3 font-bold text-white transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-70"
-              :disabled="isSubmitting || !form.title.trim() || !form.content.trim()"
-              @click="submitAnnounce"
-            >
-              <el-icon v-if="isSubmitting" class="is-loading"><Loading /></el-icon>
-              {{ isEditing ? '儲存變更' : '發布公告' }}
-            </button>
-          </div>
-        </div>
+        <AppDialogFooter
+          :confirm-label="isEditing ? '儲存變更' : '發布公告'"
+          :loading="isSubmitting"
+          :confirm-disabled="!form.title.trim() || !form.content.trim()"
+          @cancel="closeDialog"
+          @confirm="submitAnnounce"
+        >
+          <template v-if="isEditing && canDeleteAnnouncements" #leading>
+            <button type="button" class="min-h-11 rounded-xl px-4 text-sm font-bold text-red-500 hover:bg-red-50" :disabled="isSubmitting" @click="confirmDelete(form.id)">刪除</button>
+          </template>
+        </AppDialogFooter>
       </template>
     </el-dialog>
 
@@ -444,12 +349,7 @@ import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Bell,
-  Delete,
   Document,
-  EditPen,
-  Grid,
-  List,
-  Loading,
   Picture,
   Plus,
   StarFilled,
@@ -458,6 +358,9 @@ import {
 } from '@element-plus/icons-vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
+import AppActionOverflow from '@/components/common/AppActionOverflow.vue'
+import AppDialogFooter from '@/components/common/AppDialogFooter.vue'
+import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
 import { supabase } from '@/services/supabase'
 import { usePermissionsStore } from '@/stores/permissions'
 import { useNotificationFeed } from '@/composables/useNotificationFeed'
@@ -479,7 +382,7 @@ type Announcement = {
   created_at: string
 }
 
-type ViewMode = 'card' | 'table'
+type ViewMode = 'grid' | 'table'
 
 const route = useRoute()
 const permissionsStore = usePermissionsStore()
@@ -491,7 +394,7 @@ const announcements = ref<Announcement[]>([])
 const dialogVisible = ref(false)
 const detailDialogVisible = ref(false)
 const isEditing = ref(false)
-const viewMode = ref<ViewMode>('card')
+const viewMode = ref<ViewMode>('grid')
 const sendingNotificationIds = ref<string[]>([])
 const selectedAnnouncement = ref<Announcement | null>(null)
 

@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full flex flex-col relative animate-fade-in p-2 md:p-6 pb-0 md:pb-6 bg-background text-text overflow-hidden">
+  <div class="min-h-full flex flex-col relative animate-fade-in p-2 md:p-6 pb-5 md:pb-6 bg-background text-text">
     <!-- 頂部標題與操作區 -->
     <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-6 gap-4 shrink-0">
       <AppPageHeader
@@ -9,7 +9,7 @@
         as="h2"
       >
         <template #actions>
-          <button v-if="hasAccess" @click="openCreateModal()" class="bg-primary hover:bg-primary-hover active:scale-95 text-white px-5 py-2.5 rounded-lg shadow-md text-sm font-bold transition-all flex items-center gap-2 tracking-normal">
+          <button v-if="hasAccess" type="button" @click="openCreateModal()" class="flex min-h-11 items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold tracking-normal text-white shadow-md transition-all hover:bg-primary-hover active:scale-95">
             <el-icon><Plus /></el-icon>
             建立點名單
           </button>
@@ -18,7 +18,7 @@
     </div>
 
     <!-- 內容展示區 -->
-    <div class="flex-1 overflow-y-auto min-h-0 pb-4 relative custom-scrollbar pr-2">
+    <div class="relative min-h-0 flex-1 pb-5 pr-2">
       <AppLoadingState v-if="isLoading" text="讀取點名紀錄中..." min-height="50vh" />
 
       <div v-else-if="events.length === 0" class="flex flex-col justify-center items-center h-full text-slate-500">
@@ -40,7 +40,7 @@
                 <el-icon><Calendar /></el-icon>
                 {{ event.date }}
               </span>
-              <button v-if="canDelete" @click.stop="confirmDelete(event)" class="text-gray-400 hover:text-red-500 bg-gray-50 hover:bg-red-50 p-1.5 rounded-lg border border-gray-100 hover:border-red-100 transition-colors" title="刪除點名單">
+              <button v-if="canDelete" type="button" @click.stop="confirmDelete(event)" class="app-icon-button !border-gray-100 !bg-gray-50 !text-gray-400 hover:!border-red-100 hover:!bg-red-50 hover:!text-red-500" aria-label="刪除點名單" title="刪除點名單">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
               </button>
             </div>
@@ -66,7 +66,7 @@
           
           <div class="mt-auto pt-4 flex items-center justify-between border-t border-gray-50">
             <div class="text-sm font-bold text-gray-400">建立者: <span class="text-gray-600">{{ event.profiles?.nickname || event.profiles?.name || '未知' }}</span></div>
-            <button class="text-primary font-bold text-sm bg-primary/10 px-3 py-1.5 rounded-lg group-hover:bg-primary group-hover:text-white transition-colors flex items-center gap-1">
+            <button type="button" class="flex min-h-11 items-center gap-1 rounded-xl bg-primary/10 px-3 py-1.5 text-sm font-bold text-primary transition-colors group-hover:bg-primary group-hover:text-white">
               開始點名
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
             </button>
@@ -103,13 +103,12 @@
       </el-form>
 
       <template #footer>
-        <div class="flex justify-end gap-2 mt-4 pt-4 border-t border-gray-100">
-          <button @click="isModalOpen = false" class="px-5 py-2 text-gray-500 font-bold hover:bg-gray-100 rounded-xl transition-all">取消</button>
-          <button @click="submitCreate" :disabled="isSubmitting" class="px-6 py-2 bg-primary hover:bg-primary-hover active:scale-95 disabled:opacity-70 text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-2">
-            <el-icon v-if="isSubmitting" class="is-loading"><Loading /></el-icon>
-            建立並開始點名
-          </button>
-        </div>
+        <AppDialogFooter
+          confirm-label="建立並開始點名"
+          :loading="isSubmitting"
+          @cancel="isModalOpen = false"
+          @confirm="submitCreate"
+        />
       </template>
     </el-dialog>
   </div>
@@ -125,6 +124,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Calendar, Checked, Loading, Plus } from '@element-plus/icons-vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
+import AppDialogFooter from '@/components/common/AppDialogFooter.vue'
 import {
   buildAttendanceLeaveSummaryRows,
   filterAttendanceLeaveRecordsForEvent,

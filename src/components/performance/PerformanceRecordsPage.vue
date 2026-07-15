@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { DataLine, Delete, Edit, Plus, Refresh, TrendCharts } from '@element-plus/icons-vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
+import AppActionOverflow from '@/components/common/AppActionOverflow.vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import PerformanceRecordFormDialog from '@/components/performance/PerformanceRecordFormDialog.vue'
 import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
@@ -201,7 +202,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="h-full flex flex-col relative animate-fade-in bg-gray-50 text-text overflow-hidden">
+  <div class="min-h-full flex flex-col relative animate-fade-in bg-gray-50 text-text">
     <div class="bg-white px-4 md:px-6 py-4 border-b border-gray-200 shadow-sm shrink-0 z-10">
       <div class="max-w-7xl mx-auto flex flex-col gap-4">
         <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -214,7 +215,7 @@ onMounted(() => {
             <template #actions>
               <button
                 type="button"
-                class="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 px-4 py-3 text-sm font-bold text-gray-600 hover:border-primary hover:text-primary transition-colors disabled:opacity-70"
+                class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-3 text-sm font-bold text-gray-600 hover:border-primary hover:text-primary transition-colors disabled:opacity-70"
                 :disabled="performanceStore.isLoading"
                 @click="refresh"
               >
@@ -224,7 +225,7 @@ onMounted(() => {
               <button
                 v-if="canCreate"
                 type="button"
-                class="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-bold text-white hover:bg-primary-hover transition-colors"
+                class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white hover:bg-primary-hover transition-colors"
                 @click="openCreateDialog"
               >
                 <el-icon><Plus /></el-icon>
@@ -246,12 +247,12 @@ onMounted(() => {
             class="lg:max-w-xl"
             placeholder="搜尋球員姓名、背號、所屬群組或測驗日期"
           />
-          <ViewModeSwitch v-model="viewMode" grid-label="卡片" table-label="表格" class="shrink-0" />
+          <ViewModeSwitch v-model="viewMode" grid-label="卡片" table-label="表格" class="self-start shrink-0" />
         </div>
       </div>
     </div>
 
-    <div class="flex-1 overflow-y-auto min-h-0 p-4 md:p-6 pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:pb-6 custom-scrollbar">
+    <div class="min-h-0 flex-1 p-4 pb-5 md:p-6 md:pb-6">
       <div class="max-w-7xl mx-auto">
         <AppLoadingState v-if="performanceStore.isLoading" text="數據載入中..." />
 
@@ -303,7 +304,7 @@ onMounted(() => {
                 <div class="mt-5 flex flex-wrap gap-2">
                   <button
                     type="button"
-                    class="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-sm font-bold text-white hover:bg-primary-hover transition-colors"
+                    class="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-sm font-bold text-white hover:bg-primary-hover transition-colors"
                     @click="openDetail(record)"
                   >
                     <el-icon><TrendCharts /></el-icon>
@@ -312,21 +313,17 @@ onMounted(() => {
                   <button
                     v-if="canEdit"
                     type="button"
-                    class="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 px-3 py-2 text-sm font-bold text-gray-600 hover:border-primary hover:text-primary transition-colors"
+                    class="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-gray-200 px-3 py-2 text-sm font-bold text-gray-600 hover:border-primary hover:text-primary transition-colors"
                     @click="openEditDialog(record)"
                   >
                     <el-icon><Edit /></el-icon>
                     編輯
                   </button>
-                  <button
-                    v-if="canDelete"
-                    type="button"
-                    class="inline-flex items-center gap-1.5 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-sm font-bold text-red-500 hover:bg-red-100 transition-colors"
-                    @click="removeRecord(record)"
-                  >
-                    <el-icon><Delete /></el-icon>
-                    刪除
-                  </button>
+                  <AppActionOverflow v-if="canDelete">
+                    <el-dropdown-item class="!text-red-600" @click="removeRecord(record)">
+                      <el-icon><Delete /></el-icon>刪除
+                    </el-dropdown-item>
+                  </AppActionOverflow>
                 </div>
               </article>
             </div>
@@ -356,7 +353,7 @@ onMounted(() => {
                         <div class="flex justify-end gap-2">
                           <button
                             type="button"
-                            class="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-sm font-bold text-white hover:bg-primary-hover transition-colors"
+                            class="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-sm font-bold text-white hover:bg-primary-hover transition-colors"
                             @click="openDetail(record)"
                           >
                             <el-icon><TrendCharts /></el-icon>
@@ -365,21 +362,17 @@ onMounted(() => {
                           <button
                             v-if="canEdit"
                             type="button"
-                            class="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 px-3 py-2 text-sm font-bold text-gray-600 hover:border-primary hover:text-primary transition-colors"
+                            class="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-gray-200 px-3 py-2 text-sm font-bold text-gray-600 hover:border-primary hover:text-primary transition-colors"
                             @click="openEditDialog(record)"
                           >
                             <el-icon><Edit /></el-icon>
                             編輯
                           </button>
-                          <button
-                            v-if="canDelete"
-                            type="button"
-                            class="inline-flex items-center gap-1.5 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-sm font-bold text-red-500 hover:bg-red-100 transition-colors"
-                            @click="removeRecord(record)"
-                          >
-                            <el-icon><Delete /></el-icon>
-                            刪除
-                          </button>
+                          <AppActionOverflow v-if="canDelete">
+                            <el-dropdown-item class="!text-red-600" @click="removeRecord(record)">
+                              <el-icon><Delete /></el-icon>刪除
+                            </el-dropdown-item>
+                          </AppActionOverflow>
                         </div>
                       </td>
                     </tr>

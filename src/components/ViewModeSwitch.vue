@@ -23,16 +23,20 @@ const options = computed<Array<{ value: ViewMode; label: string; icon: 'grid' | 
 ])
 
 const getButtonClass = (mode: ViewMode) => {
-  const baseClass = 'flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition-all duration-200'
+  const baseClass = 'flex h-11 min-h-11 items-center justify-center gap-2 rounded-xl px-4 py-0 text-sm font-bold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2'
 
   return props.modelValue === mode
-    ? `${baseClass} border border-white/90 bg-white text-primary shadow-[0_1px_2px_rgba(15,23,42,0.08)]`
-    : `${baseClass} border border-transparent text-gray-400 hover:bg-white/70 hover:text-gray-600`
+    ? `${baseClass} border border-orange-200/80 bg-orange-50 text-primary`
+    : `${baseClass} border border-transparent text-slate-500 hover:bg-slate-200/70 hover:text-slate-700`
 }
 </script>
 
 <template>
-  <div class="inline-flex items-center rounded-2xl border border-gray-200 bg-[#f4f5f7] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_1px_2px_rgba(15,23,42,0.04)]">
+  <div
+    class="inline-flex h-11 shrink-0 items-stretch overflow-hidden rounded-xl bg-slate-100/80 ring-1 ring-inset ring-slate-200"
+    role="group"
+    aria-label="檢視模式"
+  >
     <button
       v-for="option in options"
       :key="option.value"

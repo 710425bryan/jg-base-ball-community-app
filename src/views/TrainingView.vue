@@ -809,7 +809,7 @@ watch(selectedAdminSessionId, (next, prev) => {
 </script>
 
 <template>
-  <div class="training-view-page h-full min-w-0 flex flex-col animate-fade-in bg-background text-text overflow-hidden">
+  <div class="training-view-page min-h-full min-w-0 flex flex-col animate-fade-in bg-background text-text">
     <div class="bg-white px-4 md:px-6 py-4 border-b border-gray-200 shadow-sm shrink-0">
       <div class="max-w-7xl mx-auto">
         <AppPageHeader
@@ -821,7 +821,7 @@ watch(selectedAdminSessionId, (next, prev) => {
           <template #actions>
             <button
               type="button"
-              class="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-600 transition-colors hover:border-primary hover:text-primary disabled:opacity-60"
+              class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-600 transition-colors hover:border-primary hover:text-primary disabled:opacity-60"
               :disabled="isRefreshing"
               @click="refreshData"
             >
@@ -833,7 +833,7 @@ watch(selectedAdminSessionId, (next, prev) => {
       </div>
     </div>
 
-    <div class="flex-1 overflow-y-auto min-h-0 p-3 sm:p-4 md:p-6 pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:pb-6 custom-scrollbar">
+    <div class="min-h-0 flex-1 p-3 pb-5 sm:p-4 md:p-6 md:pb-6">
       <AppLoadingState v-if="isLoading" text="讀取特訓資料中..." min-height="50vh" />
 
       <div v-else class="max-w-7xl mx-auto flex w-full min-w-0 flex-col gap-5">
@@ -925,7 +925,7 @@ watch(selectedAdminSessionId, (next, prev) => {
                       <button
                         v-if="canRegister(session)"
                         type="button"
-                        class="min-h-11 w-full rounded-2xl bg-primary px-4 text-sm font-black text-white transition-colors hover:bg-primary-hover md:w-auto"
+                        class="min-h-11 w-full rounded-xl bg-primary px-4 text-sm font-black text-white transition-colors hover:bg-primary-hover md:w-auto"
                         @click="submitRegistration(session)"
                       >
                         送出報名
@@ -933,7 +933,7 @@ watch(selectedAdminSessionId, (next, prev) => {
                       <button
                         v-else-if="canCancelTrainingRegistration(session)"
                         type="button"
-                        class="min-h-11 w-full rounded-2xl border border-gray-200 px-4 text-sm font-black text-gray-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-500 md:w-auto"
+                        class="min-h-11 w-full rounded-xl border border-gray-200 px-4 text-sm font-black text-gray-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-500 md:w-auto"
                         @click="cancelRegistration(session)"
                       >
                         取消報名

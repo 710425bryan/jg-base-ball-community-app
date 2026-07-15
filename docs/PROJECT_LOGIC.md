@@ -28,6 +28,11 @@
 
 UI 約定：
 
+- 登入後手機版面、功能按鈕、Dialog、sticky action 與 safe area 的目標規格集中在 `docs/MOBILE_UI_UX_RULES.md`；現有頁面不保證已全部符合，差異依該文件稽核清單分批處理。
+- P0–P3 的逐頁實作狀態與驗證證據集中在 `docs/MOBILE_UI_UX_AUDIT.md`；未完成登入後裝置驗收的項目不得標示為完成。
+- 登入後頁面的垂直捲動由 `MainLayout .app-main-scroll` 單一負責；route root 使用 `min-h-full`，不得以 `h-full + overflow-hidden` 裁切內容。
+- 手機搜尋與進階篩選使用 `app-search-filter-bar` 與 `AppMobileFilterSheet`：搜尋常駐，select／日期區間等低頻條件由底部展開；頁籤、月份與狀態 chips 等快速切換留在頁面內。
+- 手機一致性目標以 `<768px` 為界，對齊 `MainLayout` 的底部導覽；既有部分全域規則仍只涵蓋 `<640px`，屬 P0 待辦而非已完成現況。
 - 登入後 route-level 功能頁第一層標題使用 `src/components/common/AppPageHeader.vue`。
 - 每個功能頁 title 都提供 Element Plus 小型 inline icon；badge 用 `title-suffix`，返回按鈕用 `before`，右側操作用 `actions`。
 - Page title 的字級、間距、icon 規格集中在 `src/style.css`；公開 landing、Dashboard hero、section title、card title、dialog title 不套用此限制。

@@ -31,6 +31,8 @@
 | `.codex/skills/*/SKILL.md`　　　| 任務型 workflow　　　　　　　　　　　　　　　　 |
 | `docs/PROJECT_LOGIC.md`　　　　 | 功能邏輯與資料流　　　　　　　　　　　　　　　　|
 | `docs/FILE_MAP.md`　　　　　　　| 重要檔案地圖　　　　　　　　　　　　　　　　　　|
+| `docs/MOBILE_UI_UX_RULES.md`　 | 登入後手機版面、功能按鈕、Dialog、safe area 與稽核規則 |
+| `docs/MOBILE_UI_UX_AUDIT.md`　 | 登入後頁面 P0–P3 調整狀態、完成條件與驗證證據 |
 | `docs/MIGRATIONS.md`　　　　　　| migration、hotfix、repair 索引　　　　　　　　　|
 | `docs/EDGE_FUNCTIONS.md`　　　　| Edge Functions、外部服務與環境變數索引　　　　　|
 | `docs/EQUIPMENT_REFUND_FLOW.md` | 裝備退款 / 作廢收款流程　　　　　　　　　　　　 |
@@ -49,6 +51,9 @@
 | `src/components/ViewModeSwitch.vue` | 檢視模式切換 |
 | `src/components/common/AppPageHeader.vue` | 登入後功能頁 page title 標準元件 |
 | `src/components/common/AppLoadingState.vue` | 頁面級 / 大區塊 loading 標準元件，文字用 `text` 傳入 |
+| `src/components/common/AppActionOverflow.vue` | 手機與桌機共用的 44px「更多操作」下拉按鈕 |
+| `src/components/common/AppDialogFooter.vue` | Dialog 取消／確認按鈕順序、loading、Danger 與手機等寬 footer |
+| `src/components/common/AppMobileFilterSheet.vue` | `<768px` 進階條件自底部展開的共用篩選面板，含 safe area footer |
 | `src/components/common/PreviewableImage.vue` | 可預覽圖片 |
 | `src/components/equipment/EquipmentPhotoCarousel.vue` | 裝備多照片輪播 / 左右滑動 |
 

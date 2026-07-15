@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full flex flex-col relative animate-fade-in bg-gray-50 text-text overflow-hidden">
+  <div class="min-h-full flex flex-col relative animate-fade-in bg-gray-50 text-text">
     <div class="bg-white px-4 md:px-6 py-4 border-b border-gray-200 shadow-sm shrink-0">
       <div class="max-w-6xl mx-auto flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <AppPageHeader
@@ -11,7 +11,7 @@
           <template #actions>
             <button
               type="button"
-              class="flex-1 sm:flex-none rounded-2xl border border-gray-200 text-gray-600 hover:text-gray-800 hover:border-gray-300 font-bold px-4 py-3 transition-colors"
+              class="flex-1 rounded-xl border border-gray-200 px-4 py-3 font-bold text-gray-600 transition-colors hover:border-gray-300 hover:text-gray-800 md:flex-none"
               :disabled="isRefreshing"
               @click="refreshCurrentMemberData"
             >
@@ -20,7 +20,7 @@
 
             <button
               type="button"
-              class="flex-1 sm:flex-none rounded-2xl bg-primary hover:bg-primary-hover text-white font-bold px-5 py-3 transition-colors disabled:opacity-70"
+              class="flex-1 rounded-xl bg-primary px-5 py-3 font-bold text-white transition-colors hover:bg-primary-hover disabled:opacity-70 md:flex-none"
               :disabled="!canCreateLeaveRequest || isRefreshing"
               @click="openCreateDialog"
             >
@@ -31,7 +31,7 @@
       </div>
     </div>
 
-    <div class="flex-1 overflow-y-auto min-h-0 p-4 md:p-6 pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:pb-6 custom-scrollbar">
+    <div class="min-h-0 flex-1 p-4 pb-5 md:p-6 md:pb-6">
       <AppLoadingState v-if="isBootstrapping" text="讀取假單資訊中..." min-height="50vh" />
 
       <div v-else class="max-w-6xl mx-auto flex flex-col gap-4">
@@ -118,7 +118,8 @@
                     </span>
                     <button
                       type="button"
-                      class="rounded-xl border border-red-100 bg-red-50 p-2 text-red-500 hover:bg-red-100 transition-colors"
+                      class="app-icon-button !border-red-100 !bg-red-50 !text-red-500 hover:!bg-red-100"
+                      aria-label="刪除假單"
                       title="刪除假單"
                       @click="confirmDelete(leave)"
                     >
@@ -199,7 +200,7 @@
                 <button
                   type="button"
                   data-test="load-next-training-month"
-                  class="shrink-0 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-700 transition-colors hover:bg-emerald-50 disabled:opacity-60"
+                  class="min-h-11 shrink-0 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm font-black text-emerald-700 transition-colors hover:bg-emerald-50 disabled:opacity-60"
                   :disabled="isTrainingDateQuickSelectLoading"
                   @click="loadNextTrainingMonth"
                 >
@@ -383,25 +384,13 @@
       </el-form>
 
       <template #footer>
-        <div class="flex justify-end gap-3 mt-4">
-          <button
-            type="button"
-            class="rounded-2xl border border-gray-200 text-gray-600 hover:text-gray-800 hover:border-gray-300 font-bold px-5 py-3 transition-colors"
-            @click="isCreateDialogOpen = false"
-          >
-            取消
-          </button>
-
-          <button
-            type="button"
-            data-test="submit-leave-request"
-            class="rounded-2xl bg-primary hover:bg-primary-hover text-white font-bold px-6 py-3 transition-colors disabled:opacity-70"
-            :disabled="isSubmitting"
-            @click="submitLeaveRequest"
-          >
-            {{ isSubmitting ? '送出中...' : '送出假單' }}
-          </button>
-        </div>
+        <AppDialogFooter
+          confirm-label="送出假單"
+          :loading="isSubmitting"
+          confirm-data-test="submit-leave-request"
+          @cancel="isCreateDialogOpen = false"
+          @confirm="submitLeaveRequest"
+        />
       </template>
     </el-dialog>
   </div>
@@ -414,6 +403,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Memo } from '@element-plus/icons-vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
+import AppDialogFooter from '@/components/common/AppDialogFooter.vue'
 import {
   createMyLeaveRequests,
   deleteMyLeaveRequest,

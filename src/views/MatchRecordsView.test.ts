@@ -4,6 +4,7 @@ import { shallowMount } from '@vue/test-utils'
 import dayjs from 'dayjs'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import MatchRecordsView from './MatchRecordsView.vue'
+import source from './MatchRecordsView.vue?raw'
 
 const storeMocks = vi.hoisted(() => ({
   matches: {
@@ -113,6 +114,19 @@ describe('MatchRecordsView', () => {
     storeMocks.permissions.can.mockReturnValue(false)
   })
 
+  it('publishes the measured sticky toolbar height for month headings', () => {
+    expect(source).toContain('ref="stickyToolbarRef"')
+    expect(source).toContain("'--match-records-sticky-offset': `${stickyToolbarHeight.value}px`")
+    expect(source).toContain('new ResizeObserver(updateStickyToolbarHeight)')
+  })
+
+  it('aligns desktop toolbar controls to the shared 44px height', () => {
+    expect(source).toContain('class="app-page-toolbar match-records-toolbar"')
+    expect(source).toContain('size="large"')
+    expect(source).toContain('min-height: 44px;')
+    expect(source).toContain('!h-11 !min-h-11')
+  })
+
   it('puts future matches first and selects them by default', () => {
     const wrapper = shallowMount(MatchRecordsView, {
       global: {
@@ -131,7 +145,7 @@ describe('MatchRecordsView', () => {
       }
     })
 
-    const tabs = wrapper.findAll('button')
+    const tabs = wrapper.findAll('button[aria-pressed]')
 
     expect(tabs.map((tab) => tab.text())).toEqual([
       '未來賽事',

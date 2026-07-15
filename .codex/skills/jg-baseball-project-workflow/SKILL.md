@@ -13,8 +13,9 @@ description: "Project-specific workflow for jg-base-ball-community-app. Use when
 
 1. 先讀 `AGENTS.md`。
 2. 再讀與任務直接相關的檔案。
-3. 若任務牽涉路由、登入、權限、同步、推播，再補讀對應的 `router`、`stores`、`services`、`utils` 或 `supabase/functions`。
-4. 先辨識目標檔案是原始碼、產物、腳本、還是 migration，確認真的該編輯才動手。
+3. 若任務牽涉手機版面、功能按鈕、Dialog、sticky action 或 safe area，先讀 `docs/MOBILE_UI_UX_RULES.md`；調整既有頁面時再讀並更新 `docs/MOBILE_UI_UX_AUDIT.md`。
+4. 若任務牽涉路由、登入、權限、同步、推播，再補讀對應的 `router`、`stores`、`services`、`utils` 或 `supabase/functions`。
+5. 先辨識目標檔案是原始碼、產物、腳本、還是 migration，確認真的該編輯才動手。
 
 ## 編輯邊界
 
@@ -41,8 +42,15 @@ description: "Project-specific workflow for jg-base-ball-community-app. Use when
 - 改 `/leave-requests`、`/my-leave-requests`、`/attendance`、點名 detail 或請假 webhook 時，先讀 `jg-baseball-leave-attendance` skill。
 - 改球員名單、使用者、linked member、team group 或敏感欄位時，先讀 `jg-baseball-roster-users-team-groups` skill。
 
-## UI 標題規則
+## UI 與手機規則
 
+- 手機版面與功能按鈕以 `docs/MOBILE_UI_UX_RULES.md` 為目標基準；現有頁面不保證已全部符合，若規則與程式碼衝突要如實回報。
+- 逐頁調整狀態與驗證證據記錄在 `docs/MOBILE_UI_UX_AUDIT.md`；沒有完成指定裝置驗收前不可標示完成。
+- 登入後 route 的頁面級垂直捲動由 `MainLayout .app-main-scroll` 負責；route root 不得使用 `h-full + overflow-hidden` 裁切內容。
+- 手機搜尋／低頻進階條件優先使用 `app-search-filter-bar` 與 `AppMobileFilterSheet`；快速頁籤或狀態 chips 不收進底部面板。
+- 手機模式目標為 `<768px`，對齊 `MainLayout` 底部導覽；`<640px` 只作窄手機附加調整。
+- 延續既有 `#D88F22` 主色、白色 surface、slate 文字與圓角風格，不為單一頁面建立另一套功能按鈕色盤。
+- 手機互動區不得小於 44px；同一操作區最多一個 Primary，超過兩個可見操作時應收進 overflow menu。
 - 登入後 route-level 功能頁第一層標題統一使用 `src/components/common/AppPageHeader.vue`，不可在 view 內手寫 page title 結構。
 - `AppPageHeader` 必須提供 Element Plus icon；標題旁的 badge / 計數放 `title-suffix` slot，返回按鈕放 `before` slot，右側操作放 `actions` slot。
 - Page title 樣式由 `src/style.css` 的 `.app-page-header`、`.app-page-title`、`.app-page-title-icon`、`.app-page-subtitle` 統一控制。

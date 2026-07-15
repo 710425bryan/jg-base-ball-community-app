@@ -12,7 +12,9 @@ import {
 } from '@element-plus/icons-vue'
 import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
+import AppActionOverflow from '@/components/common/AppActionOverflow.vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
+import AppMobileFilterSheet from '@/components/common/AppMobileFilterSheet.vue'
 import EquipmentFormDialog from '@/components/equipment/EquipmentFormDialog.vue'
 import EquipmentHistoryDialog from '@/components/equipment/EquipmentHistoryDialog.vue'
 import EquipmentInventoryAdjustmentDialog from '@/components/equipment/EquipmentInventoryAdjustmentDialog.vue'
@@ -86,14 +88,16 @@ const hasActiveFilters = computed(() =>
   searchKeyword.value.trim().length > 0 || selectedCategory.value !== 'all'
 )
 
-const mobileFilterLabel = computed(() =>
-  selectedCategory.value === 'all' ? '篩選' : selectedCategory.value
-)
+const activeAdvancedFilterCount = computed(() => Number(selectedCategory.value !== 'all'))
 
 const clearFilters = () => {
   searchKeyword.value = ''
   selectedCategory.value = 'all'
   isMobileFiltersOpen.value = false
+}
+
+const clearAdvancedFilters = () => {
+  selectedCategory.value = 'all'
 }
 
 const formatCurrency = (amount: number) => new Intl.NumberFormat('en-US', {
@@ -183,7 +187,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="h-full flex flex-col relative animate-fade-in bg-gray-50 text-text overflow-hidden">
+  <div class="min-h-full flex flex-col relative animate-fade-in bg-gray-50 text-text">
     <div class="bg-white px-3 py-3 md:px-6 md:py-4 border-b border-gray-200 shadow-sm shrink-0 z-10">
       <div class="max-w-7xl mx-auto flex flex-col gap-3 md:gap-4">
         <div class="flex items-center justify-between gap-3">
@@ -207,7 +211,7 @@ onMounted(() => {
               <button
                 v-if="canCreate"
                 type="button"
-                class="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-primary px-3 text-sm font-bold text-white hover:bg-primary-hover transition-colors md:px-5"
+                class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-3 text-sm font-bold text-white transition-colors hover:bg-primary-hover md:px-5"
                 @click="openCreateDialog"
               >
                 <el-icon><Plus /></el-icon>
@@ -238,16 +242,18 @@ onMounted(() => {
         </div>
 
         <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-          <div class="flex gap-2 md:grid md:grid-cols-[minmax(0,1fr)_220px] lg:min-w-[560px]">
-            <el-input v-model="searchKeyword" size="large" clearable placeholder="搜尋裝備名稱、規格或備註" />
+          <div class="app-search-filter-bar md:grid-cols-[minmax(0,1fr)_220px] lg:min-w-[560px]">
+            <el-input v-model="searchKeyword" size="large" clearable class="app-search-control" placeholder="搜尋裝備名稱、規格或備註" />
             <button
               type="button"
-              class="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-2xl border px-3 text-sm font-bold transition-colors md:hidden"
-              :class="hasActiveFilters ? 'border-primary/30 bg-primary/5 text-primary' : 'border-gray-200 bg-white text-gray-600'"
-              @click="isMobileFiltersOpen = !isMobileFiltersOpen"
+              class="app-mobile-filter-trigger md:hidden"
+              aria-label="開啟裝備篩選"
+              title="開啟裝備篩選"
+              :aria-expanded="isMobileFiltersOpen"
+              @click="isMobileFiltersOpen = true"
             >
               <el-icon><Filter /></el-icon>
-              <span class="max-w-[4.5rem] truncate">{{ mobileFilterLabel }}</span>
+              <span v-if="activeAdvancedFilterCount > 0" class="app-mobile-filter-badge">{{ activeAdvancedFilterCount }}</span>
             </button>
             <el-select v-model="selectedCategory" size="large" class="hidden w-full md:block">
               <el-option
@@ -265,35 +271,46 @@ onMounted(() => {
             <button
               v-if="hasActiveFilters"
               type="button"
-              class="text-primary"
+              class="min-h-11 rounded-xl px-3 text-primary hover:bg-orange-50"
               @click="clearFilters"
             >
               清除篩選
             </button>
           </div>
 
-          <div
-            v-show="isMobileFiltersOpen"
-            class="grid gap-2 rounded-2xl border border-gray-100 bg-gray-50 p-2 md:hidden"
-          >
-            <el-select v-model="selectedCategory" size="large" class="w-full" @change="isMobileFiltersOpen = false">
-              <el-option
-                v-for="category in categories"
-                :key="category"
-                :label="category === 'all' ? '全部分類' : category"
-                :value="category"
-              />
-            </el-select>
-            <div class="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2">
-              <span class="text-xs font-bold text-gray-400">顯示模式</span>
-              <ViewModeSwitch v-model="viewMode" />
-            </div>
-          </div>
         </div>
       </div>
     </div>
 
-    <div class="flex-1 overflow-y-auto min-h-0 p-3 md:p-6 pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:pb-6 custom-scrollbar">
+    <AppMobileFilterSheet
+      v-model="isMobileFiltersOpen"
+      title="裝備篩選"
+      :active-count="activeAdvancedFilterCount"
+      :clear-disabled="activeAdvancedFilterCount === 0"
+      @clear="clearAdvancedFilters"
+    >
+      <div class="space-y-4">
+        <div>
+          <label class="mb-1.5 block text-sm font-bold text-slate-600">裝備分類</label>
+          <el-select v-model="selectedCategory" size="large" class="w-full">
+            <el-option
+              v-for="category in categories"
+              :key="category"
+              :label="category === 'all' ? '全部分類' : category"
+              :value="category"
+            />
+          </el-select>
+        </div>
+        <div>
+          <label class="mb-1.5 block text-sm font-bold text-slate-600">顯示方式</label>
+          <div class="rounded-xl border border-slate-200 bg-white p-2">
+            <ViewModeSwitch v-model="viewMode" />
+          </div>
+        </div>
+      </div>
+    </AppMobileFilterSheet>
+
+    <div class="min-h-0 flex-1 p-3 pb-5 md:p-6 md:pb-6">
       <div class="max-w-7xl mx-auto">
         <AppLoadingState v-if="equipmentStore.isLoading" text="裝備資料載入中..." />
 
@@ -394,50 +411,26 @@ onMounted(() => {
                 <button
                   v-if="canCreate || canEdit"
                   type="button"
-                  class="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700 hover:bg-emerald-100 transition-colors"
-                  @click="openInventoryDialog(equipment)"
-                >
-                  新增庫存
-                </button>
-                <button
-                  v-if="canCreate || canEdit"
-                  type="button"
                   class="rounded-xl bg-primary px-3 py-2 text-sm font-bold text-white hover:bg-primary-hover transition-colors"
                   @click="openTransactionDialog(equipment)"
                 >
                   交易
                 </button>
                 <button
-                  v-if="canCreate || canEdit"
-                  type="button"
-                  class="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-sm font-bold text-primary hover:bg-primary/10 transition-colors"
-                  @click="openTransactionDialog(equipment, 'purchase')"
-                >
-                  快速購買
-                </button>
-                <button
+                  v-if="!(canCreate || canEdit)"
                   type="button"
                   class="rounded-xl border border-gray-200 px-3 py-2 text-sm font-bold text-gray-600 hover:border-primary hover:text-primary transition-colors"
                   @click="openHistoryDialog(equipment)"
                 >
                   紀錄
                 </button>
-                <button
-                  v-if="canEdit"
-                  type="button"
-                  class="rounded-xl border border-gray-200 px-3 py-2 text-sm font-bold text-gray-600 hover:border-primary hover:text-primary transition-colors"
-                  @click="openEditDialog(equipment)"
-                >
-                  編輯
-                </button>
-                <button
-                  v-if="canDelete"
-                  type="button"
-                  class="rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-sm font-bold text-red-500 hover:bg-red-100 transition-colors"
-                  @click="removeEquipment(equipment)"
-                >
-                  刪除
-                </button>
+                <AppActionOverflow v-if="canCreate || canEdit || canDelete">
+                  <el-dropdown-item v-if="canCreate || canEdit" @click="openHistoryDialog(equipment)">查看紀錄</el-dropdown-item>
+                  <el-dropdown-item v-if="canCreate || canEdit" @click="openInventoryDialog(equipment)">新增庫存</el-dropdown-item>
+                  <el-dropdown-item v-if="canCreate || canEdit" @click="openTransactionDialog(equipment, 'purchase')">快速購買</el-dropdown-item>
+                  <el-dropdown-item v-if="canEdit" @click="openEditDialog(equipment)">編輯</el-dropdown-item>
+                  <el-dropdown-item v-if="canDelete" class="!text-red-600" @click="removeEquipment(equipment)">刪除</el-dropdown-item>
+                </AppActionOverflow>
               </div>
             </div>
           </article>
@@ -509,27 +502,24 @@ onMounted(() => {
                   </td>
                   <td class="px-5 py-4">
                     <div class="flex justify-end gap-2">
-                      <button
-                        v-if="canCreate || canEdit"
-                        type="button"
-                        class="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700"
-                        title="新增庫存"
-                        @click="openInventoryDialog(equipment)"
-                      >
-                        <el-icon><Plus /></el-icon>
-                      </button>
-                      <button v-if="canCreate || canEdit" type="button" class="rounded-xl bg-primary px-3 py-2 text-sm font-bold text-white" @click="openTransactionDialog(equipment)">
+                      <button v-if="canCreate || canEdit" type="button" class="min-h-11 rounded-xl bg-primary px-3 py-2 text-sm font-bold text-white" aria-label="新增裝備交易" title="新增裝備交易" @click="openTransactionDialog(equipment)">
                         <el-icon><Tickets /></el-icon>
                       </button>
-                      <button type="button" class="rounded-xl border border-gray-200 px-3 py-2 text-sm font-bold text-gray-600" @click="openHistoryDialog(equipment)">
+                      <button v-if="!(canCreate || canEdit)" type="button" class="min-h-11 rounded-xl border border-gray-200 px-3 py-2 text-sm font-bold text-gray-600" @click="openHistoryDialog(equipment)">
                         紀錄
                       </button>
-                      <button v-if="canEdit" type="button" class="rounded-xl border border-gray-200 px-3 py-2 text-sm font-bold text-gray-600" @click="openEditDialog(equipment)">
-                        <el-icon><Edit /></el-icon>
-                      </button>
-                      <button v-if="canDelete" type="button" class="rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-sm font-bold text-red-500" @click="removeEquipment(equipment)">
-                        <el-icon><Delete /></el-icon>
-                      </button>
+                      <AppActionOverflow v-if="canCreate || canEdit || canDelete">
+                        <el-dropdown-item v-if="canCreate || canEdit" @click="openHistoryDialog(equipment)">查看紀錄</el-dropdown-item>
+                        <el-dropdown-item v-if="canCreate || canEdit" @click="openInventoryDialog(equipment)">
+                          <el-icon><Plus /></el-icon>新增庫存
+                        </el-dropdown-item>
+                        <el-dropdown-item v-if="canEdit" @click="openEditDialog(equipment)">
+                          <el-icon><Edit /></el-icon>編輯
+                        </el-dropdown-item>
+                        <el-dropdown-item v-if="canDelete" class="!text-red-600" @click="removeEquipment(equipment)">
+                          <el-icon><Delete /></el-icon>刪除
+                        </el-dropdown-item>
+                      </AppActionOverflow>
                     </div>
                   </td>
                 </tr>

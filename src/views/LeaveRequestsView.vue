@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-full md:h-full flex flex-col relative animate-fade-in p-2 pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:p-6 md:pb-6 md:overflow-y-auto custom-scrollbar">
+  <div class="relative flex min-h-full flex-col p-2 pb-5 animate-fade-in md:p-6 md:pb-6">
     <!-- 頂部標題區 -->
     <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4 shrink-0">
       <AppPageHeader
@@ -10,11 +10,11 @@
       >
         <template #actions>
           <!-- 齒輪按鈕 (推播設定用) -->
-          <button @click="isSettingsOpen = true" class="bg-white border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50 p-2.5 rounded-xl shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-gray-200" title="系統推播通知">
+          <button type="button" @click="isSettingsOpen = true" class="app-icon-button" aria-label="系統推播通知" title="系統推播通知">
             <el-icon><Setting /></el-icon>
           </button>
 
-          <button @click="openCreateModal" class="bg-primary hover:bg-primary-hover active:scale-95 text-white px-5 py-2.5 rounded-xl shadow-[0_8px_20px_rgba(216,143,34,0.25)] text-sm font-bold transition-all flex items-center gap-2">
+          <button type="button" @click="openCreateModal" class="flex min-h-11 items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-[0_8px_20px_rgba(216,143,34,0.25)] transition-all hover:bg-primary-hover active:scale-95">
             <el-icon><Plus /></el-icon>
             新增假單
           </button>
@@ -61,8 +61,9 @@
                   v-for="monthOption in monthQuickOptions"
                   :key="monthOption.value"
                   @click="applyMonthFilter(monthOption.value)"
-                  class="px-4 py-2 rounded-xl border transition-all text-sm font-bold whitespace-nowrap shrink-0"
+                  class="min-h-11 shrink-0 whitespace-nowrap rounded-xl border px-4 py-2 text-sm font-bold transition-all"
                   :class="selectedSearchMonth === monthOption.value ? 'border-primary bg-primary/5 text-primary' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'"
+                  :aria-pressed="selectedSearchMonth === monthOption.value"
                 >
                   {{ monthOption.label }}
                 </button>
@@ -73,6 +74,7 @@
                   @click="selectedDate = ''"
                   class="flex items-center justify-center px-4 rounded-xl border transition-all text-sm font-bold shrink-0"
                   :class="!selectedDate ? 'border-primary bg-primary/5 text-primary' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'"
+                  :aria-pressed="!selectedDate"
                 >
                   全部區間
                 </button>
@@ -82,6 +84,7 @@
                   @click="selectedDate = selectedDate === dateItem.dateStr ? '' : dateItem.dateStr"
                   class="relative flex flex-col items-center justify-center px-5 py-2 rounded-xl border transition-all min-w-[80px] shrink-0 group"
                   :class="selectedDate === dateItem.dateStr ? 'border-primary bg-primary/5 text-primary' : 'border-gray-200 bg-white hover:border-primary/50 text-gray-600'"
+                  :aria-pressed="selectedDate === dateItem.dateStr"
                 >
                   <span class="text-xs font-bold mb-1 opacity-80 group-hover:opacity-100 transition-opacity" :class="dateItem.dayName === '週日' || dateItem.dayName === '週六' ? 'text-primary' : ''">{{ dateItem.dayName }}</span>
                   <span class="text-base font-black leading-none">{{ dateItem.label }}</span>
@@ -205,7 +208,7 @@
                 <el-table-column label="操作" width="60" align="right">
                   <template #default="{ row }">
                     <!-- 只有自己或是管理員可以刪除 -->
-                    <button v-if="canDeleteLeaveRecord(row.user_id)" @click="confirmDelete(row)" class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all" title="刪除紀錄">
+                    <button v-if="canDeleteLeaveRecord(row.user_id)" type="button" aria-label="刪除請假紀錄" @click="confirmDelete(row)" class="app-icon-button text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all" title="刪除紀錄">
                       <el-icon><Delete /></el-icon>
                     </button>
                   </template>
@@ -516,13 +519,12 @@
       </el-form>
 
       <template #footer>
-        <div class="flex justify-end gap-3 mt-4 pt-4 border-t border-gray-100">
-          <button @click="isModalOpen = false" class="px-5 py-2.5 text-gray-500 font-bold hover:bg-gray-100 rounded-xl transition-all">取消</button>
-          <button @click="submitForm" :disabled="isSubmitting" class="px-6 py-2.5 bg-primary hover:bg-primary-hover active:scale-95 disabled:opacity-70 text-white font-bold rounded-xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center min-w-[100px]">
-            <span v-if="isSubmitting" class="flex gap-2 items-center"><el-icon class="is-loading"><Loading /></el-icon> 送出假單</span>
-            <span v-else>確認送出</span>
-          </button>
-        </div>
+        <AppDialogFooter
+          confirm-label="確認送出"
+          :loading="isSubmitting"
+          @cancel="isModalOpen = false"
+          @confirm="submitForm"
+        />
       </template>
     </el-dialog>
 
@@ -562,6 +564,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Loading, Memo, Plus, Setting } from '@element-plus/icons-vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
+import AppDialogFooter from '@/components/common/AppDialogFooter.vue'
 import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
 import dayjs from 'dayjs'
 

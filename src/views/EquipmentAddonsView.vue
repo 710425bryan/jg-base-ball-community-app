@@ -727,7 +727,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="h-full flex flex-col relative animate-fade-in bg-gray-50 text-text overflow-hidden">
+  <div class="min-h-full flex flex-col relative animate-fade-in bg-gray-50 text-text">
     <div class="bg-white px-4 md:px-6 py-4 border-b border-gray-200 shadow-sm shrink-0 z-10">
       <div class="max-w-6xl mx-auto flex flex-col gap-4">
         <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -740,7 +740,7 @@ onMounted(() => {
             <template #actions>
               <button
                 type="button"
-                class="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 px-4 py-3 text-sm font-bold text-gray-600 hover:border-primary hover:text-primary transition-colors disabled:opacity-70"
+                class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-3 text-sm font-bold text-gray-600 transition-colors hover:border-primary hover:text-primary disabled:opacity-70"
                 :disabled="isBootstrapping"
                 @click="bootstrap"
               >
@@ -751,19 +751,21 @@ onMounted(() => {
           </AppPageHeader>
         </div>
 
-        <div class="flex gap-2 overflow-x-auto">
+        <div class="grid grid-cols-2 gap-2">
           <button
             type="button"
-            class="rounded-t-xl border-b-2 px-5 py-2 text-sm font-bold transition-all"
+            class="min-h-11 rounded-xl border-b-2 px-5 py-2 text-sm font-bold transition-all"
             :class="activeTab === 'shop' ? 'border-primary bg-primary/5 text-primary' : 'border-transparent text-gray-500 hover:bg-gray-50'"
+            :aria-pressed="activeTab === 'shop'"
             @click="activeTab = 'shop'"
           >
             加購裝備
           </button>
           <button
             type="button"
-            class="rounded-t-xl border-b-2 px-5 py-2 text-sm font-bold transition-all"
+            class="min-h-11 rounded-xl border-b-2 px-5 py-2 text-sm font-bold transition-all"
             :class="activeTab === 'requests' ? 'border-primary bg-primary/5 text-primary' : 'border-transparent text-gray-500 hover:bg-gray-50'"
+            :aria-pressed="activeTab === 'requests'"
             @click="activeTab = 'requests'"
           >
             申請紀錄
@@ -772,7 +774,7 @@ onMounted(() => {
       </div>
     </div>
 
-    <div class="flex-1 overflow-y-auto min-h-0 p-4 md:p-6 pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:pb-6 custom-scrollbar">
+    <div class="min-h-0 flex-1 p-4 pb-5 md:p-6 md:pb-6">
       <AppLoadingState v-if="isBootstrapping" text="讀取裝備加購資料中..." min-height="50vh" />
 
       <div v-else class="max-w-6xl mx-auto">
@@ -858,7 +860,7 @@ onMounted(() => {
                       </div>
                     </div>
 
-                    <button type="button" class="self-start text-sm font-bold text-red-500 md:self-center" @click="removeCartItem(index)">
+                    <button type="button" class="min-h-11 self-start rounded-xl px-3 text-sm font-bold text-red-500 hover:bg-red-50 md:self-center" @click="removeCartItem(index)">
                       移除
                     </button>
                   </div>
@@ -897,7 +899,7 @@ onMounted(() => {
                 <div class="mt-4 flex justify-end">
                   <button
                     type="button"
-                    class="rounded-2xl bg-primary px-5 py-3 font-bold text-white hover:bg-primary-hover transition-colors disabled:opacity-70"
+                    class="rounded-xl bg-primary px-5 py-3 font-bold text-white transition-colors hover:bg-primary-hover disabled:opacity-70"
                     :disabled="isSubmitting || cart.length === 0 || hasInvalidCartQuantity || hasUnavailableCartItems"
                     @click="submitRequest"
                   >
@@ -1034,7 +1036,7 @@ onMounted(() => {
 
                       <button
                         type="button"
-                        class="mt-3 w-full rounded-2xl bg-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-primary-hover transition-colors disabled:bg-gray-200 disabled:text-gray-500"
+                        class="mt-3 min-h-11 w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-primary-hover disabled:bg-gray-200 disabled:text-gray-500"
                         :disabled="isAddToCartDisabled(equipment)"
                         @click="addToCart(equipment)"
                       >

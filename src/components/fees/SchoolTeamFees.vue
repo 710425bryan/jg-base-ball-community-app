@@ -80,9 +80,20 @@
     </div>
 
     <div class="bg-white p-5 md:p-6 rounded-2xl border border-gray-100 shadow-sm">
-      <div class="mb-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
-        <el-input v-model="searchQuery" size="large" clearable placeholder="搜尋球員、組別或訓練項目" />
-        <el-select v-model="programFilter" size="large" class="w-full">
+      <div class="app-search-filter-bar mb-4 md:grid-cols-[minmax(0,1fr)_220px]">
+        <el-input v-model="searchQuery" size="large" clearable class="app-search-control" placeholder="搜尋球員、組別或訓練項目" />
+        <button
+          type="button"
+          class="app-mobile-filter-trigger md:hidden"
+          aria-label="開啟月費篩選"
+          title="開啟月費篩選"
+          :aria-expanded="isMobileFiltersOpen"
+          @click="isMobileFiltersOpen = true"
+        >
+          <el-icon><Filter /></el-icon>
+          <span v-if="activeAdvancedFilterCount > 0" class="app-mobile-filter-badge">{{ activeAdvancedFilterCount }}</span>
+        </button>
+        <el-select v-model="programFilter" size="large" class="hidden w-full md:block">
           <el-option label="全部訓練項目" value="all" />
           <el-option
             v-for="option in programOptions"
@@ -92,6 +103,27 @@
           />
         </el-select>
       </div>
+
+      <AppMobileFilterSheet
+        v-model="isMobileFiltersOpen"
+        title="月費篩選"
+        :active-count="activeAdvancedFilterCount"
+        :clear-disabled="activeAdvancedFilterCount === 0"
+        @clear="clearAdvancedFilters"
+      >
+        <div>
+          <label class="mb-1.5 block text-sm font-bold text-slate-600">訓練項目</label>
+          <el-select v-model="programFilter" size="large" class="w-full">
+            <el-option label="全部訓練項目" value="all" />
+            <el-option
+              v-for="option in programOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </el-select>
+        </div>
+      </AppMobileFilterSheet>
       <div class="flex flex-col gap-1 mb-4">
         <p class="text-xs font-bold uppercase tracking-[0.24em] text-primary/70">{{ selectedMonth }} 月費總結</p>
         <div class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
@@ -334,7 +366,8 @@
 import { ref, onMounted, computed, watch, watchEffect, nextTick } from 'vue'
 import { supabase } from '@/services/supabase'
 import { ElMessage, ElMessageBox, ElNotification } from 'element-plus'
-import { Loading, BellFilled, Edit, Delete, Check, Calendar } from '@element-plus/icons-vue'
+import { Loading, BellFilled, Edit, Delete, Check, Calendar, Filter } from '@element-plus/icons-vue'
+import AppMobileFilterSheet from '@/components/common/AppMobileFilterSheet.vue'
 import dayjs from 'dayjs'
 import { useWindowSize } from '@vueuse/core'
 import { useRoute } from 'vue-router'
@@ -388,6 +421,11 @@ const trainingMonthDatesByProgram = ref<Record<string, string[]>>({})
 const programSettings = ref<TrainingProgramSetting[]>(getTrainingProgramFallbackSettings())
 const programFilter = ref('all')
 const searchQuery = ref('')
+const isMobileFiltersOpen = ref(false)
+const activeAdvancedFilterCount = computed(() => Number(programFilter.value !== 'all'))
+const clearAdvancedFilters = () => {
+  programFilter.value = 'all'
+}
 const trainingMonthDatesIsDefault = ref(false)
 const isLoading = ref(false)
 const isCalculating = ref(false)

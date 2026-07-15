@@ -36,6 +36,7 @@
 | 任務類型 | 必讀 skill | 常見必讀檔案 |
 | --- | --- | --- |
 | 一般 Vue / Supabase 修改 | `jg-baseball-project-workflow` | `src/router/index.ts`、相關 `view/component/store/service/type` |
+| 手機版面、功能按鈕、搜尋篩選、Dialog、safe area | `jg-baseball-project-workflow` | `docs/MOBILE_UI_UX_RULES.md`、`src/style.css`、`AppPageHeader.vue`、`AppMobileFilterSheet.vue`、相關 view/component |
 | 登入、角色、路由守衛、feature/action | `jg-baseball-auth-permissions` | `src/router/index.ts`、`src/stores/auth.ts`、`src/stores/permissions.ts`、相關 migration |
 | 球員名單、使用者、綁定球員、team group | `jg-baseball-roster-users-team-groups` | `PlayersView.vue`、`UsersView.vue`、`TeamGroupSettingsDialog.vue`、`src/stores/playerRoster.ts`、`src/stores/teamGroups.ts` |
 | 球員名單、Google Form / Sheet 同步 | `jg-baseball-player-sync` | `src/utils/playerSync.ts`、`src/utils/playerSync.test.ts`、`PlayersView.vue` |
@@ -80,6 +81,8 @@
 
 - `docs/PROJECT_LOGIC.md`：目前專案功能邏輯、資料流、主要資料表與 RPC 對照。
 - `docs/FILE_MAP.md`：重要檔案地圖，協助 AI 快速定位該讀或該改的檔案。
+- `docs/MOBILE_UI_UX_RULES.md`：登入後手機版面、功能按鈕、Dialog、safe area 與分批稽核規則。
+- `docs/MOBILE_UI_UX_AUDIT.md`：登入後頁面 P0–P3 實際調整狀態、完成條件與驗證證據。
 - `docs/MIGRATIONS.md`：migration / hotfix / repair 索引，修改 DB function / policy 前必讀。
 - `docs/EDGE_FUNCTIONS.md`：Supabase Edge Functions、外部服務與環境變數索引。
 - `.codex/skills/`：專案 AI workflow。
@@ -310,6 +313,11 @@
 
 ## 8. UI 與行動裝置規則
 
+- 手機版面、功能按鈕、Dialog、sticky action 或 safe area 變更前，必須先讀 `docs/MOBILE_UI_UX_RULES.md`；該檔是目標規格，若與現況衝突要在回報指出，不可把待辦描述成已完成。
+- 執行既有頁面手機一致性調整時，同時更新 `docs/MOBILE_UI_UX_AUDIT.md`；沒有完成自動檢查與指定裝置驗收前，只能標示為「進行中」或「待驗收」。
+- 手機模式的一致性目標為 `<768px`，與 `MainLayout` 的 `md:hidden` 底部導覽相同；`<640px` 只作窄手機附加調整。現有只套在 `max-width: 639px` 的全域規則仍屬待稽核項目。
+- 品牌色沿用 `#D88F22`、白色 surface 與 slate 文字；功能按鈕不得另建色盤或用裝飾性漸層表達層級。
+- 手機主要觸控區不得小於 44px；同一操作區最多一個 Primary，超過兩個可見操作時應收進「更多」選單。
 - 登入後 route-level 功能頁第一層標題統一使用 `src/components/common/AppPageHeader.vue`，不可在 view 內手寫 page title 結構。
 - `AppPageHeader` 必須提供 Element Plus icon；標題旁的 badge / 計數放 `title-suffix` slot，返回按鈕放 `before` slot，右側操作放 `actions` slot。
 - Page title 樣式由 `src/style.css` 的 `.app-page-header`、`.app-page-title`、`.app-page-title-icon`、`.app-page-subtitle` 統一控制。
@@ -318,7 +326,7 @@
 - 首頁 hero、公開 landing、卡片標題、section title、dialog title 可依情境保留自己的視覺層級。
 - 全站頁面級或大區塊 loading 統一使用 `src/components/common/AppLoadingState.vue`，維持橘色 loading icon 搭配灰色文字；各頁只改 `text` 文案，不在 view 內手寫大型 spinner / loading 結構。
 - 按鈕內 loading、表單提交中、`v-loading` 的局部遮罩、通知中心等小型互動狀態可依 Element Plus 原本模式處理。
-- 全專案 `el-dialog` 在手機模式（`max-width: 639px`）預設滿版顯示；右上角關閉按鈕避開 `env(safe-area-inset-top/right)`，觸控區不得小於 44px。
+- 全專案 `el-dialog` 目前在 `max-width: 639px` 預設滿版顯示；後續一致性目標是擴及完整 `<768px` 手機模式。右上角關閉按鈕需避開 `env(safe-area-inset-top/right)`，觸控區不得小於 44px。
 - 若某 Dialog 必須非滿版，需在該元件註明原因並確認手機可操作性。
 - 新增 Element Plus 按鈕盡量避免 `size="small"`，尤其是手機主要操作與裝備流程。
 

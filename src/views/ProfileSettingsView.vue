@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full flex flex-col relative animate-fade-in bg-gray-50 text-text overflow-hidden">
+  <div class="min-h-full flex flex-col relative animate-fade-in bg-gray-50 text-text">
     <div class="bg-white px-4 md:px-6 py-4 border-b border-gray-200 shadow-sm shrink-0">
       <div class="max-w-5xl mx-auto">
           <AppPageHeader
@@ -11,14 +11,17 @@
       </div>
     </div>
 
-    <div class="flex-1 overflow-y-auto min-h-0 p-4 md:p-6 pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:pb-6 custom-scrollbar">
+    <div class="min-h-0 flex-1 p-4 pb-5 md:p-6 md:pb-6">
       <AppLoadingState v-if="isLoading" text="讀取個人設定中..." min-height="50vh" />
 
       <div v-else class="max-w-5xl mx-auto grid gap-4 lg:grid-cols-[320px,1fr]">
         <section class="bg-white rounded-3xl border border-gray-100 shadow-sm p-5 md:p-6">
           <div class="flex flex-col items-center text-center">
-            <div
+            <button
+              type="button"
               class="relative w-32 h-32 rounded-full border-2 border-dashed border-gray-300 bg-gray-50 overflow-hidden cursor-pointer group"
+              aria-label="更換大頭照"
+              title="更換大頭照"
               @click="triggerFileInput"
             >
               <img
@@ -38,7 +41,7 @@
                 <span class="text-sm font-black">更換大頭照</span>
                 <span class="text-[11px] font-medium mt-1">自動壓縮至 1MB 內</span>
               </div>
-            </div>
+            </button>
 
             <input
               ref="fileInput"
@@ -55,7 +58,7 @@
             <div class="w-full mt-5 space-y-3">
               <button
                 type="button"
-                class="w-full rounded-2xl bg-gray-900 hover:bg-black text-white font-bold py-3 transition-colors disabled:opacity-70"
+                class="w-full rounded-xl bg-primary py-3 font-bold text-white transition-colors hover:bg-primary-hover disabled:opacity-70"
                 :disabled="isCompressing"
                 @click="triggerFileInput"
               >
@@ -65,7 +68,7 @@
               <button
                 v-if="avatarDisplayUrl"
                 type="button"
-                class="w-full rounded-2xl border border-gray-200 text-gray-600 hover:text-red-500 hover:border-red-200 hover:bg-red-50 font-bold py-3 transition-colors"
+                class="w-full rounded-xl border border-gray-200 py-3 font-bold text-gray-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-500"
                 @click="clearAvatar"
               >
                 移除目前大頭照
@@ -154,7 +157,7 @@
 
               <button
                 type="button"
-                class="shrink-0 rounded-2xl bg-primary hover:bg-primary-hover text-white font-bold px-5 py-3 transition-colors"
+                class="shrink-0 rounded-xl bg-primary px-5 py-3 font-bold text-white transition-colors hover:bg-primary-hover"
                 @click="isPushSettingsOpen = true"
               >
                 前往設定
@@ -173,7 +176,7 @@
                 <button
                   v-if="isPasskeyAvailable"
                   type="button"
-                  class="shrink-0 inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-3 transition-colors disabled:opacity-70"
+                  class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 font-bold text-white transition-colors hover:bg-primary-hover disabled:opacity-70"
                   :disabled="isRegisteringPasskey || isLoadingPasskeys"
                   @click="handleRegisterPasskey"
                 >
@@ -227,8 +230,9 @@
                     <div class="flex shrink-0 items-center gap-2">
                       <button
                         type="button"
-                        class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
+                        class="app-icon-button"
                         :aria-label="`重新命名 ${getPasskeyDisplayName(passkey)}`"
+                        :title="`重新命名 ${getPasskeyDisplayName(passkey)}`"
                         :disabled="passkeyActionId === passkey.id"
                         @click="handleRenamePasskey(passkey)"
                       >
@@ -237,8 +241,9 @@
 
                       <button
                         type="button"
-                        class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-red-100 text-red-500 transition-colors hover:border-red-200 hover:bg-red-50 disabled:opacity-50"
+                        class="app-icon-button !border-red-100 !text-red-500 hover:!border-red-200 hover:!bg-red-50"
                         :aria-label="`刪除 ${getPasskeyDisplayName(passkey)}`"
+                        :title="`刪除 ${getPasskeyDisplayName(passkey)}`"
                         :disabled="passkeyActionId === passkey.id"
                         @click="handleDeletePasskey(passkey)"
                       >
@@ -277,10 +282,10 @@
               </p>
             </div>
 
-            <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
+            <div class="grid grid-cols-2 gap-2 pt-2 md:flex md:justify-end">
               <button
                 type="button"
-                class="rounded-2xl border border-gray-200 text-gray-600 hover:text-gray-800 hover:border-gray-300 font-bold px-5 py-3 transition-colors"
+                class="rounded-xl border border-gray-200 px-5 py-3 font-bold text-gray-600 transition-colors hover:border-gray-300 hover:text-gray-800"
                 @click="resetForm"
               >
                 還原目前資料
@@ -288,7 +293,7 @@
 
               <button
                 type="button"
-                class="rounded-2xl bg-primary hover:bg-primary-hover text-white font-bold px-6 py-3 transition-colors disabled:opacity-70"
+                class="rounded-xl bg-primary px-6 py-3 font-bold text-white transition-colors hover:bg-primary-hover disabled:opacity-70"
                 :disabled="isSubmitting || isCompressing"
                 @click="submitForm"
               >

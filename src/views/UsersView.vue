@@ -1,6 +1,6 @@
 <template>
-  <div class="h-full flex flex-col relative animate-fade-in p-2 md:p-6 pb-0 md:pb-6 overflow-hidden">
-    <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4 shrink-0">
+  <div class="min-h-full flex flex-col relative animate-fade-in p-2 md:p-6 pb-5 md:pb-6">
+    <div class="mb-6 flex shrink-0 flex-col gap-4">
       <AppPageHeader
         title="使用者名單"
         subtitle="管理社區內的教練、經理與球員權限"
@@ -13,36 +13,77 @@
           </span>
         </template>
 
-        <template #actions>
-          <div class="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-3 self-start md:flex md:w-auto md:items-center">
-            <el-input
-              v-model="searchQuery"
-              placeholder="搜尋使用者或球員姓名"
-              :prefix-icon="Search"
-              clearable
-              size="large"
-              class="col-span-2 !w-full md:!w-72"
-            />
-
-            <el-select v-model="statusFilter" size="large" class="!w-full md:!w-[10.5rem]">
-              <el-option
-                v-for="option in accessStatusFilterOptions"
-                :key="option.value"
-                :label="option.label"
-                :value="option.value"
+      </AppPageHeader>
+      <div class="app-page-toolbar">
+            <div class="app-search-filter-bar md:hidden">
+              <el-input
+                v-model="searchQuery"
+                placeholder="搜尋使用者或球員姓名"
+                :prefix-icon="Search"
+                clearable
+                size="large"
+                class="app-search-control"
               />
-            </el-select>
+              <button
+                type="button"
+                class="app-mobile-filter-trigger"
+                aria-label="開啟使用者篩選"
+                title="開啟使用者篩選"
+                :aria-expanded="isMobileFiltersOpen"
+                @click="isMobileFiltersOpen = true"
+              >
+                <el-icon><Filter /></el-icon>
+                <span v-if="activeAdvancedFilterCount > 0" class="app-mobile-filter-badge">{{ activeAdvancedFilterCount }}</span>
+              </button>
+            </div>
 
-            <ViewModeSwitch v-model="viewMode" class="justify-self-end" />
+            <div class="users-desktop-filter-group hidden min-w-0 flex-1 items-center gap-2 md:flex lg:max-w-[29rem]">
+              <el-input
+                v-model="searchQuery"
+                placeholder="搜尋使用者或球員姓名"
+                :prefix-icon="Search"
+                clearable
+                size="large"
+                class="!w-full min-w-[12rem] flex-1"
+              />
+              <el-select v-model="statusFilter" size="large" class="!w-[10.5rem] shrink-0">
+                <el-option
+                  v-for="option in accessStatusFilterOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+            </div>
 
-            <button @click="openCreateModal" class="col-span-2 w-full bg-primary hover:bg-primary-hover active:scale-95 text-white px-4 sm:px-5 py-2.5 rounded-xl shadow-[0_8px_20px_rgba(216,143,34,0.25)] text-sm font-bold transition-all flex items-center justify-center gap-2 md:col-span-1 md:w-auto md:flex-none min-w-0">
+            <ViewModeSwitch v-model="viewMode" class="shrink-0" />
+
+            <button @click="openCreateModal" class="flex min-h-11 w-full min-w-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white shadow-[0_8px_20px_rgba(216,143,34,0.25)] transition-all hover:bg-primary-hover active:scale-95 md:w-auto md:flex-none md:px-5">
               <el-icon><Plus /></el-icon>
               新增使用者
             </button>
-          </div>
-        </template>
-      </AppPageHeader>
+      </div>
     </div>
+
+    <AppMobileFilterSheet
+      v-model="isMobileFiltersOpen"
+      title="使用者篩選"
+      :active-count="activeAdvancedFilterCount"
+      :clear-disabled="activeAdvancedFilterCount === 0"
+      @clear="clearAdvancedFilters"
+    >
+      <div>
+        <label class="mb-1.5 block text-sm font-bold text-slate-600">登入狀態</label>
+        <el-select v-model="statusFilter" size="large" class="w-full">
+          <el-option
+            v-for="option in accessStatusFilterOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
+      </div>
+    </AppMobileFilterSheet>
 
     <el-tabs v-model="activeTab" class="flex-1 flex flex-col min-h-0 bg-transparent custom-tabs">
       <el-tab-pane label="系統帳號管理" name="users" class="h-full flex flex-col">
@@ -58,7 +99,7 @@
           <span class="font-bold">沒有符合篩選條件的使用者</span>
         </div>
 
-        <div v-else class="flex-1 min-h-0 overflow-y-auto pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:pb-2 pr-1 custom-scrollbar">
+        <div v-else class="min-h-0 flex-1 pb-5 pr-1 md:pb-2">
           <section v-for="group in groupedUsers" :key="group.roleKey" class="mb-6 last:mb-0">
             <div class="flex items-center justify-between gap-3 mb-3 px-1">
               <div class="flex items-center gap-3 min-w-0">
@@ -154,16 +195,20 @@
                   <template #default="{ row }">
                     <div class="flex justify-center gap-2">
                       <button
+                        type="button"
                         @click="openEditModal(row)"
-                        class="p-2.5 text-gray-400 hover:text-primary hover:bg-orange-50 rounded-xl transition-all border border-transparent hover:border-orange-100"
+                        class="app-icon-button text-gray-400 hover:text-primary hover:bg-orange-50 transition-all border border-transparent hover:border-orange-100"
+                        aria-label="編輯使用者"
                         title="編輯"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                       </button>
 
                       <button
+                        type="button"
                         @click="confirmDelete(row)"
-                        class="p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all border border-transparent hover:border-red-100"
+                        class="app-icon-button text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all border border-transparent hover:border-red-100"
+                        aria-label="刪除使用者"
                         title="刪除"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -215,16 +260,20 @@
 
                   <div class="flex gap-1.5 sm:gap-2 shrink-0">
                     <button
+                      type="button"
                       @click="openEditModal(row)"
-                      class="p-2 sm:p-2.5 text-gray-400 hover:text-primary hover:bg-orange-50 rounded-xl transition-all border border-transparent hover:border-orange-100"
+                      class="app-icon-button text-gray-400 hover:text-primary hover:bg-orange-50 transition-all border border-transparent hover:border-orange-100"
+                      aria-label="編輯使用者"
                       title="編輯"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                     </button>
 
                     <button
+                      type="button"
                       @click="confirmDelete(row)"
-                      class="p-2 sm:p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all border border-transparent hover:border-red-100"
+                      class="app-icon-button text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all border border-transparent hover:border-red-100"
+                      aria-label="刪除使用者"
                       title="刪除"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -408,13 +457,12 @@
       </el-form>
 
       <template #footer>
-        <div class="flex justify-end gap-3 mt-4 pt-4 border-t border-gray-100">
-          <button @click="isModalOpen = false" class="px-5 py-2.5 text-gray-500 font-bold hover:bg-gray-100 rounded-xl transition-all">取消</button>
-          <button @click="submitForm" :disabled="isSubmitting" class="px-6 py-2.5 bg-gray-800 hover:bg-gray-900 active:scale-95 disabled:opacity-70 text-white font-bold rounded-xl shadow-lg shadow-gray-200 transition-all flex items-center justify-center min-w-[100px]">
-            <span v-if="isSubmitting" class="flex gap-2 items-center"><el-icon class="is-loading"><Loading /></el-icon> 儲存中</span>
-            <span v-else>確認儲存</span>
-          </button>
-        </div>
+        <AppDialogFooter
+          confirm-label="確認儲存"
+          :loading="isSubmitting"
+          @cancel="isModalOpen = false"
+          @confirm="submitForm"
+        />
       </template>
     </el-dialog>
   </div>
@@ -423,9 +471,11 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Loading, Plus, Search, UserFilled } from '@element-plus/icons-vue'
+import { Filter, Plus, Search, UserFilled } from '@element-plus/icons-vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
+import AppDialogFooter from '@/components/common/AppDialogFooter.vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
+import AppMobileFilterSheet from '@/components/common/AppMobileFilterSheet.vue'
 import PreviewableImage from '@/components/common/PreviewableImage.vue'
 import RolePermissionsManager from '@/components/RolePermissionsManager.vue'
 import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
@@ -483,6 +533,11 @@ const activeTab = ref('users')
 const viewMode = ref<ViewMode>('grid')
 const statusFilter = ref<AccessStatusFilter>('all')
 const searchQuery = ref('')
+const isMobileFiltersOpen = ref(false)
+const activeAdvancedFilterCount = computed(() => Number(statusFilter.value !== 'all'))
+const clearAdvancedFilters = () => {
+  statusFilter.value = 'all'
+}
 const fallbackRoleNames: Record<string, string> = {
   ADMIN: '系統管理員',
   MANAGER: '管理員',
@@ -1152,5 +1207,10 @@ onMounted(async () => {
 
 .user-table .el-table__cell {
   vertical-align: top;
+}
+
+.users-desktop-filter-group .el-input__wrapper,
+.users-desktop-filter-group .el-select__wrapper {
+  min-height: 44px;
 }
 </style>

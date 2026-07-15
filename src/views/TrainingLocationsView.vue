@@ -922,7 +922,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="h-full min-w-0 overflow-hidden bg-background p-2 text-text md:p-6">
+  <div class="min-h-full min-w-0 bg-background p-2 text-text md:p-6">
     <div class="flex h-full min-h-0 flex-col gap-4">
       <AppPageHeader
         title="場地與人員配置"
@@ -933,7 +933,7 @@ onMounted(() => {
         <template #actions>
           <button
             type="button"
-            class="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-black text-slate-600 transition-colors hover:border-primary hover:text-primary"
+            class="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-600 transition-colors hover:border-primary hover:text-primary"
             :disabled="isLoading"
             @click="loadAll"
           >
@@ -943,7 +943,7 @@ onMounted(() => {
           <button
             v-if="canCreate"
             type="button"
-            class="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-black text-white shadow-md transition-colors hover:bg-primary-hover"
+            class="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-black text-white shadow-md transition-colors hover:bg-primary-hover"
             @click="startCreate"
           >
             <el-icon><Plus /></el-icon>
@@ -955,7 +955,7 @@ onMounted(() => {
       <AppLoadingState v-if="isLoading" text="讀取場地配置中..." min-height="50vh" />
 
       <div v-else class="grid min-h-0 flex-1 gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
-        <aside class="min-h-0 overflow-y-auto rounded-2xl border border-slate-100 bg-white p-4 shadow-sm custom-scrollbar">
+        <aside class="min-h-0 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm lg:overflow-y-auto custom-scrollbar">
           <div class="mb-3 flex items-center justify-between gap-3">
             <div class="font-black text-slate-800">近期訓練</div>
             <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-500">{{ sessions.length }} 筆</span>
@@ -966,40 +966,46 @@ onMounted(() => {
           </div>
 
           <div v-else class="space-y-2">
-            <button
+            <div
               v-for="session in sessions"
               :key="session.session_id"
-              type="button"
               class="w-full rounded-xl border p-3 text-left transition-colors"
               :class="selectedSessionId === session.session_id ? 'border-primary bg-primary/5' : 'border-slate-100 bg-white hover:border-primary/30'"
-              @click="hydrateSession(session)"
             >
-              <div class="flex items-start justify-between gap-3">
+              <button
+                type="button"
+                class="w-full rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                :aria-pressed="selectedSessionId === session.session_id"
+                @click="hydrateSession(session)"
+              >
+                <div class="flex items-start justify-between gap-3">
                   <div class="min-w-0">
                     <div class="truncate text-base font-black text-slate-900">{{ session.title }}</div>
-                  <div class="mt-1 text-xs font-bold text-slate-500">{{ session.program_label || selectedProgramLabel }}｜{{ formatSessionDate(session.training_date) }}｜{{ formatSessionTime(session) }}</div>
+                    <div class="mt-1 text-xs font-bold text-slate-500">{{ session.program_label || selectedProgramLabel }}｜{{ formatSessionDate(session.training_date) }}｜{{ formatSessionTime(session) }}</div>
+                  </div>
+                  <span class="shrink-0 rounded-full px-2.5 py-1 text-xs font-black" :class="getStatusMeta(session.status).className">
+                    {{ getStatusMeta(session.status).label }}
+                  </span>
                 </div>
-                <span class="shrink-0 rounded-full px-2.5 py-1 text-xs font-black" :class="getStatusMeta(session.status).className">
-                  {{ getStatusMeta(session.status).label }}
-                </span>
-              </div>
+              </button>
               <div class="mt-3 flex items-center justify-between text-xs font-bold text-slate-400">
                 <span>{{ session.venue_count }} 場地｜{{ session.assignment_count }} 人</span>
                 <button
                   v-if="canDelete"
                   type="button"
-                  class="rounded-lg p-1 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500"
-                  title="刪除"
-                  @click.stop="deleteSession(session)"
+                  class="app-icon-button !border-transparent !bg-transparent !text-slate-400 hover:!bg-red-50 hover:!text-red-600"
+                  :aria-label="`刪除${session.title}`"
+                  :title="`刪除${session.title}`"
+                  @click="deleteSession(session)"
                 >
                   <el-icon><Delete /></el-icon>
                 </button>
               </div>
-            </button>
+            </div>
           </div>
         </aside>
 
-        <main class="min-h-0 overflow-y-auto rounded-2xl border border-slate-100 bg-white p-4 shadow-sm custom-scrollbar md:p-5">
+        <main class="min-h-0 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm lg:overflow-y-auto custom-scrollbar md:p-5">
           <section class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
             <div class="flex min-h-0 flex-col gap-4">
               <section class="rounded-2xl border border-slate-100 bg-slate-50 p-4">

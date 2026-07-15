@@ -14,6 +14,7 @@ import {
 } from '@element-plus/icons-vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
+import AppActionOverflow from '@/components/common/AppActionOverflow.vue'
 import { trainingDatesApi } from '@/services/trainingDatesApi'
 import { trainingProgramsApi } from '@/services/trainingProgramsApi'
 import { usePermissionsStore } from '@/stores/permissions'
@@ -237,7 +238,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="h-full min-w-0 overflow-y-auto bg-background p-2 text-text md:p-6">
+  <div class="min-h-full min-w-0 bg-background p-2 pb-5 text-text md:p-6">
     <div class="mx-auto flex max-w-7xl flex-col gap-4">
       <AppPageHeader
         title="訓練日期設定"
@@ -251,37 +252,21 @@ onMounted(async () => {
           </span>
         </template>
         <template #actions>
-          <button
-            type="button"
-            class="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-black text-slate-600 transition-colors hover:border-primary hover:text-primary"
-            :disabled="isLoading"
-            @click="loadMonthDates"
-          >
-            <el-icon :class="{ 'is-loading': isLoading }"><Refresh /></el-icon>
-            重新整理
-          </button>
-          <button
-            v-if="canEdit"
-            type="button"
-            class="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-black text-slate-600 transition-colors hover:border-primary hover:text-primary"
-            @click="openProgramSettings"
-          >
-            <el-icon><Setting /></el-icon>
-            訓練項目設定
-          </button>
-          <button
-            v-if="canOpenCoachSchedules"
-            type="button"
-            class="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-black text-slate-600 transition-colors hover:border-primary hover:text-primary"
-            @click="openCoachSchedules"
-          >
-            <el-icon><UserFilled /></el-icon>
-            設定教練排班
-          </button>
+          <AppActionOverflow>
+            <el-dropdown-item :disabled="isLoading" @click="loadMonthDates">
+              <el-icon :class="{ 'is-loading': isLoading }"><Refresh /></el-icon>重新整理
+            </el-dropdown-item>
+            <el-dropdown-item v-if="canEdit" @click="openProgramSettings">
+              <el-icon><Setting /></el-icon>訓練項目設定
+            </el-dropdown-item>
+            <el-dropdown-item v-if="canOpenCoachSchedules" @click="openCoachSchedules">
+              <el-icon><UserFilled /></el-icon>設定教練排班
+            </el-dropdown-item>
+          </AppActionOverflow>
           <button
             v-if="canEdit"
             type="button"
-            class="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-black text-white shadow-md transition-colors hover:bg-primary-hover disabled:opacity-60"
+            class="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-black text-white shadow-md transition-colors hover:bg-primary-hover disabled:opacity-60"
             :disabled="isSaving"
             @click="saveMonthDates"
           >

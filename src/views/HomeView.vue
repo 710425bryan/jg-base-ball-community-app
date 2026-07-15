@@ -795,7 +795,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="animate-home-fade min-h-full bg-[#f8fafc] pb-24 font-sans md:pb-8">
+  <div class="animate-home-fade min-h-full bg-[#f8fafc] pb-5 font-sans md:pb-8">
     <section
       data-test="dashboard-hero"
       class="relative flex min-h-[350px] w-full items-end overflow-hidden rounded-b-3xl border-b-4 border-slate-800 bg-slate-900 shadow-lg md:h-[50vh] md:min-h-[450px]"
@@ -1080,7 +1080,7 @@ onUnmounted(() => {
             <div v-if="canViewMatches" data-test="hero-action-panel" class="mt-3 w-full md:hidden">
               <button
                 type="button"
-                class="hero-cta-button flex w-full items-center justify-center gap-2 rounded-sm bg-primary px-6 py-3 text-sm font-black uppercase tracking-[0.18em] text-white shadow-none transition-all hover:-translate-y-0.5 hover:bg-[#e29b34]"
+                class="hero-cta-button flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-black text-white shadow-none transition-colors hover:bg-primary-hover active:bg-primary-hover"
                 @click="handleHeroAction"
               >
                 {{ heroMatch ? '詳細資訊' : '查看賽程' }}
@@ -1118,7 +1118,7 @@ onUnmounted(() => {
             <div v-if="canViewMatches" data-test="hero-action-panel" class="w-full md:w-auto">
               <button
                 type="button"
-                class="hero-cta-button flex w-full items-center justify-center gap-2 rounded-sm bg-primary px-6 py-3 text-sm font-black uppercase tracking-[0.18em] text-white shadow-none transition-all hover:-translate-y-0.5 hover:bg-[#e29b34] md:min-w-[220px] md:px-8 md:py-4"
+                class="hero-cta-button flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-black text-white shadow-none transition-colors hover:bg-primary-hover active:bg-primary-hover md:min-w-[220px] md:px-8 md:py-4"
                 @click="handleHeroAction"
               >
                 {{ heroMatch ? '詳細資訊' : '查看賽程' }}
@@ -1250,7 +1250,7 @@ onUnmounted(() => {
             <button
               type="button"
               data-test="today-attendance-leave-link"
-              class="inline-flex min-h-11 items-center justify-center rounded-sm bg-blue-700 px-5 text-sm font-black text-white transition-colors hover:bg-blue-800"
+              class="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-700 px-5 text-sm font-black text-white transition-colors hover:bg-blue-800"
               @click="openLeaveRequests"
             >
               查看請假紀錄
@@ -1340,7 +1340,7 @@ onUnmounted(() => {
         <button
           type="button"
           data-test="equipment-addons-link"
-          class="self-start text-sm font-black text-primary transition-colors hover:text-[#b87515] sm:self-auto"
+          class="inline-flex min-h-11 items-center self-start rounded-xl px-3 text-sm font-black text-primary transition-colors hover:bg-orange-50 hover:text-primary-hover sm:self-auto"
           @click="openEquipmentAddons"
         >
           前往加購 +
@@ -1566,7 +1566,7 @@ onUnmounted(() => {
           </div>
           <button
             type="button"
-            class="text-sm font-black text-slate-500 transition-colors hover:text-slate-900"
+            class="inline-flex min-h-11 items-center rounded-xl px-3 text-sm font-black text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
             @click="openAnnouncements"
           >
             更多公告 +

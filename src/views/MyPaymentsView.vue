@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full flex flex-col relative animate-fade-in bg-gray-50 text-text overflow-hidden">
+  <div class="min-h-full flex flex-col relative animate-fade-in bg-gray-50 text-text">
     <div class="bg-white px-4 md:px-6 py-4 border-b border-gray-200 shadow-sm shrink-0">
       <div class="max-w-6xl mx-auto flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <AppPageHeader
@@ -11,7 +11,7 @@
           <template #actions>
             <button
               type="button"
-              class="flex-1 sm:flex-none rounded-2xl border border-gray-200 text-gray-600 hover:text-gray-800 hover:border-gray-300 font-bold px-4 py-3 transition-colors"
+              class="flex-1 rounded-xl border border-gray-200 px-4 py-3 font-bold text-gray-600 transition-colors hover:border-gray-300 hover:text-gray-800 md:flex-none"
               :disabled="isRefreshing"
               @click="refreshCurrentMemberData"
             >
@@ -20,7 +20,7 @@
 
             <button
               type="button"
-              class="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-3 font-bold text-white transition-colors hover:bg-primary-hover disabled:opacity-70 sm:flex-none"
+              class="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 font-bold text-white transition-colors hover:bg-primary-hover disabled:opacity-70 md:flex-none"
               :disabled="!canCreateSubmissionForSelectedMember || isRefreshing || isPreparingCreateDialog"
               :aria-busy="isPreparingCreateDialog"
               @click="openCreateDialog()"
@@ -37,7 +37,7 @@
       </div>
     </div>
 
-    <div class="flex-1 overflow-y-auto min-h-0 p-4 md:p-6 pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:pb-6 custom-scrollbar">
+    <div class="min-h-0 flex-1 p-4 pb-5 md:p-6 md:pb-6">
       <AppLoadingState v-if="isBootstrapping" text="讀取繳費資訊中..." min-height="50vh" />
 
       <div v-else class="max-w-6xl mx-auto flex flex-col gap-4">
@@ -103,20 +103,6 @@
                 <h3 class="text-lg font-black text-slate-800">待處理付款</h3>
                 <p class="mt-1 text-xs font-bold text-slate-400">月費 / 季費、裝備與比賽費用已整合在下方繳費紀錄。</p>
               </div>
-              <button
-                type="button"
-                class="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-2 text-sm font-black text-white transition-colors hover:bg-black disabled:opacity-60"
-                :disabled="!canCreateSubmissionForSelectedMember || isRefreshing || isPreparingCreateDialog"
-                :aria-busy="isPreparingCreateDialog"
-                @click="openCreateDialog()"
-              >
-                <span
-                  v-if="isPreparingCreateDialog"
-                  class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white"
-                  aria-hidden="true"
-                />
-                {{ isPreparingCreateDialog ? '載入中...' : '新增付款回報' }}
-              </button>
             </div>
 
             <div class="mt-4 rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
@@ -548,24 +534,13 @@
       </el-form>
 
       <template #footer>
-        <div class="flex justify-end gap-3 mt-4">
-          <button
-            type="button"
-            class="rounded-2xl border border-gray-200 text-gray-600 hover:text-gray-800 hover:border-gray-300 font-bold px-5 py-3 transition-colors"
-            @click="isCreateDialogOpen = false"
-          >
-            取消
-          </button>
-
-          <button
-            type="button"
-            class="rounded-2xl bg-primary hover:bg-primary-hover text-white font-bold px-6 py-3 transition-colors disabled:opacity-70"
-            :disabled="isSubmitting || selectedUnifiedTotalAmount <= 0"
-            @click="submitPaymentSubmission"
-          >
-            {{ isSubmitting ? '送出中...' : '送出付款回報' }}
-          </button>
-        </div>
+        <AppDialogFooter
+          confirm-label="送出付款回報"
+          :loading="isSubmitting"
+          :confirm-disabled="selectedUnifiedTotalAmount <= 0"
+          @cancel="isCreateDialogOpen = false"
+          @confirm="submitPaymentSubmission"
+        />
       </template>
     </el-dialog>
   </div>
@@ -578,6 +553,7 @@ import { ElMessage } from 'element-plus'
 import { Wallet } from '@element-plus/icons-vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
+import AppDialogFooter from '@/components/common/AppDialogFooter.vue'
 import PaymentAccountInfoCard from '@/components/payments/PaymentAccountInfoCard.vue'
 import PaymentSubmissionSummary from '@/components/payments/PaymentSubmissionSummary.vue'
 import QuarterlyPaymentAmountControls from '@/components/payments/QuarterlyPaymentAmountControls.vue'

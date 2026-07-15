@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full flex flex-col relative animate-fade-in bg-gray-50 text-text overflow-hidden">
+  <div class="min-h-full flex flex-col relative animate-fade-in bg-gray-50 text-text">
     <!-- Header -->
     <div class="bg-white px-4 md:px-6 py-4 border-b border-gray-200 shadow-sm shrink-0 flex flex-col gap-3 z-10">
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -93,7 +93,8 @@
             v-for="tab in tabs" 
             :key="tab.id"
             @click="activeTab = tab.id"
-            class="px-5 py-2 rounded-t-xl text-sm font-bold transition-all border-b-2"
+            class="min-h-11 rounded-xl border-b-2 px-5 py-2 text-sm font-bold transition-all"
+            :aria-pressed="activeTab === tab.id"
             :class="[
               activeTab === tab.id 
                 ? 'text-primary border-primary bg-primary/5' 
@@ -107,7 +108,7 @@
     </div>
 
     <!-- Content Area -->
-    <div ref="contentScrollContainer" class="flex-1 overflow-y-auto min-h-0 p-4 md:p-6 pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:pb-6 relative custom-scrollbar">
+    <div ref="contentScrollContainer" class="relative min-h-0 flex-1 p-4 pb-5 md:p-6 md:pb-6">
       <div class="max-w-6xl mx-auto min-h-full">
         <!-- Not authorized -->
         <div v-if="!hasAccess" class="flex flex-col items-center justify-center min-h-[50vh] text-center">

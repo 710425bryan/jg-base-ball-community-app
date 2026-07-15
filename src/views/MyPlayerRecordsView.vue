@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full flex flex-col relative animate-fade-in bg-gray-50 text-text overflow-hidden">
+  <div class="min-h-full flex flex-col relative animate-fade-in bg-gray-50 text-text">
     <div class="bg-white px-4 md:px-6 py-4 border-b border-gray-200 shadow-sm shrink-0">
       <div class="max-w-7xl mx-auto">
         <AppPageHeader
@@ -7,14 +7,13 @@
           subtitle="查看關聯球員的比賽紀錄、未來賽程、打擊成績與投球成績"
           :icon="DataAnalysis"
           as="h2"
-        >
-          <template #actions>
-            <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+        />
+        <div class="app-page-toolbar mt-3">
               <el-select
                 v-if="members.length > 1"
                 v-model="selectedMemberId"
                 data-test="member-select"
-                class="w-full sm:w-64"
+                class="w-full md:w-64"
                 size="large"
                 filterable
                 placeholder="切換球員"
@@ -29,27 +28,25 @@
 
               <div
                 v-else-if="selectedMember"
-                class="inline-flex min-h-11 items-center rounded-2xl border border-primary/15 bg-primary/5 px-4 text-sm font-black text-primary"
+                class="inline-flex min-h-11 w-full items-center rounded-xl border border-primary/15 bg-primary/5 px-4 text-sm font-black text-primary md:w-auto"
               >
                 {{ buildMemberOptionLabel(selectedMember) }}
               </div>
 
               <button
                 type="button"
-                class="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-600 transition-colors hover:border-primary hover:text-primary disabled:opacity-60"
+                class="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-600 transition-colors hover:border-primary hover:text-primary disabled:opacity-60 md:w-auto"
                 :disabled="isRefreshing || !selectedMemberId"
                 @click="refreshCurrentMemberData"
               >
                 <el-icon :class="{ 'is-loading': isRefreshing }"><Refresh /></el-icon>
                 {{ isRefreshing ? '更新中' : '重新整理' }}
               </button>
-            </div>
-          </template>
-        </AppPageHeader>
+        </div>
       </div>
     </div>
 
-    <div class="flex-1 overflow-y-auto min-h-0 p-4 md:p-6 pb-[calc(4.5rem+env(safe-area-inset-bottom)+20px)] md:pb-6 custom-scrollbar">
+    <div class="min-h-0 flex-1 p-4 pb-5 md:p-6 md:pb-6">
       <AppLoadingState v-if="isBootstrapping" text="讀取我的成績中..." min-height="50vh" />
 
       <div v-else class="mx-auto flex w-full max-w-7xl flex-col gap-4">
@@ -567,7 +564,7 @@ const MatchGroups = defineComponent({
                   href: mapsHref,
                   target: '_blank',
                   rel: 'noreferrer',
-                  class: 'mt-3 inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 text-sm font-black text-gray-600 transition-colors hover:border-blue-200 hover:text-blue-600'
+                  class: 'mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 text-sm font-black text-gray-600 transition-colors hover:border-blue-200 hover:text-blue-600'
                 }, [
                   h(Location, { class: 'h-4 w-4' }),
                   '開啟導航'
