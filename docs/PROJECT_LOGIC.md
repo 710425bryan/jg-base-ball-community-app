@@ -531,7 +531,7 @@ UI 約定：
 - 球員餘額以 `player_balance_transactions` 流水帳計算，管理員可手動調整，付款審核時可把溢繳轉入餘額；退款 / 作廢收款必須以反向流水退回餘額扣抵或沖回溢繳轉入。
 - sibling / family grouping 與季費家庭金額計算在 utils。
 - 手足主要繳費人退隊、離隊或關閉 / 畢業後，剩餘有效手足的新一期月費 / 季費試算不得沿用手足半價；主要繳費人恢復有效後，若 `sibling_ids` 與 `is_primary_payer` 仍保留，另一位有效手足可恢復手足減免。既有已保存帳款金額不自動覆寫，需由管理端重算或手動調整。
-- 比賽費由 `matches.match_fee_amount` 先產生 `match_fee_items` 供管理端核對，`matches.match_fee_payment_opened_at` 預設為空；管理者具 `fees:EDIT` 且每人費用大於 0、至少一筆非取消應繳明細時，才可透過 `set_match_fee_payment_open_state()` 開放。linked member 的 `/my-payments` 只取得已開放的未繳項目，或自己已有付款歷程的待審 / 已付款 / 取消紀錄。
+- 比賽費由 `matches.match_fee_amount` 先產生 `match_fee_items` 供管理端核對，`matches.match_fee_payment_opened_at` 預設為空；管理者具 `fees:EDIT` 且每人費用大於 0、至少一筆非取消應繳明細時，才可透過 `set_match_fee_payment_open_state()` 開放。一般 linked member 的 `/my-payments` 只取得已開放的未繳項目，或自己已有付款歷程的待審 / 已付款 / 取消紀錄；具 `fees:VIEW` / `fees:EDIT` 者可代查未開放項目，前端會另列中性的「尚未開放繳費」，不計入待付款筆數、合計、提醒或可勾選項目。
 - 開放時會保存依 `(member_id, amount)` 排序的應收簽章；金額或應繳名單異動且沒有付款歷程時自動關閉，賽事名稱、日期時間、盃賽與組別異動只更新快照、不改開放狀態。任一明細曾送出付款後不得關閉；`create_match_payment_submission()` 會鎖定全部相關場次、重新同步並驗證仍為開放，避免關閉與付款競態。
 - `/fees` 比賽費卡依日期與開始時間由早到晚排列、未知時間在當日最後，並預設收合。全場皆取消且無任何付款歷程時，`fees:DELETE` 可用 `delete_cancelled_match_fee_group()` 原子刪除；刪除賽事時，無歷程費用直接清除，待審 / 已付款會阻擋，已駁回 / 回滾的歷史明細則解除 `match_id` 並保留取消稽核紀錄。
 - 比賽時間修改沿用 `matches.id`，Google Calendar 同步沿用 event UID，因此同步只更新既有費用；刪除後重新建立使用新 ID，舊無歷程費用已清除且新費用維持未開放，不以名稱或日期模糊合併。

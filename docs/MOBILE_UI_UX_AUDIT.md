@@ -36,7 +36,7 @@
 | P1-01 | `/dashboard` | Hero CTA 圓角及文字連結觸控範圍不一致 | 保留 Hero 視覺，功能操作至少 44px、`rounded-xl` | 待驗收 | HomeView 16 tests＋source contract 通過 |
 | P1-02 | `/calendar` | 頁首按鈕、segmented ARIA、Dialog 斷點與底距不一致 | actions 與 Dialog 符合規則，切換有 `aria-pressed` | 待驗收 | `vue-tsc`、build＋source contract 通過 |
 | P1-03 | `/profile` | 功能按鈕圓角不一；Passkey icon 小於 44px | 功能按鈕 `rounded-xl`；icon 44px 並有 ARIA/title | 待驗收 | passkey 5 tests＋source contract 通過 |
-| P1-04 | `/my-payments` | 重複主操作；Dialog footer 不一致；手機底部導覽會蓋住付款送出按鈕 | 每區一個 Primary；付款 Dialog 使用共用 footer 並掛到 `body`，不受 App shell／底部導覽裁切 | 待驗收 | 全站 Dialog wrapper 回歸＋比賽費開放 gate、既有付款歷程與 myPayments targeted regression 通過；待登入後 360–767px 驗收 |
+| P1-04 | `/my-payments` | 重複主操作；Dialog footer 不一致；手機底部導覽會蓋住付款送出按鈕 | 每區一個 Primary；付款 Dialog 使用共用 footer 並掛到 `body`，不受 App shell／底部導覽裁切 | 待驗收 | 全站 Dialog wrapper 回歸＋比賽費開放 gate、角色分流、既有付款歷程與 myPayments targeted regression 通過；待登入後 360–767px 驗收 |
 | P1-05 | `/my-records` | 成員選擇器位於 header actions | 搜尋／選擇移到獨立 toolbar，導航操作至少 44px | 待驗收 | MyPlayerRecords 4 tests＋service 2 tests 通過 |
 | P1-06 | `/equipment-addons` | tabs、移除與歷史操作尺寸／數量不一致 | 44px、segmented ARIA；每筆最多兩個可見操作 | 待驗收 | equipment API／inventory 19 tests＋source contract 通過 |
 | P1-07 | `/my-leave-requests` | 刪除、載入月份與 footer 偏小 | 44px 並使用共用 Dialog footer | 待驗收 | MyLeaveRequests 2 tests＋service 2 tests 通過 |
@@ -85,10 +85,10 @@
 
 - `/fees` 比賽費卡預設收合，依日期與開始時間由早到晚排列，未知時間置於當日最後；卡頭保留應收 / 已收 / 未處理與已開放 / 未開放狀態，操作區使用至少 44px 按鈕與 `aria-expanded` / `aria-controls`。
 - 比賽費卡手機操作區固定為等寬雙欄：開放 / 關閉 / 刪除位於左欄，展開 / 收合固定於右欄；即使沒有管理操作，展開按鈕也不再左右跳動，`>=768px` 恢復內容寬度的靠右排列。
-- `/my-payments` 只有管理者已開放的未繳比賽費可進入摘要、勾選與合併付款；駁回 / 回滾後保留的未開放歷程改列「已關閉」，不再呈現為可付款。
-- targeted regression：10 files、48 tests 通過；`vue-tsc` 與 production build 通過，build 僅有既有 chunk size warning；migration 以 PostgreSQL parser 驗證 70 statements，`git diff --check` 通過。
-- Supabase security / performance advisors 已在目前 production schema 做部署前基線檢查；本 migration 會撤銷比賽費相關 anon SECURITY DEFINER 執行權、移除重複管理 policy、包裝 RLS `auth.uid()` 並補付款歷程反查索引。migration 尚未部署，需部署後再跑 advisors 確認結果。
-- 尚未取得已套用 migration 的 ADMIN / linked-member 登入環境，因此 360px、390px、640–767px 與桌機實際確認視窗 / 橫向明細捲動仍維持「待驗收」。
+- `/my-payments` 依權限分流：一般 linked member 不取得也不顯示未開放比賽費；具 `fees:VIEW` / `fees:EDIT` 者會在待審核之後看到中性的「尚未開放繳費」分類與頁首筆數，但無 checkbox，且不計入「目前需要處理」、待付款合計或提醒卡。駁回 / 回滾後保留的未開放歷程仍列「已關閉」，狀態膠囊不再沿用紅色待付款樣式。
+- 本次角色分流 targeted regression：4 files、17 tests 通過，涵蓋已開放待付款、尚未開放、關閉後保留歷程、待審核、已付款、已取消與失效選取清除；`vue-tsc --noEmit`、production build 與 `git diff --check` 通過，build 僅有既有 chunk size warning。
+- 2026-07-16 唯讀核對 production schema：`matches.match_fee_payment_opened_at`、`list_my_match_fee_items()` 的管理者分支 / 一般會員開放或歷程過濾，以及 `set_match_fee_payment_open_state()` 均已存在。本次不新增 migration，也不修改 RPC、RLS 或資料 wire shape。
+- 尚未取得可切換 `fees:VIEW` / linked-member 的登入環境，因此 360px、390px、640–767px 與桌機的角色分組、徽章換行及實際確認視窗 / 橫向明細捲動仍維持「待驗收」；原始碼已維持 `flex-wrap` 與 `md` 斷點配置。
 
 ### 2026-07-16 裝備主清單分頁捲動
 

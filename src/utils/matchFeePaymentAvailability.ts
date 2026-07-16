@@ -8,5 +8,10 @@ export const isClosedMatchFeeHistory = (item: MatchFeeItem) =>
   && !item.payment_opened_at
   && item.has_payment_history === true
 
+export const isUnopenedMatchFeeItem = (item: MatchFeeItem) =>
+  item.payment_status === 'unpaid'
+  && !item.payment_opened_at
+  && item.has_payment_history !== true
+
 export const getPayableMatchFeeItems = (items: MatchFeeItem[]) =>
   items.filter(isMatchFeeItemPayable)

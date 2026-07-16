@@ -3,7 +3,8 @@ import type { MatchFeeItem } from '@/types/matchFees'
 import {
   getPayableMatchFeeItems,
   isClosedMatchFeeHistory,
-  isMatchFeeItemPayable
+  isMatchFeeItemPayable,
+  isUnopenedMatchFeeItem
 } from './matchFeePaymentAvailability'
 
 const makeItem = (overrides: Partial<MatchFeeItem> = {}): MatchFeeItem => ({
@@ -32,6 +33,42 @@ describe('match fee payment availability', () => {
     expect(isMatchFeeItemPayable(makeItem({ payment_opened_at: '2026-07-01T00:00:00Z' }))).toBe(true)
     expect(isMatchFeeItemPayable(makeItem({ payment_opened_at: null }))).toBe(false)
     expect(isMatchFeeItemPayable(makeItem({ payment_status: 'pending_review', payment_opened_at: '2026-07-01T00:00:00Z' }))).toBe(false)
+    expect(isMatchFeeItemPayable(makeItem({ payment_status: 'paid', payment_opened_at: '2026-07-01T00:00:00Z' }))).toBe(false)
+    expect(isMatchFeeItemPayable(makeItem({ payment_status: 'cancelled', payment_opened_at: '2026-07-01T00:00:00Z' }))).toBe(false)
+  })
+
+  it('identifies only unpaid items that have never been opened or paid as unopened', () => {
+    expect(isUnopenedMatchFeeItem(makeItem({
+      payment_opened_at: null,
+      has_payment_history: false
+    }))).toBe(true)
+    expect(isUnopenedMatchFeeItem(makeItem({
+      payment_opened_at: null,
+      has_payment_history: undefined
+    }))).toBe(true)
+    expect(isUnopenedMatchFeeItem(makeItem({
+      payment_opened_at: '2026-07-01T00:00:00Z',
+      has_payment_history: false
+    }))).toBe(false)
+    expect(isUnopenedMatchFeeItem(makeItem({
+      payment_opened_at: null,
+      has_payment_history: true
+    }))).toBe(false)
+    expect(isUnopenedMatchFeeItem(makeItem({
+      payment_status: 'pending_review',
+      payment_opened_at: null,
+      has_payment_history: false
+    }))).toBe(false)
+    expect(isUnopenedMatchFeeItem(makeItem({
+      payment_status: 'paid',
+      payment_opened_at: null,
+      has_payment_history: false
+    }))).toBe(false)
+    expect(isUnopenedMatchFeeItem(makeItem({
+      payment_status: 'cancelled',
+      payment_opened_at: null,
+      has_payment_history: false
+    }))).toBe(false)
   })
 
   it('identifies a closed unpaid item that is retained only for payment history', () => {
@@ -45,11 +82,14 @@ describe('match fee payment availability', () => {
     }))).toBe(false)
   })
 
-  it('filters closed and non-unpaid rows out of combined payment choices', () => {
+  it('filters unopened, closed, pending, paid and cancelled rows out of combined payment choices', () => {
     expect(getPayableMatchFeeItems([
       makeItem({ id: 'opened', payment_opened_at: '2026-07-01T00:00:00Z' }),
+      makeItem({ id: 'unopened', payment_opened_at: null, has_payment_history: false }),
       makeItem({ id: 'closed', payment_opened_at: null, has_payment_history: true }),
-      makeItem({ id: 'paid', payment_status: 'paid', payment_opened_at: '2026-07-01T00:00:00Z' })
+      makeItem({ id: 'pending', payment_status: 'pending_review', payment_opened_at: '2026-07-01T00:00:00Z' }),
+      makeItem({ id: 'paid', payment_status: 'paid', payment_opened_at: '2026-07-01T00:00:00Z' }),
+      makeItem({ id: 'cancelled', payment_status: 'cancelled', payment_opened_at: null })
     ]).map((item) => item.id)).toEqual(['opened'])
   })
 })

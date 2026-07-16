@@ -145,6 +145,12 @@
                 <span class="rounded-full bg-slate-100 px-3 py-1">{{ getPaymentMemberBillingLabel(selectedMember) }}</span>
                 <span class="rounded-full bg-red-50 px-3 py-1 text-red-600">待付款 {{ unifiedPaymentCounts.unpaid }}</span>
                 <span class="rounded-full bg-amber-50 px-3 py-1 text-amber-600">待審核 {{ unifiedPaymentCounts.pending }}</span>
+                <span
+                  v-if="unifiedPaymentCounts.unopened > 0"
+                  class="rounded-full bg-slate-100 px-3 py-1 text-slate-600"
+                >
+                  尚未開放 {{ unifiedPaymentCounts.unopened }}
+                </span>
               </div>
             </div>
 
@@ -569,6 +575,7 @@ import { getPlayerBalance } from '@/services/playerBalances'
 import { createMatchPaymentSubmission, listMyMatchFeeItems } from '@/services/matchFees'
 import { useAuthStore } from '@/stores/auth'
 import { useEquipmentPaymentsStore } from '@/stores/equipmentPayments'
+import { usePermissionsStore } from '@/stores/permissions'
 import type {
   CreateMyQuarterlyPaymentSubmissionItemPayload,
   CreateMyPaymentSubmissionPayload,
@@ -600,7 +607,8 @@ import {
 import {
   getPayableMatchFeeItems,
   isClosedMatchFeeHistory,
-  isMatchFeeItemPayable
+  isMatchFeeItemPayable,
+  isUnopenedMatchFeeItem
 } from '@/utils/matchFeePaymentAvailability'
 import {
   FIXED_MONTHLY_FEE_BILLING_MODE,
@@ -670,7 +678,7 @@ type UnifiedPaymentRecordKind =
   | 'equipment-request'
   | 'match-fee'
 
-type UnifiedPaymentRecordGroupKey = 'unpaid' | 'pending' | 'confirmed' | 'closed'
+type UnifiedPaymentRecordGroupKey = 'unpaid' | 'pending' | 'unopened' | 'confirmed' | 'closed'
 
 type UnifiedPaymentRecord = {
   id: string
@@ -701,6 +709,11 @@ type QuarterlyPaymentMemberSnapshot = {
 
 const authStore = useAuthStore()
 const equipmentPaymentsStore = useEquipmentPaymentsStore()
+const permissionsStore = usePermissionsStore()
+
+const canInspectUnopenedMatchFees = computed(() =>
+  permissionsStore.can('fees', 'VIEW') || permissionsStore.can('fees', 'EDIT')
+)
 
 const members = ref<MyPaymentMember[]>([])
 const records = ref<MyPaymentRecord[]>([])
@@ -1463,6 +1476,7 @@ const selectedUnifiedTotalAmount = computed(() =>
 const getUnifiedGroupKey = (status?: string | null): UnifiedPaymentRecordGroupKey => {
   if (status === 'unpaid') return 'unpaid'
   if (status === 'pending_review' || status === 'pending' || status === 'approved_request' || status === 'ready_for_pickup') return 'pending'
+  if (status === 'unopened') return 'unopened'
   if (status === 'paid' || status === 'approved') return 'confirmed'
   return 'closed'
 }
@@ -1470,6 +1484,7 @@ const getUnifiedGroupKey = (status?: string | null): UnifiedPaymentRecordGroupKe
 const getUnifiedAmountClass = (status?: string | null) => {
   if (status === 'unpaid') return 'text-red-600'
   if (status === 'pending_review' || status === 'pending' || status === 'approved_request' || status === 'ready_for_pickup') return 'text-amber-700'
+  if (status === 'unopened') return 'text-slate-600'
   if (status === 'paid' || status === 'approved') return 'text-emerald-700'
   return 'text-slate-500'
 }
@@ -1512,6 +1527,7 @@ const getUnifiedStatusLabel = (
     return '處理中'
   }
 
+  if (status === 'unopened') return '尚未開放'
   if (status === 'unpaid') return '待付款'
   if (status === 'refunded') return '已退款'
   if (status === 'cancelled') return '已取消'
@@ -1705,7 +1721,17 @@ const unifiedPaymentRecords = computed<UnifiedPaymentRecord[]>(() => {
   matchFeeItems.value.forEach((item) => {
     const status = item.payment_status || 'unpaid'
     const isClosedHistory = isClosedMatchFeeHistory(item)
-    const displayStatus = isClosedHistory ? 'cancelled' : status
+    const isUnopened = isUnopenedMatchFeeItem(item)
+
+    if (isUnopened && !canInspectUnopenedMatchFees.value) {
+      return
+    }
+
+    const displayStatus = isClosedHistory
+      ? 'cancelled'
+      : isUnopened
+        ? 'unopened'
+        : status
     rows.push({
       id: `match-fee-${item.id}`,
       sourceId: item.id,
@@ -1714,14 +1740,18 @@ const unifiedPaymentRecords = computed<UnifiedPaymentRecord[]>(() => {
       typeLabel: '比賽費用',
       title: item.match_name,
       meta: `${item.member_name}｜${getMatchFeeSubtitle(item)}`,
-      status,
-      statusLabel: isClosedHistory ? '已關閉' : getUnifiedStatusLabel(status, 'match-fee'),
+      status: displayStatus,
+      statusLabel: isClosedHistory ? '已關閉' : getUnifiedStatusLabel(displayStatus, 'match-fee'),
       amount: Number(item.amount) || 0,
       amountClass: getUnifiedAmountClass(displayStatus),
       dateKey: item.updated_at || item.match_date,
       selectable: isMatchFeeItemPayable(item),
       note: item.cancelled_reason
-        || (isClosedHistory ? '保留過往付款歷程，管理者重新開放前無法再次付款。' : null)
+        || (isClosedHistory
+          ? '保留過往付款歷程，管理者重新開放前無法再次付款。'
+          : isUnopened
+            ? '此筆比賽費尚未開放繳費；一般會員不會看到，也無法回報付款。'
+            : null)
     })
   })
 
@@ -1737,8 +1767,9 @@ const unifiedPaymentRecordGroups = computed(() => {
   }> = [
     { key: 'unpaid', title: '待付款', className: 'border-red-100 bg-red-50/40', titleClass: 'text-red-700' },
     { key: 'pending', title: '待審核 / 處理中', className: 'border-amber-100 bg-amber-50/50', titleClass: 'text-amber-700' },
+    { key: 'unopened', title: '尚未開放繳費', className: 'border-slate-200 bg-slate-50/70', titleClass: 'text-slate-600' },
     { key: 'confirmed', title: '已確認 / 已收款', className: 'border-emerald-100 bg-emerald-50/50', titleClass: 'text-emerald-700' },
-    { key: 'closed', title: '已退回 / 已退款 / 已取消', className: 'border-slate-100 bg-slate-50/70', titleClass: 'text-slate-600' }
+    { key: 'closed', title: '已關閉 / 已退回 / 已退款 / 已取消', className: 'border-slate-100 bg-slate-50/70', titleClass: 'text-slate-600' }
   ]
 
   return groupMeta
@@ -1751,7 +1782,8 @@ const unifiedPaymentRecordGroups = computed(() => {
 
 const unifiedPaymentCounts = computed(() => ({
   unpaid: unifiedPaymentRecords.value.filter((item) => item.groupKey === 'unpaid').length,
-  pending: unifiedPaymentRecords.value.filter((item) => item.groupKey === 'pending').length
+  pending: unifiedPaymentRecords.value.filter((item) => item.groupKey === 'pending').length,
+  unopened: unifiedPaymentRecords.value.filter((item) => item.groupKey === 'unopened').length
 }))
 
 const unifiedUnpaidTotalAmount = computed(() =>
@@ -2018,6 +2050,10 @@ const getStatusPillClass = (status?: string | null) => {
 
   if (status === 'unpaid') {
     return 'bg-red-50 border-red-100 text-red-600'
+  }
+
+  if (status === 'unopened') {
+    return 'bg-slate-100 border-slate-200 text-slate-600'
   }
 
   if (status === 'cancelled') {
