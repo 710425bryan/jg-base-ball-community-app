@@ -213,11 +213,12 @@
 | `src/components/equipment/EquipmentHistoryDialog.vue` | 裝備交易 / 庫存 / 申請歷史 |
 | `src/components/equipment/EquipmentInventoryAdjustmentDialog.vue` | 庫存調整 |
 | `src/components/equipment/EquipmentPurchaseMasterList.vue` | 管理端付款／請購共用主清單、搜尋與分頁 |
+| `src/components/equipment/EquipmentRequestQuantitySummary.vue` | 管理端依目前請購篩選彙整裝備、尺寸、背號與數量 |
 | `src/components/equipment/EquipmentPaymentAdminDetail.vue` | 管理端尚未付款、付款審核與退款明細操作 |
 | `src/components/equipment/EquipmentRequestAdminDetail.vue` | 管理端請購審核、備貨、領取與歷史明細操作 |
 | `src/components/equipment/EquipmentRequestActionDialog.vue` | 加購申請操作 |
 | `src/components/equipment/EquipmentTransactionDialog.vue` | 裝備交易紀錄 |
-| `src/utils/equipmentPurchaseAdmin.ts` | 管理台資料正規化、狀態篩選、金額摘要與深層連結工具 |
+| `src/utils/equipmentPurchaseAdmin.ts` | 管理台資料正規化、狀態篩選、金額／請購數量摘要、分頁狀態與深層連結工具 |
 | `src/components/equipment/MyEquipmentPaymentsPanel.vue` | 個人裝備付款 |
 
 ### Vendors

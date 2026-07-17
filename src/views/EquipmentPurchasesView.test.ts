@@ -19,6 +19,14 @@ describe('EquipmentPurchasesView responsive workspace contract', () => {
     expect(source).toContain(':aria-pressed="activeStatus === option.value"')
   })
 
+  it('shows request quantity statistics from all currently filtered records', () => {
+    expect(source).toContain('summarizeEquipmentRequestQuantities(visibleRecords.value)')
+    expect(source).toContain('<EquipmentRequestQuantitySummary')
+    expect(source).toContain('v-if="activeArea === \'requests\'"')
+    expect(source).toContain(':rows="requestQuantitySummaryRows"')
+    expect(source.indexOf('<EquipmentRequestQuantitySummary')).toBeLessThan(source.indexOf('狀態金額摘要'))
+  })
+
   it('keeps status color and wording visible beyond the filter label', () => {
     expect(source).toContain('getEquipmentAdminStatusPresentation')
     expect(source).toContain(':class="getStatusOptionClass(option.value)"')
@@ -49,6 +57,19 @@ describe('EquipmentPurchasesView responsive workspace contract', () => {
     expect(source).toContain('if (!isDesktopViewport.value) detailDrawerOpen.value = true')
     expect(source).toContain('if (!isDesktopViewport.value && selectedKey.value) clearSelection(true)')
     expect(source).toContain('@closed="handleDrawerClosed"')
+  })
+
+  it('preserves pagination for selection-only route changes and clamps pages after refresh', () => {
+    const applyRouteStateSource = source.slice(
+      source.indexOf('const applyRouteState'),
+      source.indexOf('const refresh')
+    )
+
+    expect(applyRouteStateSource).toContain('hasEquipmentAdminListContextChanged')
+    expect(applyRouteStateSource).toContain('if (shouldResetPage) currentPage.value = 1')
+    expect(applyRouteStateSource).not.toContain('\n  currentPage.value = 1')
+    expect(source).toContain('clampEquipmentAdminPage(')
+    expect(source).toContain(':page-size="EQUIPMENT_ADMIN_PAGE_SIZE"')
   })
 
   it('does not take over MainLayout route scrolling', () => {

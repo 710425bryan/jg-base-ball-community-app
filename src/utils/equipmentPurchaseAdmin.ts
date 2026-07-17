@@ -74,6 +74,21 @@ export type EquipmentAdminSummary = {
   amount: number
 }
 
+export type EquipmentRequestQuantitySummaryRow = {
+  key: string
+  equipmentId: string
+  equipmentName: string
+  size: string | null
+  jerseyNumber: number | null
+  requestCount: number
+  totalQuantity: number
+}
+
+export type EquipmentAdminListContext = {
+  area: EquipmentAdminArea
+  status: EquipmentAdminStatus
+}
+
 export type EquipmentAdminStatusPresentation = {
   title: string
   description: string
@@ -402,6 +417,77 @@ export const summarizeEquipmentAdminRecords = (
       amount: matchingRecords.reduce((total, record) => total + record.amount, 0)
     }
   })
+}
+
+export const summarizeEquipmentRequestQuantities = (
+  records: EquipmentAdminRecord[]
+): EquipmentRequestQuantitySummaryRow[] => {
+  const collator = new Intl.Collator('zh-Hant', { numeric: true, sensitivity: 'base' })
+  const summaries = new Map<string, EquipmentRequestQuantitySummaryRow & { requestIds: Set<string> }>()
+
+  records.forEach((record) => {
+    if (record.area !== 'requests' || record.recordType !== 'request') return
+
+    record.source.items.forEach((item) => {
+      const quantity = Number(item.quantity)
+      if (!Number.isFinite(quantity) || quantity <= 0) return
+
+      const equipmentId = String(item.equipment_id || '').trim()
+      const equipmentName = String(item.equipment_name_snapshot || '').trim() || '未命名裝備'
+      const size = String(item.size || '').trim() || null
+      const rawJerseyNumber = item.jersey_number == null ? null : Number(item.jersey_number)
+      const jerseyNumber = rawJerseyNumber != null && Number.isFinite(rawJerseyNumber)
+        ? rawJerseyNumber
+        : null
+      const equipmentIdentity = equipmentId || `name:${equipmentName.toLocaleLowerCase()}`
+      const key = JSON.stringify([equipmentIdentity, size, jerseyNumber])
+      const existing = summaries.get(key)
+
+      if (existing) {
+        existing.totalQuantity += quantity
+        existing.requestIds.add(record.id)
+        return
+      }
+
+      summaries.set(key, {
+        key,
+        equipmentId,
+        equipmentName,
+        size,
+        jerseyNumber,
+        requestCount: 0,
+        totalQuantity: quantity,
+        requestIds: new Set([record.id])
+      })
+    })
+  })
+
+  return [...summaries.values()]
+    .map(({ requestIds, ...summary }) => ({
+      ...summary,
+      requestCount: requestIds.size
+    }))
+    .sort((left, right) => (
+      collator.compare(left.equipmentName, right.equipmentName)
+      || collator.compare(left.size || '', right.size || '')
+      || (left.jerseyNumber ?? -1) - (right.jerseyNumber ?? -1)
+    ))
+}
+
+export const hasEquipmentAdminListContextChanged = (
+  current: EquipmentAdminListContext,
+  next: EquipmentAdminListContext
+) => current.area !== next.area || current.status !== next.status
+
+export const clampEquipmentAdminPage = (
+  page: number,
+  recordCount: number,
+  pageSize = 10
+) => {
+  const safePageSize = Math.max(Math.floor(Number(pageSize) || 0), 1)
+  const lastPage = Math.max(Math.ceil(Math.max(Number(recordCount) || 0, 0) / safePageSize), 1)
+  const safePage = Math.max(Math.floor(Number(page) || 0), 1)
+  return Math.min(safePage, lastPage)
 }
 
 const firstQueryValue = (value: LocationQuery[string] | undefined) => {

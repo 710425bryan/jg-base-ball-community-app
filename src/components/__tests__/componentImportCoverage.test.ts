@@ -10,6 +10,7 @@ const componentImports = [
   { name: 'EquipmentHistoryDialog', load: () => import('../equipment/EquipmentHistoryDialog.vue') },
   { name: 'EquipmentInventoryAdjustmentDialog', load: () => import('../equipment/EquipmentInventoryAdjustmentDialog.vue') },
   { name: 'EquipmentPurchaseMasterList', load: () => import('../equipment/EquipmentPurchaseMasterList.vue') },
+  { name: 'EquipmentRequestQuantitySummary', load: () => import('../equipment/EquipmentRequestQuantitySummary.vue') },
   { name: 'EquipmentPaymentAdminDetail', load: () => import('../equipment/EquipmentPaymentAdminDetail.vue') },
   { name: 'EquipmentPhotoCarousel', load: () => import('../equipment/EquipmentPhotoCarousel.vue') },
   { name: 'EquipmentRequestActionDialog', load: () => import('../equipment/EquipmentRequestActionDialog.vue') },

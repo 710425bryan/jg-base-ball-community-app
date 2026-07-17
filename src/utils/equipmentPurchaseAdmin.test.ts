@@ -1,12 +1,20 @@
 import { describe, expect, it } from 'vitest'
-import type { EquipmentPaymentItem, EquipmentPaymentSubmission, EquipmentPurchaseRequest } from '@/types/equipment'
+import type {
+  EquipmentPaymentItem,
+  EquipmentPaymentSubmission,
+  EquipmentPurchaseRequest,
+  EquipmentRequestItem
+} from '@/types/equipment'
 import {
   buildEquipmentAdminUrl,
   buildEquipmentPaymentAdminRecords,
   buildEquipmentRequestAdminRecords,
+  clampEquipmentAdminPage,
   filterEquipmentAdminRecords,
   getEquipmentAdminStatusPresentation,
   getLegacyEquipmentAdminRedirect,
+  hasEquipmentAdminListContextChanged,
+  summarizeEquipmentRequestQuantities,
   summarizeEquipmentAdminRecords
 } from './equipmentPurchaseAdmin'
 
@@ -51,6 +59,21 @@ const submission = (overrides: Partial<EquipmentPaymentSubmission> = {}): Equipm
   ...overrides
 })
 
+const requestItem = (overrides: Partial<EquipmentRequestItem> = {}): EquipmentRequestItem => ({
+  id: 'item-1',
+  request_id: 'request-1',
+  equipment_id: 'equipment-1',
+  size: 'M',
+  jersey_number: null,
+  quantity: 3,
+  equipment_name_snapshot: '球帽',
+  unit_price_snapshot: 400,
+  equipment_transaction_id: null,
+  created_at: '2026-07-01T10:00:00Z',
+  updated_at: '2026-07-01T10:00:00Z',
+  ...overrides
+})
+
 const request = (overrides: Partial<EquipmentPurchaseRequest> = {}): EquipmentPurchaseRequest => ({
   id: 'request-1',
   member_id: 'member-1',
@@ -81,19 +104,7 @@ const request = (overrides: Partial<EquipmentPurchaseRequest> = {}): EquipmentPu
   updated_at: '2026-07-01T10:00:00Z',
   member: { id: 'member-1', name: '林小熊', role: '球員' },
   requester_profile: null,
-  items: [{
-    id: 'item-1',
-    request_id: 'request-1',
-    equipment_id: 'equipment-1',
-    size: 'M',
-    jersey_number: null,
-    quantity: 3,
-    equipment_name_snapshot: '球帽',
-    unit_price_snapshot: 400,
-    equipment_transaction_id: null,
-    created_at: '2026-07-01T10:00:00Z',
-    updated_at: '2026-07-01T10:00:00Z'
-  }],
+  items: [requestItem()],
   ...overrides
 })
 
@@ -126,6 +137,68 @@ describe('equipmentPurchaseAdmin', () => {
       ['history', 1200]
     ])
     expect(filterEquipmentAdminRecords(records, { area: 'requests', status: 'action', search: '球帽' })).toHaveLength(2)
+  })
+
+  it('summarizes filtered request quantities by equipment, size, and jersey number', () => {
+    const requestRecords = buildEquipmentRequestAdminRecords([
+      request({
+        items: [
+          requestItem({ id: 'item-1', quantity: 2 }),
+          requestItem({ id: 'item-2', quantity: 1 }),
+          requestItem({ id: 'item-3', jersey_number: 12, quantity: 1 })
+        ]
+      }),
+      request({
+        id: 'request-2',
+        items: [requestItem({ id: 'item-4', request_id: 'request-2', quantity: 4 })]
+      }),
+      request({
+        id: 'request-3',
+        status: 'approved',
+        items: [requestItem({ id: 'item-5', request_id: 'request-3', size: 'L', quantity: 5 })]
+      })
+    ])
+    const paymentRecords = buildEquipmentPaymentAdminRecords({
+      unpaidItems: [paymentItem({ quantity: 99 })],
+      submissions: [],
+      refundableDirectItems: []
+    })
+    const filteredRecords = filterEquipmentAdminRecords(
+      [...requestRecords, ...paymentRecords],
+      { area: 'requests', status: 'pending', search: '球帽' }
+    )
+
+    expect(summarizeEquipmentRequestQuantities(filteredRecords)).toEqual([
+      expect.objectContaining({
+        equipmentId: 'equipment-1',
+        equipmentName: '球帽',
+        size: 'M',
+        jerseyNumber: null,
+        requestCount: 2,
+        totalQuantity: 7
+      }),
+      expect.objectContaining({
+        equipmentId: 'equipment-1',
+        equipmentName: '球帽',
+        size: 'M',
+        jerseyNumber: 12,
+        requestCount: 1,
+        totalQuantity: 1
+      })
+    ])
+  })
+
+  it('preserves pagination for selection-only route changes and clamps invalid pages', () => {
+    expect(hasEquipmentAdminListContextChanged(
+      { area: 'requests', status: 'pending' },
+      { area: 'requests', status: 'pending' }
+    )).toBe(false)
+    expect(hasEquipmentAdminListContextChanged(
+      { area: 'requests', status: 'pending' },
+      { area: 'requests', status: 'processing' }
+    )).toBe(true)
+    expect(clampEquipmentAdminPage(3, 18, 10)).toBe(2)
+    expect(clampEquipmentAdminPage(2, 0, 10)).toBe(1)
   })
 
   it('builds canonical links and maps legacy fee links without breaking unrelated submissions', () => {

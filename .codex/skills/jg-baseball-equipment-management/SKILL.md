@@ -26,7 +26,8 @@ description: "Equipment management workflow for jg-base-ball-community-app. Use 
 - 權限 action 使用本專案標準 `VIEW / CREATE / EDIT / DELETE`，不要使用來源專案的 `ADD`。
 - 裝備流程不直接接來源專案的 `fee_records`、月結關帳或收支報表；本專案以 `equipment_payment_submissions` 接到 `/my-payments` 與 `/equipment-purchases`，舊 `/fees?tab=equipment` 保留相容轉向。
 - 管理台金額分狀態顯示：交易用 `total_amount`、付款單用 `amount`、請購用 `unit_price_snapshot × quantity`；不得跨請購與付款生命週期加總。
-- `/equipment-purchases` 主清單使用前端分頁，每頁固定顯示 10 筆；切換頁面後需保留目前狀態與篩選條件，並將 `MainLayout` 頁面捲動到新頁第一筆資料，不可捲回 route 頂端或新增清單內部捲軸。
+- `/equipment-purchases` 主清單使用前端分頁，每頁固定顯示 10 筆；切換頁面後需保留目前狀態與篩選條件，並將 `MainLayout` 頁面捲動到新頁第一筆資料，不可捲回 route 頂端或新增清單內部捲軸。點選或關閉主清單明細只改 selection，不得把目前頁碼重設為第一頁；切換管理類型、狀態或篩選條件時才回第一頁，資料異動後頁碼需收斂到最後有效頁。
+- `/equipment-purchases` 的請購數量統計放在請購狀態說明正下方並預設展開，仍可由管理者收合；只使用目前狀態與篩選後的全部請購結果，不受主清單分頁限制。依裝備、尺寸、背號彙整 `equipment_purchase_request_items.quantity`，同一請購的同規格品項只計一筆請購單數。付款單與付款交易不得混入統計，避免跨請購／付款生命週期重複計數。
 - `/equipment-purchases` 延續舊 `/fees` 裝備頁籤的語意色與完整說明：付款尚未付款用 sky、付款待審用 emerald、已收款可退款用 orange；請購待審用 amber、處理中用 blue、歷史用 slate。區塊外框使用對應 `*-100` 淡色階，主清單選取列跟隨該筆狀態，不得一律套品牌橘；尚未付款主動作用 sky-700、付款待審用 emerald-600、退款用 orange 淡色警示、備貨用 blue-600、領取用 emerald-600。狀態按鈕、目前狀態說明、摘要、主清單外框／底色與清單 badge 必須一致；主清單使用淡色狀態容器包住白色資料卡，並保留文字，不能只靠顏色辨識。
 - `/equipment-purchases` 請購明細的「刪除請購」是獨立 Danger 按鈕，不收進更多選單；只對 `fees:DELETE` 顯示並保留二次確認。待審核的「退回請購」仍屬次要流程，可留在更多選單。
 - 加購申請到 `approved`（已核准）後即可進行裝備付款回報；`ready_for_pickup` 與 `picked_up` 只代表備貨 / 領取進度，不可作為付款入口前置條件。

@@ -59,7 +59,7 @@
 | P2-11 | `/equipment` | 卡片／表格最多六個操作；搜尋與分類在手機互相壓縮 | 每筆最多兩個可見操作，其餘 overflow；分類篩選由底部展開 | 待驗收 | equipment 19 tests＋search/filter source contract 通過 |
 | P2-12 | `/fees` | tabs 與子元件 Dialog 規格不一；校隊月費搜尋與 program 篩選並排 | tabs 44px＋ARIA；可見 Dialog footer 統一；手機 program 篩選由底部展開；裝備請購／付款移至獨立管理頁 | 待驗收 | 比賽費卡預設收合、ARIA、44px actions、排序與開關 / 刪除 targeted tests 通過；手機操作固定為管理動作左欄、展開 / 收合右欄的等寬雙欄，桌機恢復緊湊排列；production build 通過，待逐 tab 與 360–767px 視覺驗收 |
 | P2-13 | `/vendors` | 卡片三個操作；table icons 偏小；手機分類在頁內向下展開 | 每筆最多兩個操作，其他 overflow；icons 44px＋ARIA；分類篩選由底部展開 | 待驗收 | vendors 5 tests＋search/filter source contract 通過 |
-| P2-14 | `/equipment-purchases` | 原本付款與請購六個狀態區塊同時堆疊於 `/fees`，桌機與手機資訊量過高 | 付款／請購雙頁籤；`>=1024px` 主清單＋明細，較小螢幕全螢幕 Drawer；摘要／進階篩選預設收起；進階條件統一 Element Plus 控制；付款狀態沿用藍／綠／橘語意色與原說明文字；主清單依狀態顯示淡色外框／底色；分頁後捲到新頁第一筆；刪除請購使用獨立 Danger 按鈕；44px、safe area、深層連結與單一頁面捲動 | 待驗收 | 搬移後全量 154 files、754 tests；Element Plus 篩選回歸 3 files、90 tests；狀態色彩、主清單外框／底色與文案回歸測試通過；請購刪除操作 targeted tests 通過；分頁捲動回歸 3 files、73 tests；`vue-tsc`、build 通過；管理台仍待登入後裝置驗收 |
+| P2-14 | `/equipment-purchases` | 原本付款與請購六個狀態區塊同時堆疊於 `/fees`，桌機與手機資訊量過高 | 付款／請購雙頁籤；`>=1024px` 主清單＋明細，較小螢幕全螢幕 Drawer；摘要／進階篩選預設收起；進階條件統一 Element Plus 控制；請購數量依目前篩選跨分頁彙整，桌機表格／手機分組列；付款狀態沿用藍／綠／橘語意色與原說明文字；主清單依狀態顯示淡色外框／底色；分頁後捲到新頁第一筆且選取明細不重設頁碼；刪除請購使用獨立 Danger 按鈕；44px、safe area、深層連結與單一頁面捲動 | 待驗收 | 搬移後全量 154 files、754 tests；Element Plus 篩選回歸 3 files、90 tests；狀態色彩、主清單外框／底色與文案回歸測試通過；請購刪除操作 targeted tests 通過；分頁捲動回歸 3 files、73 tests；數量統計／分頁狀態 7 files、51 tests；`vue-tsc`、build 通過；管理台仍待登入後裝置驗收 |
 
 ## P3：特殊介面
 
@@ -72,6 +72,12 @@
 | P3-05 | 能力／體測明細 | 返回及紀錄操作偏小 | 44px、`rounded-xl`、ARIA 與 Danger 確認 | 待驗收 | performance API/config 5 tests＋build 通過 |
 
 ## 驗收紀錄
+
+### 2026-07-17 裝備請購數量統計與分頁狀態
+
+- `/equipment-purchases` 的請購管理新增可收合數量統計，依目前狀態、搜尋、日期與資料類型篩選後的全部請購結果，按裝備、尺寸與背號彙整請購單數與品項數量；付款單與付款交易不納入，避免生命週期重複計數。
+- 統計元件放在請購狀態說明正下方並預設展開，仍可手動收合；在 `<768px` 使用分組列顯示規格、請購單數與總數量，桌機使用五欄表格，空結果保留明確說明。點選／關閉主清單明細不再把第二頁重設為第一頁，切換管理類型、狀態或篩選仍回第一頁，資料異動後頁碼收斂到最後有效頁。
+- Targeted regression 共 7 files、51 tests，`pnpm exec vue-tsc --noEmit` 與 production build 通過；build 僅有既有 chunk size warning。登入後 360px、390px、640–767px、1024px 與 1440px 實際版面及第二頁明細操作仍維持待驗收。
 
 ### 2026-07-16 全站手機 Dialog 底部操作列
 

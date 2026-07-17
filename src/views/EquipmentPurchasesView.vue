@@ -7,6 +7,7 @@ import AppPageHeader from '@/components/common/AppPageHeader.vue'
 import EquipmentPaymentAdminDetail from '@/components/equipment/EquipmentPaymentAdminDetail.vue'
 import EquipmentPurchaseMasterList from '@/components/equipment/EquipmentPurchaseMasterList.vue'
 import EquipmentRequestAdminDetail from '@/components/equipment/EquipmentRequestAdminDetail.vue'
+import EquipmentRequestQuantitySummary from '@/components/equipment/EquipmentRequestQuantitySummary.vue'
 import { useEquipmentPaymentsStore } from '@/stores/equipmentPayments'
 import { useEquipmentRequestsStore } from '@/stores/equipmentRequests'
 import { usePermissionsStore } from '@/stores/permissions'
@@ -16,11 +17,14 @@ import {
   buildEquipmentAdminQuery,
   buildEquipmentPaymentAdminRecords,
   buildEquipmentRequestAdminRecords,
+  clampEquipmentAdminPage,
   filterEquipmentAdminRecords,
   findEquipmentAdminRecord,
   getEquipmentAdminRouteState,
   getEquipmentAdminStatusPresentation,
+  hasEquipmentAdminListContextChanged,
   summarizeEquipmentAdminRecords,
+  summarizeEquipmentRequestQuantities,
   type EquipmentAdminArea,
   type EquipmentAdminRecord,
   type EquipmentAdminStatus,
@@ -29,6 +33,7 @@ import {
 } from '@/utils/equipmentPurchaseAdmin'
 
 const DESKTOP_MEDIA_QUERY = '(min-width: 1024px)'
+const EQUIPMENT_ADMIN_PAGE_SIZE = 10
 
 const route = useRoute()
 const router = useRouter()
@@ -85,6 +90,7 @@ const visibleRecords = computed(() => filterEquipmentAdminRecords(allRecords.val
   dateTo: dateTo.value,
   subtype: subtype.value
 }))
+const requestQuantitySummaryRows = computed(() => summarizeEquipmentRequestQuantities(visibleRecords.value))
 const selectedRecord = computed(() => allRecords.value.find((record) => record.key === selectedKey.value) || null)
 const selectedPaymentRecord = computed(() => selectedRecord.value?.area === 'payments'
   ? selectedRecord.value as EquipmentPaymentAdminRecord
@@ -162,13 +168,19 @@ const replaceRouteQuery = (includeSelection = true) => {
 const applyRouteState = () => {
   const state = getEquipmentAdminRouteState(route.query)
   const record = findEquipmentAdminRecord(allRecords.value, state.recordType, state.recordId)
-
-  activeArea.value = record?.area || state.area
-  activeStatus.value = record && !recordMatchesStatus(record, state.status)
+  const nextArea = record?.area || state.area
+  const nextStatus = record && !recordMatchesStatus(record, state.status)
     ? record.status
     : state.status
+  const shouldResetPage = hasEquipmentAdminListContextChanged(
+    { area: activeArea.value, status: activeStatus.value },
+    { area: nextArea, status: nextStatus }
+  )
+
+  activeArea.value = nextArea
+  activeStatus.value = nextStatus
   selectedKey.value = record?.key || null
-  currentPage.value = 1
+  if (shouldResetPage) currentPage.value = 1
 
   if (record && !isDesktopViewport.value) {
     detailDrawerOpen.value = true
@@ -274,6 +286,14 @@ watch([searchTerm, dateFrom, dateTo, subtype], () => {
   }
 })
 
+watch(() => visibleRecords.value.length, (recordCount) => {
+  currentPage.value = clampEquipmentAdminPage(
+    currentPage.value,
+    recordCount,
+    EQUIPMENT_ADMIN_PAGE_SIZE
+  )
+})
+
 watch(() => route.fullPath, () => applyRouteState())
 
 onMounted(() => {
@@ -355,6 +375,11 @@ onBeforeUnmount(() => {
           </p>
         </div>
       </section>
+
+      <EquipmentRequestQuantitySummary
+        v-if="activeArea === 'requests'"
+        :rows="requestQuantitySummaryRows"
+      />
 
       <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div class="flex items-center justify-between gap-3">
@@ -464,6 +489,7 @@ onBeforeUnmount(() => {
           :records="visibleRecords"
           :selected-key="selectedKey"
           :page="currentPage"
+          :page-size="EQUIPMENT_ADMIN_PAGE_SIZE"
           :is-loading="isRefreshing && allRecords.length === 0"
           :error="blockingError"
           @select="selectRecord"
