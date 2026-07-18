@@ -4,7 +4,7 @@
 
 清單涵蓋 28 個登入後路由、26 個實作頁面；能力／體測列表與明細各自共用一套實作頁面。
 
-- 最後更新：2026-07-16
+- 最後更新：2026-07-18
 - 本輪範圍：P0 → P1 → P2 → P3 程式調整與自動檢查。
 - 本輪結論：自動檢查通過，因目前沒有可登入的一般 linked-member 與 ADMIN 裝置環境，全部維持「待驗收」。
 
@@ -36,7 +36,7 @@
 | P1-01 | `/dashboard` | Hero CTA 圓角及文字連結觸控範圍不一致 | 保留 Hero 視覺，功能操作至少 44px、`rounded-xl` | 待驗收 | HomeView 16 tests＋source contract 通過 |
 | P1-02 | `/calendar` | 頁首按鈕、segmented ARIA、Dialog 斷點與底距不一致 | actions 與 Dialog 符合規則，切換有 `aria-pressed` | 待驗收 | `vue-tsc`、build＋source contract 通過 |
 | P1-03 | `/profile` | 功能按鈕圓角不一；Passkey icon 小於 44px | 功能按鈕 `rounded-xl`；icon 44px 並有 ARIA/title | 待驗收 | passkey 5 tests＋source contract 通過 |
-| P1-04 | `/my-payments` | 重複主操作；Dialog footer 不一致；手機底部導覽會蓋住付款送出按鈕 | 每區一個 Primary；付款 Dialog 使用共用 footer 並掛到 `body`，不受 App shell／底部導覽裁切 | 待驗收 | 全站 Dialog wrapper 回歸＋比賽費開放 gate、角色分流、既有付款歷程與 myPayments targeted regression 通過；待登入後 360–767px 驗收 |
+| P1-04 | `/my-payments` | 重複主操作；Dialog footer 不一致；手機底部導覽會蓋住付款送出按鈕；手機成員搜尋依賴 select 內建輸入，實際搜尋結果不正確 | 每區一個 Primary；付款 Dialog 使用共用 footer 並掛到 `body`；手機成員選擇器使用獨立搜尋輸入與正規化比對 | 待驗收 | 手機成員搜尋、全站 Dialog wrapper、比賽費角色分流與 myPayments targeted regression 通過；待登入後 360–767px 驗收 |
 | P1-05 | `/my-records` | 成員選擇器位於 header actions | 搜尋／選擇移到獨立 toolbar，導航操作至少 44px | 待驗收 | MyPlayerRecords 4 tests＋service 2 tests 通過 |
 | P1-06 | `/equipment-addons` | tabs、移除與歷史操作尺寸／數量不一致 | 44px、segmented ARIA；每筆最多兩個可見操作 | 待驗收 | equipment API／inventory 19 tests＋source contract 通過 |
 | P1-07 | `/my-leave-requests` | 刪除、載入月份與 footer 偏小 | 44px 並使用共用 Dialog footer | 待驗收 | MyLeaveRequests 2 tests＋service 2 tests 通過 |
@@ -72,6 +72,12 @@
 | P3-05 | 能力／體測明細 | 返回及紀錄操作偏小 | 44px、`rounded-xl`、ARIA 與 Danger 確認 | 待驗收 | performance API/config 5 tests＋build 通過 |
 
 ## 驗收紀錄
+
+### 2026-07-18 繳費資訊手機成員搜尋
+
+- `/my-payments` 的「查看成員」已拆成 `PaymentMemberSelector`；`<768px` 開啟成員選單後使用獨立 Element Plus 搜尋欄處理查詢與結果，`>=768px` 維持既有可搜尋 select。
+- 手機搜尋會正規化全形／半形字元、空白與常見分隔符號，並比對姓名、角色、繳費標籤與訓練項目；關閉選單後清除查詢，下一次開啟恢復完整名單。成員 ID、linked member 限制與既有繳費資料載入流程未變更。
+- Targeted regression 共 6 files、102 tests，`pnpm exec vue-tsc --noEmit` 與 production build 通過；build 僅有既有 chunk size warning。因目前沒有可登入的 linked-member／ADMIN 手機環境，360px、390px 與 640–767px 的中文輸入法、鍵盤與選單位置仍維持待驗收。
 
 ### 2026-07-17 裝備請購數量統計與分頁狀態
 

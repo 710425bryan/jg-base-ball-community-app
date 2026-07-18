@@ -52,44 +52,14 @@
         </section>
 
         <template v-else>
-          <section class="bg-white rounded-3xl border border-gray-100 shadow-sm p-5 md:p-6">
-            <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-              <div class="w-full lg:max-w-md">
-                <label class="text-xs font-bold uppercase tracking-[0.18em] text-gray-400">查看成員</label>
-                <el-select
-                  v-model="selectedMemberId"
-                  class="w-full mt-2"
-                  size="large"
-                  filterable
-                  placeholder="請選擇成員"
-                >
-                  <el-option
-                    v-for="member in members"
-                    :key="member.member_id"
-                    :label="buildMemberOptionLabel(member)"
-                    :value="member.member_id"
-                  />
-                </el-select>
-                <p class="mt-2 text-xs text-gray-400">
-                  {{ memberSelectorHelperText }}
-                </p>
-              </div>
-
-              <div
-                v-if="selectedMember"
-                class="rounded-2xl border border-primary/15 bg-primary/5 px-4 py-3 text-sm text-primary font-bold"
-              >
-                目前模式：{{ getPaymentMemberBillingLabel(selectedMember) }} / {{ selectedMember.role }}
-              </div>
-            </div>
-
-            <p
-              v-if="createSubmissionAccessHint"
-              class="mt-4 rounded-2xl border border-amber-100 bg-amber-50/80 px-4 py-3 text-sm font-bold text-amber-700"
-            >
-              {{ createSubmissionAccessHint }}
-            </p>
-          </section>
+          <PaymentMemberSelector
+            v-model="selectedMemberId"
+            :members="members"
+            :helper-text="memberSelectorHelperText"
+            :access-hint="createSubmissionAccessHint"
+            :get-option-label="buildMemberOptionLabel"
+            :get-billing-label="getPaymentMemberBillingLabel"
+          />
 
           <PaymentAccountInfoCard />
 
@@ -560,6 +530,7 @@ import { Wallet } from '@element-plus/icons-vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
 import AppDialogFooter from '@/components/common/AppDialogFooter.vue'
+import PaymentMemberSelector from '@/components/payments/PaymentMemberSelector.vue'
 import PaymentAccountInfoCard from '@/components/payments/PaymentAccountInfoCard.vue'
 import PaymentSubmissionSummary from '@/components/payments/PaymentSubmissionSummary.vue'
 import QuarterlyPaymentAmountControls from '@/components/payments/QuarterlyPaymentAmountControls.vue'

@@ -3,6 +3,17 @@ import { describe, expect, it } from 'vitest'
 
 const source = readFileSync(new URL('./MyPaymentsView.vue', import.meta.url), 'utf8')
 
+describe('MyPaymentsView member selector', () => {
+  it('delegates responsive member search to the dedicated payment selector', () => {
+    expect(source).toContain("import PaymentMemberSelector from '@/components/payments/PaymentMemberSelector.vue'")
+    expect(source).toContain('<PaymentMemberSelector')
+    expect(source).toContain('v-model="selectedMemberId"')
+    expect(source).toContain(':access-hint="createSubmissionAccessHint"')
+    expect(source).toContain(':get-option-label="buildMemberOptionLabel"')
+    expect(source).toContain(':get-billing-label="getPaymentMemberBillingLabel"')
+  })
+})
+
 describe('MyPaymentsView equipment admin notification route', () => {
   it('deep-links submitted equipment payments to payment review', () => {
     expect(source).toContain("import { buildEquipmentAdminUrl } from '@/utils/equipmentPurchaseAdmin'")
