@@ -12,6 +12,11 @@ import {
   markEquipmentRequestReady,
   rejectEquipmentRequest
 } from '@/services/equipmentApi'
+import {
+  deleteEquipmentPurchaseRequestItem,
+  markEquipmentRequestItemPickedUp,
+  markEquipmentRequestItemReady
+} from '@/services/equipmentRequestItemsApi'
 import { useAuthStore } from '@/stores/auth'
 import type {
   CreateEquipmentPurchaseRequestPayload,
@@ -49,6 +54,11 @@ export const useEquipmentRequestsStore = defineStore('equipmentRequests', () => 
 
     myRequests.value = upsert(myRequests.value)
     reviewRequests.value = upsert(reviewRequests.value)
+  }
+
+  const removeLocalRequest = (requestId: string) => {
+    myRequests.value = myRequests.value.filter((request) => request.id !== requestId)
+    reviewRequests.value = reviewRequests.value.filter((request) => request.id !== requestId)
   }
 
   const loadMyRequests = async (linkedMemberIdsOverride?: string[]) => {
@@ -153,6 +163,46 @@ export const useEquipmentRequestsStore = defineStore('equipmentRequests', () => 
     return request
   }
 
+  const markItemReady = async (
+    requestId: string,
+    requestItemId: string,
+    note?: string | null,
+    imageFiles: File[] = []
+  ) => {
+    const userId = authStore.user?.id
+    if (!userId) throw new Error('請先登入')
+    const request = await markEquipmentRequestItemReady(
+      requestId,
+      requestItemId,
+      userId,
+      note,
+      imageFiles
+    )
+    upsertLocalRequest(request)
+    return request
+  }
+
+  const markItemPickedUp = async (
+    requestId: string,
+    requestItemId: string,
+    note?: string | null,
+    imageFiles: File[] = [],
+    markPaid = false
+  ) => {
+    const userId = authStore.user?.id
+    if (!userId) throw new Error('請先登入')
+    const request = await markEquipmentRequestItemPickedUp(
+      requestId,
+      requestItemId,
+      userId,
+      note,
+      imageFiles,
+      markPaid
+    )
+    upsertLocalRequest(request)
+    return request
+  }
+
   const rejectRequest = async (requestId: string, reason?: string | null) => {
     const userId = authStore.user?.id
     if (!userId) throw new Error('尚未登入')
@@ -171,8 +221,16 @@ export const useEquipmentRequestsStore = defineStore('equipmentRequests', () => 
 
   const deleteRequest = async (requestId: string) => {
     await deleteEquipmentPurchaseRequestWithRollback(requestId)
-    myRequests.value = myRequests.value.filter((request) => request.id !== requestId)
-    reviewRequests.value = reviewRequests.value.filter((request) => request.id !== requestId)
+    removeLocalRequest(requestId)
+  }
+
+  const deleteRequestItem = async (requestId: string, requestItemId: string) => {
+    const userId = authStore.user?.id
+    if (!userId) throw new Error('請先登入')
+    const request = await deleteEquipmentPurchaseRequestItem(requestId, requestItemId, userId)
+    if (request) upsertLocalRequest(request)
+    else removeLocalRequest(requestId)
+    return request
   }
 
   return {
@@ -189,8 +247,11 @@ export const useEquipmentRequestsStore = defineStore('equipmentRequests', () => 
     approveRequest,
     markReady,
     markPickedUp,
+    markItemReady,
+    markItemPickedUp,
     rejectRequest,
     cancelRequest,
-    deleteRequest
+    deleteRequest,
+    deleteRequestItem
   }
 })

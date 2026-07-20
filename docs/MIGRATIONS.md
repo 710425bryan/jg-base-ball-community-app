@@ -165,6 +165,8 @@
 | `supabase_zzzzzzzzzz_equipment_approved_payment_scope_migration.sql` | 裝備已核准即可付款 | 覆寫裝備付款 scope，`approved` / `ready_for_pickup` / `picked_up` 皆可付款 |
 | `supabase_zzzzzzzzzzz_equipment_payment_refund_migration.sql` | 裝備退款 / 作廢收款 | 新增 `refunded` 狀態、餘額反向流水與刪除 guard 放行 |
 | `supabase_zzzzzzzzzzzz_equipment_create_request_inventory_guard_transaction_fix_migration.sql` | 建立申請庫存 guard 交易扣庫存修正 | 建立請購時，已轉成 `equipment_transactions` 的請購項目不可再被當保留庫存扣一次 |
+| `supabase_zzzzzzzzzzzzz_equipment_request_item_fulfillment_migration.sql` | 裝備請購逐品項備貨、領取與刪除 | 品項 timestamps / notes / photos、父單聚合、逐項與整單原子 RPC、付款刪除 guard |
+| `supabase_zzzzzzzzzzzzzz_equipment_payment_item_fulfillment_status_migration.sql` | 裝備付款品項履約狀態修正 | 付款清單與付款回報改依 transaction 關聯品項的 `ready_at` / `picked_up_at` 顯示，不再被父單聚合狀態覆蓋 |
 
 ## 廠商
 

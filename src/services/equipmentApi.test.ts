@@ -2,13 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { resetSupabaseRpcAvailabilityCache } from '@/utils/supabaseRpc'
 
 const rpcMock = vi.fn()
+const fromMock = vi.fn()
 
 vi.mock('@/services/supabase', () => ({
   supabase: {
     auth: {
       getUser: vi.fn()
     },
-    from: vi.fn(),
+    from: fromMock,
     rpc: rpcMock,
     storage: {
       from: vi.fn()
@@ -97,6 +98,121 @@ describe('equipmentApi payment helpers', () => {
     await expect(markEquipmentTransactionsPaid(['tx-1', 'tx-2'])).resolves.toBe(2)
     expect(rpcMock).toHaveBeenCalledWith('mark_equipment_transactions_paid', {
       p_transaction_ids: ['tx-1', 'tx-2']
+    })
+  })
+
+  it('derives the table fallback fulfillment status from the linked request item', async () => {
+    rpcMock.mockResolvedValue({
+      data: null,
+      error: {
+        code: 'PGRST202',
+        message: 'Could not find the function list_equipment_unpaid_payment_items'
+      }
+    })
+
+    const query: any = {}
+    query.select = vi.fn(() => query)
+    query.eq = vi.fn(() => query)
+    query.or = vi.fn(() => query)
+    query.order = vi.fn().mockResolvedValue({
+      data: [{
+        id: 'tx-1',
+        equipment_id: 'equipment-1',
+        member_id: 'member-1',
+        request_item_id: 'item-1',
+        size: 'M',
+        jersey_number: null,
+        quantity: 1,
+        unit_price: 500,
+        payment_status: 'unpaid',
+        payment_submission_id: null,
+        transaction_date: '2026-07-20',
+        equipment: { id: 'equipment-1', name: '中華隊應援帽', purchase_price: 500 },
+        member: { id: 'member-1', name: '陳柏叡' },
+        request_item: {
+          id: 'item-1',
+          ready_at: '2026-07-20T01:56:45.000Z',
+          picked_up_at: '2026-07-20T01:56:55.000Z',
+          request: { id: 'request-1', status: 'approved', picked_up_at: null }
+        }
+      }],
+      error: null
+    })
+    fromMock.mockReturnValue(query)
+
+    const { listEquipmentUnpaidPaymentItems } = await import('./equipmentApi')
+
+    await expect(listEquipmentUnpaidPaymentItems()).resolves.toEqual([
+      expect.objectContaining({
+        transaction_id: 'tx-1',
+        request_status: 'picked_up',
+        picked_up_at: '2026-07-20T01:56:55.000Z'
+      })
+    ])
+    expect(query.select.mock.calls[0][0]).toContain('ready_at')
+    expect(query.select.mock.calls[0][0]).toContain('picked_up_at')
+  })
+
+  const mockRequestReload = () => {
+    const requestQuery: any = {}
+    requestQuery.select = vi.fn(() => requestQuery)
+    requestQuery.eq = vi.fn(() => requestQuery)
+    requestQuery.single = vi.fn().mockResolvedValue({
+      data: {
+        id: 'request-1',
+        member_id: '',
+        requester_user_id: '',
+        ready_image_urls: [],
+        pickup_image_urls: []
+      },
+      error: null
+    })
+
+    const itemsQuery: any = {}
+    itemsQuery.select = vi.fn(() => itemsQuery)
+    itemsQuery.in = vi.fn(() => itemsQuery)
+    itemsQuery.order = vi.fn().mockResolvedValue({ data: [], error: null })
+
+    fromMock.mockImplementation((table: string) => (
+      table === 'equipment_purchase_requests' ? requestQuery : itemsQuery
+    ))
+  }
+
+  it('deletes a whole purchase request through one atomic RPC', async () => {
+    rpcMock.mockResolvedValue({ data: true, error: null })
+
+    const { deleteEquipmentPurchaseRequestWithRollback } = await import('./equipmentApi')
+
+    await expect(deleteEquipmentPurchaseRequestWithRollback('request-1')).resolves.toBeUndefined()
+    expect(rpcMock).toHaveBeenCalledWith('delete_equipment_purchase_request', {
+      p_request_id: 'request-1'
+    })
+  })
+
+  it('uses batch fulfillment RPCs for the retained whole-request actions', async () => {
+    rpcMock.mockResolvedValue({ data: null, error: null })
+    mockRequestReload()
+
+    const {
+      markEquipmentRequestPickedUp,
+      markEquipmentRequestReady
+    } = await import('./equipmentApi')
+
+    await markEquipmentRequestReady('request-1', 'user-1', '整單備貨', [])
+    await markEquipmentRequestPickedUp('request-1', 'user-1', '整單領取', [], false)
+
+    expect(rpcMock).toHaveBeenNthCalledWith(1, 'mark_equipment_request_ready', {
+      p_request_id: 'request-1',
+      p_user_id: 'user-1',
+      p_note: '整單備貨',
+      p_image_urls: []
+    })
+    expect(rpcMock).toHaveBeenNthCalledWith(2, 'mark_equipment_request_picked_up', {
+      p_request_id: 'request-1',
+      p_user_id: 'user-1',
+      p_note: '整單領取',
+      p_image_urls: [],
+      p_mark_paid: false
     })
   })
 })

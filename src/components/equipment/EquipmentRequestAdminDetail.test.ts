@@ -10,7 +10,10 @@ const requestStoreMock = vi.hoisted(() => ({
   rejectRequest: vi.fn(),
   markReady: vi.fn(),
   markPickedUp: vi.fn(),
-  deleteRequest: vi.fn()
+  markItemReady: vi.fn(),
+  markItemPickedUp: vi.fn(),
+  deleteRequest: vi.fn(),
+  deleteRequestItem: vi.fn()
 }))
 
 vi.mock('@/stores/equipmentRequests', () => ({ useEquipmentRequestsStore: () => requestStoreMock }))
@@ -45,7 +48,10 @@ const record = {
 
 describe('EquipmentRequestAdminDetail', () => {
   beforeEach(() => {
-    requestStoreMock.approveRequest.mockReset().mockResolvedValue(sourceRequest)
+    vi.clearAllMocks()
+    requestStoreMock.approveRequest.mockResolvedValue(sourceRequest)
+    requestStoreMock.markItemReady.mockResolvedValue(sourceRequest)
+    requestStoreMock.markItemPickedUp.mockResolvedValue(sourceRequest)
   })
 
   const mountDetail = (
@@ -119,5 +125,97 @@ describe('EquipmentRequestAdminDetail', () => {
     const readyWrapper = mountDetail(true, false, readyRecord)
     expect(readyWrapper.findAll('button').find((button) => button.text().includes('完成領取'))?.classes())
       .toContain('bg-emerald-600')
+  })
+
+  it('shows independent actions for mixed-status items while retaining the batch footer action', () => {
+    const mixedRecord = {
+      ...record,
+      status: 'processing',
+      statusLabel: '處理中',
+      source: {
+        ...sourceRequest,
+        status: 'approved',
+        items: [
+          sourceRequest.items[0],
+          {
+            ...sourceRequest.items[0],
+            id: 'item-2',
+            equipment_id: 'equipment-2',
+            equipment_name_snapshot: '球帽',
+            ready_at: '2026-07-20T01:00:00.000Z',
+            ready_by: 'user-1'
+          }
+        ]
+      }
+    } as EquipmentRequestAdminRecord
+
+    const wrapper = mountDetail(true, true, mixedRecord)
+
+    expect(wrapper.get('[data-item-action="ready"][data-item-id="item-1"]').text())
+      .toContain('標記備貨完成')
+    expect(wrapper.get('[data-item-action="picked_up"][data-item-id="item-2"]').text())
+      .toContain('完成領取')
+    expect(wrapper.findAll('[data-item-action="delete"]')).toHaveLength(2)
+    expect(wrapper.findAll('button').some((button) => (
+      !button.attributes('data-item-action') && button.text().includes('標記備貨完成')
+    ))).toBe(true)
+
+    const readOnlyWrapper = mountDetail(false, false, mixedRecord)
+    expect(readOnlyWrapper.findAll('[data-item-action]')).toHaveLength(0)
+  })
+
+  it('submits the selected item without changing the batch action contract', async () => {
+    const multiRecord = {
+      ...record,
+      status: 'processing',
+      source: {
+        ...sourceRequest,
+        status: 'approved',
+        items: [
+          sourceRequest.items[0],
+          { ...sourceRequest.items[0], id: 'item-2', equipment_name_snapshot: '球帽' }
+        ]
+      }
+    } as EquipmentRequestAdminRecord
+    const wrapper = mountDetail(true, false, multiRecord)
+
+    await wrapper.get('[data-item-action="ready"][data-item-id="item-1"]').trigger('click')
+    const dialog = wrapper.getComponent({ name: 'EquipmentRequestActionDialog' })
+    dialog.vm.$emit('confirm', { note: '第一項完成', imageFiles: [] })
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(requestStoreMock.markItemReady).toHaveBeenCalledWith(
+      'request-1',
+      'item-1',
+      '第一項完成',
+      []
+    )
+    expect(requestStoreMock.markReady).not.toHaveBeenCalled()
+    await vi.waitFor(() => {
+      expect(wrapper.emitted('changed')?.[0]).toEqual([record.key])
+    })
+  })
+
+  it('deletes only the selected item and leaves the whole-request delete button available', async () => {
+    const multiRecord = {
+      ...record,
+      source: {
+        ...sourceRequest,
+        items: [
+          sourceRequest.items[0],
+          { ...sourceRequest.items[0], id: 'item-2', equipment_name_snapshot: '球帽' }
+        ]
+      }
+    } as EquipmentRequestAdminRecord
+    const wrapper = mountDetail(false, true, multiRecord)
+
+    await wrapper.get('[data-item-action="delete"][data-item-id="item-2"]').trigger('click')
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(requestStoreMock.deleteRequestItem).toHaveBeenCalledWith('request-1', 'item-2')
+    expect(requestStoreMock.deleteRequest).not.toHaveBeenCalled()
+    expect(wrapper.find('button[title="刪除請購"]').exists()).toBe(true)
   })
 })

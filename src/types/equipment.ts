@@ -179,6 +179,16 @@ export type EquipmentRequestItem = {
   equipment_name_snapshot: string
   unit_price_snapshot: number
   equipment_transaction_id: string | null
+  ready_note?: string | null
+  ready_image_url?: string | null
+  ready_image_urls?: string[]
+  ready_at?: string | null
+  ready_by?: string | null
+  pickup_note?: string | null
+  pickup_image_url?: string | null
+  pickup_image_urls?: string[]
+  picked_up_at?: string | null
+  picked_up_by?: string | null
   created_at: string
   updated_at: string
   equipment?: Equipment | null

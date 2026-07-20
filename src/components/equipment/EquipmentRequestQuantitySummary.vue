@@ -7,7 +7,7 @@ const props = defineProps<{
   rows: EquipmentRequestQuantitySummaryRow[]
 }>()
 
-const isCollapsed = ref(false)
+const isCollapsed = ref(true)
 
 const totalQuantity = computed(() => props.rows.reduce(
   (total, row) => total + row.totalQuantity,

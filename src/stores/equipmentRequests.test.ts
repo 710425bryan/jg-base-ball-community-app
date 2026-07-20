@@ -19,11 +19,18 @@ const apiMocks = vi.hoisted(() => ({
   rejectEquipmentRequest: vi.fn()
 }))
 
+const itemApiMocks = vi.hoisted(() => ({
+  deleteEquipmentPurchaseRequestItem: vi.fn(),
+  markEquipmentRequestItemPickedUp: vi.fn(),
+  markEquipmentRequestItemReady: vi.fn()
+}))
+
 vi.mock('@/stores/auth', () => ({
   useAuthStore: () => authState
 }))
 
 vi.mock('@/services/equipmentApi', () => apiMocks)
+vi.mock('@/services/equipmentRequestItemsApi', () => itemApiMocks)
 
 describe('equipment requests store', () => {
   beforeEach(() => {
@@ -78,5 +85,62 @@ describe('equipment requests store', () => {
     expect(apiMocks.createEquipmentPurchaseRequest).toHaveBeenCalledWith({ items: [] }, 'user-1')
     expect(store.reviewRequests.map((request) => request.id)).toEqual(['request-1', 'request-2'])
     expect(store.reviewRequests[0]?.status).toBe('approved')
+  })
+
+  it('updates only one item through item-level ready and pickup APIs', async () => {
+    itemApiMocks.markEquipmentRequestItemReady.mockResolvedValue({
+      id: 'request-1',
+      status: 'approved',
+      updated_at: '2026-07-03T00:00:00.000Z'
+    })
+    itemApiMocks.markEquipmentRequestItemPickedUp.mockResolvedValue({
+      id: 'request-1',
+      status: 'ready_for_pickup',
+      updated_at: '2026-07-04T00:00:00.000Z'
+    })
+
+    const { useEquipmentRequestsStore } = await import('./equipmentRequests')
+    const store = useEquipmentRequestsStore()
+
+    await store.markItemReady('request-1', 'item-1', '已備貨', [])
+    await store.markItemPickedUp('request-1', 'item-1', '已領取', [], true)
+
+    expect(itemApiMocks.markEquipmentRequestItemReady).toHaveBeenCalledWith(
+      'request-1',
+      'item-1',
+      'user-1',
+      '已備貨',
+      []
+    )
+    expect(itemApiMocks.markEquipmentRequestItemPickedUp).toHaveBeenCalledWith(
+      'request-1',
+      'item-1',
+      'user-1',
+      '已領取',
+      [],
+      true
+    )
+    expect(store.reviewRequests[0]?.status).toBe('ready_for_pickup')
+  })
+
+  it('removes a request from both lists when its last item is deleted', async () => {
+    apiMocks.fetchMyEquipmentRequests.mockResolvedValue([{ id: 'request-1' }])
+    apiMocks.fetchReviewEquipmentRequests.mockResolvedValue([{ id: 'request-1' }])
+    itemApiMocks.deleteEquipmentPurchaseRequestItem.mockResolvedValue(null)
+
+    const { useEquipmentRequestsStore } = await import('./equipmentRequests')
+    const store = useEquipmentRequestsStore()
+    await store.loadMyRequests()
+    await store.loadReviewRequests()
+
+    await expect(store.deleteRequestItem('request-1', 'item-1')).resolves.toBeNull()
+
+    expect(itemApiMocks.deleteEquipmentPurchaseRequestItem).toHaveBeenCalledWith(
+      'request-1',
+      'item-1',
+      'user-1'
+    )
+    expect(store.myRequests).toEqual([])
+    expect(store.reviewRequests).toEqual([])
   })
 })

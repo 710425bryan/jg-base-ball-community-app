@@ -5,10 +5,11 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete } from '@element-plus/icons-vue'
 import { useEquipmentStore } from '@/stores/equipment'
 import { useEquipmentRequestsStore } from '@/stores/equipmentRequests'
-import type { EquipmentPurchaseRequest } from '@/types/equipment'
+import type { EquipmentPurchaseRequest, EquipmentRequestItem } from '@/types/equipment'
 import type { EquipmentRequestAdminRecord } from '@/utils/equipmentPurchaseAdmin'
 import {
   EQUIPMENT_REQUEST_STATUS,
+  getEquipmentRequestItemStatus,
   getEquipmentRequestStatusLabel,
   getEquipmentRequestStatusTagType
 } from '@/utils/equipmentRequestStatus'
@@ -34,9 +35,12 @@ const isProcessing = ref(false)
 const actionDialog = ref<{
   visible: boolean
   mode: 'ready' | 'picked_up'
-}>({ visible: false, mode: 'ready' })
+  requestItemId: string | null
+  itemName: string
+}>({ visible: false, mode: 'ready', requestItemId: null, itemName: '' })
 
 const request = computed(() => props.record.source)
+const isMultiItemRequest = computed(() => request.value.items.length > 1)
 const canShowActions = computed(() => props.canEdit || props.canDelete)
 const primaryActionLabel = computed(() => {
   if (!props.canEdit) return ''
@@ -71,12 +75,22 @@ const getVariantLabel = (item: { size?: string | null; jersey_number?: number | 
   formatEquipmentVariantLabel(item)
 )
 
+const getItemStatus = (item: EquipmentRequestItem) => (
+  getEquipmentRequestItemStatus(item, request.value.status)
+)
+
+const actionDialogTitle = computed(() => {
+  const action = actionDialog.value.mode === 'ready' ? '標記備貨完成' : '標記已領取'
+  return actionDialog.value.itemName ? `${actionDialog.value.itemName}－${action}` : action
+})
+
 const notifyRequester = async (
   target: EquipmentPurchaseRequest,
   title: string,
   body: string,
   url: string,
-  scope: string
+  scope: string,
+  eventId: string = target.id
 ) => {
   try {
     await dispatchPushNotification({
@@ -86,7 +100,7 @@ const notifyRequester = async (
       feature: 'equipment',
       action: 'VIEW',
       targetUserIds: [target.requester_user_id],
-      eventKey: buildPushEventKey(scope, target.id)
+      eventKey: buildPushEventKey(scope, eventId)
     })
   } catch (error) {
     console.warn('Equipment requester push failed', error)
@@ -147,48 +161,98 @@ const reject = async () => {
   }
 }
 
-const openActionDialog = (mode: 'ready' | 'picked_up') => {
-  actionDialog.value = { visible: true, mode }
+const openActionDialog = (mode: 'ready' | 'picked_up', item?: EquipmentRequestItem) => {
+  actionDialog.value = {
+    visible: true,
+    mode,
+    requestItemId: item?.id || null,
+    itemName: item?.equipment_name_snapshot || ''
+  }
 }
 
 const submitActionDialog = async (payload: { note: string; imageFiles: File[]; markPaid?: boolean }) => {
   isProcessing.value = true
   try {
-    const updated = actionDialog.value.mode === 'ready'
-      ? await requestStore.markReady(request.value.id, payload.note, payload.imageFiles)
-      : await requestStore.markPickedUp(request.value.id, payload.note, payload.imageFiles, Boolean(payload.markPaid))
+    const { mode, requestItemId, itemName } = actionDialog.value
+    const updated = mode === 'ready'
+      ? requestItemId
+        ? await requestStore.markItemReady(request.value.id, requestItemId, payload.note, payload.imageFiles)
+        : await requestStore.markReady(request.value.id, payload.note, payload.imageFiles)
+      : requestItemId
+        ? await requestStore.markItemPickedUp(
+            request.value.id,
+            requestItemId,
+            payload.note,
+            payload.imageFiles,
+            Boolean(payload.markPaid)
+          )
+        : await requestStore.markPickedUp(
+            request.value.id,
+            payload.note,
+            payload.imageFiles,
+            Boolean(payload.markPaid)
+          )
 
     actionDialog.value.visible = false
-    ElMessage.success(actionDialog.value.mode === 'ready' ? '已標記可領取' : '已完成領取')
+    ElMessage.success(mode === 'ready' ? '已標記可領取' : '已完成領取')
 
-    if (updated && actionDialog.value.mode === 'ready') {
+    if (updated && mode === 'ready') {
       await notifyRequester(
         updated,
         '裝備已可領取',
-        `${updated.member?.name || '成員'} 的裝備加購已備貨完成。`,
+        `${updated.member?.name || '成員'} 的${itemName ? `「${itemName}」` : '裝備加購'}已備貨完成。`,
         `/equipment-addons?tab=requests&highlight_id=${updated.id}`,
-        'equipment-request-ready'
+        'equipment-request-ready',
+        requestItemId || updated.id
       )
     } else if (updated && payload.markPaid) {
       await notifyRequester(
         updated,
         '裝備已領取，付款已登錄',
-        `${updated.member?.name || '成員'} 的裝備加購已完成領取，付款已登錄。`,
+        `${updated.member?.name || '成員'} 的${itemName ? `「${itemName}」` : '裝備加購'}已完成領取，付款已登錄。`,
         `/equipment-addons?tab=requests&highlight_id=${updated.id}`,
-        'equipment-request-picked-up-paid'
+        'equipment-request-picked-up-paid',
+        requestItemId || updated.id
       )
     } else if (updated) {
       await notifyRequester(
         updated,
         '裝備已領取，請回報付款',
-        `${updated.member?.name || '成員'} 的裝備加購已完成領取，請至繳費資訊回報付款。`,
+        `${updated.member?.name || '成員'} 的${itemName ? `「${itemName}」` : '裝備加購'}已完成領取，請至繳費資訊回報付款。`,
         `/my-payments?view=equipment&highlight_id=${updated.id}`,
-        'equipment-request-picked-up'
+        'equipment-request-picked-up',
+        requestItemId || updated.id
       )
     }
     completeAction()
   } catch (error: any) {
     ElMessage.error(error?.message || '更新申請狀態失敗')
+  } finally {
+    isProcessing.value = false
+  }
+}
+
+const deleteRequestItem = async (item: EquipmentRequestItem) => {
+  try {
+    await ElMessageBox.confirm(
+      `確定要刪除「${item.equipment_name_snapshot}」嗎？若已產生裝備交易，會一併回補此品項庫存；已有付款回報或已確認付款時不可直接刪除。`,
+      '刪除請購品項',
+      {
+        confirmButtonText: '確定刪除',
+        cancelButtonText: '取消',
+        type: 'warning',
+        confirmButtonClass: 'el-button--danger'
+      }
+    )
+    isProcessing.value = true
+    await requestStore.deleteRequestItem(request.value.id, item.id)
+    await equipmentStore.loadEquipments()
+    ElMessage.success('已刪除品項並更新裝備庫存')
+    completeAction()
+  } catch (error: any) {
+    if (error !== 'cancel' && error !== 'close') {
+      ElMessage.error(error?.message || '刪除請購品項失敗')
+    }
   } finally {
     isProcessing.value = false
   }
@@ -262,16 +326,83 @@ const handleOverflow = (command: unknown) => {
       <section>
         <h3 class="text-sm font-black text-slate-800">請購品項</h3>
         <div class="mt-3 divide-y divide-slate-100 rounded-2xl border border-slate-200">
-          <div v-for="item in request.items" :key="item.id" class="p-4">
+          <div v-for="item in request.items" :key="item.id" class="space-y-3 p-4">
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
                 <p class="font-black text-slate-700">{{ item.equipment_name_snapshot }}</p>
                 <p class="mt-1 text-xs font-bold text-slate-400">{{ getVariantLabel(item) }}</p>
+                <el-tag class="mt-2" :type="getEquipmentRequestStatusTagType(getItemStatus(item))" effect="light">
+                  {{ getEquipmentRequestStatusLabel(getItemStatus(item)) }}
+                </el-tag>
               </div>
               <div class="shrink-0 text-right">
                 <p class="font-black text-primary">{{ formatCurrency(getEquipmentRequestItemTotalPrice(item)) }}</p>
                 <p class="mt-1 text-xs font-bold text-slate-400">{{ item.quantity }} 件</p>
               </div>
+            </div>
+
+            <div v-if="item.ready_note || item.pickup_note" class="space-y-2">
+              <p v-if="item.ready_note" class="rounded-xl bg-sky-50 p-3 text-sm leading-6 text-sky-700">
+                備貨：{{ item.ready_note }}
+              </p>
+              <p v-if="item.pickup_note" class="rounded-xl bg-emerald-50 p-3 text-sm leading-6 text-emerald-700">
+                領取：{{ item.pickup_note }}
+              </p>
+            </div>
+
+            <div
+              v-if="(item.ready_image_urls?.length || 0) > 0 || (item.pickup_image_urls?.length || 0) > 0"
+              class="grid gap-3 sm:grid-cols-2"
+            >
+              <EquipmentPhotoCarousel
+                v-if="(item.ready_image_urls?.length || 0) > 0"
+                :photos="item.ready_image_urls || []"
+                :alt="`${item.equipment_name_snapshot}備貨照片`"
+                class="h-32 w-full rounded-xl border border-slate-200"
+              />
+              <EquipmentPhotoCarousel
+                v-if="(item.pickup_image_urls?.length || 0) > 0"
+                :photos="item.pickup_image_urls || []"
+                :alt="`${item.equipment_name_snapshot}領取照片`"
+                class="h-32 w-full rounded-xl border border-slate-200"
+              />
+            </div>
+
+            <div
+              v-if="isMultiItemRequest && (canEdit || canDelete)"
+              class="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 pt-3"
+            >
+              <button
+                v-if="canDelete"
+                type="button"
+                class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-3 text-sm font-black text-red-600 transition-colors hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 disabled:opacity-50"
+                :title="`刪除品項：${item.equipment_name_snapshot}`"
+                data-item-action="delete"
+                :data-item-id="item.id"
+                :disabled="isProcessing"
+                @click="deleteRequestItem(item)"
+              >
+                <el-icon><Delete /></el-icon>
+                刪除此品項
+              </button>
+              <button
+                v-if="canEdit && getItemStatus(item) === EQUIPMENT_REQUEST_STATUS.APPROVED"
+                type="button"
+                class="min-h-11 rounded-xl bg-blue-600 px-4 text-sm font-black text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 disabled:opacity-50"
+                data-item-action="ready"
+                :data-item-id="item.id"
+                :disabled="isProcessing"
+                @click="openActionDialog('ready', item)"
+              >標記備貨完成</button>
+              <button
+                v-if="canEdit && getItemStatus(item) === EQUIPMENT_REQUEST_STATUS.READY_FOR_PICKUP"
+                type="button"
+                class="min-h-11 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white transition-colors hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 disabled:opacity-50"
+                data-item-action="picked_up"
+                :data-item-id="item.id"
+                :disabled="isProcessing"
+                @click="openActionDialog('picked_up', item)"
+              >完成領取</button>
             </div>
           </div>
         </div>
@@ -329,7 +460,7 @@ const handleOverflow = (command: unknown) => {
 
   <EquipmentRequestActionDialog
     v-model="actionDialog.visible"
-    :title="actionDialog.mode === 'ready' ? '標記備貨完成' : '標記已領取'"
+    :title="actionDialogTitle"
     :confirm-text="actionDialog.mode === 'ready' ? '標記可領取' : '完成領取'"
     :allow-image="true"
     :allow-payment-received="actionDialog.mode === 'picked_up'"

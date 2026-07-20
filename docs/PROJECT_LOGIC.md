@@ -586,7 +586,9 @@ UI 約定：
 4. 管理端在 `/equipment-purchases` 審核付款回報：`approved` / 已收款完成或 `rejected`；已收款完成不代表商品已領取。
 5. 若已確認收款後要作廢或退款，有付款回報單走 `refund_equipment_payment_submission()`：付款單與交易標記 `refunded`，球員餘額扣抵加回，溢繳轉入反向扣回；管理端直接標記已收款且無付款單的交易走 `refund_equipment_transactions()`，只作廢交易收款狀態。
 6. 備貨完成 / 可取貨：`ready_for_pickup`，只代表商品履約進度。
-7. 領取裝備：`picked_up`，只代表實際取貨完成，不再作為付款回報前置條件。
+7. 管理端可對多品項請購逐項標記備貨、領取或刪除，也保留頁尾整單批次按鈕；品項狀態由 `ready_at` / `picked_up_at` 推導，父單狀態聚合為「仍有未備貨＝`approved`、全部至少已備貨＝`ready_for_pickup`、全部已領取＝`picked_up`」。
+8. 領取裝備：`picked_up`，只代表實際取貨完成，不再作為付款回報前置條件；逐項領取勾選已收款時，只能更新該品項對應 transaction。
+9. `/my-payments` 與管理端裝備付款清單以 transaction 關聯的請購品項 `ready_at` / `picked_up_at` 顯示商品履約狀態；多品項父單仍為 `approved` 時，已領取品項仍顯示「已領取」。
 
 重要規則：
 
@@ -601,6 +603,7 @@ UI 約定：
 - 裝備付款可付範圍包含管理員新增購買項目，以及加購申請狀態為 `approved`、`ready_for_pickup` 或 `picked_up` 且付款狀態仍為 `unpaid` 的 purchase transaction；前端可勾選狀態與 RPC 檢查必須一致。
 - 裝備付款狀態與商品履約狀態分離：`equipment_transactions.payment_status = paid` / 付款回報 `approved` 只代表已收款完成，不可自動把加購申請改成 `picked_up`。
 - 已付款裝備請購不可直接刪除；先退款 / 作廢收款，讓付款單與 / 或 `equipment_transactions.payment_status` 變成 `refunded`，再允許刪除交易並回補庫存。詳細流程見 `docs/EQUIPMENT_REFUND_FLOW.md`。
+- 多品項請購刪除單一品項時，DB RPC 會在同一 transaction 內套用付款刪除 guard、刪除該品項 transaction 並回補庫存；刪到最後一項時一併刪除父單，不保留零品項請購。整單刪除也走原子 RPC，頁尾既有按鈕不改成逐項迴圈。
 - 裝備剩餘量顯示優先走 `list_equipments_with_inventory_snapshot()`，只回傳匿名化聚合庫存快照，避免一般會員因 RLS 看不到其他人的交易 / 已保留申請而高估可用量。
 - 裝備請購庫存 guard 與 snapshot RPC 一樣，只把 `approved` / `ready_for_pickup` 且尚未轉成 `equipment_transactions` 的請購項目視為保留庫存；已轉交易的項目由交易本身扣庫存，避免重複扣減。
 - `list_equipments_with_inventory_snapshot()` 必須回傳 `is_custom_order`，避免家長端走 snapshot RPC 時遺失訂製品提示。

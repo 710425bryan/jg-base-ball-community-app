@@ -27,7 +27,7 @@ const rows: EquipmentRequestQuantitySummaryRow[] = [
 ]
 
 describe('EquipmentRequestQuantitySummary', () => {
-  it('renders all filtered variants and totals across pages by default while remaining collapsible', async () => {
+  it('starts collapsed and reveals all filtered variants and totals when expanded', async () => {
     const wrapper = mount(EquipmentRequestQuantitySummary, {
       props: { rows },
       global: {
@@ -38,8 +38,8 @@ describe('EquipmentRequestQuantitySummary', () => {
     })
 
     const content = wrapper.get('#equipment-request-quantity-summary')
-    expect(content.attributes('style') || '').not.toContain('display: none')
-    expect(wrapper.get('button[aria-controls="equipment-request-quantity-summary"]').attributes('aria-label')).toBe('收合請購數量統計')
+    expect(content.attributes('style')).toContain('display: none')
+    expect(wrapper.get('button[aria-controls="equipment-request-quantity-summary"]').attributes('aria-label')).toBe('展開請購數量統計')
     expect(wrapper.text()).toContain('共 2 種規格、8 件')
     expect(wrapper.findAll('[role="row"]')).toHaveLength(3)
     expect(wrapper.text()).toContain('球帽')
@@ -49,7 +49,8 @@ describe('EquipmentRequestQuantitySummary', () => {
     expect(wrapper.text()).toContain('背號 12')
 
     await wrapper.get('button[aria-controls="equipment-request-quantity-summary"]').trigger('click')
-    expect(content.attributes('style')).toContain('display: none')
+    expect(content.attributes('style') || '').not.toContain('display: none')
+    expect(wrapper.get('button[aria-controls="equipment-request-quantity-summary"]').attributes('aria-label')).toBe('收合請購數量統計')
   })
 
   it('shows an explicit empty state', async () => {

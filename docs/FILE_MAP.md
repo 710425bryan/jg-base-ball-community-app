@@ -69,7 +69,7 @@
 | `src/stores/teamGroups.ts` | team group 設定、排序與共用選項 | `src/services/teamGroupsApi.ts`、`src/utils/teamGroups.ts` |
 | `src/stores/matches.ts` | 賽事資料狀態 | `src/services/matchesApi.ts` |
 | `src/stores/equipment.ts` | 裝備主檔、交易、庫存狀態 | `src/services/equipmentApi.ts` |
-| `src/stores/equipmentRequests.ts` | 裝備加購申請 / 審核狀態 | `src/services/equipmentApi.ts` |
+| `src/stores/equipmentRequests.ts` | 裝備加購申請 / 審核與逐品項履約狀態 | `src/services/equipmentApi.ts`、`src/services/equipmentRequestItemsApi.ts` |
 | `src/stores/equipmentPayments.ts` | 裝備付款項目與審核狀態 | `src/services/equipmentApi.ts` |
 | `src/stores/vendors.ts` | 廠商名單與交易類別狀態 | `src/services/vendorsApi.ts` |
 | `src/stores/performance.ts` | 能力 / 體測資料狀態 | `src/services/performanceApi.ts` |
@@ -101,6 +101,7 @@
 | `src/services/trainingLocationsApi.ts` | 場地與人員配置、連動點名 RPC | `training_location_*` / `training_venues` / `attendance_events.training_location_session_id` / `training_location_session_venue_id` |
 | `src/services/coachSchedulesApi.ts` | 教練排班候選、Dashboard 摘要與指派儲存 RPC | `coach_schedule_events` / `coach_schedule_assignments` / `list_coach_schedule_*` |
 | `src/services/equipmentApi.ts` | 裝備、加購、付款、庫存 API | 裝備 tables / RPC / `equipments` bucket |
+| `src/services/equipmentRequestItemsApi.ts` | 裝備請購逐品項備貨、領取與刪除 API | item fulfillment RPC / `equipments` bucket |
 | `src/services/vendorsApi.ts` | 廠商名單、交易類別與照片 signed URL API | `vendors` / `vendor_trade_categories` / `vendors` bucket |
 | `src/services/performanceApi.ts` | 棒球能力 / 體測 API | performance tables / RPC |
 | `src/services/feeManagementReminders.ts` | 費用管理提醒 RPC | `get_fee_management_reminders()` |
@@ -215,7 +216,7 @@
 | `src/components/equipment/EquipmentPurchaseMasterList.vue` | 管理端付款／請購共用主清單、搜尋與分頁 |
 | `src/components/equipment/EquipmentRequestQuantitySummary.vue` | 管理端依目前請購篩選彙整裝備、尺寸、背號與數量 |
 | `src/components/equipment/EquipmentPaymentAdminDetail.vue` | 管理端尚未付款、付款審核與退款明細操作 |
-| `src/components/equipment/EquipmentRequestAdminDetail.vue` | 管理端請購審核、備貨、領取與歷史明細操作 |
+| `src/components/equipment/EquipmentRequestAdminDetail.vue` | 管理端請購審核、逐品項／整單備貨領取、逐品項／整單刪除與歷史明細操作 |
 | `src/components/equipment/EquipmentRequestActionDialog.vue` | 加購申請操作 |
 | `src/components/equipment/EquipmentTransactionDialog.vue` | 裝備交易紀錄 |
 | `src/utils/equipmentPurchaseAdmin.ts` | 管理台資料正規化、狀態篩選、金額／請購數量摘要、分頁狀態與深層連結工具 |
@@ -328,7 +329,7 @@
 | 假單 | `supabase_my_leave_requests_migration.sql`、`supabase_match_leave_absences_migration.sql`、`supabase_zzzzzzzzzzzzzzzz_leave_time_segments_migration.sql` |
 | 個人成績 | `supabase_my_player_records_migration.sql` |
 | 收費 / 付款 | `supabase_fees_migration.sql`、`supabase_quarterly_fees_migration.sql`、`supabase_profile_payment_submissions_migration.sql`、`supabase_player_balance_transactions_migration.sql`、`supabase_fixed_monthly_billing_migration.sql`、`supabase_zzzzzzzzzzzzzzz_monthly_per_session_billing_migration.sql`、`supabase_zzzzzzzzzzzzzzzzz_monthly_fee_leave_time_segment_migration.sql`、`supabase_quarterly_fee_compensation_migration.sql`、`supabase_match_fees_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz_match_fee_payment_open_state_migration.sql`、`supabase_fee_management_reminders_migration.sql`、`supabase_fee_payment_reminders_migration.sql`、`supabase_zzzzzzzzzzzz_quarterly_payment_open_period_migration.sql`、`supabase_zzzzzzzzzzzzzz_monthly_payment_open_period_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzzzzzz_xintai_fixed_monthly_billing_migration.sql` |
-| 裝備 | `supabase_equipment_management_migration.sql`、`supabase_equipment_inventory_adjustments_migration.sql`、`supabase_equipment_manual_purchase_records_migration.sql`、`supabase_equipment_multiple_photos_migration.sql`、`supabase_zzzzzz_equipment_inventory_snapshot_rpc_migration.sql`、`supabase_zzzzzzzz_equipment_ready_for_pickup_payment_scope_migration.sql`、`supabase_zzzzzzzzz_equipment_custom_order_migration.sql`、`supabase_zzzzzzzzzz_equipment_approved_payment_scope_migration.sql`、`supabase_zzzzzzzzzzz_equipment_payment_refund_migration.sql`、`supabase_zzzzzzzzzzzz_equipment_create_request_inventory_guard_transaction_fix_migration.sql` |
+| 裝備 | `supabase_equipment_management_migration.sql`、`supabase_equipment_inventory_adjustments_migration.sql`、`supabase_equipment_manual_purchase_records_migration.sql`、`supabase_equipment_multiple_photos_migration.sql`、`supabase_zzzzzz_equipment_inventory_snapshot_rpc_migration.sql`、`supabase_zzzzzzzz_equipment_ready_for_pickup_payment_scope_migration.sql`、`supabase_zzzzzzzzz_equipment_custom_order_migration.sql`、`supabase_zzzzzzzzzz_equipment_approved_payment_scope_migration.sql`、`supabase_zzzzzzzzzzz_equipment_payment_refund_migration.sql`、`supabase_zzzzzzzzzzzz_equipment_create_request_inventory_guard_transaction_fix_migration.sql`、`supabase_zzzzzzzzzzzzz_equipment_request_item_fulfillment_migration.sql`、`supabase_zzzzzzzzzzzzzz_equipment_payment_item_fulfillment_status_migration.sql` |
 | 廠商 | `supabase_vendor_management_migration.sql` |
 | 能力 / 體測 | `supabase_performance_data_migration.sql`、`supabase_performance_view_scope_migration.sql` |
 | 特訓 / 點數 | `supabase_training_points_migration.sql`、`supabase_zz_training_point_transaction_delete_migration.sql`、`supabase_zz_training_registration_notifications_migration.sql`、`supabase_zzzzzzzz_training_auto_select_notifications_migration.sql` |

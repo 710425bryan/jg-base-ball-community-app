@@ -238,6 +238,7 @@
 
 - 收費後台在 `FeesView` 與 `src/components/fees/*`。
 - 管理端裝備請購／付款工作台獨立於 `/equipment-purchases`，前端入口與操作顯示沿用 `fees:VIEW / EDIT / DELETE`；既有 DB RPC / RLS 仍保留 `fees OR equipment` 相容規則，不因頁面拆分而收緊。
+- 多品項裝備請購可逐項刪除、備貨與領取，並保留頁尾整單操作；品項狀態由 `equipment_purchase_request_items.ready_at` / `picked_up_at` 推導，父單狀態維持聚合相容。逐項領取的收款只更新目標 transaction，逐項／整單刪除都必須走付款 guard 保護的原子 RPC。
 - 主要資料表包含 `fee_settings`、`monthly_fees`、`quarterly_fees`、`profile_payment_submissions`。
 - 個人繳費回報走 `profile_payment_submissions` RPC；管理端審核在費用頁。
 - 球員餘額以 `player_balance_transactions` 流水帳管理，餘額屬於 `team_members`；管理員可手動調整與確認溢繳入帳，家長自助使用餘額後仍需管理端確認才正式扣款。
@@ -249,6 +250,7 @@
 - 月繳付款回報開放期別依 `monthly_fees.calculation_type` / 有效收費模式判斷：中港校隊與球員計次月費只開放已結束月份，避免本月堂數與請假還沒完整就提前收費；社區固定月繳與新泰校隊月繳每月 25 日起開放下個月。前端 helper、RPC / DB trigger 與文件規則必須同步；既有 `monthly_fees` 帳款不自動回寫或重算。
 - 季繳球員付款回報以台灣日期判斷開放期別：每季最後一個月 25 日起開放下一季，開放前不可新增未來季付款回報；過去未繳季度仍可補繳。
 - 裝備付款在加購申請 `approved` 後即可回報，費用端確認收款只代表款項已完成，不代表商品已備貨或已領取；若要刪除已收款測試請購，必須先走退款 / 作廢收款，並反向處理球員餘額。
+- 多品項裝備在 `/my-payments` 與管理端付款清單顯示履約狀態時，必須依交易所屬請購品項的 `ready_at` / `picked_up_at` 判斷；父請購單聚合狀態不可覆蓋單一品項已備貨或已領取的狀態。
 - 季費堂數不足補償以當月週六數對比 `/training-dates` 訓練日期設定總天數；任何設定日期都算一堂，達當月週六數就不補償。補償先產生 `quarterly_fee_compensation_items` 待審核單，核准後才用 `quarterly_compensation` source 寫入 `player_balance_transactions`。
 - sibling / quarter fee / monthly settlement 等邏輯已拆在 `src/utils/*fee*` 與相關測試。
 - 手足主要繳費人退隊、離隊或關閉 / 畢業後，剩餘有效手足的新一期月費 / 季費試算不得沿用手足半價；主要繳費人恢復有效後，若 `sibling_ids` 與 `is_primary_payer` 仍保留，另一位有效手足可恢復手足減免。既有已保存帳款金額不自動覆寫，需由管理端重算或手動調整。

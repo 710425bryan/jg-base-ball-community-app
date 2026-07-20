@@ -1,4 +1,4 @@
-import type { EquipmentRequestStatus } from '@/types/equipment'
+import type { EquipmentRequestItem, EquipmentRequestStatus } from '@/types/equipment'
 
 export const EQUIPMENT_REQUEST_STATUS = {
   PENDING: 'pending',
@@ -31,6 +31,23 @@ export const isEquipmentRequestReservedStatus = (status?: string | null) =>
 
 export const isEquipmentPaymentPayableRequestStatus = (status?: string | null) =>
   !status || EQUIPMENT_PAYMENT_PAYABLE_REQUEST_STATUSES.includes(status as EquipmentRequestStatus)
+
+export const getEquipmentRequestItemStatus = (
+  item: Pick<EquipmentRequestItem, 'ready_at' | 'picked_up_at'>,
+  requestStatus?: string | null
+): EquipmentRequestStatus | string => {
+  if (
+    requestStatus === EQUIPMENT_REQUEST_STATUS.PENDING
+    || requestStatus === EQUIPMENT_REQUEST_STATUS.REJECTED
+    || requestStatus === EQUIPMENT_REQUEST_STATUS.CANCELLED
+  ) {
+    return requestStatus
+  }
+
+  if (item.picked_up_at) return EQUIPMENT_REQUEST_STATUS.PICKED_UP
+  if (item.ready_at) return EQUIPMENT_REQUEST_STATUS.READY_FOR_PICKUP
+  return EQUIPMENT_REQUEST_STATUS.APPROVED
+}
 
 export const getEquipmentRequestStatusLabel = (status?: string | null) => {
   switch (status) {

@@ -2,6 +2,7 @@ import { supabase } from '@/services/supabase'
 import { compressImage } from '@/utils/imageCompressor'
 import {
   EQUIPMENT_REQUEST_RESERVED_STATUSES,
+  getEquipmentRequestItemStatus,
   isEquipmentPaymentPayableRequestStatus
 } from '@/utils/equipmentRequestStatus'
 import {
@@ -764,6 +765,16 @@ const REQUEST_ITEM_SELECT = `
   equipment_name_snapshot,
   unit_price_snapshot,
   equipment_transaction_id,
+  ready_note,
+  ready_image_url,
+  ready_image_urls,
+  ready_at,
+  ready_by,
+  pickup_note,
+  pickup_image_url,
+  pickup_image_urls,
+  picked_up_at,
+  picked_up_by,
   created_at,
   updated_at
 `
@@ -875,7 +886,9 @@ const fetchRequestItems = async (requestIds: string[]) => {
     ...item,
     jersey_number: item?.jersey_number == null ? null : normalizeNumber(item.jersey_number),
     quantity: normalizeNumber(item.quantity, 1),
-    unit_price_snapshot: normalizeNumber(item.unit_price_snapshot)
+    unit_price_snapshot: normalizeNumber(item.unit_price_snapshot),
+    ready_image_urls: normalizeUrlList(item?.ready_image_urls, [item?.ready_image_url]),
+    pickup_image_urls: normalizeUrlList(item?.pickup_image_urls, [item?.pickup_image_url])
   }))
 }
 
@@ -971,6 +984,9 @@ const normalizeEquipmentUnpaidPaymentFallbackItem = (row: any) => {
   const member = pickSingle<any>(row?.member)
   const requestItem = pickSingle<any>(row?.request_item)
   const request = pickSingle<any>(requestItem?.request)
+  const requestStatus = requestItem
+    ? getEquipmentRequestItemStatus(requestItem, request?.status)
+    : request?.status ?? null
   const unitPrice = normalizeNumber(row?.unit_price ?? equipment?.purchase_price)
   const quantity = normalizeNumber(row?.quantity, 1)
 
@@ -989,8 +1005,8 @@ const normalizeEquipmentUnpaidPaymentFallbackItem = (row: any) => {
     payment_status: row?.payment_status || 'unpaid',
     payment_submission_id: row?.payment_submission_id ?? null,
     transaction_date: row?.transaction_date,
-    request_status: request?.status ?? null,
-    picked_up_at: request?.picked_up_at ?? null
+    request_status: requestStatus,
+    picked_up_at: requestItem?.picked_up_at ?? request?.picked_up_at ?? null
   })
 }
 
@@ -1028,6 +1044,8 @@ const listEquipmentUnpaidPaymentItemsFromTables = async () => {
       ),
       request_item:request_item_id (
         id,
+        ready_at,
+        picked_up_at,
         request:request_id (
           id,
           status,
@@ -1177,18 +1195,12 @@ export const markEquipmentRequestReady = async (
     imageFiles,
     'equipment_request_actions/ready'
   )
-  const { error } = await supabase
-    .from('equipment_purchase_requests')
-    .update({
-      status: 'ready_for_pickup',
-      ready_at: new Date().toISOString(),
-      ready_by: userId,
-      ready_note: note || null,
-      ready_image_url: imageUrls[0] || null,
-      ready_image_urls: imageUrls,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', requestId)
+  const { error } = await supabase.rpc('mark_equipment_request_ready', {
+    p_request_id: requestId,
+    p_user_id: userId,
+    p_note: note || null,
+    p_image_urls: imageUrls
+  })
 
   if (error) throw error
   return fetchEquipmentRequestById(requestId)
@@ -1210,11 +1222,8 @@ export const markEquipmentRequestPickedUp = async (
     p_request_id: requestId,
     p_user_id: userId,
     p_note: note || null,
-    p_image_urls: imageUrls
-  }
-
-  if (markPaid) {
-    payload.p_mark_paid = true
+    p_image_urls: imageUrls,
+    p_mark_paid: markPaid
   }
 
   const { error } = await supabase.rpc('mark_equipment_request_picked_up', payload)
@@ -1256,19 +1265,9 @@ export const cancelEquipmentRequest = async (requestId: string, userId: string, 
 }
 
 export const deleteEquipmentPurchaseRequestWithRollback = async (requestId: string) => {
-  const request = await fetchEquipmentRequestById(requestId)
-  if (!request) throw new Error('找不到加購申請')
-
-  const transactionIds = unique(request.items.map((item: EquipmentRequestItem) => item.equipment_transaction_id))
-
-  if (transactionIds.length > 0) {
-    await deleteEquipmentTransactions(transactionIds)
-  }
-
-  const { error } = await supabase
-    .from('equipment_purchase_requests')
-    .delete()
-    .eq('id', requestId)
+  const { error } = await supabase.rpc('delete_equipment_purchase_request', {
+    p_request_id: requestId
+  })
 
   if (error) throw error
 }
