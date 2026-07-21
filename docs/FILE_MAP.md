@@ -78,7 +78,7 @@
 
 | 檔案 | 用途 | 後端依賴 |
 | --- | --- | --- |
-| `src/services/publicLanding.ts` | 公開首頁摘要 | `get_public_landing_snapshot()` |
+| `src/services/publicLanding.ts` | 公開首頁摘要與匿名入隊申請 | `get_public_landing_snapshot()`；申請只 INSERT、不讀回私密資料 |
 | `src/services/dashboardAttendance.ts` | 後台大廳今日訓練點名狀態，含今日多筆點名單 | `get_dashboard_today_attendance_status()` |
 | `src/services/myHome.ts` | 個人化首頁摘要與依 linked member 篩選的 Next Up | `get_my_home_snapshot()` / `get_my_home_next_event()` |
 | `src/services/myLeaveRequests.ts` | 我的假單 RPC | `list_my_leave_members()` 等 |
@@ -388,6 +388,7 @@
 - `src/services/matchesApi.test.ts`
 - `src/services/weatherApi.test.ts`
 - `src/services/publicLanding.test.ts`
+- `src/views/LandingView.test.ts`
 - `src/utils/playerSync.test.ts`
 - `src/stores/playerRoster.test.ts`
 - `src/stores/teamGroups.test.ts`

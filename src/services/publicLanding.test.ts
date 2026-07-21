@@ -1,16 +1,81 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const rpcMock = vi.fn()
+const insertMock = vi.fn()
+const fromMock = vi.fn(() => ({
+  insert: insertMock
+}))
 
 vi.mock('@/services/supabase', () => ({
   supabase: {
-    rpc: rpcMock
+    rpc: rpcMock,
+    from: fromMock
   }
 }))
 
 describe('public landing service', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('creates a public join inquiry without requesting the protected row back', async () => {
+    const inquiryId = 'a107eed2-0777-4e42-a5e0-49620d172a8e'
+    vi.stubGlobal('crypto', {
+      randomUUID: vi.fn(() => inquiryId)
+    })
+    insertMock.mockResolvedValue({ data: null, error: null })
+
+    const { createPublicJoinInquiry } = await import('./publicLanding')
+    const result = await createPublicJoinInquiry({
+      parent_name: '測試家長',
+      phone: '0900000000',
+      line_id: 'test-line',
+      child_age_or_grade: '二年級',
+      message: '想了解體驗課'
+    })
+
+    expect(fromMock).toHaveBeenCalledWith('join_inquiries')
+    expect(insertMock).toHaveBeenCalledWith({
+      id: inquiryId,
+      parent_name: '測試家長',
+      phone: '0900000000',
+      line_id: 'test-line',
+      child_age_or_grade: '二年級',
+      message: '想了解體驗課'
+    })
+    expect(result).toBe(inquiryId)
+  })
+
+  it('creates a valid UUID when randomUUID is unavailable in an older webview', async () => {
+    vi.stubGlobal('crypto', {
+      getRandomValues: vi.fn((bytes: Uint8Array) => {
+        bytes.set([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])
+        return bytes
+      })
+    })
+
+    const { createPublicJoinInquiryId } = await import('./publicLanding')
+
+    expect(createPublicJoinInquiryId()).toBe('00010203-0405-4607-8809-0a0b0c0d0e0f')
+  })
+
+  it('surfaces insert failures to the public form', async () => {
+    const insertError = new Error('insert failed')
+    insertMock.mockResolvedValue({ data: null, error: insertError })
+
+    const { createPublicJoinInquiry } = await import('./publicLanding')
+
+    await expect(createPublicJoinInquiry({
+      parent_name: '測試家長',
+      phone: '0900000000',
+      line_id: null,
+      child_age_or_grade: '',
+      message: ''
+    })).rejects.toBe(insertError)
   })
 
   it('loads the public landing snapshot through the dedicated rpc', async () => {

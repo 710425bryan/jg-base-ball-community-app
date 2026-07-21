@@ -115,7 +115,7 @@ UI 約定：
 資料流：
 
 - 公開摘要走 `get_public_landing_snapshot(p_today)`。
-- 入隊申請寫入 `join_inquiries`，包含家長聯絡電話與可選填 Line ID；公開 insert 由 DB policy 控制。
+- 入隊申請寫入 `join_inquiries`，包含家長聯絡電話與可選填 Line ID；公開 insert 由 DB policy 控制。前端先產生 UUID 並只做 INSERT，不讀回受 `join_inquiries:VIEW` SELECT RLS 保護的申請資料。
 - 節日主題公開設定走 `get_public_holiday_theme_config()`。
 
 重要規則：

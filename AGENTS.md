@@ -145,7 +145,7 @@
 ### 公開首頁與入隊
 
 - `LandingView` 透過 `src/services/publicLanding.ts` 呼叫 `get_public_landing_snapshot(p_today)` 顯示公開摘要。
-- 入隊申請會寫入 `join_inquiries`；公開 insert 由 DB policy 控制。
+- 入隊申請會寫入 `join_inquiries`；公開 insert 由 DB policy 控制。匿名送出時由前端先產生 UUID，INSERT 不可串接 `.select()` 讀回申請資料，避免觸發只允許 `join_inquiries:VIEW` 的 SELECT RLS。
 - 公開頁若需要新增資料，只能拿非敏感摘要，不可直接擴散 profiles / team_members / leave_requests 等 raw table。
 
 ### 個人首頁與個人功能

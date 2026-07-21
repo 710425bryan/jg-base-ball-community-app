@@ -447,8 +447,7 @@ import dayjs from 'dayjs'
 import PreviewableImage from '@/components/common/PreviewableImage.vue'
 import HomeHolidayHeroOverlay from '@/components/home/HomeHolidayHeroOverlay.vue'
 import MatchDetailDialog from '@/components/match-records/MatchDetailDialog.vue'
-import { getPublicLandingSnapshot } from '@/services/publicLanding'
-import { supabase } from '@/services/supabase'
+import { createPublicJoinInquiry, getPublicLandingSnapshot } from '@/services/publicLanding'
 import { useAuthStore } from '@/stores/auth'
 import { useMatchesStore } from '@/stores/matches'
 import { usePermissionsStore } from '@/stores/permissions'
@@ -660,27 +659,21 @@ const submitJoinForm = async () => {
   isSubmitting.value = true
 
   try {
-    const { data, error } = await supabase
-      .from('join_inquiries')
-      .insert({
-        parent_name: joinForm.parent_name,
-        phone: joinForm.phone,
-        line_id: joinForm.line_id.trim() || null,
-        child_age_or_grade: joinForm.child_age_or_grade,
-        message: joinForm.message
-      })
-      .select('id, parent_name')
-      .single()
-
-    if (error) throw error
+    const inquiryId = await createPublicJoinInquiry({
+      parent_name: joinForm.parent_name,
+      phone: joinForm.phone,
+      line_id: joinForm.line_id.trim() || null,
+      child_age_or_grade: joinForm.child_age_or_grade,
+      message: joinForm.message
+    })
 
     void dispatchPushNotification({
-      title: `[入隊詢問] 收到 ${data.parent_name} 的聯絡表單`,
+      title: `[入隊詢問] 收到 ${joinForm.parent_name} 的聯絡表單`,
       body: `${buildJoinContactSummary()}，請到後台查看完整內容。`,
       url: '/join-inquiries',
       feature: 'join_inquiries',
       action: 'VIEW',
-      eventKey: buildPushEventKey('join_inquiry', data.id)
+      eventKey: buildPushEventKey('join_inquiry', inquiryId)
     }).catch((pushErr) => {
       console.warn('Join inquiry push notification failed', pushErr)
     })
