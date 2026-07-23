@@ -98,7 +98,7 @@
 ### `jg-baseball-equipment-management`
 
 - 路徑：`.codex/skills/jg-baseball-equipment-management/SKILL.md`
-- 用途：裝備管理、家長加購、請購審核、備貨 / 領取、裝備付款回報。
+- 用途：裝備管理、庫存增減流水帳、家長加購、請購審核、備貨 / 領取、裝備付款回報。
 - 典型情境：修改 `/equipment`、`/equipment-addons`、`/equipment-purchases`、`equipment_transactions`、`equipment_purchase_requests`、`equipment_payment_submissions`、裝備 storage 或相關推播。
 
 ### `jg-baseball-vendors`

@@ -73,6 +73,12 @@
 
 ## 驗收紀錄
 
+### 2026-07-23 裝備減少庫存
+
+- `/equipment` 的卡片與表格更多選單新增「減少庫存」，只對 `equipment:EDIT` 顯示；共用庫存調整 Dialog 會顯示總量、可用量與尺寸量前後變化，減量原因必填並保留二次確認，footer 改用 `AppDialogFooter` 的 Danger 操作。
+- 前端依聚合庫存 snapshot 限制目前可減數量；DB migration 以負數 RPC 輸入辨識 `stock_out`，流水帳保存正數數量與方向，並在鎖定裝備後重算交易及已核准／已備貨請購占用量，總量與尺寸量都不得扣低於已使用或已預留庫存。
+- Targeted regression 與手機規則回歸共 11 files、104 tests，`pnpm exec vue-tsc --noEmit` 與 production build 通過。新 migration 已完成靜態 ACL／庫存 guard 測試但尚未套用資料庫，因此 RPC 編譯、實際角色權限及登入後 360px、390px、640–767px、桌機 Dialog 仍待 staging 驗收。
+
 ### 2026-07-20 裝備請購逐品項處理
 
 - `/equipment-purchases` 的多品項請購在每個品項卡新增獨立「刪除此品項」與依狀態顯示的「標記備貨完成」／「完成領取」；每張卡最多兩個可見操作且皆維持至少 44px。單品項沿用原頁尾操作，頁尾既有整單刪除、整單備貨與整單領取按鈕保留。

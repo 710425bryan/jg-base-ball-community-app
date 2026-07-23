@@ -101,6 +101,44 @@ describe('equipmentApi payment helpers', () => {
     })
   })
 
+  it('passes a signed stock-out delta through the existing inventory adjustment RPC', async () => {
+    rpcMock.mockResolvedValue({
+      data: {
+        id: 'adjustment-1',
+        equipment_id: 'equipment-1',
+        adjustment_type: 'stock_out',
+        quantity_delta: 2,
+        total_quantity_after: 8,
+        sizes_stock_after: [{ size: 'M', quantity: 3 }]
+      },
+      error: null
+    })
+
+    const { createEquipmentInventoryAdjustment } = await import('./equipmentApi')
+    const result = await createEquipmentInventoryAdjustment({
+      equipment_id: 'equipment-1',
+      adjustment_date: '2026-07-23',
+      size: 'M',
+      quantity_delta: -2,
+      notes: '盤點短少'
+    })
+
+    expect(rpcMock).toHaveBeenCalledWith('create_equipment_inventory_adjustment', {
+      p_equipment_id: 'equipment-1',
+      p_adjustment_date: '2026-07-23',
+      p_member_id: null,
+      p_handled_by: null,
+      p_size: 'M',
+      p_quantity_delta: -2,
+      p_notes: '盤點短少'
+    })
+    expect(result).toMatchObject({
+      adjustment_type: 'stock_out',
+      quantity_delta: 2,
+      total_quantity_after: 8
+    })
+  })
+
   it('derives the table fallback fulfillment status from the linked request item', async () => {
     rpcMock.mockResolvedValue({
       data: null,

@@ -212,7 +212,7 @@
 | `src/components/equipment/EquipmentFormDialog.vue` | 裝備主檔新增 / 編輯 |
 | `src/components/equipment/EquipmentPhotoCarousel.vue` | 裝備照片與處理照片輪播 |
 | `src/components/equipment/EquipmentHistoryDialog.vue` | 裝備交易 / 庫存 / 申請歷史 |
-| `src/components/equipment/EquipmentInventoryAdjustmentDialog.vue` | 庫存調整 |
+| `src/components/equipment/EquipmentInventoryAdjustmentDialog.vue` | 新增／減少庫存、可用量預覽與減量確認 |
 | `src/components/equipment/EquipmentPurchaseMasterList.vue` | 管理端付款／請購共用主清單、搜尋與分頁 |
 | `src/components/equipment/EquipmentRequestQuantitySummary.vue` | 管理端依目前請購篩選彙整裝備、尺寸、背號與數量 |
 | `src/components/equipment/EquipmentPaymentAdminDetail.vue` | 管理端尚未付款、付款審核與退款明細操作 |
@@ -220,6 +220,7 @@
 | `src/components/equipment/EquipmentRequestActionDialog.vue` | 加購申請操作 |
 | `src/components/equipment/EquipmentTransactionDialog.vue` | 裝備交易紀錄 |
 | `src/utils/equipmentPurchaseAdmin.ts` | 管理台資料正規化、狀態篩選、金額／請購數量摘要、分頁狀態與深層連結工具 |
+| `src/utils/equipmentInventoryAdjustment.ts` | 庫存增減方向、減量上限與調整後預覽 |
 | `src/components/equipment/MyEquipmentPaymentsPanel.vue` | 個人裝備付款 |
 
 ### Vendors

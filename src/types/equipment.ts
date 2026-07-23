@@ -80,10 +80,12 @@ export type EquipmentTransaction = {
   } | null
 }
 
+export type EquipmentInventoryAdjustmentType = 'stock_in' | 'stock_out'
+
 export type EquipmentInventoryAdjustment = {
   id: string
   equipment_id: string
-  adjustment_type: 'stock_in' | string
+  adjustment_type: EquipmentInventoryAdjustmentType | string
   adjustment_date: string
   member_id: string | null
   handled_by: string | null

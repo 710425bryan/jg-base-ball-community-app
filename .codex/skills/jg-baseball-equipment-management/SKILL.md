@@ -24,6 +24,7 @@ description: "Equipment management workflow for jg-base-ball-community-app. Use 
 - 後台裝備請購／付款路由 `/equipment-purchases` 使用 `meta.feature = 'fees'`；前端操作依 `fees:EDIT / DELETE`，既有 DB `fees OR equipment` 權限不因 UI 搬移而收緊。
 - 家長加購路由 `/equipment-addons` 不加 `equipment` feature；一般家長靠登入與 `linked_team_member_ids` 存取自己的資料。
 - 權限 action 使用本專案標準 `VIEW / CREATE / EDIT / DELETE`，不要使用來源專案的 `ADD`。
+- `/equipment` 的庫存調整共用 `create_equipment_inventory_adjustment()`：正數輸入表示 `stock_in`、負數表示 `stock_out`，流水帳數量保存絕對值。減少庫存只允許 `equipment:EDIT`、必填原因並二次確認；DB 必須鎖定裝備並重算交易與已核准／已備貨請購的占用量，總量與尺寸量都不可扣低於已使用或已預留庫存。
 - 裝備流程不直接接來源專案的 `fee_records`、月結關帳或收支報表；本專案以 `equipment_payment_submissions` 接到 `/my-payments` 與 `/equipment-purchases`，舊 `/fees?tab=equipment` 保留相容轉向。
 - 管理台金額分狀態顯示：交易用 `total_amount`、付款單用 `amount`、請購用 `unit_price_snapshot × quantity`；不得跨請購與付款生命週期加總。
 - `/equipment-purchases` 主清單使用前端分頁，每頁固定顯示 10 筆；切換頁面後需保留目前狀態與篩選條件，並將 `MainLayout` 頁面捲動到新頁第一筆資料，不可捲回 route 頂端或新增清單內部捲軸。點選或關閉主清單明細只改 selection，不得把目前頁碼重設為第一頁；切換管理類型、狀態或篩選條件時才回第一頁，資料異動後頁碼需收斂到最後有效頁。

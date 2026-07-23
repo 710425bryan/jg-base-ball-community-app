@@ -60,7 +60,8 @@ const typeLabel = (type: string) => {
     return: '歸還',
     receive: '領取',
     purchase: '購買',
-    stock_in: '新增庫存'
+    stock_in: '新增庫存',
+    stock_out: '減少庫存'
   }
   return map[type] || type
 }
@@ -68,6 +69,7 @@ const typeLabel = (type: string) => {
 const typeClass = (type: string) => {
   if (type.startsWith('request:')) return 'bg-sky-50 border-sky-200 text-sky-700'
   if (type === 'stock_in') return 'bg-emerald-50 border-emerald-200 text-emerald-700'
+  if (type === 'stock_out') return 'bg-rose-50 border-rose-200 text-rose-700'
   if (type === 'return') return 'bg-emerald-50 border-emerald-200 text-emerald-700'
   if (type === 'purchase') return 'bg-primary/10 border-primary/20 text-primary'
   if (type === 'receive') return 'bg-blue-50 border-blue-200 text-blue-700'
@@ -170,20 +172,25 @@ const mapTransactionHistoryItem = (transaction: EquipmentTransaction): HistoryIt
   transaction
 })
 
-const mapAdjustmentHistoryItem = (adjustment: EquipmentInventoryAdjustment): HistoryItem => ({
-  id: `inventory-${adjustment.id}`,
-  kind: 'inventory_adjustment',
-  recordType: adjustment.adjustment_type || 'stock_in',
-  time: adjustment.created_at || adjustment.adjustment_date,
-  person: adjustment.team_members?.name || adjustment.handled_by || null,
-  source: '庫存調整',
-  sourceDetail: '新增庫存',
-  variantLabel: formatEquipmentVariantLabel(adjustment),
-  quantityLabel: `+${Math.max(Number(adjustment.quantity_delta || 0), 0)}`,
-  quantityTone: 'positive',
-  amount: null,
-  notes: adjustment.notes || null
-})
+const mapAdjustmentHistoryItem = (adjustment: EquipmentInventoryAdjustment): HistoryItem => {
+  const isStockOut = adjustment.adjustment_type === 'stock_out'
+  const quantity = Math.max(Number(adjustment.quantity_delta || 0), 0)
+
+  return {
+    id: `inventory-${adjustment.id}`,
+    kind: 'inventory_adjustment',
+    recordType: adjustment.adjustment_type || 'stock_in',
+    time: adjustment.created_at || adjustment.adjustment_date,
+    person: adjustment.team_members?.name || adjustment.handled_by || null,
+    source: '庫存調整',
+    sourceDetail: isStockOut ? '減少庫存' : '新增庫存',
+    variantLabel: formatEquipmentVariantLabel(adjustment),
+    quantityLabel: `${isStockOut ? '-' : '+'}${quantity}`,
+    quantityTone: isStockOut ? 'negative' : 'positive',
+    amount: null,
+    notes: adjustment.notes || null
+  }
+}
 
 const mapRequestHistoryItem = (item: EquipmentRequestHistoryItem): HistoryItem => ({
   id: `request-item-${item.request_item_id}`,

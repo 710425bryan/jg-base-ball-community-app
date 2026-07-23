@@ -6,6 +6,7 @@ import {
   Edit,
   Filter,
   Goods,
+  Minus,
   Plus,
   Refresh,
   Tickets
@@ -22,7 +23,11 @@ import EquipmentPhotoCarousel from '@/components/equipment/EquipmentPhotoCarouse
 import EquipmentTransactionDialog from '@/components/equipment/EquipmentTransactionDialog.vue'
 import { useEquipmentStore } from '@/stores/equipment'
 import { usePermissionsStore } from '@/stores/permissions'
-import type { Equipment, EquipmentTransactionType } from '@/types/equipment'
+import type {
+  Equipment,
+  EquipmentInventoryAdjustmentType,
+  EquipmentTransactionType
+} from '@/types/equipment'
 import {
   getEquipmentOverAllocatedSizeQuantity,
   getEquipmentRemainingOverallQuantity,
@@ -41,6 +46,7 @@ const isFormDialogOpen = ref(false)
 const editingEquipment = ref<Equipment | null>(null)
 const isInventoryDialogOpen = ref(false)
 const inventoryAdjustmentEquipment = ref<Equipment | null>(null)
+const inventoryAdjustmentType = ref<EquipmentInventoryAdjustmentType>('stock_in')
 const isTransactionDialogOpen = ref(false)
 const transactionEquipment = ref<Equipment | null>(null)
 const transactionDefaultType = ref<EquipmentTransactionType>('purchase')
@@ -133,8 +139,12 @@ const openEditDialog = (equipment: Equipment) => {
   isFormDialogOpen.value = true
 }
 
-const openInventoryDialog = (equipment: Equipment) => {
+const openInventoryDialog = (
+  equipment: Equipment,
+  adjustmentType: EquipmentInventoryAdjustmentType = 'stock_in'
+) => {
   inventoryAdjustmentEquipment.value = equipment
+  inventoryAdjustmentType.value = adjustmentType
   isInventoryDialogOpen.value = true
 }
 
@@ -427,6 +437,7 @@ onMounted(() => {
                 <AppActionOverflow v-if="canCreate || canEdit || canDelete">
                   <el-dropdown-item v-if="canCreate || canEdit" @click="openHistoryDialog(equipment)">查看紀錄</el-dropdown-item>
                   <el-dropdown-item v-if="canCreate || canEdit" @click="openInventoryDialog(equipment)">新增庫存</el-dropdown-item>
+                  <el-dropdown-item v-if="canEdit" class="!text-red-600" @click="openInventoryDialog(equipment, 'stock_out')">減少庫存</el-dropdown-item>
                   <el-dropdown-item v-if="canCreate || canEdit" @click="openTransactionDialog(equipment, 'purchase')">快速購買</el-dropdown-item>
                   <el-dropdown-item v-if="canEdit" @click="openEditDialog(equipment)">編輯</el-dropdown-item>
                   <el-dropdown-item v-if="canDelete" class="!text-red-600" @click="removeEquipment(equipment)">刪除</el-dropdown-item>
@@ -513,6 +524,9 @@ onMounted(() => {
                         <el-dropdown-item v-if="canCreate || canEdit" @click="openInventoryDialog(equipment)">
                           <el-icon><Plus /></el-icon>新增庫存
                         </el-dropdown-item>
+                        <el-dropdown-item v-if="canEdit" class="!text-red-600" @click="openInventoryDialog(equipment, 'stock_out')">
+                          <el-icon><Minus /></el-icon>減少庫存
+                        </el-dropdown-item>
                         <el-dropdown-item v-if="canEdit" @click="openEditDialog(equipment)">
                           <el-icon><Edit /></el-icon>編輯
                         </el-dropdown-item>
@@ -539,6 +553,7 @@ onMounted(() => {
     <EquipmentInventoryAdjustmentDialog
       v-model="isInventoryDialogOpen"
       :equipment="inventoryAdjustmentEquipment"
+      :adjustment-type="inventoryAdjustmentType"
       @saved="refresh"
     />
 
