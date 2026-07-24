@@ -4,7 +4,7 @@
 
 清單涵蓋 28 個登入後路由、26 個實作頁面；能力／體測列表與明細各自共用一套實作頁面。
 
-- 最後更新：2026-07-18
+- 最後更新：2026-07-25
 - 本輪範圍：P0 → P1 → P2 → P3 程式調整與自動檢查。
 - 本輪結論：自動檢查通過，因目前沒有可登入的一般 linked-member 與 ADMIN 裝置環境，全部維持「待驗收」。
 
@@ -36,11 +36,11 @@
 | P1-01 | `/dashboard` | Hero CTA 圓角及文字連結觸控範圍不一致 | 保留 Hero 視覺，功能操作至少 44px、`rounded-xl` | 待驗收 | HomeView 16 tests＋source contract 通過 |
 | P1-02 | `/calendar` | 頁首按鈕、segmented ARIA、Dialog 斷點與底距不一致 | actions 與 Dialog 符合規則，切換有 `aria-pressed` | 待驗收 | `vue-tsc`、build＋source contract 通過 |
 | P1-03 | `/profile` | 功能按鈕圓角不一；Passkey icon 小於 44px | 功能按鈕 `rounded-xl`；icon 44px 並有 ARIA/title | 待驗收 | passkey 5 tests＋source contract 通過 |
-| P1-04 | `/my-payments` | 重複主操作；Dialog footer 不一致；手機底部導覽會蓋住付款送出按鈕；手機成員搜尋依賴 select 內建輸入，實際搜尋結果不正確 | 每區一個 Primary；付款 Dialog 使用共用 footer 並掛到 `body`；手機成員選擇器使用獨立搜尋輸入與正規化比對 | 待驗收 | 手機成員搜尋、全站 Dialog wrapper、比賽費角色分流與 myPayments targeted regression 通過；待登入後 360–767px 驗收 |
+| P1-04 | `/my-payments` | 重複主操作；Dialog footer 不一致；手機底部導覽會蓋住付款送出按鈕；手機成員搜尋原先沒有穩定過濾結果 | 每區一個 Primary；付款 Dialog 使用共用 footer 並掛到 `body`；手機與桌機共用單一可輸入選擇欄位及正規化比對 | 待驗收 | 單一欄位成員搜尋、全站 Dialog wrapper、比賽費角色分流與 myPayments targeted regression 通過；待登入後 360–767px 驗收 |
 | P1-05 | `/my-records` | 成員選擇器位於 header actions | 搜尋／選擇移到獨立 toolbar，導航操作至少 44px | 待驗收 | MyPlayerRecords 4 tests＋service 2 tests 通過 |
 | P1-06 | `/equipment-addons` | tabs、移除與歷史操作尺寸／數量不一致 | 44px、segmented ARIA；每筆最多兩個可見操作 | 待驗收 | equipment API／inventory 19 tests＋source contract 通過 |
 | P1-07 | `/my-leave-requests` | 刪除、載入月份與 footer 偏小 | 44px 並使用共用 Dialog footer | 待驗收 | MyLeaveRequests 2 tests＋service 2 tests 通過 |
-| P1-08 | `/training` | 管理與點數區有 32–40px 操作 | 所有功能操作至少 44px、每區一個 Primary | 待驗收 | training API／utils 6 tests＋source contract 通過 |
+| P1-08 | `/training` | 管理與點數區有 32–40px 操作；點數管理手機搜尋原先沒有穩定過濾結果 | 所有功能操作至少 44px、每區一個 Primary；手機與桌機共用單一可輸入多選欄位及正規化比對 | 待驗收 | 點數球員搜尋元件、TrainingView、training API／utils、member search 與手機規則共 6 files、71 tests 通過；待登入後 360–767px 驗收 |
 
 ## P2：後台管理頁面
 
@@ -72,6 +72,18 @@
 | P3-05 | 能力／體測明細 | 返回及紀錄操作偏小 | 44px、`rounded-xl`、ARIA 與 Danger 確認 | 待驗收 | performance API/config 5 tests＋build 通過 |
 
 ## 驗收紀錄
+
+### 2026-07-25 全站手機選擇器單一搜尋欄位
+
+- 全站稽核確認，和特訓點數管理相同、在 `el-select` 下拉內再放第二個搜尋框的實作只剩 `/my-payments` 的 `PaymentMemberSelector`；其他 `filterable` 選擇器原本就是單一欄位，Dialog／表格的 `#header` 插槽不屬於此模式。
+- `/my-payments` 已改為手機與桌機共用同一個可輸入成員選擇欄位，並沿用 `matchesMemberSearch` 比對姓名、角色、繳費標籤與訓練項目；linked member 範圍、`selectedMemberId` 與付款資料載入 watcher 不變。
+- Targeted regression 共 7 files、79 tests，`pnpm exec vue-tsc --noEmit` 與 production build 通過；登入後手機中文輸入法與鍵盤位置仍待實機驗收。
+
+### 2026-07-25 特訓點數管理手機球員搜尋
+
+- `/training` 的點數管理球員多選已拆成 `TrainingPointMemberSelector`；手機與桌機現在共用同一個 Element Plus 可輸入多選欄位，不再於下拉選單內顯示第二個搜尋框。
+- 手機搜尋使用共用 `matchesMemberSearch` 正規化全形／半形、空白與常見分隔符號，並可跨姓名、身分與所屬群組比對；關閉選單後清除查詢，既有已選球員 ID、快速選取與 `grant_player_points()` 流程不變。
+- Targeted regression 共 6 files、71 tests，`pnpm exec vue-tsc --noEmit` 與 production build 通過；build 僅有既有 chunk size warning。登入後 360px、390px、640–767px 的中文輸入法、鍵盤與選單位置仍待實機驗收。
 
 ### 2026-07-23 裝備減少庫存
 

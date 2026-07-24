@@ -107,6 +107,21 @@ describe('mobile UI/UX audit contracts', () => {
     expect(schoolTeamFees).toContain('aria-label="開啟月費篩選"')
   })
 
+  it('keeps member search selectors to one input field on mobile and desktop', () => {
+    const memberSelectors = [
+      readComponent('payments/PaymentMemberSelector'),
+      readComponent('training/TrainingPointMemberSelector')
+    ]
+
+    memberSelectors.forEach((source) => {
+      expect(source.match(/<el-select\b/g)).toHaveLength(1)
+      expect(source).toContain('filterable')
+      expect(source).toContain(':filter-method=')
+      expect(source).not.toContain('<template #header>')
+      expect(source).not.toContain('<el-input')
+    })
+  })
+
   it('keeps shared performance route roots compatible with MainLayout scrolling', () => {
     const performanceComponents = [
       readComponent('performance/PerformanceRecordsPage'),

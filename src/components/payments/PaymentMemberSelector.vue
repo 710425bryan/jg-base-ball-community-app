@@ -4,74 +4,33 @@
       <div class="w-full lg:max-w-md">
         <label class="text-xs font-bold uppercase tracking-[0.18em] text-gray-400">查看成員</label>
 
-        <div class="mt-2 md:hidden">
-          <el-select
-            :model-value="modelValue"
-            data-test="payment-member-mobile-select"
-            class="w-full"
-            size="large"
-            placeholder="請選擇成員"
-            aria-label="查看繳費成員"
-            fit-input-width
-            @update:model-value="updateModelValue"
-            @visible-change="handleMobileSelectVisibilityChange"
-          >
-            <template #label>
-              <span>{{ selectedMember ? getOptionLabel(selectedMember) : '' }}</span>
-            </template>
+        <el-select
+          :model-value="modelValue"
+          data-test="payment-member-select"
+          class="mt-2 w-full"
+          size="large"
+          filterable
+          :filter-method="handleFilter"
+          placeholder="請選擇或搜尋成員"
+          aria-label="查看或搜尋繳費成員"
+          fit-input-width
+          @update:model-value="updateModelValue"
+          @visible-change="handleSelectVisibilityChange"
+        >
+          <el-option
+            v-for="member in filteredMembers"
+            :key="member.member_id"
+            data-test="payment-member-option"
+            :label="getOptionLabel(member)"
+            :value="member.member_id"
+          />
 
-            <template #header>
-              <el-input
-                ref="mobileSearchInputRef"
-                v-model="mobileSearchQuery"
-                data-test="payment-member-mobile-search"
-                :prefix-icon="Search"
-                size="large"
-                clearable
-                autocomplete="off"
-                placeholder="輸入姓名搜尋成員"
-                aria-label="搜尋繳費成員"
-                @click.stop
-                @keydown.stop
-              />
-            </template>
-
-            <el-option
-              v-for="member in filteredMobileMembers"
-              :key="member.member_id"
-              data-test="payment-member-option"
-              :label="getOptionLabel(member)"
-              :value="member.member_id"
-            />
-
-            <template #empty>
-              <div class="px-3 py-4 text-center text-sm font-bold text-slate-400">
-                {{ mobileSearchQuery.trim() ? '找不到符合搜尋條件的成員' : '目前沒有可選擇的成員' }}
-              </div>
-            </template>
-          </el-select>
-        </div>
-
-        <div class="mt-2 hidden md:block">
-          <el-select
-            :model-value="modelValue"
-            data-test="payment-member-desktop-select"
-            class="w-full"
-            size="large"
-            filterable
-            placeholder="請選擇成員"
-            aria-label="查看繳費成員"
-            fit-input-width
-            @update:model-value="updateModelValue"
-          >
-            <el-option
-              v-for="member in members"
-              :key="member.member_id"
-              :label="getOptionLabel(member)"
-              :value="member.member_id"
-            />
-          </el-select>
-        </div>
+          <template #empty>
+            <div class="px-3 py-4 text-center text-sm font-bold text-slate-400">
+              {{ searchQuery.trim() ? '找不到符合搜尋條件的成員' : '目前沒有可選擇的成員' }}
+            </div>
+          </template>
+        </el-select>
 
         <p class="mt-2 text-xs text-gray-400">
           {{ helperText }}
@@ -96,8 +55,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue'
-import { Search } from '@element-plus/icons-vue'
+import { computed, ref } from 'vue'
 import type { MyPaymentMember } from '@/types/payments'
 import { matchesMemberSearch } from '@/utils/memberSearch'
 
@@ -114,16 +72,15 @@ const emit = defineEmits<{
   'update:modelValue': [value: string]
 }>()
 
-const mobileSearchQuery = ref('')
-const mobileSearchInputRef = ref<{ focus?: () => void } | null>(null)
+const searchQuery = ref('')
 
 const selectedMember = computed(() =>
   props.members.find((member) => member.member_id === props.modelValue) || null
 )
 
-const filteredMobileMembers = computed(() => {
+const filteredMembers = computed(() => {
   return props.members.filter((member) =>
-    matchesMemberSearch(mobileSearchQuery.value, [
+    matchesMemberSearch(searchQuery.value, [
       props.getOptionLabel(member),
       member.name,
       member.role,
@@ -133,17 +90,17 @@ const filteredMobileMembers = computed(() => {
   )
 })
 
+const handleFilter = (query: string) => {
+  searchQuery.value = query
+}
+
 const updateModelValue = (value: unknown) => {
   if (typeof value === 'string') {
     emit('update:modelValue', value)
   }
 }
 
-const handleMobileSelectVisibilityChange = (visible: boolean) => {
-  if (visible) {
-    void nextTick(() => mobileSearchInputRef.value?.focus?.())
-  } else {
-    mobileSearchQuery.value = ''
-  }
+const handleSelectVisibilityChange = (visible: boolean) => {
+  if (!visible) searchQuery.value = ''
 }
 </script>

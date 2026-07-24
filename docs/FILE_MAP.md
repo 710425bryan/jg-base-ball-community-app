@@ -251,8 +251,14 @@
 | 檔案 | 用途 |
 | --- | --- |
 | `src/components/payments/PaymentAccountInfoCard.vue` | 付款帳戶資訊卡 |
-| `src/components/payments/PaymentMemberSelector.vue` | `/my-payments` 響應式成員選擇器；手機使用獨立搜尋欄，桌機使用可搜尋 select |
+| `src/components/payments/PaymentMemberSelector.vue` | `/my-payments` 單一欄位成員選擇搜尋；手機與桌機共用自訂正規化比對 |
 | `src/components/payments/PaymentSubmissionSummary.vue` | 付款回報金額 / 餘額扣抵摘要 |
+
+### Training
+
+| 檔案 | 用途 |
+| --- | --- |
+| `src/components/training/TrainingPointMemberSelector.vue` | `/training` 點數管理單一欄位多選球員搜尋；手機與桌機共用自訂正規化比對 |
 
 ### Match Records
 

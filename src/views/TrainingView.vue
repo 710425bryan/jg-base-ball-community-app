@@ -6,6 +6,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Check, Close, Delete, Medal, Plus, Refresh, Select, Setting, Tickets, Timer } from '@element-plus/icons-vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
+import TrainingPointMemberSelector from '@/components/training/TrainingPointMemberSelector.vue'
 import { supabase } from '@/services/supabase'
 import { trainingApi } from '@/services/trainingApi'
 import { useAuthStore } from '@/stores/auth'
@@ -1340,24 +1341,10 @@ watch(selectedAdminSessionId, (next, prev) => {
                     </div>
                   </div>
 
-                  <el-select
+                  <TrainingPointMemberSelector
                     v-model="pointForm.member_ids"
-                    multiple
-                    filterable
-                    collapse-tags
-                    collapse-tags-tooltip
-                    class="w-full"
-                    size="large"
-                    placeholder="選擇球員"
-                    popper-class="training-select-popper"
-                  >
-                    <el-option
-                      v-for="member in rosterOptions"
-                      :key="member.id"
-                      :label="`${member.name}｜${member.role || '球員'}${member.team_group ? `｜${member.team_group}` : ''}`"
-                      :value="member.id"
-                    />
-                  </el-select>
+                    :members="rosterOptions"
+                  />
 
                   <div class="space-y-2">
                     <div class="text-sm font-black text-slate-700">快速點數</div>
