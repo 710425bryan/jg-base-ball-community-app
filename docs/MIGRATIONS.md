@@ -168,6 +168,7 @@
 | `supabase_zzzzzzzzzzzzz_equipment_request_item_fulfillment_migration.sql` | 裝備請購逐品項備貨、領取與刪除 | 品項 timestamps / notes / photos、父單聚合、逐項與整單原子 RPC、付款刪除 guard |
 | `supabase_zzzzzzzzzzzzzz_equipment_payment_item_fulfillment_status_migration.sql` | 裝備付款品項履約狀態修正 | 付款清單與付款回報改依 transaction 關聯品項的 `ready_at` / `picked_up_at` 顯示，不再被父單聚合狀態覆蓋 |
 | `supabase_zzzzzzzzzzzzzzz_equipment_stock_out_adjustment_migration.sql` | 裝備減少庫存流水帳 | `stock_out`、`equipment:EDIT`、必填原因及總量／尺寸已使用與已預留庫存 guard |
+| `supabase_zzzzzzzzzzzzzzzz_equipment_request_ready_inventory_guard_fix_migration.sql` | 裝備備貨庫存重複計算修正 | `approved` -> `ready_for_pickup` 驗證排除目前請購已連結的 purchase transaction，其他交易與未轉交易預留量維持計入 |
 
 ## 廠商
 

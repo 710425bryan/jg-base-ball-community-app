@@ -274,6 +274,7 @@
 - 裝備圖片與處理照片使用 `equipments` bucket；主檔 / 備貨 / 領取照片可多張，並保留 `image_url`、`ready_image_url`、`pickup_image_url` 首圖相容欄位。
 - 裝備交易 `purchase` 產生後才進入付款回報；不要把來源專案的 `fee_records` 或月結關帳模型直接搬進本專案。
 - `/equipment` 的庫存調整使用 `create_equipment_inventory_adjustment()`：正數為 `stock_in` 新增庫存，負數為 `stock_out` 減少庫存；流水帳的 `quantity_delta` 統一保存正數並由 `adjustment_type` 表示方向。減少庫存只允許 `equipment:EDIT`、必填原因，且 DB 必須在鎖定裝備後重算交易與已核准／已備貨請購占用量，禁止扣低於目前已使用或已預留庫存。
+- 裝備請購從 `approved` 切換為 `ready_for_pickup` 時，庫存 guard 必須排除該請購自己已連結的 `purchase` transaction，再用完整請購數量驗證核准前可用庫存；其他交易與尚未轉交易的請購預留量仍照常計入，避免備貨狀態切換重複扣減同一批數量。
 
 ### 廠商名單
 

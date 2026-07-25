@@ -607,7 +607,7 @@ UI 約定：
 - 已付款裝備請購不可直接刪除；先退款 / 作廢收款，讓付款單與 / 或 `equipment_transactions.payment_status` 變成 `refunded`，再允許刪除交易並回補庫存。詳細流程見 `docs/EQUIPMENT_REFUND_FLOW.md`。
 - 多品項請購刪除單一品項時，DB RPC 會在同一 transaction 內套用付款刪除 guard、刪除該品項 transaction 並回補庫存；刪到最後一項時一併刪除父單，不保留零品項請購。整單刪除也走原子 RPC，頁尾既有按鈕不改成逐項迴圈。
 - 裝備剩餘量顯示優先走 `list_equipments_with_inventory_snapshot()`，只回傳匿名化聚合庫存快照，避免一般會員因 RLS 看不到其他人的交易 / 已保留申請而高估可用量。
-- 裝備請購庫存 guard 與 snapshot RPC 一樣，只把 `approved` / `ready_for_pickup` 且尚未轉成 `equipment_transactions` 的請購項目視為保留庫存；已轉交易的項目由交易本身扣庫存，避免重複扣減。
+- 裝備請購庫存 guard 與 snapshot RPC 一樣，只把 `approved` / `ready_for_pickup` 且尚未轉成 `equipment_transactions` 的請購項目視為保留庫存；已轉交易的項目由交易本身扣庫存。當目前請購從 `approved` 切換為 `ready_for_pickup` 而重新驗證時，validator 先排除該請購自己已連結的 purchase transaction，再以完整請購數量驗證核准前可用庫存，避免同一批數量被交易與請購重複扣減。
 - `list_equipments_with_inventory_snapshot()` 必須回傳 `is_custom_order`，避免家長端走 snapshot RPC 時遺失訂製品提示。
 - 裝備圖片與處理照片可多張上傳，使用 `equipments` bucket，前端顯示需支援左右滑動。
 - 不要把來源專案的 `fee_records` 或月結模型搬進本專案。
