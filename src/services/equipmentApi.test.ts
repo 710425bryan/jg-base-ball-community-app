@@ -101,6 +101,30 @@ describe('equipmentApi payment helpers', () => {
     })
   })
 
+  it('lists coaches as equipment transaction members', async () => {
+    const query: any = {}
+    query.select = vi.fn(() => query)
+    query.in = vi.fn(() => query)
+    query.order = vi.fn().mockResolvedValue({
+      data: [
+        { id: 'coach-1', name: '王教練', role: '教練', avatar_url: null },
+        { id: 'player-1', name: '陳球員', role: '球員', avatar_url: null }
+      ],
+      error: null
+    })
+    fromMock.mockReturnValue(query)
+
+    const { fetchEquipmentMembers } = await import('./equipmentApi')
+
+    await expect(fetchEquipmentMembers()).resolves.toEqual([
+      expect.objectContaining({ id: 'coach-1', role: '教練' }),
+      expect.objectContaining({ id: 'player-1', role: '球員' })
+    ])
+    expect(fromMock).toHaveBeenCalledWith('team_members_safe')
+    expect(query.in).toHaveBeenCalledWith('role', ['校隊', '球員', '教練'])
+    expect(query.order).toHaveBeenCalledWith('name', { ascending: true })
+  })
+
   it('passes a signed stock-out delta through the existing inventory adjustment RPC', async () => {
     rpcMock.mockResolvedValue({
       data: {

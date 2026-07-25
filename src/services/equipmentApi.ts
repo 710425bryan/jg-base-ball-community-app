@@ -568,7 +568,7 @@ export const fetchEquipmentMembers = async () => {
   const { data, error } = await supabase
     .from('team_members_safe')
     .select('id, name, role, avatar_url')
-    .in('role', ['校隊', '球員'])
+    .in('role', ['校隊', '球員', '教練'])
     .order('name', { ascending: true })
 
   if (error) throw error
