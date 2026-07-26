@@ -585,6 +585,7 @@ import {
   FIXED_MONTHLY_FEE_BILLING_MODE,
   getMemberBillingLabel,
   getMonthlyFeeCalculationType,
+  isMemberFeePeriodOnOrAfterJoin,
   NO_FEE_BILLING_MODE,
   normalizeMemberFeeBillingMode,
   ROLE_DEFAULT_FEE_BILLING_MODE
@@ -728,6 +729,10 @@ const formatPaymentSubmissionError = (error: any, fallback = '送出失敗') => 
     return '這個月費期別尚未開放回報，請改選目前已開放的月份。'
   }
 
+  if (message.includes('fee period is before member joined month')) {
+    return '這個期別早於球員加入月份，不需要繳費。'
+  }
+
   return message
 }
 
@@ -777,14 +782,22 @@ const getPaymentMemberBillingConfig = (member?: MyPaymentMember | null) => ({
         ? FIXED_MONTHLY_FEE_BILLING_MODE
         : ROLE_DEFAULT_FEE_BILLING_MODE)
     ),
-  training_program: member?.training_program
+  training_program: member?.training_program,
+  joined_date: member?.joined_date
 })
 const isFixedMonthlyPaymentMember = (member?: MyPaymentMember | null) =>
   getMonthlyFeeCalculationType(getPaymentMemberBillingConfig(member)) === 'monthly_fixed'
 
-const quarterlyPaymentCandidates = computed(() =>
-  linkedMembers.value.filter((member) => member.billing_mode === 'quarterly')
-)
+const quarterlyPaymentCandidates = computed(() => {
+  const periodKey = isQuarterlyPeriodKey(submissionForm.period_key)
+    ? normalizeQuarterlyPeriodKey(submissionForm.period_key)
+    : getQuarterlyPaymentOpenPeriodKey()
+
+  return linkedMembers.value.filter((member) =>
+    member.billing_mode === 'quarterly' &&
+    isMemberFeePeriodOnOrAfterJoin(member, 'quarterly', periodKey)
+  )
+})
 
 const isQuarterlyMembershipFlow = computed(() =>
   includeMembershipFee.value && createDialogMember.value?.billing_mode === 'quarterly'
@@ -1007,9 +1020,13 @@ const currentFeePeriodKey = computed(() => {
     return ''
   }
 
-  return selectedMember.value.billing_mode === 'quarterly'
+  const periodKey = selectedMember.value.billing_mode === 'quarterly'
     ? getQuarterlyPaymentOpenPeriodKey()
     : getMonthlyPaymentOpenPeriodKey(getPaymentMemberBillingConfig(selectedMember.value))
+
+  return isMemberFeePeriodOnOrAfterJoin(selectedMember.value, selectedMember.value.billing_mode, periodKey)
+    ? periodKey
+    : ''
 })
 
 const currentFeeBillingName = computed(() =>
@@ -1509,6 +1526,13 @@ const getMembershipPeriodLookupKey = (billingMode?: string | null, periodKey?: s
   `${billingMode || ''}:${periodKey || ''}`
 
 const isMembershipRecordPeriodOpen = (record: MyPaymentRecord) => {
+  if (
+    selectedMember.value &&
+    !isMemberFeePeriodOnOrAfterJoin(selectedMember.value, record.billing_mode, record.period_key)
+  ) {
+    return false
+  }
+
   if (record.billing_mode === 'quarterly') {
     return isQuarterlyPaymentPeriodOpen(record.period_key)
   }
@@ -1790,6 +1814,10 @@ const quarterPeriodOptions = computed(() => {
   })
 
   return [...quarterKeys]
+    .filter((periodKey) =>
+      !createDialogMember.value ||
+      isMemberFeePeriodOnOrAfterJoin(createDialogMember.value, 'quarterly', periodKey)
+    )
     .sort((left, right) => right.localeCompare(left))
     .map((periodKey) => ({
       label: periodKey,
@@ -1829,6 +1857,12 @@ const submissionRules = {
                 ? '請輸入既有帳款期別'
                 : '請輸入 YYYY-MM 格式'
           ))
+          return
+        }
+
+        const eligibilityBillingMode = isQuarterlyPeriodKey(normalizedValue) ? 'quarterly' : 'monthly'
+        if (!isMemberFeePeriodOnOrAfterJoin(targetMember, eligibilityBillingMode, normalizedValue)) {
+          callback(new Error('這個期別早於球員加入月份，不需要繳費'))
           return
         }
 

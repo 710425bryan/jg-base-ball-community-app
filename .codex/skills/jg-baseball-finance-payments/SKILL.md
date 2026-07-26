@@ -24,7 +24,7 @@ description: "Finance, fees, payment submissions, player balances, match fees, e
 11. `src/services/feeManagementReminders.ts`、`src/services/feePaymentReminders.ts`
 12. `src/types/payments.ts`、`src/types/playerBalances.ts`、`src/types/quarterlyFeeCompensation.ts`、`src/types/matchFees.ts`、`src/types/feeManagementReminders.ts`、`src/types/feePaymentReminders.ts`
 13. `src/utils/memberBilling.ts`、`src/utils/monthlyFeeSettlement.ts`、`src/utils/quarterlyFeeFamilies.ts`、`src/utils/quarterlyFeeCompensation.ts`、`src/utils/playerBalance.ts`、`src/utils/matchFeePaymentAvailability.ts`、`src/utils/siblingGroups.ts`、`src/utils/feePaymentReminders.ts`
-14. 相關 migration：`supabase_fees_migration.sql`、`supabase_quarterly_fees_migration.sql`、`supabase_profile_payment_submissions_migration.sql`、`supabase_player_balance_transactions_migration.sql`、`supabase_fixed_monthly_billing_migration.sql`、`supabase_quarterly_fee_compensation_migration.sql`、`supabase_match_fees_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz_match_fee_payment_open_state_migration.sql`、`supabase_fee_management_reminders_migration.sql`、`supabase_fee_payment_reminders_migration.sql`
+14. 相關 migration：`supabase_fees_migration.sql`、`supabase_quarterly_fees_migration.sql`、`supabase_profile_payment_submissions_migration.sql`、`supabase_player_balance_transactions_migration.sql`、`supabase_fixed_monthly_billing_migration.sql`、`supabase_quarterly_fee_compensation_migration.sql`、`supabase_match_fees_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz_match_fee_payment_open_state_migration.sql`、`supabase_fee_management_reminders_migration.sql`、`supabase_fee_payment_reminders_migration.sql`、`supabase_member_joined_fee_period_guard_migration.sql`
 15. 若改到匯款表單，再讀 `supabase/functions/record-fee-remittance/index.ts` 與 `scripts/google-form-remittance-apps-script.js`
 16. 若改到裝備付款，再同時讀 `jg-baseball-equipment-management` skill
 
@@ -56,6 +56,7 @@ description: "Finance, fees, payment submissions, player balances, match fees, e
 - 中港校隊與球員計次月費只把落在該球員 program 訓練日期內的全日 / 上午假單算作請假扣減；下午假代表上午課程仍需收費，不扣計次月費。新泰校隊固定月繳不參與堂數、請假或單堂費率計算。
 - `monthly_fees.training_program` 保留月費當期 program snapshot；月費頁需支援球員搜尋、program 篩選 / 小計與 CSV program 欄位，row-level `total_sessions` 不可再用單一全域堂數套所有人。
 - 固定月繳、新泰校隊月繳與球員計次月費都排除 `quarterly_fees` 與家庭季費分組。
+- 月費與季費最早從 `team_members.joined_date` 所在月份起算；月費期別不可早於加入月份，季費從包含加入月份的季度開始。管理端試算、家長端待付款／付款估算、首頁摘要與催繳都要套用同一條件，加入前未繳不可新增或顯示，但既有已付款／送審歷史保留。
 - 球員 / 校隊不收費以 `team_members.fee_billing_mode = 'no_fee'` 表示；不產生新的月費、季費與比賽費，但既有帳款保留，裝備付款仍維持自費。
 - 月繳付款回報開放期別要依 `monthly_fees.calculation_type` / 有效收費模式區分：中港校隊與球員計次月費只開放已結束月份，社區固定月繳與新泰校隊月繳每月 25 日起開放下月；前端 helper 與 DB trigger 必須同步，既有 `monthly_fees` 帳款不自動回寫或重算。
 - 季繳付款回報的開放期別以台灣日期為準，每季最後一個月 25 日起開放下一季；前端 helper 與 DB helper / trigger 必須同步，未開放的未來季不可新增付款回報，過去未繳季度可補繳。

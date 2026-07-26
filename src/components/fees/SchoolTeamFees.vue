@@ -394,6 +394,7 @@ import {
   calculatePerSessionMonthlyPayableAmount,
   DEFAULT_FIXED_MONTHLY_FEE,
   getMonthlyFeeCalculationType,
+  isMemberFeePeriodOnOrAfterJoin,
   isMonthlyBillingMember,
   isNoFeeBillingMember,
   normalizeFixedMonthlyFee
@@ -720,14 +721,15 @@ const calculateFees = async () => {
     // 1. 撈取月費成員名單
     const { data: membersData, error: membersErr } = await supabase
       .from('team_members')
-      .select('id, name, role, team_group, training_program, status, is_inactive_or_graduated, sibling_ids, is_primary_payer, is_half_price, fee_billing_mode')
+      .select('id, name, role, team_group, training_program, joined_date, status, is_inactive_or_graduated, sibling_ids, is_primary_payer, is_half_price, fee_billing_mode')
       .in('role', ['校隊', '球員'])
     if (membersErr) throw membersErr
 
     const members = membersData?.filter(m =>
       isActiveRosterMember(m) &&
       !isNoFeeBillingMember(m) &&
-      isMonthlyBillingMember(m)
+      isMonthlyBillingMember(m) &&
+      isMemberFeePeriodOnOrAfterJoin(m, 'monthly', selectedMonth.value)
     ).map((member) => {
       const program = getTrainingProgramForMember(member, programSettings.value)
       return {

@@ -16,6 +16,7 @@ export type FeePaymentReminderMemberLike = {
   role?: string | null
   fee_billing_mode?: string | null
   training_program?: string | null
+  joined_date?: string | null
 }
 
 export type FeePaymentReminderTargetItem = {
@@ -157,6 +158,28 @@ export const getFeePaymentReminderBillingMode = (
   }
 
   return null
+}
+
+export const isFeePaymentReminderPeriodEligible = (
+  member: FeePaymentReminderMemberLike,
+  billingType: FeePaymentReminderBillingType,
+  periodKey: unknown
+) => {
+  const joinedMonthMatch = normalizeText(member.joined_date).match(/^(\d{4})-(0[1-9]|1[0-2])(?:-\d{2})?$/)
+  if (!joinedMonthMatch) return true
+
+  const joinedMonth = `${joinedMonthMatch[1]}-${joinedMonthMatch[2]}`
+  const normalizedPeriod = normalizeText(periodKey).toUpperCase()
+
+  if (billingType === 'monthly') {
+    return MONTHLY_PERIOD_PATTERN.test(normalizedPeriod) && normalizedPeriod >= joinedMonth
+  }
+
+  const quarterMatch = normalizedPeriod.match(/^(\d{4})-Q([1-4])$/)
+  if (!quarterMatch) return false
+
+  const quarterEndMonth = `${quarterMatch[1]}-${String(Number(quarterMatch[2]) * 3).padStart(2, '0')}`
+  return quarterEndMonth >= joinedMonth
 }
 
 const formatDateInTaipei = (date: Date) => {

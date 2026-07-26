@@ -24,6 +24,16 @@ describe('MyPaymentsView equipment admin notification route', () => {
   })
 })
 
+describe('MyPaymentsView joined-month fee guard', () => {
+  it('does not synthesize or submit fees before the member join period', () => {
+    expect(source).toContain("import {\n  FIXED_MONTHLY_FEE_BILLING_MODE,")
+    expect(source).toContain('isMemberFeePeriodOnOrAfterJoin,')
+    expect(source).toContain("isMemberFeePeriodOnOrAfterJoin(selectedMember.value, selectedMember.value.billing_mode, periodKey)")
+    expect(source).toContain("isMemberFeePeriodOnOrAfterJoin(member, 'quarterly', periodKey)")
+    expect(source).toContain("這個期別早於球員加入月份，不需要繳費")
+  })
+})
+
 describe('MyPaymentsView match fee payment gate', () => {
   it('uses fee permissions to expose a manager-only unopened group', () => {
     expect(source).toContain("import { usePermissionsStore } from '@/stores/permissions'")

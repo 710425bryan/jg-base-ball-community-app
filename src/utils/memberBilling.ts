@@ -18,6 +18,47 @@ export type BillingModeMember = {
   role?: string | null
   fee_billing_mode?: string | null
   training_program?: string | null
+  joined_date?: string | null
+}
+
+const MONTHLY_FEE_PERIOD_PATTERN = /^(\d{4})-(0[1-9]|1[0-2])$/
+const QUARTERLY_FEE_PERIOD_PATTERN = /^(\d{4})-Q([1-4])$/
+
+const normalizeJoinedMonth = (value?: string | null) => {
+  const match = String(value || '').trim().match(/^(\d{4})-(0[1-9]|1[0-2])(?:-\d{2})?$/)
+  return match ? `${match[1]}-${match[2]}` : null
+}
+
+const getQuarterlyFeePeriodEndMonth = (value: unknown) => {
+  const normalized = String(value || '').trim().toUpperCase()
+  const quarterMatch = normalized.match(QUARTERLY_FEE_PERIOD_PATTERN)
+  if (quarterMatch) {
+    return `${quarterMatch[1]}-${String(Number(quarterMatch[2]) * 3).padStart(2, '0')}`
+  }
+
+  const monthMatches = normalized.match(/\d{4}-(?:0[1-9]|1[0-2])/g)
+  return monthMatches?.at(-1) || null
+}
+
+export const isMemberFeePeriodOnOrAfterJoin = (
+  member: Pick<BillingModeMember, 'joined_date'>,
+  billingMode: EffectivePaymentBillingMode,
+  periodKey: unknown
+) => {
+  const joinedMonth = normalizeJoinedMonth(member.joined_date)
+  if (!joinedMonth) return true
+
+  if (billingMode === 'monthly') {
+    const normalizedPeriod = String(periodKey || '').trim()
+    return MONTHLY_FEE_PERIOD_PATTERN.test(normalizedPeriod) && normalizedPeriod >= joinedMonth
+  }
+
+  if (billingMode === 'quarterly') {
+    const periodEndMonth = getQuarterlyFeePeriodEndMonth(periodKey)
+    return Boolean(periodEndMonth && periodEndMonth >= joinedMonth)
+  }
+
+  return false
 }
 
 const normalizeTrainingProgramKeyForBilling = (value?: string | null) =>

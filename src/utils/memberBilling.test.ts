@@ -7,6 +7,7 @@ import {
   getEffectivePaymentBillingMode,
   getMemberBillingLabel,
   getMonthlyFeeCalculationType,
+  isMemberFeePeriodOnOrAfterJoin,
   isFixedMonthlyBillingMember,
   isNoFeeBillingMember,
   normalizeFixedMonthlyFee,
@@ -64,6 +65,22 @@ describe('memberBilling', () => {
     expect(isFixedMonthlyBillingMember(quarterlyPlayer)).toBe(false)
     expect(getEffectivePaymentBillingMode(quarterlyPlayer)).toBe('quarterly')
     expect(getMemberBillingLabel(quarterlyPlayer)).toBe('球員季繳')
+  })
+
+  it('starts monthly and quarterly fees from the member join month', () => {
+    const augustMember = { joined_date: '2026-08-01' }
+
+    expect(isMemberFeePeriodOnOrAfterJoin(augustMember, 'monthly', '2026-07')).toBe(false)
+    expect(isMemberFeePeriodOnOrAfterJoin(augustMember, 'monthly', '2026-08')).toBe(true)
+    expect(isMemberFeePeriodOnOrAfterJoin(augustMember, 'quarterly', '2026-Q2')).toBe(false)
+    expect(isMemberFeePeriodOnOrAfterJoin(augustMember, 'quarterly', '2026-Q3')).toBe(true)
+    expect(isMemberFeePeriodOnOrAfterJoin(augustMember, 'quarterly', '2026-04 ~ 2026-06')).toBe(false)
+    expect(isMemberFeePeriodOnOrAfterJoin(augustMember, 'quarterly', '2026-07 ~ 2026-09')).toBe(true)
+  })
+
+  it('keeps legacy members without a valid join date billable', () => {
+    expect(isMemberFeePeriodOnOrAfterJoin({ joined_date: null }, 'monthly', '2026-01')).toBe(true)
+    expect(isMemberFeePeriodOnOrAfterJoin({ joined_date: 'invalid' }, 'quarterly', '2026-Q1')).toBe(true)
   })
 
   it('treats per-session monthly players as monthly billing without fixed monthly calculation', () => {

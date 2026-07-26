@@ -59,7 +59,7 @@ const filterActivePaymentMembers = async (members: MyPaymentMember[]) => {
 
   const { data, error } = await supabase
     .from('team_members_safe')
-    .select('id, status, is_inactive_or_graduated')
+    .select('id, joined_date, status, is_inactive_or_graduated')
     .in('id', memberIds)
 
   if (error) {
@@ -67,13 +67,18 @@ const filterActivePaymentMembers = async (members: MyPaymentMember[]) => {
     return members
   }
 
-  const activeMemberIds = new Set(
+  const activeMemberMap = new Map(
     (data || [])
       .filter(isActiveRosterMember)
-      .map((member) => String(member.id))
+      .map((member) => [String(member.id), member] as const)
   )
 
-  return members.filter((member) => activeMemberIds.has(member.member_id))
+  return members
+    .filter((member) => activeMemberMap.has(member.member_id))
+    .map((member) => ({
+      ...member,
+      joined_date: activeMemberMap.get(member.member_id)?.joined_date ?? member.joined_date ?? null
+    }))
 }
 
 export const listMyPaymentMembers = async () => {

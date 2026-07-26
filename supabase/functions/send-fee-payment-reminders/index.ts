@@ -18,6 +18,7 @@ import {
   getFeePaymentReminderMemberCategory,
   getTaipeiDateString,
   groupFeePaymentReminderTargets,
+  isFeePaymentReminderPeriodEligible,
   normalizeFeePaymentReminderCategories,
   normalizeMonthlyReminderPeriod,
   normalizeQuarterlyReminderPeriod,
@@ -48,6 +49,7 @@ type MemberRow = {
   role: string | null;
   fee_billing_mode: string | null;
   training_program: string | null;
+  joined_date: string | null;
   status: string | null;
   is_inactive_or_graduated: boolean | null;
 };
@@ -223,7 +225,7 @@ const isReminderStatusUnpaid = (status: string | null | undefined) => {
 const fetchBillableMembers = async (categories: FeePaymentReminderCategory[]) => {
   const { data, error } = await supabase
     .from("team_members")
-    .select("id, name, role, fee_billing_mode, training_program, status, is_inactive_or_graduated")
+    .select("id, name, role, fee_billing_mode, training_program, joined_date, status, is_inactive_or_graduated")
     .in("role", ["校隊", "球員"]);
 
   if (error) throw error;
@@ -264,6 +266,7 @@ const buildMonthlyItems = async (
     const member = membersById.get(memberId);
     if (!member) continue;
     if (getFeePaymentReminderBillingMode(member) !== "monthly") continue;
+    if (!isFeePaymentReminderPeriodEligible(member, "monthly", period)) continue;
     if (!isReminderStatusUnpaid(row.status)) continue;
 
     const amount = Math.max(0, normalizeAmount(row.payable_amount) - normalizeAmount(row.balance_amount));
@@ -314,7 +317,8 @@ const buildQuarterlyItems = async (
     const members = rawMemberIds
       .map((memberId) => membersById.get(memberId))
       .filter((member): member is MemberRow => Boolean(member))
-      .filter((member) => getFeePaymentReminderBillingMode(member) === "quarterly");
+      .filter((member) => getFeePaymentReminderBillingMode(member) === "quarterly")
+      .filter((member) => isFeePaymentReminderPeriodEligible(member, "quarterly", period));
 
     if (members.length === 0) continue;
 

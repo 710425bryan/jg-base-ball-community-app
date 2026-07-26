@@ -17,6 +17,7 @@ export type MyPaymentMember = {
   fee_billing_mode?: string | null
   training_program?: string | null
   training_program_label?: string | null
+  joined_date?: string | null
   is_linked?: boolean
   balance_amount?: number
 }

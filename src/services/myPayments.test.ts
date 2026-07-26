@@ -32,7 +32,7 @@ describe('myPayments service', () => {
     })
     inMock.mockResolvedValue({
       data: [
-        { id: 'member-1', status: '在隊', is_inactive_or_graduated: false },
+        { id: 'member-1', joined_date: '2026-08-01', status: '在隊', is_inactive_or_graduated: false },
         { id: 'member-2', status: '退隊', is_inactive_or_graduated: false }
       ],
       error: null
@@ -45,7 +45,8 @@ describe('myPayments service', () => {
         member_id: 'member-1',
         name: '小明',
         training_program: 'junior_high_school_team',
-        training_program_label: '新泰總部'
+        training_program_label: '新泰總部',
+        joined_date: '2026-08-01'
       }
     ])
   })

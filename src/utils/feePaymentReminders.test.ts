@@ -5,6 +5,7 @@ import {
   getDefaultFeePaymentReminderPeriods,
   getFeePaymentReminderBillingMode,
   getFeePaymentReminderMemberCategory,
+  isFeePaymentReminderPeriodEligible,
   groupFeePaymentReminderTargets,
   normalizeFeePaymentReminderCategories,
   normalizeMonthlyReminderPeriod,
@@ -64,6 +65,15 @@ describe('feePaymentReminders', () => {
     expect(getFeePaymentReminderBillingMode({ role: '球員', fee_billing_mode: 'monthly_per_session' })).toBe('monthly')
     expect(getFeePaymentReminderBillingMode({ role: '球員', fee_billing_mode: 'role_default' })).toBe('quarterly')
     expect(getFeePaymentReminderBillingMode({ role: '校隊', fee_billing_mode: 'no_fee' })).toBe('none')
+  })
+
+  it('excludes reminders for fee periods before the member join month', () => {
+    const member = { joined_date: '2026-08-01' }
+
+    expect(isFeePaymentReminderPeriodEligible(member, 'monthly', '2026-07')).toBe(false)
+    expect(isFeePaymentReminderPeriodEligible(member, 'monthly', '2026-08')).toBe(true)
+    expect(isFeePaymentReminderPeriodEligible(member, 'quarterly', '2026-Q2')).toBe(false)
+    expect(isFeePaymentReminderPeriodEligible(member, 'quarterly', '2026-Q3')).toBe(true)
   })
 
   it('builds stable daily event keys', () => {

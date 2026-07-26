@@ -521,6 +521,7 @@ UI 約定：
 - 新泰校隊固定月繳以 `team_members.role = '校隊'` 且 raw `team_members.training_program = 'junior_high_school_team'` 判斷，不從 `team_group` fallback 猜身分；不改 `role`、不新增 `fee_billing_mode`，新建月費直接使用既有 `monthly_fixed` calculation snapshot。
 - `team_members.fee_billing_mode = 'monthly_per_session'` 代表球員計次月費：角色仍為 `球員`，但有效繳費模式為月繳；月費表採訓練日期堂數、請假扣減與單次金額公式，季費表與家庭季費分組排除該球員。
 - `team_members.fee_billing_mode = 'no_fee'` 代表球員 / 校隊不收費：不產生新的月費、季費與比賽費，也不進新的場地配置、點名與比賽名單；切換前既有帳款、付款回報、點名紀錄與歷史比賽資料保留，裝備加購付款仍維持自費。
+- 月費與季費的最早期別依 `team_members.joined_date` 所在月份判斷：月費從加入月份開始，季費從包含加入月份的季度開始（例如 `2026-08-01` 加入者不計 `2026-07` / `2026-Q2`，但可計 `2026-08` / `2026-Q3`）。管理端試算、`/my-payments` 動態待付款／付款估算、個人首頁摘要、費用管理提醒與手動催繳都沿用相同規則；既有已付款或已送審歷史保留。
 - 中港校隊與球員計次月費的本月堂數由 `/training-dates` 該球員 program 的訓練日期設定天數自動帶入，月費頁不可手動改堂數；`monthly_fees.training_program` 保留當期 program snapshot。請假扣減只統計落在該 program 訓練日期內且時段為全日 / 上午的假單日期，以球員 + 日期去重，不合併點名紀錄；下午假不扣計次月費。新泰校隊固定月繳不參與堂數、請假或單堂費率計算。
 - `/fees` 月費頁支援球員搜尋與 program 篩選，摘要、小計、CSV 匯出都依目前篩選結果與 row-level 堂數顯示；收費設定的計次月費名單會標示 program，但單次費率仍維持逐球員設定。
 - 家長端月費回報開放期別依計算方式區分：中港校隊與球員計次月費需等月份結束後才開放前一個月；社區固定月繳與新泰校隊月繳每月 25 日起可提前回報下個月。

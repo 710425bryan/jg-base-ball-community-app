@@ -321,6 +321,7 @@ import {
   sumQuarterlyFeeGroupBalanceAmount,
   sumQuarterlyFeeGroupAmount
 } from '@/utils/quarterlyFeeFamilies'
+import { isMemberFeePeriodOnOrAfterJoin } from '@/utils/memberBilling'
 import { buildPaymentBreakdownText } from '@/utils/playerBalance'
 import QuarterlyFeeCompensationPanel from '@/components/fees/QuarterlyFeeCompensationPanel.vue'
 
@@ -646,7 +647,7 @@ const fetchData = async () => {
   try {
     const { data: membersData, error: mErr } = await supabase
       .from('team_members')
-      .select('id, name, status, is_inactive_or_graduated, sibling_ids, is_primary_payer, is_half_price, role, fee_billing_mode')
+      .select('id, name, joined_date, status, is_inactive_or_graduated, sibling_ids, is_primary_payer, is_half_price, role, fee_billing_mode')
       .in('role', ['球員'])
       
     if (mErr) throw mErr
@@ -658,6 +659,7 @@ const fetchData = async () => {
     // Keep original sibling_ids for stale half-price checks; normalizing after
     // filtering inactive siblings would erase the inactive reference.
     const members = filterQuarterlyPricingMembers(quarterlyMemberCandidates)
+      .filter((member) => isMemberFeePeriodOnOrAfterJoin(member, 'quarterly', selectedPeriodLabel.value))
 
     const siblingGroupMap = buildSiblingGroupMap(members)
     const quarterlyMemberIdSet = new Set(members.map((member) => member.id))
