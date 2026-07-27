@@ -3,7 +3,7 @@ export const FIXED_MONTHLY_FEE_BILLING_MODE = 'monthly_fixed'
 export const MONTHLY_PER_SESSION_FEE_BILLING_MODE = 'monthly_per_session'
 export const NO_FEE_BILLING_MODE = 'no_fee'
 export const DEFAULT_FIXED_MONTHLY_FEE = 2000
-export const XINTAI_FIXED_MONTHLY_TRAINING_PROGRAM_KEY = 'junior_high_school_team'
+export const XINTAI_PER_SESSION_TRAINING_PROGRAM_KEY = 'junior_high_school_team'
 
 export type MemberFeeBillingMode =
   | typeof ROLE_DEFAULT_FEE_BILLING_MODE
@@ -79,14 +79,14 @@ export const isNoFeeBillingMember = (member: BillingModeMember) =>
   (member.role === '球員' || member.role === '校隊') &&
   normalizeMemberFeeBillingMode(member.fee_billing_mode) === NO_FEE_BILLING_MODE
 
-export const isXintaiFixedMonthlyBillingMember = (member: BillingModeMember) =>
+export const isXintaiPerSessionBillingMember = (member: BillingModeMember) =>
   member.role === '校隊' &&
   normalizeMemberFeeBillingMode(member.fee_billing_mode) !== NO_FEE_BILLING_MODE &&
-  normalizeTrainingProgramKeyForBilling(member.training_program) === XINTAI_FIXED_MONTHLY_TRAINING_PROGRAM_KEY
+  normalizeTrainingProgramKeyForBilling(member.training_program) === XINTAI_PER_SESSION_TRAINING_PROGRAM_KEY
 
 export const isFixedMonthlyBillingMember = (member: BillingModeMember) =>
-  (member.role === '球員' && normalizeMemberFeeBillingMode(member.fee_billing_mode) === FIXED_MONTHLY_FEE_BILLING_MODE) ||
-  isXintaiFixedMonthlyBillingMember(member)
+  member.role === '球員' &&
+  normalizeMemberFeeBillingMode(member.fee_billing_mode) === FIXED_MONTHLY_FEE_BILLING_MODE
 
 export const isMonthlyPerSessionBillingMember = (member: BillingModeMember) =>
   member.role === '球員' &&
@@ -140,10 +140,15 @@ export const calculatePerSessionMonthlyPayableAmount = (
   totalSessions: unknown,
   leaveSessions: unknown,
   perSessionFee: unknown,
-  deductionAmount: unknown
+  deductionAmount: unknown,
+  deductLeaveSessions = true
 ) => {
-  const attendedSessions = Math.max(0, (Number(totalSessions) || 0) - (Number(leaveSessions) || 0))
-  return attendedSessions * (Number(perSessionFee) || 0) - (Number(deductionAmount) || 0)
+  const billableSessions = Math.max(
+    0,
+    (Number(totalSessions) || 0)
+      - (deductLeaveSessions ? (Number(leaveSessions) || 0) : 0)
+  )
+  return billableSessions * (Number(perSessionFee) || 0) - (Number(deductionAmount) || 0)
 }
 
 export const calculateDiscountedPerSessionFee = (
@@ -157,7 +162,7 @@ export const calculateDiscountedPerSessionFee = (
 
 export const getMemberBillingLabel = (member: BillingModeMember) => {
   if (isNoFeeBillingMember(member)) return '不收費'
-  if (isXintaiFixedMonthlyBillingMember(member)) return '新泰月繳'
+  if (isXintaiPerSessionBillingMember(member)) return '新泰計次月費'
   if (isFixedMonthlyBillingMember(member)) return '社區月繳'
   if (isMonthlyPerSessionBillingMember(member)) return '計次月費'
   if (member.role === '校隊') return '校隊月繳'

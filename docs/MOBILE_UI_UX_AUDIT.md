@@ -4,7 +4,7 @@
 
 清單涵蓋 28 個登入後路由、26 個實作頁面；能力／體測列表與明細各自共用一套實作頁面。
 
-- 最後更新：2026-07-25
+- 最後更新：2026-07-27
 - 本輪範圍：P0 → P1 → P2 → P3 程式調整與自動檢查。
 - 本輪結論：自動檢查通過，因目前沒有可登入的一般 linked-member 與 ADMIN 裝置環境，全部維持「待驗收」。
 
@@ -57,7 +57,7 @@
 | P2-09 | `/join-inquiries` | 手機清單在載入失敗或零筆資料時沒有狀態內容，會呈現整頁空白 | 手機卡片；共用 loading、可重試錯誤與明確空狀態；Danger 44px＋ARIA | 待驗收 | JoinInquiriesView tests、`vue-tsc`、build＋source contract 通過 |
 | P2-10 | `/announcements` | 每筆最多四個可見操作；卡片／表格切換仍使用頁面自製白底樣式 | 保留兩個高頻操作，其餘 overflow；共用 footer 與 `ViewModeSwitch` | 待驗收 | `vue-tsc`、build＋共用檢視切換 source contract 通過 |
 | P2-11 | `/equipment` | 卡片／表格最多六個操作；搜尋與分類在手機互相壓縮 | 每筆最多兩個可見操作，其餘 overflow；分類篩選由底部展開 | 待驗收 | equipment 19 tests＋search/filter source contract 通過 |
-| P2-12 | `/fees` | tabs 與子元件 Dialog 規格不一；校隊月費搜尋與 program 篩選並排 | tabs 44px＋ARIA；可見 Dialog footer 統一；手機 program 篩選由底部展開；裝備請購／付款移至獨立管理頁 | 待驗收 | 比賽費卡預設收合、ARIA、44px actions、排序與開關 / 刪除 targeted tests 通過；手機操作固定為管理動作左欄、展開 / 收合右欄的等寬雙欄，桌機恢復緊湊排列；production build 通過，待逐 tab 與 360–767px 視覺驗收 |
+| P2-12 | `/fees` | tabs 與子元件 Dialog 規格不一；校隊月費搜尋與 program 篩選並排 | tabs 44px＋ARIA；可見 Dialog footer 統一；手機 program 篩選由底部展開；裝備請購／付款移至獨立管理頁 | 待驗收 | 收費設定已拆成計次、固定月繳、季費補償、不收費四個 44px ARIA tabs；計次頁籤內中港、新泰校隊各有獨立手機友善費率卡，社區成員費率手機改用卡片；比賽費卡、排序與開關 / 刪除 targeted tests 通過；production build 通過，待逐 tab 與 360–767px 視覺驗收 |
 | P2-13 | `/vendors` | 卡片三個操作；table icons 偏小；手機分類在頁內向下展開 | 每筆最多兩個操作，其他 overflow；icons 44px＋ARIA；分類篩選由底部展開 | 待驗收 | vendors 5 tests＋search/filter source contract 通過 |
 | P2-14 | `/equipment-purchases` | 原本付款與請購六個狀態區塊同時堆疊於 `/fees`，桌機與手機資訊量過高 | 付款／請購雙頁籤；`>=1024px` 主清單＋明細，較小螢幕全螢幕 Drawer；摘要／進階篩選預設收起；進階條件統一 Element Plus 控制；請購數量依目前篩選跨分頁彙整，桌機表格／手機分組列；付款狀態沿用藍／綠／橘語意色與原說明文字；主清單依狀態顯示淡色外框／底色；分頁後捲到新頁第一筆且選取明細不重設頁碼；刪除請購使用獨立 Danger 按鈕；44px、safe area、深層連結與單一頁面捲動 | 待驗收 | 搬移後全量 154 files、754 tests；Element Plus 篩選回歸 3 files、90 tests；狀態色彩、主清單外框／底色與文案回歸測試通過；請購刪除操作 targeted tests 通過；分頁捲動回歸 3 files、73 tests；數量統計／分頁狀態 7 files、51 tests；`vue-tsc`、build 通過；管理台仍待登入後裝置驗收 |
 
@@ -72,6 +72,12 @@
 | P3-05 | 能力／體測明細 | 返回及紀錄操作偏小 | 44px、`rounded-xl`、ARIA 與 Danger 確認 | 待驗收 | performance API/config 5 tests＋build 通過 |
 
 ## 驗收紀錄
+
+### 2026-07-27 收費設定分頁與新泰計次月費
+
+- `/fees` 收費設定改為「計次月費／固定月繳／季費補償／不收費」四個可橫向捲動的 44px ARIA tabs，避免所有設定同時垂直堆疊；新泰費率整合於計次月費頁籤，計次與固定月繳成員在 `<768px` 使用單欄卡片與滿寬輸入、儲存按鈕，桌機保留表格。
+- 中港校隊與新泰校隊各自有獨立費率卡，分別依「中港總部」與「新泰總部」訓練日期，扣除全日 / 上午請假日後乘上各自的一般或半價 / 有效手足單次費率；社區計次維持逐球員設定，社區固定月繳維持原規則。
+- Targeted regression、`vue-tsc --noEmit` 與 production build 已通過；migration 尚待套用資料庫，登入後 360px、390px、640–767px 與桌機版型仍待 staging 驗收。
 
 ### 2026-07-25 全站手機選擇器單一搜尋欄位
 

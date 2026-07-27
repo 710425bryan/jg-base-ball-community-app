@@ -26,11 +26,21 @@ describe('MyPaymentsView equipment admin notification route', () => {
 
 describe('MyPaymentsView joined-month fee guard', () => {
   it('does not synthesize or submit fees before the member join period', () => {
-    expect(source).toContain("import {\n  FIXED_MONTHLY_FEE_BILLING_MODE,")
+    expect(source).toContain('FIXED_MONTHLY_FEE_BILLING_MODE,')
     expect(source).toContain('isMemberFeePeriodOnOrAfterJoin,')
     expect(source).toContain("isMemberFeePeriodOnOrAfterJoin(selectedMember.value, selectedMember.value.billing_mode, periodKey)")
     expect(source).toContain("isMemberFeePeriodOnOrAfterJoin(member, 'quarterly', periodKey)")
     expect(source).toContain("這個期別早於球員加入月份，不需要繳費")
+  })
+})
+
+describe('MyPaymentsView Xintai monthly estimate', () => {
+  it('keeps Xintai leave days informational in monthly payment estimates', () => {
+    expect(source).toContain('isXintaiPerSessionBillingMember(createDialogMember.value)')
+    expect(source).toContain('請假 ${estimate.leave_sessions} 天僅記錄、不扣款')
+    expect(source).toContain('總堂數 ${estimate.total_sessions} − 請假 ${estimate.leave_sessions} = ${attendedSessions} 堂')
+    expect(source).toContain('每堂 ${formatCurrency(estimate.per_session_fee)}')
+    expect(source).not.toContain('每日折抵')
   })
 })
 

@@ -32,7 +32,7 @@ describe('memberBilling', () => {
     expect(getMemberBillingLabel(fixedPlayer)).toBe('社區月繳')
   })
 
-  it('treats Xintai school team members as fixed monthly billing', () => {
+  it('treats Xintai school team members as per-session monthly billing', () => {
     const xintaiSchoolMember = {
       role: '校隊',
       fee_billing_mode: 'role_default',
@@ -48,10 +48,10 @@ describe('memberBilling', () => {
       fee_billing_mode: 'role_default'
     }
 
-    expect(isFixedMonthlyBillingMember(xintaiSchoolMember)).toBe(true)
+    expect(isFixedMonthlyBillingMember(xintaiSchoolMember)).toBe(false)
     expect(getEffectivePaymentBillingMode(xintaiSchoolMember)).toBe('monthly')
-    expect(getMonthlyFeeCalculationType(xintaiSchoolMember)).toBe('monthly_fixed')
-    expect(getMemberBillingLabel(xintaiSchoolMember)).toBe('新泰月繳')
+    expect(getMonthlyFeeCalculationType(xintaiSchoolMember)).toBe('per_session')
+    expect(getMemberBillingLabel(xintaiSchoolMember)).toBe('新泰計次月費')
     expect(isFixedMonthlyBillingMember(chunggangSchoolMember)).toBe(false)
     expect(getMonthlyFeeCalculationType(chunggangSchoolMember)).toBe('per_session')
     expect(getMemberBillingLabel(chunggangSchoolMember)).toBe('校隊月繳')
@@ -129,6 +129,11 @@ describe('memberBilling', () => {
   it('keeps per-session calculation separate from fixed monthly calculation', () => {
     expect(calculatePerSessionMonthlyPayableAmount(4, 1, 500, 0)).toBe(1500)
     expect(calculatePerSessionMonthlyPayableAmount(4, 1, 250, 100)).toBe(650)
+  })
+
+  it('keeps Xintai leave sessions informational when leave deduction is disabled', () => {
+    expect(calculatePerSessionMonthlyPayableAmount(4, 2, 500, 0, false)).toBe(2000)
+    expect(calculatePerSessionMonthlyPayableAmount(4, 2, 250, 100, false)).toBe(900)
   })
 
   it('applies half-price discounts to the per-session fee before monthly calculation', () => {

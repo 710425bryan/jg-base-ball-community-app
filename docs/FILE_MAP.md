@@ -85,6 +85,7 @@
 | `src/services/myPayments.ts` | 我的繳費 RPC | `profile_payment_submissions` 相關 RPC |
 | `src/services/playerBalances.ts` | 球員餘額 RPC | `player_balance_transactions`、餘額查詢 / 調整 |
 | `src/services/quarterlyFeeCompensations.ts` | 季費堂數不足補償 RPC | `quarterly_fee_compensation_items`、`player_balance_transactions` |
+| `src/services/schoolTeamMonthlyFeeSettings.ts` | 中港／新泰校隊獨立計次費率設定 RPC | `system_settings.chunggang_monthly_per_session_defaults`、`system_settings.xintai_monthly_per_session_defaults` |
 | `src/services/myPlayerRecords.ts` | 我的成績 RPC | `list_my_player_record_members()`、`get_my_player_match_records()` |
 | `src/services/playerRosterApi.ts` | 球員名單 safe/full 分流與 cache meta RPC | `team_members_safe` / `list_team_members_for_edit()` / `get_team_members_cache_meta()` |
 | `src/services/teamGroupsApi.ts` | team group 設定 RPC | `team_group_settings` 相關 RPC |
@@ -141,9 +142,10 @@
 | `src/utils/equipmentPricing.ts` | 裝備價格計算 |
 | `src/utils/equipmentRequestStatus.ts` | 裝備申請狀態規則 |
 | `src/utils/vendors.ts` | 廠商搜尋、交易類別分組與照片 path normalize |
-| `src/utils/memberBilling.ts` | 球員有效繳費模式、社區固定月繳、新泰校隊月繳、球員計次月費與月費計算 helper |
-| `src/utils/monthlyPaymentPeriods.ts` | 月繳付款回報開放期別，計次月費後收與社區 / 新泰固定月繳 25 日先收規則 |
+| `src/utils/memberBilling.ts` | 球員有效繳費模式、社區固定月繳、新泰校隊計次月費、球員計次月費與月費計算 helper |
+| `src/utils/monthlyPaymentPeriods.ts` | 月繳付款回報開放期別，所有計次月費後收與社區固定月繳 25 日先收規則 |
 | `src/utils/monthlyFeeSettlement.ts` | 月費結算 |
+| `src/utils/schoolTeamMonthlyFee.ts` | 中港／新泰校隊計次費率預設值、分組正規化與折扣費率選擇 |
 | `src/utils/quarterlyFeeFamilies.ts` | 季費家庭分組與金額 |
 | `src/utils/quarterlyPaymentSubmissions.ts` | 季費付款回報期別開放、項目 normalize 與多球員季費驗證 |
 | `src/utils/quarterlyFeeCompensation.ts` | 季費堂數不足補償堂數與金額試算 |
@@ -234,8 +236,9 @@
 
 | 檔案 | 用途 |
 | --- | --- |
-| `src/components/fees/FeeSettings.vue` | 計次月費費率、社區球員固定月繳 / 新泰校隊月繳金額與季費補償預設設定 |
-| `src/components/fees/SchoolTeamFees.vue` | 月費管理，包含中港校隊計次、球員計次月費、社區固定月繳與新泰校隊月繳 |
+| `src/components/fees/FeeSettings.vue` | 分頁式收費設定：中港／新泰獨立校隊計次費率、社區逐人計次、社區固定月繳、季費補償預設與不收費名單 |
+| `src/components/fees/FeeSettingMemberEditor.vue` | 計次 / 固定月繳共用成員費率編輯器，手機卡片與桌機表格版型 |
+| `src/components/fees/SchoolTeamFees.vue` | 月費管理，包含中港校隊計次、球員計次月費、新泰總部日期計次月費與社區固定月繳 |
 | `src/components/fees/QuarterlyFees.vue` | 季費管理，排除固定月繳、球員計次月費與不收費球員 |
 | `src/components/fees/QuarterlyFeeCompensationPanel.vue` | 季費堂數不足補償試算、待審核與核准 |
 | `src/components/fees/ProfilePaymentSubmissionInbox.vue` | 個人付款回報審核 |
@@ -317,6 +320,7 @@
 | `src/types/payments.ts` | 個人付款型別 |
 | `src/types/playerBalances.ts` | 球員餘額型別 |
 | `src/types/quarterlyFeeCompensation.ts` | 季費堂數不足補償型別 |
+| `src/types/schoolTeamMonthlyFee.ts` | 中港／新泰校隊獨立計次費率設定型別 |
 | `src/types/performance.ts` | 能力 / 體測型別 |
 | `src/types/publicLanding.ts` | 公開首頁 snapshot 型別 |
 | `src/types/teamGroup.ts` | team group 設定型別 |

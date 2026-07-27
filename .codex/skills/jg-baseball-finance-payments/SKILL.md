@@ -51,14 +51,14 @@ description: "Finance, fees, payment submissions, player balances, match fees, e
 - `permissionsStore.can()` 只控制 UX；付款審核、餘額扣抵、可見資料必須由 RLS / RPC 檢查。
 - 球員餘額不可扣成負數；家長自助使用餘額後仍需管理端審核才正式扣款。
 - 社區球員固定月繳以 `team_members.fee_billing_mode = 'monthly_fixed'` 表示，角色仍是 `球員`。
-- 新泰校隊固定月繳以 `role = 校隊` 且 raw `team_members.training_program = 'junior_high_school_team'` 判斷，不改 `role`，不從 `team_group` fallback 猜身分；新建月費使用既有 `monthly_fixed` snapshot，金額取 `fee_settings.monthly_fixed_fee`。
+- 校隊計次月費依 program 分開設定費率：中港使用 `chunggang_school_team`，新泰以 `role = 校隊` 且 raw `team_members.training_program = 'junior_high_school_team'` 判斷，不從 `team_group` fallback 猜新泰身分；兩邊新建月費使用 `per_session` calculation，單次費率存入 `monthly_fees.per_session_fee` snapshot。
 - 球員計次月費以 `team_members.fee_billing_mode = 'monthly_per_session'` 表示，角色仍是 `球員`，但隊費進 `monthly_fees` 並採校隊同款計次公式。
-- 中港校隊與球員計次月費只把落在該球員 program 訓練日期內的全日 / 上午假單算作請假扣減；下午假代表上午課程仍需收費，不扣計次月費。新泰校隊固定月繳不參與堂數、請假或單堂費率計算。
+- 中港與新泰各自抓 `chunggang_school_team`／`junior_high_school_team` 日期並使用獨立一般、半價費率設定。中港校隊與社區計次球員只把 program 訓練日期內的全日 / 上午假單扣除堂數，公式為 `(訓練日數 - 符合條件的請假日數) × 單次費率 - 手動扣減`；新泰校隊仍統計請假天數供畫面與稽核顯示，但不扣金額，公式為 `訓練日數 × 新泰單次費率 - 手動扣減`。社區固定月繳不參與訓練日期與請假計算。
 - `monthly_fees.training_program` 保留月費當期 program snapshot；月費頁需支援球員搜尋、program 篩選 / 小計與 CSV program 欄位，row-level `total_sessions` 不可再用單一全域堂數套所有人。
-- 固定月繳、新泰校隊月繳與球員計次月費都排除 `quarterly_fees` 與家庭季費分組。
+- 社區固定月繳、新泰校隊計次月費與球員計次月費都排除 `quarterly_fees` 與家庭季費分組。
 - 月費與季費最早從 `team_members.joined_date` 所在月份起算；月費期別不可早於加入月份，季費從包含加入月份的季度開始。管理端試算、家長端待付款／付款估算、首頁摘要與催繳都要套用同一條件，加入前未繳不可新增或顯示，但既有已付款／送審歷史保留。
 - 球員 / 校隊不收費以 `team_members.fee_billing_mode = 'no_fee'` 表示；不產生新的月費、季費與比賽費，但既有帳款保留，裝備付款仍維持自費。
-- 月繳付款回報開放期別要依 `monthly_fees.calculation_type` / 有效收費模式區分：中港校隊與球員計次月費只開放已結束月份，社區固定月繳與新泰校隊月繳每月 25 日起開放下月；前端 helper 與 DB trigger 必須同步，既有 `monthly_fees` 帳款不自動回寫或重算。
+- 月繳付款回報開放期別要依 `monthly_fees.calculation_type` / 有效收費模式區分：中港校隊、球員計次月費與新泰校隊計次月費只開放已結束月份，只有社區固定月繳每月 25 日起開放下月；前端 helper 與 DB trigger 必須同步，既有 `monthly_fees` 帳款不自動回寫或重算。
 - 季繳付款回報的開放期別以台灣日期為準，每季最後一個月 25 日起開放下一季；前端 helper 與 DB helper / trigger 必須同步，未開放的未來季不可新增付款回報，過去未繳季度可補繳。
 - 個人首頁 `get_my_home_snapshot()` 的付款待辦摘要必須沿用相同的月費 / 季費開放期別；尚未開放的帳款可保留在正式費用紀錄，但不可顯示成一般會員現在就要處理的欠費。
 - 季費補償的堂數不足只看當月週六數與 `/training-dates` 設定日期總數，補課日不限定週六。
@@ -85,4 +85,4 @@ description: "Finance, fees, payment submissions, player balances, match fees, e
 - 基本檢查：`pnpm exec vue-tsc --noEmit`
 - 費用純邏輯：`pnpm exec vitest run src/utils/memberBilling.test.ts src/utils/monthlyFeeSettlement.test.ts src/utils/quarterlyFeeFamilies.test.ts src/utils/quarterlyFeeCompensation.test.ts src/utils/playerBalance.test.ts src/utils/feeManagementReminders.test.ts src/utils/feePaymentReminders.test.ts src/services/feePaymentReminders.test.ts`
 - 比賽費或付款 UI 風險高時跑：`pnpm build`
-- 人工 sanity check：家長 linked member 可見性、管理端審核、餘額扣抵、固定月繳 / 新泰月繳與球員計次月費排除季費、不收費排除隊費與比賽費、比賽費付款、裝備付款整合。
+- 人工 sanity check：家長 linked member 可見性、管理端審核、餘額扣抵、社區固定月繳 / 新泰計次月費與球員計次月費排除季費、不收費排除隊費與比賽費、比賽費付款、裝備付款整合。

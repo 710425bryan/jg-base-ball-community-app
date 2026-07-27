@@ -586,6 +586,7 @@ import {
   getMemberBillingLabel,
   getMonthlyFeeCalculationType,
   isMemberFeePeriodOnOrAfterJoin,
+  isXintaiPerSessionBillingMember,
   NO_FEE_BILLING_MODE,
   normalizeMemberFeeBillingMode,
   ROLE_DEFAULT_FEE_BILLING_MODE
@@ -1008,7 +1009,12 @@ const createDialogMonthlyFormulaText = computed(() => {
     return ''
   }
 
-  return `單堂 ${formatCurrency(estimate.per_session_fee)}，扣減 ${formatCurrency(estimate.deduction_amount)}`
+  if (isXintaiPerSessionBillingMember(createDialogMember.value)) {
+    return `總堂數 ${estimate.total_sessions} 堂；請假 ${estimate.leave_sessions} 天僅記錄、不扣款；每堂 ${formatCurrency(estimate.per_session_fee)}，扣減 ${formatCurrency(estimate.deduction_amount)}`
+  }
+
+  const attendedSessions = Math.max(0, estimate.total_sessions - estimate.leave_sessions)
+  return `總堂數 ${estimate.total_sessions} − 請假 ${estimate.leave_sessions} = ${attendedSessions} 堂；每堂 ${formatCurrency(estimate.per_session_fee)}，扣減 ${formatCurrency(estimate.deduction_amount)}`
 })
 
 const currentFeePeriodKey = computed(() => {
