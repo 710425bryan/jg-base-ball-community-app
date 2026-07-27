@@ -47,6 +47,10 @@ import {
 type FeeSettingKind = 'per_session' | 'monthly_fixed'
 type FeeSettingsTab = 'per_session' | 'monthly_fixed' | 'quarterly_compensation' | 'no_fee'
 
+const emit = defineEmits<{
+  schoolTeamMonthlySettingsUpdated: [programKey: SchoolTeamMonthlyFeeProgramKey]
+}>()
+
 const DEFAULT_PER_SESSION_FEE = 500
 const feeSettingTabs: Array<{ id: FeeSettingsTab; name: string }> = [
   { id: 'per_session', name: '計次月費' },
@@ -60,20 +64,23 @@ const schoolTeamPerSessionPrograms: Array<{
   programLabel: string
   description: string
   badgeClass: string
+  allowsCalculationModeSwitch: boolean
 }> = [
   {
     key: CHUNGGANG_SCHOOL_TEAM_PROGRAM_KEY,
     label: '中港校隊計次費率',
     programLabel: '中港總部',
     description: '獨立依「中港總部」當月訓練日期計算；全日／上午假單會扣除堂數。',
-    badgeClass: 'border-emerald-200 bg-emerald-50 text-emerald-700'
+    badgeClass: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    allowsCalculationModeSwitch: false
   },
   {
     key: JUNIOR_HIGH_SCHOOL_TEAM_PROGRAM_KEY,
-    label: '新泰校隊計次費率',
-    programLabel: '新泰總部',
-    description: '獨立依「新泰總部」當月訓練日期計算；請假天數只記錄、不扣月費。',
-    badgeClass: 'border-sky-200 bg-sky-50 text-sky-700'
+    label: '國中部計次費率',
+    programLabel: '國中部',
+    description: '可切換單次月費或依「國中部」當月訓練日期計算；請假天數只記錄、不扣月費。',
+    badgeClass: 'border-sky-200 bg-sky-50 text-sky-700',
+    allowsCalculationModeSwitch: true
   }
 ]
 
@@ -124,10 +131,13 @@ const isCompensationDefaultsDirty = computed(() => {
 
 const isSchoolTeamPerSessionDefaultsDirty = (programKey: SchoolTeamMonthlyFeeProgramKey) => {
   const normalized = normalizeSchoolTeamMonthlyPerSessionDefaults(
-    schoolTeamPerSessionDefaults.value[programKey]
+    schoolTeamPerSessionDefaults.value[programKey],
+    programKey
   )
   const saved = savedSchoolTeamPerSessionDefaults.value[programKey]
-  return normalized.regularPerSessionFee !== saved.regularPerSessionFee
+  return normalized.calculationMode !== saved.calculationMode
+    || normalized.singleMonthlyFee !== saved.singleMonthlyFee
+    || normalized.regularPerSessionFee !== saved.regularPerSessionFee
     || normalized.discountPerSessionFee !== saved.discountPerSessionFee
 }
 
@@ -309,9 +319,10 @@ const updateSchoolTeamPerSessionDefaults = async (
     )
     schoolTeamPerSessionDefaults.value[programKey] = { ...saved }
     savedSchoolTeamPerSessionDefaults.value[programKey] = { ...saved }
-    ElMessage.success(`${label}計次費率已更新`)
+    emit('schoolTeamMonthlySettingsUpdated', programKey)
+    ElMessage.success(`${label}月費設定已更新`)
   } catch (error: any) {
-    ElMessage.error(`儲存${label}計次費率失敗: ` + error.message)
+    ElMessage.error(`儲存${label}月費設定失敗: ` + error.message)
     console.error(error)
   } finally {
     isSchoolTeamPerSessionDefaultsSaving.value[programKey] = false
@@ -371,7 +382,7 @@ onMounted(() => {
   <div class="mx-auto flex max-w-5xl animate-fade-in flex-col gap-4">
     <div class="flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary/10 p-4 text-sm font-bold leading-relaxed text-primary">
       <el-icon class="mt-0.5 text-lg"><InfoFilled /></el-icon>
-      <div>中港校隊與新泰校隊分開設定、分開依各自總部的訓練日期計次結算；社區計次月費維持逐球員設定，社區固定月繳維持固定金額。</div>
+      <div>中港校隊固定依訓練日期計次；國中部可切換單次月費或依訓練日期計算。社區計次月費維持逐球員設定，社區固定月繳維持固定金額。</div>
     </div>
 
     <div class="overflow-x-auto rounded-2xl border border-slate-100 bg-white p-1.5 shadow-sm" role="tablist" aria-label="收費設定分類">
@@ -403,7 +414,7 @@ onMounted(() => {
     >
       <div class="border-b border-gray-100 bg-gray-50/80 px-4 py-3">
         <h3 class="text-base font-black text-gray-800">計次月費</h3>
-        <p class="mt-1 text-xs font-medium text-gray-400">中港校隊與新泰校隊各自使用獨立費率；社區計次月費則保留逐球員費率。</p>
+        <p class="mt-1 text-xs font-medium text-gray-400">中港校隊與國中部各自使用獨立設定；國中部預設單次月費 2,000 元。</p>
       </div>
 
       <div class="grid gap-4 border-b border-gray-100 bg-slate-50/50 p-4 lg:grid-cols-2">
@@ -421,7 +432,44 @@ onMounted(() => {
             <span class="rounded-lg border px-2 py-1 text-xs font-black" :class="program.badgeClass">{{ program.programLabel }}</span>
           </div>
           <div class="grid gap-4 sm:grid-cols-2">
-          <label class="flex flex-col gap-1.5">
+          <div
+            v-if="program.allowsCalculationModeSwitch"
+            class="flex min-h-11 flex-col gap-3 rounded-xl border border-sky-100 bg-sky-50/70 p-3 sm:col-span-2 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div>
+              <p class="text-xs font-black text-slate-700">國中部計費方式</p>
+              <p class="mt-1 text-[11px] font-medium leading-relaxed text-slate-500">關閉為單次月費；開啟後才依當月訓練日期與單次費率計算。</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2 text-xs font-black">
+              <span :class="schoolTeamPerSessionDefaults[program.key].calculationMode === 'single_monthly' ? 'text-sky-700' : 'text-slate-400'">單次月費</span>
+              <el-switch
+                v-model="schoolTeamPerSessionDefaults[program.key].calculationMode"
+                active-value="training_dates"
+                inactive-value="single_monthly"
+                size="large"
+                aria-label="切換國中部單次月費或依當月訓練日期計算"
+              />
+              <span :class="schoolTeamPerSessionDefaults[program.key].calculationMode === 'training_dates' ? 'text-sky-700' : 'text-slate-400'">當月訓練日期計算</span>
+            </div>
+          </div>
+          <label
+            v-if="program.allowsCalculationModeSwitch && schoolTeamPerSessionDefaults[program.key].calculationMode === 'single_monthly'"
+            class="flex flex-col gap-1.5 sm:col-span-2"
+          >
+            <span class="text-xs font-bold text-gray-500">單次月費金額 (元)</span>
+            <el-input-number
+              v-model="schoolTeamPerSessionDefaults[program.key].singleMonthlyFee"
+              :min="0"
+              :step="100"
+              size="large"
+              class="!w-full"
+            />
+            <span class="text-[11px] font-medium text-slate-400">預設 2,000 元；半價／有效手足折扣會依既有規則折半。</span>
+          </label>
+          <label
+            v-if="!program.allowsCalculationModeSwitch || schoolTeamPerSessionDefaults[program.key].calculationMode === 'training_dates'"
+            class="flex flex-col gap-1.5"
+          >
             <span class="text-xs font-bold text-gray-500">一般球員單次收費金額 (元)</span>
             <el-input-number
               v-model="schoolTeamPerSessionDefaults[program.key].regularPerSessionFee"
@@ -431,7 +479,10 @@ onMounted(() => {
               class="!w-full"
             />
           </label>
-          <label class="flex flex-col gap-1.5">
+          <label
+            v-if="!program.allowsCalculationModeSwitch || schoolTeamPerSessionDefaults[program.key].calculationMode === 'training_dates'"
+            class="flex flex-col gap-1.5"
+          >
             <span class="text-xs font-bold text-gray-500">半價 / 手足折扣單次收費金額 (元)</span>
             <el-input-number
               v-model="schoolTeamPerSessionDefaults[program.key].discountPerSessionFee"
@@ -448,7 +499,7 @@ onMounted(() => {
             :disabled="isSchoolTeamPerSessionDefaultsSaving[program.key] || !isSchoolTeamPerSessionDefaultsDirty(program.key)"
             @click="updateSchoolTeamPerSessionDefaults(program.key, program.programLabel)"
           >
-            {{ isSchoolTeamPerSessionDefaultsSaving[program.key] ? '儲存中...' : `儲存${program.programLabel}費率` }}
+            {{ isSchoolTeamPerSessionDefaultsSaving[program.key] ? '儲存中...' : `儲存${program.programLabel}設定` }}
           </button>
           </div>
         </article>
@@ -456,7 +507,7 @@ onMounted(() => {
 
       <div class="border-b border-gray-100 bg-white px-4 py-3">
         <h4 class="text-sm font-black text-slate-800">社區計次月費</h4>
-        <p class="mt-1 text-xs font-medium text-slate-500">以下球員仍可逐人設定單次收費，不共用中港或新泰校隊費率。</p>
+        <p class="mt-1 text-xs font-medium text-slate-500">以下球員仍可逐人設定單次收費，不共用中港校隊或國中部費率。</p>
       </div>
       <FeeSettingMemberEditor
         kind="per_session"
@@ -479,7 +530,7 @@ onMounted(() => {
     >
       <div class="border-b border-amber-100 bg-amber-50/80 px-4 py-3">
         <h3 class="text-base font-black text-gray-800">固定月繳</h3>
-        <p class="mt-1 text-xs font-medium text-amber-700/80">只顯示社區固定月繳球員；新泰已改在「計次月費」依新泰總部訓練日期計算。</p>
+        <p class="mt-1 text-xs font-medium text-amber-700/80">只顯示社區固定月繳球員；國中部的單次月費／訓練日期切換在「計次月費」分頁設定。</p>
       </div>
       <FeeSettingMemberEditor
         kind="monthly_fixed"

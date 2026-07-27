@@ -57,7 +57,7 @@
 | P2-09 | `/join-inquiries` | 手機清單在載入失敗或零筆資料時沒有狀態內容，會呈現整頁空白 | 手機卡片；共用 loading、可重試錯誤與明確空狀態；Danger 44px＋ARIA | 待驗收 | JoinInquiriesView tests、`vue-tsc`、build＋source contract 通過 |
 | P2-10 | `/announcements` | 每筆最多四個可見操作；卡片／表格切換仍使用頁面自製白底樣式 | 保留兩個高頻操作，其餘 overflow；共用 footer 與 `ViewModeSwitch` | 待驗收 | `vue-tsc`、build＋共用檢視切換 source contract 通過 |
 | P2-11 | `/equipment` | 卡片／表格最多六個操作；搜尋與分類在手機互相壓縮 | 每筆最多兩個可見操作，其餘 overflow；分類篩選由底部展開 | 待驗收 | equipment 19 tests＋search/filter source contract 通過 |
-| P2-12 | `/fees` | tabs 與子元件 Dialog 規格不一；校隊月費搜尋與 program 篩選並排 | tabs 44px＋ARIA；可見 Dialog footer 統一；手機 program 篩選由底部展開；裝備請購／付款移至獨立管理頁 | 待驗收 | 收費設定已拆成計次、固定月繳、季費補償、不收費四個 44px ARIA tabs；計次頁籤內中港、新泰校隊各有獨立手機友善費率卡，社區成員費率手機改用卡片；比賽費卡、排序與開關 / 刪除 targeted tests 通過；production build 通過，待逐 tab 與 360–767px 視覺驗收 |
+| P2-12 | `/fees` | tabs 與子元件 Dialog 規格不一；校隊月費搜尋與 program 篩選並排 | tabs 44px＋ARIA；月費結算以中港總部／國中部固定分頁切換；可見 Dialog footer 統一；裝備請購／付款移至獨立管理頁 | 待驗收 | 收費設定已拆成計次、固定月繳、季費補償、不收費四個 44px ARIA tabs；月費結算另以中港總部／國中部 44px ARIA tabs 分開名單、摘要與 CSV，手機不用另開篩選面板；計次頁籤內兩個 program 各有獨立手機友善費率卡，國中部的單次月費／訓練日期 switch 可換行且金額欄滿寬，社區成員費率手機改用卡片；待 360–767px 視覺驗收 |
 | P2-13 | `/vendors` | 卡片三個操作；table icons 偏小；手機分類在頁內向下展開 | 每筆最多兩個操作，其他 overflow；icons 44px＋ARIA；分類篩選由底部展開 | 待驗收 | vendors 5 tests＋search/filter source contract 通過 |
 | P2-14 | `/equipment-purchases` | 原本付款與請購六個狀態區塊同時堆疊於 `/fees`，桌機與手機資訊量過高 | 付款／請購雙頁籤；`>=1024px` 主清單＋明細，較小螢幕全螢幕 Drawer；摘要／進階篩選預設收起；進階條件統一 Element Plus 控制；請購數量依目前篩選跨分頁彙整，桌機表格／手機分組列；付款狀態沿用藍／綠／橘語意色與原說明文字；主清單依狀態顯示淡色外框／底色；分頁後捲到新頁第一筆且選取明細不重設頁碼；刪除請購使用獨立 Danger 按鈕；44px、safe area、深層連結與單一頁面捲動 | 待驗收 | 搬移後全量 154 files、754 tests；Element Plus 篩選回歸 3 files、90 tests；狀態色彩、主清單外框／底色與文案回歸測試通過；請購刪除操作 targeted tests 通過；分頁捲動回歸 3 files、73 tests；數量統計／分頁狀態 7 files、51 tests；`vue-tsc`、build 通過；管理台仍待登入後裝置驗收 |
 
@@ -73,11 +73,17 @@
 
 ## 驗收紀錄
 
-### 2026-07-27 收費設定分頁與新泰計次月費
+### 2026-07-27 收費設定分頁與國中部計次月費
 
-- `/fees` 收費設定改為「計次月費／固定月繳／季費補償／不收費」四個可橫向捲動的 44px ARIA tabs，避免所有設定同時垂直堆疊；新泰費率整合於計次月費頁籤，計次與固定月繳成員在 `<768px` 使用單欄卡片與滿寬輸入、儲存按鈕，桌機保留表格。
-- 中港校隊與新泰校隊各自有獨立費率卡，分別依「中港總部」與「新泰總部」訓練日期，扣除全日 / 上午請假日後乘上各自的一般或半價 / 有效手足單次費率；社區計次維持逐球員設定，社區固定月繳維持原規則。
+- `/fees` 收費設定改為「計次月費／固定月繳／季費補償／不收費」四個可橫向捲動的 44px ARIA tabs，避免所有設定同時垂直堆疊；國中部費率整合於計次月費頁籤，計次與固定月繳成員在 `<768px` 使用單欄卡片與滿寬輸入、儲存按鈕，桌機保留表格。
+- 中港校隊與國中部各自有獨立費率卡；國中部新增可換行的「單次月費／當月訓練日期計算」switch，預設單次月費 2,000 元，切換後才依國中部訓練日期與一般／折扣單次費率計算。中港維持依中港總部日期並扣除全日／上午請假，國中部兩種模式的請假都只記錄不扣款。社區計次與社區固定月繳維持原規則。
 - Targeted regression、`vue-tsc --noEmit` 與 production build 已通過；migration 尚待套用資料庫，登入後 360px、390px、640–767px 與桌機版型仍待 staging 驗收。
+
+### 2026-07-27 月費結算中港總部／國中部分頁
+
+- `/fees` 月費結算移除「全部訓練項目」下拉與手機篩選面板，改為頁面上固定顯示的「中港總部／國中部」44px ARIA tabs，並顯示各分頁人數；手機可橫向捲動，不需先開啟篩選。
+- 搜尋、訓練堂數說明、月費摘要、空狀態與 CSV 都跟隨目前分頁；由通知深層連結指定球員時會先切到該球員所屬分頁再定位。一鍵存檔仍保存跨分頁的全部待存變更。
+- Targeted regression 共 4 files、68 tests，`vue-tsc --noEmit` 與 production build 均已通過；登入後 360px、390px、640–767px 與桌機版型仍待 staging 驗收。
 
 ### 2026-07-25 全站手機選擇器單一搜尋欄位
 
@@ -146,7 +152,7 @@
 - Topbar 漢堡按鈕恢復既有無框視覺，保留 44×44 觸控範圍、focus ring 與導覽 ARIA。
 - 球員名單窄手機重複篩選：移除舊 `.players-toolbar-filters { display: grid; }` 覆蓋；`<768px` 僅顯示底部篩選面板，桌機才顯示行內 selects。
 - 全站 route root source contract：24 個登入後 view 與 2 個 performance 共用頁面均不再以 `h-full + overflow-hidden` 阻擋 `MainLayout` 垂直捲動。
-- 搜尋／進階篩選 source contract：MatchRecords、Players、Users、Equipment、Vendors、SchoolTeamFees 共 6 個介面使用滿寬搜尋列與 `AppMobileFilterSheet`。
+- 搜尋／進階篩選 source contract：MatchRecords、Players、Users、Equipment、Vendors 共 5 個介面使用滿寬搜尋列與 `AppMobileFilterSheet`；SchoolTeamFees 的中港總部／國中部為高頻主分頁，固定留在頁面上並使用滿寬搜尋列。
 - `pnpm exec vitest run ...`（共用篩選面板、MainLayout、source contract、MatchRecords、Players、equipment、vendors、monthly fee）：15 files、117 tests 通過。
 - 最終回歸測試：4 files、61 tests 通過；`pnpm exec vue-tsc --noEmit`、`pnpm build`、`git diff --check` 通過。
 - Build 僅有既有 chunk size warning；`dist` 與自動更新的 `public/version.json` 未納入變更。

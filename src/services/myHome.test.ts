@@ -151,7 +151,7 @@ describe('myHome service', () => {
       },
       {
         program_key: 'junior_high_school_team',
-        label: '新泰總部',
+        label: '國中部',
         team_group: '國中校隊',
         default_weekdays: [0],
         default_start_time: '09:00',
@@ -197,7 +197,7 @@ describe('myHome service', () => {
       month_start: '2026-07-01',
       month: '2026-07',
       program_key: 'junior_high_school_team',
-      program_label: '新泰總部',
+      program_label: '國中部',
       training_dates: ['2026-07-04', '2026-07-11', '2026-07-19', '2026-07-26'],
       note: null,
       is_default: false,
@@ -210,12 +210,12 @@ describe('myHome service', () => {
 
     expect(apiMocks.trainingDatesApi.getMonthDates).toHaveBeenCalledWith('2026-07', {
       programKey: 'junior_high_school_team',
-      programLabel: '新泰總部',
+      programLabel: '國中部',
       defaultWeekdays: [0]
     })
     expect(snapshot.members[0]).toMatchObject({
       training_program: 'junior_high_school_team',
-      training_program_label: '新泰總部'
+      training_program_label: '國中部'
     })
     expect(snapshot.training_month_dates.map((item) => item.date)).toEqual([
       '2026-07-04',
@@ -256,7 +256,7 @@ describe('myHome service', () => {
       },
       {
         program_key: 'junior_high_school_team',
-        label: '新泰總部',
+        label: '國中部',
         team_group: '國中校隊',
         default_weekdays: [0],
         default_start_time: '09:00',
@@ -274,7 +274,7 @@ describe('myHome service', () => {
       month_start: '2027-01-01',
       month: '2027-01',
       program_key: 'junior_high_school_team',
-      program_label: '新泰總部',
+      program_label: '國中部',
       training_dates: ['2027-01-10', '2027-01-03'],
       note: null,
       is_default: false,
@@ -290,7 +290,7 @@ describe('myHome service', () => {
 
     expect(apiMocks.trainingDatesApi.getMonthDates).toHaveBeenCalledWith('2027-01', {
       programKey: 'junior_high_school_team',
-      programLabel: '新泰總部',
+      programLabel: '國中部',
       defaultWeekdays: [0]
     })
     expect(dates).toEqual([

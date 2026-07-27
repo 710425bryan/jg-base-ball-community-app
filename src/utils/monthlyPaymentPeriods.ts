@@ -1,10 +1,11 @@
 import dayjs, { type Dayjs } from 'dayjs'
 import {
   getMonthlyFeeCalculationType,
+  isXintaiPerSessionBillingMember,
   type BillingModeMember
 } from './memberBilling'
 
-export const MONTHLY_FIXED_PAYMENT_NEXT_PERIOD_SWITCH_DAY = 25
+export const MONTHLY_ADVANCE_PAYMENT_NEXT_PERIOD_SWITCH_DAY = 25
 
 const MONTHLY_PERIOD_KEY_PATTERN = /^[0-9]{4}-[0-9]{2}$/
 
@@ -29,14 +30,18 @@ export const getMonthlyPeriodIndex = (periodKey: unknown) => {
   return periodStart.year() * 12 + periodStart.month() + 1
 }
 
+export const isAdvanceMonthlyPaymentMember = (member: BillingModeMember) =>
+  getMonthlyFeeCalculationType(member) === 'monthly_fixed'
+  || isXintaiPerSessionBillingMember(member)
+
 export const getMonthlyPaymentOpenPeriodKey = (
   member: BillingModeMember,
   baseDate: Dayjs = dayjs()
 ) => {
   const date = dayjs(baseDate)
 
-  if (getMonthlyFeeCalculationType(member) === 'monthly_fixed') {
-    return (date.date() >= MONTHLY_FIXED_PAYMENT_NEXT_PERIOD_SWITCH_DAY
+  if (isAdvanceMonthlyPaymentMember(member)) {
+    return (date.date() >= MONTHLY_ADVANCE_PAYMENT_NEXT_PERIOD_SWITCH_DAY
       ? date.add(1, 'month')
       : date
     ).format('YYYY-MM')
@@ -63,8 +68,8 @@ export const getNextMonthlyPaymentPeriodInfo = (
   const currentPeriodStart = getMonthlyPeriodStart(getMonthlyPaymentOpenPeriodKey(member, baseDate))
     || dayjs(baseDate).startOf('month')
   const nextPeriodStart = currentPeriodStart.add(1, 'month')
-  const openDate = getMonthlyFeeCalculationType(member) === 'monthly_fixed'
-    ? nextPeriodStart.subtract(1, 'month').date(MONTHLY_FIXED_PAYMENT_NEXT_PERIOD_SWITCH_DAY)
+  const openDate = isAdvanceMonthlyPaymentMember(member)
+    ? nextPeriodStart.subtract(1, 'month').date(MONTHLY_ADVANCE_PAYMENT_NEXT_PERIOD_SWITCH_DAY)
     : nextPeriodStart.add(1, 'month').startOf('month')
 
   return {

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildFeePaymentReminderBody,
   buildFeePaymentReminderEventKey,
+  getFeePaymentReminderCategoryLabel,
   getDefaultFeePaymentReminderPeriods,
   getFeePaymentReminderBillingMode,
   getFeePaymentReminderMemberCategory,
@@ -22,6 +23,7 @@ describe('feePaymentReminders', () => {
     ], ['chunggang_school_team'])).toEqual(['community', 'xintai_school_team'])
     expect(normalizeFeePaymentReminderCategories([], ['chunggang_school_team']))
       .toEqual(['chunggang_school_team'])
+    expect(getFeePaymentReminderCategoryLabel('xintai_school_team')).toBe('國中部')
   })
 
   it('validates monthly and quarterly periods with fallbacks', () => {

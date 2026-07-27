@@ -54,7 +54,7 @@ export type FeePaymentReminderPeriodOption = {
 
 export const FEE_PAYMENT_REMINDER_CATEGORY_LABELS: Record<FeePaymentReminderCategory, string> = {
   chunggang_school_team: '中港校隊',
-  xintai_school_team: '新泰校隊',
+  xintai_school_team: '國中部',
   community: '社區'
 }
 

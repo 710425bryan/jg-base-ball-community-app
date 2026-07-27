@@ -7,6 +7,7 @@ import { isPerSessionMonthlyBillingMember } from '@/utils/memberBilling'
 export const CHUNGGANG_SCHOOL_TEAM_PROGRAM_KEY = 'chunggang_school_team'
 export const JUNIOR_HIGH_SCHOOL_TEAM_PROGRAM_KEY = 'junior_high_school_team'
 export const DEFAULT_TRAINING_PROGRAM_KEY = CHUNGGANG_SCHOOL_TEAM_PROGRAM_KEY
+export const JUNIOR_HIGH_SCHOOL_TEAM_PROGRAM_LABEL = '國中部'
 
 export const DEFAULT_TRAINING_PROGRAM_LABEL = '中港總部'
 
@@ -28,7 +29,7 @@ export const DEFAULT_TRAINING_PROGRAM_SETTINGS: TrainingProgramSetting[] = [
   },
   {
     program_key: JUNIOR_HIGH_SCHOOL_TEAM_PROGRAM_KEY,
-    label: '新泰總部',
+    label: JUNIOR_HIGH_SCHOOL_TEAM_PROGRAM_LABEL,
     team_group: '國中校隊',
     default_weekdays: [0],
     default_start_time: '09:00',
@@ -51,7 +52,9 @@ const normalizeText = (value: unknown) => String(value ?? '').trim()
 export const normalizeTrainingProgramLabel = (value: unknown) => {
   const label = normalizeText(value)
   if (label === '中港校隊') return '中港總部'
-  if (label === '新泰校隊' || label === '國中校隊') return '新泰總部'
+  if (label === '新泰校隊' || label === '新泰總部' || label === '國中校隊') {
+    return JUNIOR_HIGH_SCHOOL_TEAM_PROGRAM_LABEL
+  }
   return label
 }
 

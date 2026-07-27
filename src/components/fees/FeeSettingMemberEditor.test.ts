@@ -16,4 +16,9 @@ describe('FeeSettingMemberEditor responsive layout', () => {
     expect(source).toContain("(event: 'save'")
     expect(source).toContain("emit('update-value', { memberId, value })")
   })
+
+  it('uses 國中部 as the junior-high program fallback label', () => {
+    expect(source).toContain("isFixedMonthly ? '國中部' : '中港總部'")
+    expect(source).not.toContain('新泰總部')
+  })
 })

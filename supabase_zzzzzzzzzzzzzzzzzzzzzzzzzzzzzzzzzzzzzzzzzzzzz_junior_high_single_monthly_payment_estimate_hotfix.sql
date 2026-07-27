@@ -1,5 +1,7 @@
 begin;
 
+-- Keep the two school-team programs independent. Chunggang always uses
+-- training dates, while junior-high defaults to one configured monthly amount.
 insert into public.system_settings (key, value, description)
 values
   (
@@ -20,56 +22,60 @@ values
       'regular_per_session_fee', 500,
       'discount_per_session_fee', 250
     ),
-    '國中部單次月費與訓練日期計費設定'
+    '國中部計次月費計算模式與收費預設'
   )
 on conflict (key) do nothing;
 
-create or replace function public.get_school_team_monthly_per_session_amount(
-  p_program_key text,
-  p_is_discounted boolean default false
-)
-returns integer
-language plpgsql
-security definer
-stable
-set search_path = public
-as $$
-declare
-  v_program_key text;
-  v_setting_key text;
-  v_value jsonb := '{}'::jsonb;
-  v_regular_per_session_fee integer := 500;
-  v_discount_per_session_fee integer := 250;
-begin
-  v_program_key := public.normalize_training_program_key(p_program_key);
-  if v_program_key not in ('chunggang_school_team', 'junior_high_school_team') then
-    raise exception 'unsupported school team program: %', p_program_key;
-  end if;
+update public.system_settings
+set
+  value = jsonb_build_object(
+    'calculation_mode', 'training_dates',
+    'single_monthly_fee', case
+      when jsonb_typeof(value -> 'single_monthly_fee') = 'number'
+        then greatest(trunc((value ->> 'single_monthly_fee')::numeric)::integer, 0)
+      else 2000
+    end,
+    'regular_per_session_fee', case
+      when jsonb_typeof(value -> 'regular_per_session_fee') = 'number'
+        then greatest(trunc((value ->> 'regular_per_session_fee')::numeric)::integer, 0)
+      else 500
+    end,
+    'discount_per_session_fee', case
+      when jsonb_typeof(value -> 'discount_per_session_fee') = 'number'
+        then greatest(trunc((value ->> 'discount_per_session_fee')::numeric)::integer, 0)
+      else 250
+    end
+  ),
+  description = '中港校隊計次月費單次收費預設',
+  updated_at = timezone('utc', now())
+where key = 'chunggang_monthly_per_session_defaults';
 
-  v_setting_key := case
-    when v_program_key = 'junior_high_school_team' then 'xintai_monthly_per_session_defaults'
-    else 'chunggang_monthly_per_session_defaults'
-  end;
-
-  select coalesce(system_settings.value, '{}'::jsonb)
-  into v_value
-  from public.system_settings
-  where system_settings.key = v_setting_key;
-
-  if jsonb_typeof(v_value->'regular_per_session_fee') = 'number' then
-    v_regular_per_session_fee := greatest(trunc((v_value->>'regular_per_session_fee')::numeric)::integer, 0);
-  end if;
-
-  if jsonb_typeof(v_value->'discount_per_session_fee') = 'number' then
-    v_discount_per_session_fee := greatest(trunc((v_value->>'discount_per_session_fee')::numeric)::integer, 0);
-  end if;
-
-  return case
-    when coalesce(p_is_discounted, false) then v_discount_per_session_fee
-    else v_regular_per_session_fee
-  end;
-end;
-$$;
+update public.system_settings
+set
+  value = jsonb_build_object(
+    'calculation_mode', case
+      when value ->> 'calculation_mode' = 'training_dates' then 'training_dates'
+      else 'single_monthly'
+    end,
+    'single_monthly_fee', case
+      when jsonb_typeof(value -> 'single_monthly_fee') = 'number'
+        then greatest(trunc((value ->> 'single_monthly_fee')::numeric)::integer, 0)
+      else 2000
+    end,
+    'regular_per_session_fee', case
+      when jsonb_typeof(value -> 'regular_per_session_fee') = 'number'
+        then greatest(trunc((value ->> 'regular_per_session_fee')::numeric)::integer, 0)
+      else 500
+    end,
+    'discount_per_session_fee', case
+      when jsonb_typeof(value -> 'discount_per_session_fee') = 'number'
+        then greatest(trunc((value ->> 'discount_per_session_fee')::numeric)::integer, 0)
+      else 250
+    end
+  ),
+  description = '國中部計次月費計算模式與收費預設',
+  updated_at = timezone('utc', now())
+where key = 'xintai_monthly_per_session_defaults';
 
 create or replace function public.get_school_team_monthly_calculation_mode(
   p_program_key text
@@ -99,7 +105,7 @@ begin
   where system_settings.key = 'xintai_monthly_per_session_defaults';
 
   return case
-    when v_value->>'calculation_mode' = 'training_dates' then 'training_dates'
+    when v_value ->> 'calculation_mode' = 'training_dates' then 'training_dates'
     else 'single_monthly'
   end;
 end;
@@ -136,8 +142,11 @@ begin
   from public.system_settings
   where system_settings.key = v_setting_key;
 
-  if jsonb_typeof(v_value->'single_monthly_fee') = 'number' then
-    v_single_monthly_fee := greatest(trunc((v_value->>'single_monthly_fee')::numeric)::integer, 0);
+  if jsonb_typeof(v_value -> 'single_monthly_fee') = 'number' then
+    v_single_monthly_fee := greatest(
+      trunc((v_value ->> 'single_monthly_fee')::numeric)::integer,
+      0
+    );
   end if;
 
   return case
@@ -216,7 +225,8 @@ begin
     else 'chunggang_monthly_per_session_defaults'
   end;
   v_description := case
-    when v_program_key = 'junior_high_school_team' then '國中部單次月費與訓練日期計費設定'
+    when v_program_key = 'junior_high_school_team'
+      then '國中部計次月費計算模式與收費預設'
     else '中港校隊計次月費單次收費預設'
   end;
   v_calculation_mode := case
@@ -251,248 +261,45 @@ begin
 end;
 $$;
 
-create or replace function public.is_school_team_monthly_fee_discounted(
-  p_member_id uuid
-)
-returns boolean
-language plpgsql
-security definer
-stable
-set search_path = public
-as $$
-declare
-  v_member public.team_members%rowtype;
-  v_has_sibling_references boolean := false;
-  v_has_active_sibling boolean := false;
-begin
-  select *
-  into v_member
-  from public.team_members
-  where team_members.id = p_member_id;
-
-  if not found then
-    return false;
-  end if;
-
-  v_has_sibling_references := cardinality(coalesce(v_member.sibling_ids, array[]::uuid[])) > 0;
-
-  select exists (
-    select 1
-    from public.team_members sibling
-    where sibling.id = any(coalesce(v_member.sibling_ids, array[]::uuid[]))
-      and sibling.role in ('球員', '校隊')
-      and coalesce(sibling.status, '在隊') not in ('退隊', '離隊')
-      and coalesce(sibling.is_inactive_or_graduated, false) = false
-      and public.get_effective_payment_billing_mode(
-        sibling.role::text,
-        sibling.fee_billing_mode::text
-      ) = 'monthly'
+-- Repair only safe rollout snapshots. Paid history and periods already submitted
+-- for review retain the exact amount that was originally reported.
+update public.monthly_fees as monthly_fee
+set
+  calculation_type = 'monthly_fixed',
+  fixed_monthly_fee = public.get_school_team_single_monthly_amount(
+    team_member.training_program::text,
+    public.is_school_team_monthly_fee_discounted(team_member.id)
+  ),
+  per_session_fee = 0,
+  payable_amount = greatest(
+    public.get_school_team_single_monthly_amount(
+      team_member.training_program::text,
+      public.is_school_team_monthly_fee_discounted(team_member.id)
+    ) - coalesce(monthly_fee.deduction_amount, 0),
+    0
+  ),
+  updated_at = timezone('utc', now())
+from public.team_members as team_member
+where monthly_fee.member_id = team_member.id
+  and monthly_fee.status = 'unpaid'
+  and monthly_fee.year_month >= to_char(
+    (now() at time zone 'Asia/Taipei')::date,
+    'YYYY-MM'
   )
-  into v_has_active_sibling;
-
-  if coalesce(v_member.is_half_price, false)
-    and (not v_has_sibling_references or v_has_active_sibling)
-  then
-    return true;
-  end if;
-
-  if not v_has_sibling_references
-    or coalesce(v_member.is_primary_payer, false)
-  then
-    return false;
-  end if;
-
-  return exists (
+  and team_member.role = '校隊'
+  and team_member.training_program::text = 'junior_high_school_team'
+  and coalesce(team_member.fee_billing_mode, 'role_default') <> 'no_fee'
+  and public.get_school_team_monthly_calculation_mode(
+    team_member.training_program::text
+  ) = 'single_monthly'
+  and not exists (
     select 1
-    from public.team_members sibling
-    where sibling.id = any(coalesce(v_member.sibling_ids, array[]::uuid[]))
-      and sibling.role in ('球員', '校隊')
-      and coalesce(sibling.status, '在隊') not in ('退隊', '離隊')
-      and coalesce(sibling.is_inactive_or_graduated, false) = false
-      and public.get_effective_payment_billing_mode(
-        sibling.role::text,
-        sibling.fee_billing_mode::text
-      ) = 'monthly'
-      and (
-        coalesce(sibling.is_primary_payer, false)
-        or v_member.id > sibling.id
-      )
+    from public.profile_payment_submissions as payment_submission
+    where payment_submission.member_id = monthly_fee.member_id
+      and payment_submission.billing_mode = 'monthly'
+      and payment_submission.period_key = monthly_fee.year_month
+      and payment_submission.status = 'pending_review'
   );
-end;
-$$;
-
-create or replace function public.get_monthly_fee_calculation_type(
-  p_role text,
-  p_fee_billing_mode text,
-  p_training_program text
-)
-returns text
-language sql
-stable
-set search_path = public
-as $$
-  select case
-    when p_role = '球員'
-      and coalesce(p_fee_billing_mode, 'role_default') = 'monthly_fixed'
-      then 'monthly_fixed'
-    else 'per_session'
-  end;
-$$;
-
-create or replace function public.get_monthly_fee_calculation_type(
-  p_role text,
-  p_fee_billing_mode text default 'role_default'
-)
-returns text
-language sql
-stable
-set search_path = public
-as $$
-  select public.get_monthly_fee_calculation_type(p_role, p_fee_billing_mode, null::text);
-$$;
-
-create or replace function public.get_monthly_payment_open_calculation_type(
-  p_role text,
-  p_fee_billing_mode text,
-  p_training_program text,
-  p_calculation_type text
-)
-returns text
-language sql
-stable
-set search_path = public
-as $$
-  select case
-    when p_role = '校隊'
-      and coalesce(p_fee_billing_mode, 'role_default') <> 'no_fee'
-      and public.normalize_training_program_key(p_training_program) = 'junior_high_school_team'
-      then 'monthly_fixed'
-    when p_role = '校隊'
-      then 'per_session'
-    else coalesce(nullif(btrim(p_calculation_type), ''), 'per_session')
-  end;
-$$;
-
-create or replace function public.guard_profile_payment_submission_monthly_open_period()
-returns trigger
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  v_period_key text := upper(nullif(btrim(new.period_key), ''));
-  v_calculation_type text;
-  v_open_calculation_type text;
-  v_member_role text;
-  v_fee_billing_mode text;
-  v_training_program text;
-  v_open_period_key text;
-begin
-  if coalesce(new.billing_mode, '') <> 'monthly' then
-    return new;
-  end if;
-
-  if v_period_key is null or v_period_key !~ '^[0-9]{4}-[0-9]{2}$' then
-    raise exception 'monthly period_key must look like YYYY-MM';
-  end if;
-
-  select
-    coalesce(
-      mf.calculation_type,
-      public.get_monthly_fee_calculation_type(
-        tm.role::text,
-        tm.fee_billing_mode::text,
-        tm.training_program::text
-      ),
-      'per_session'
-    ),
-    tm.role::text,
-    tm.fee_billing_mode::text,
-    tm.training_program::text
-  into
-    v_calculation_type,
-    v_member_role,
-    v_fee_billing_mode,
-    v_training_program
-  from public.team_members tm
-  left join public.monthly_fees mf
-    on mf.member_id = tm.id
-   and mf.year_month = v_period_key
-  where tm.id = new.member_id
-  limit 1;
-
-  if v_calculation_type is null then
-    raise exception 'member not found for monthly payment submission';
-  end if;
-
-  v_open_calculation_type := public.get_monthly_payment_open_calculation_type(
-    v_member_role,
-    v_fee_billing_mode,
-    v_training_program,
-    v_calculation_type
-  );
-  v_open_period_key := public.get_monthly_payment_open_period_key(v_open_calculation_type);
-
-  if not public.is_monthly_payment_period_open(v_period_key, v_open_calculation_type) then
-    raise exception 'monthly period % is not open yet; current open monthly period is %',
-      v_period_key,
-      v_open_period_key;
-  end if;
-
-  new.period_key := v_period_key;
-  return new;
-end;
-$$;
-
-do $$
-declare
-  v_function_def text;
-  v_next_def text;
-  v_previous_condition text := $previous$public.is_monthly_payment_period_open(
-        mf.year_month::text,
-        coalesce(
-          mf.calculation_type,
-          public.get_monthly_fee_calculation_type(
-            tm.role::text,
-            tm.fee_billing_mode::text,
-            tm.training_program::text
-          ),
-          'per_session'
-        ),
-        v_today
-      )$previous$;
-  v_program_aware_condition text := $program-aware$public.is_monthly_payment_period_open(
-        mf.year_month::text,
-        public.get_monthly_payment_open_calculation_type(
-          tm.role::text,
-          tm.fee_billing_mode::text,
-          tm.training_program::text,
-          coalesce(
-            mf.calculation_type,
-            public.get_monthly_fee_calculation_type(
-              tm.role::text,
-              tm.fee_billing_mode::text,
-              tm.training_program::text
-            ),
-            'per_session'
-          )
-        ),
-        v_today
-      )$program-aware$;
-begin
-  select pg_get_functiondef('public.get_my_home_snapshot(date)'::regprocedure)
-  into v_function_def;
-
-  if position(v_program_aware_condition in v_function_def) = 0 then
-    v_next_def := replace(v_function_def, v_previous_condition, v_program_aware_condition);
-
-    if v_next_def = v_function_def then
-      raise exception 'get_my_home_snapshot monthly payment open condition not found';
-    end if;
-
-    execute v_next_def;
-  end if;
-end $$;
 
 create or replace function public.get_my_payment_submission_estimate(
   p_member_id uuid,
@@ -605,7 +412,9 @@ training_month_dates as (
     from (
       select configured_day.training_date::date as training_date
       from public.training_month_date_settings settings
-      cross join lateral unnest(coalesce(settings.training_dates, '{}'::date[])) as configured_day(training_date)
+      cross join lateral unnest(
+        coalesce(settings.training_dates, '{}'::date[])
+      ) as configured_day(training_date)
       where settings.month_start = month_input.month_start
         and coalesce(settings.program_key, 'chunggang_school_team') = linked_member.training_program_key
 
@@ -847,30 +656,17 @@ select
 from quarterly_context;
 $function$;
 
-revoke all on function public.get_school_team_monthly_per_session_amount(text, boolean) from public, anon, authenticated;
 revoke all on function public.get_school_team_monthly_calculation_mode(text) from public, anon, authenticated;
 revoke all on function public.get_school_team_single_monthly_amount(text, boolean) from public, anon, authenticated;
 revoke all on function public.get_school_team_monthly_per_session_defaults(text) from public, anon;
 revoke all on function public.save_school_team_monthly_per_session_defaults(text, text, integer, integer, integer) from public, anon;
-revoke all on function public.is_school_team_monthly_fee_discounted(uuid) from public, anon, authenticated;
-revoke all on function public.get_monthly_fee_calculation_type(text, text, text) from public, anon;
-revoke all on function public.get_monthly_fee_calculation_type(text, text) from public, anon;
-revoke all on function public.get_monthly_payment_open_calculation_type(text, text, text, text) from public, anon, authenticated;
-revoke all on function public.guard_profile_payment_submission_monthly_open_period() from public, anon, authenticated;
 revoke all on function public.get_my_payment_submission_estimate(uuid, text) from public, anon;
-revoke all on function public.get_my_home_snapshot(date) from public, anon;
 
-grant execute on function public.get_school_team_monthly_per_session_amount(text, boolean) to service_role;
 grant execute on function public.get_school_team_monthly_calculation_mode(text) to service_role;
 grant execute on function public.get_school_team_single_monthly_amount(text, boolean) to service_role;
 grant execute on function public.get_school_team_monthly_per_session_defaults(text) to authenticated, service_role;
 grant execute on function public.save_school_team_monthly_per_session_defaults(text, text, integer, integer, integer) to authenticated, service_role;
-grant execute on function public.is_school_team_monthly_fee_discounted(uuid) to service_role;
-grant execute on function public.get_monthly_fee_calculation_type(text, text, text) to authenticated, service_role;
-grant execute on function public.get_monthly_fee_calculation_type(text, text) to authenticated, service_role;
-grant execute on function public.get_monthly_payment_open_calculation_type(text, text, text, text) to service_role;
 grant execute on function public.get_my_payment_submission_estimate(uuid, text) to authenticated, service_role;
-grant execute on function public.get_my_home_snapshot(date) to authenticated, service_role;
 
 notify pgrst, 'reload schema';
 

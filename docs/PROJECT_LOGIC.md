@@ -201,7 +201,7 @@ UI 約定：
 - `team_members.joined_date` 記錄球員加入時間；既有名單無歷史資料時回填 `2026-02-01`，新建資料預設為台灣當天日期。
 - `team_members.grade` 記錄球員年級；新增 / 空值時依 `birth_date` 推算，出生日期 9 月 2 日以後預設晚一屆，名單年級每年 6 月 19 日自動升級，可由名單表單下拉選單手動調整。
 - 球員名單的 U-level 標籤依 `birth_date` 即時計算：今年生日已到或已過時顯示 `今年 - 出生年 + 1`，生日未到則顯示 `今年 - 出生年`；`U8` 以下統一顯示 `U8`，不使用年級或 9 月 2 日入學切點。
-- `team_members.training_program` 保存中港 / 新泰校隊身分；`team_group` 只作所屬群組（熊隊）使用，球員編輯表單不可把它鎖成訓練項目。
+- `team_members.training_program` 保存中港校隊 / 國中部身分；`team_group` 只作所屬群組（熊隊）使用，球員編輯表單不可把它鎖成訓練項目。
 - team group 設定使用 `teamGroups` store 與 `teamGroupsApi`；新增、改名、排序、刪除轉移都要同步影響 `PlayersView`、`TrainingView`、`TrainingLocationsView`、`LeaveRequestsView`、`RollCallView` 的組別選項。
 - 非 eligible role 不應保留 team group；刪除組別時要有轉移或清理策略。
 
@@ -381,8 +381,8 @@ UI 約定：
 
 資料流：
 
-- 管理者在 `/training-program-settings` 設定 program 名稱、對應舊資料 `team_group` fallback、預設星期、時間、場地與啟用狀態；中港總部預設週六 `09:00-12:30` / `中港國小`，新泰總部預設週日 `09:00-12:00` / `新泰國中`，這些值執行時從 DB 讀取。
-- `role = 校隊` 不新增 DB 角色；中港 / 新泰身分優先使用 `team_members.training_program`。`team_group` 保留為所屬群組（熊隊），只在舊資料沒有 `training_program` 時用來 fallback 對應 program；找不到對應時，校隊與計次月費成員 fallback 到中港總部 program。
+- 管理者在 `/training-program-settings` 設定 program 名稱、對應舊資料 `team_group` fallback、預設星期、時間、場地與啟用狀態；中港總部預設週六 `09:00-12:30` / `中港國小`，國中部預設週日 `09:00-12:00` / `新泰國中`，這些值執行時從 DB 讀取。
+- `role = 校隊` 不新增 DB 角色；中港校隊 / 國中部身分優先使用 `team_members.training_program`。`team_group` 保留為所屬群組（熊隊），只在舊資料沒有 `training_program` 時用來 fallback 對應 program；找不到對應時，校隊與計次月費成員 fallback 到中港總部 program。
 - 管理者在 `/training-dates` 先選 program 再選月份並勾選該月訓練日期；未設定月份依該 program 的 `default_weekdays` 產生。
 - 個人首頁透過 `get_my_home_snapshot()` / `get_training_month_dates()` 補齊 `training_month_dates_by_program`；切換 linked member 時顯示該成員 program 的本月日期。
 - `save_training_month_dates()` 只儲存指定 program 的日期與備註，不建立場地、不指派球員，也不取代 `/training-locations`。
@@ -518,14 +518,14 @@ UI 約定：
 
 - 後台費用頁管理月費、季費與付款回報審核。
 - `team_members.fee_billing_mode = 'monthly_fixed'` 代表社區球員固定月繳：角色仍為 `球員`，但有效繳費模式為月繳；月費表採固定金額減手動扣減，季費表與家庭季費分組排除該球員。
-- 中港與新泰校隊計次月費分開設定：中港使用 `chunggang_school_team`，新泰以 `team_members.role = '校隊'` 且 raw `team_members.training_program = 'junior_high_school_team'` 判斷，不從 `team_group` fallback 猜新泰身分；不改 `role`、不新增 `fee_billing_mode`，兩邊新建月費皆使用 `per_session` calculation，並在 `monthly_fees.per_session_fee` 留存當期單次費率快照。
+- 中港校隊與國中部月費分開設定：中港使用 `chunggang_school_team` 並固定依訓練日期計次；國中部以 `team_members.role = '校隊'` 且 raw `team_members.training_program = 'junior_high_school_team'` 判斷，不從 `team_group` fallback 猜國中部身分。國中部可在收費設定用 switch 切換 `single_monthly`／`training_dates`，預設為單次月費 2,000 元；單次月費存成 `monthly_fixed`／`fixed_monthly_fee` 快照，訓練日期模式存成 `per_session`／`per_session_fee` 快照。
 - `team_members.fee_billing_mode = 'monthly_per_session'` 代表球員計次月費：角色仍為 `球員`，但有效繳費模式為月繳；月費表採訓練日期堂數、請假扣減與單次金額公式，季費表與家庭季費分組排除該球員。
 - `team_members.fee_billing_mode = 'no_fee'` 代表球員 / 校隊不收費：不產生新的月費、季費與比賽費，也不進新的場地配置、點名與比賽名單；切換前既有帳款、付款回報、點名紀錄與歷史比賽資料保留，裝備加購付款仍維持自費。
 - 月費與季費的最早期別依 `team_members.joined_date` 所在月份判斷：月費從加入月份開始，季費從包含加入月份的季度開始（例如 `2026-08-01` 加入者不計 `2026-07` / `2026-Q2`，但可計 `2026-08` / `2026-Q3`）。管理端試算、`/my-payments` 動態待付款／付款估算、個人首頁摘要、費用管理提醒與手動催繳都沿用相同規則；既有已付款或已送審歷史保留。
-- 中港校隊、球員計次月費與新泰校隊計次月費的本月堂數，由 `/training-dates` 該球員 program 的訓練日期設定天數自動帶入，月費頁不可手動改堂數；`monthly_fees.training_program` 保留當期 program snapshot。中港校隊與社區計次球員只把該 program 訓練日期內的全日 / 上午假單扣除堂數，以球員 + 日期去重，不合併點名紀錄，公式為 `(訓練日數 - 符合條件的請假日數) × 單次費率 - 手動扣減`。新泰校隊仍顯示落在「新泰總部」訓練日期內的請假天數，但不從金額扣除，公式為 `新泰訓練日數 × 新泰單次費率 - 手動扣減`；社區固定月繳仍不參與堂數與請假計算。
-- `/fees` 月費頁支援球員搜尋與 program 篩選，摘要、小計、CSV 匯出都依目前篩選結果與 row-level 堂數顯示；收費設定使用 44px、ARIA 完整的分頁切換，計次與固定月繳成員在手機改用卡片編輯。計次月費名單會標示 program，但單次費率仍維持逐球員設定。
-- 家長端月費回報開放期別依計算方式區分：中港校隊、球員計次月費與新泰校隊計次月費需等月份結束後才開放前一個月；只有社區固定月繳每月 25 日起可提前回報下個月。
-- 社區固定月繳預設金額存在 `fee_settings.monthly_fixed_fee`，預設 2000。中港、新泰校隊單次費率分別存在 `system_settings.chunggang_monthly_per_session_defaults` 與 `system_settings.xintai_monthly_per_session_defaults`，各自的一般預設 500 元、半價 / 有效手足折扣預設 250 元；正式校隊月費紀錄會在 `monthly_fees.calculation_type = 'per_session'` 與 `monthly_fees.per_session_fee` 保留當月計算快照。既有 `monthly_fees` 帳款不自動回寫或重算，需由管理端重新試算並存檔才套用新規則。
+- 中港校隊、球員計次月費與國中部的本月堂數，由 `/training-dates` 該球員 program 的訓練日期設定天數自動帶入，月費頁不可手動改堂數；`monthly_fees.training_program` 保留當期 program snapshot。中港校隊與社區計次球員公式為 `(訓練日數 - 符合條件的全日／上午請假日數) × 單次費率 - 手動扣減`。國中部 `training_dates` 模式為 `訓練日數 × 國中部單次費率 - 手動扣減`，預設 `single_monthly` 模式為 `單次月費 - 手動扣減`；兩種模式都顯示訓練日內請假天數但不扣金額。社區固定月繳仍不參與堂數與請假計算。
+- `/fees` 月費結算以「中港總部／國中部」兩個 44px、ARIA 完整的固定分頁切換，不提供跨 program 的「全部」頁；搜尋、訓練堂數說明、摘要、小計與 CSV 匯出都只使用目前分頁，深層連結球員時會自動切到所屬分頁。一鍵存檔仍保存兩個分頁全部待儲存變更。收費設定另使用分頁切換，國中部 switch 與金額欄位在手機維持可換行、44px 操作區；社區計次與固定月繳成員在手機使用卡片編輯。
+- 家長端月費回報開放期別依成員身分與收費模式區分：國中部採預繳，每月 25 日起開放下個月；中港校隊與社區計次月費需等月份結束、下個月 1 日才開放；社區固定月繳同樣每月 25 日起可回報下個月。前端 `monthlyPaymentPeriods`、付款表單提示、DB submission trigger 與個人首頁付款摘要使用相同規則。
+- 社區固定月繳預設金額存在 `fee_settings.monthly_fixed_fee`，預設 2000。中港設定存在 `system_settings.chunggang_monthly_per_session_defaults`，一般／折扣單次費率預設 500／250 元；國中部設定存在 `system_settings.xintai_monthly_per_session_defaults`，包含 `calculation_mode`、預設 2,000 元的 `single_monthly_fee`，以及訓練日期模式的 500／250 元費率。國中部半價／有效手足在單次月費模式折半為 1,000 元。一般保留既有 `monthly_fees` 快照，由管理端重新試算並存檔才套用新規則；國中部單次月費上線 hotfix 僅例外修正台灣當月起、尚未繳且沒有待審付款回報的舊計次快照，已繳與送審中歷史不回寫。
 - 季費堂數不足補償依當月週六數與 `/training-dates` 訓練日期設定總天數計算；週五、週日或其他補課日都算一堂，設定天數達當月週六數即不補償。補償預設每日折抵為一般 500 元、半價 / 手足折扣 250 元，可在收費設定調整。系統只產生 `quarterly_fee_compensation_items` 待審核單，管理員核准後才以 `quarterly_compensation` source 寫入 `player_balance_transactions`。
 - 季繳付款回報的開放期別由 `src/utils/quarterlyPaymentSubmissions.ts` 與 DB helper `get_quarterly_payment_open_period_key()` 共同決定：以台灣日期為準，每季最後一個月 25 日起開放下一季；未開放的未來季在家長端不顯示可勾選，RPC / trigger 也會拒絕寫入，過去未繳季度仍可補繳。
 - 個人付款回報由 `myPayments` RPC 建立，可選用球員餘額；一般繳費與裝備付款都在管理端確認時才正式扣餘額。
@@ -537,7 +537,7 @@ UI 約定：
 - `/fees` 比賽費卡依日期與開始時間由早到晚排列、未知時間在當日最後，並預設收合。全場皆取消且無任何付款歷程時，`fees:DELETE` 可用 `delete_cancelled_match_fee_group()` 原子刪除；刪除賽事時，無歷程費用直接清除，待審 / 已付款會阻擋，已駁回 / 回滾的歷史明細則解除 `match_id` 並保留取消稽核紀錄。
 - 比賽時間修改沿用 `matches.id`，Google Calendar 同步沿用 event UID，因此同步只更新既有費用；刪除後重新建立使用新 ID，舊無歷程費用已清除且新費用維持未開放，不以名稱或日期模糊合併。
 - 費用提醒由 `get_fee_management_reminders()` 與 `get_notification_feed()` 整合進通知中心。
-- 手動催繳通知在 `/fees` 頁首開啟 `FeePaymentReminderDialog`，只給 `fees:EDIT` / `ADMIN` 使用；管理者可勾選中港校隊、新泰校隊與社區，選擇月費月份與季費季度後手動 preview / send，不做 cron 或自動排程。正式催繳只處理已存檔月費與季費未繳，依 linked profile 發送 targeted Web Push，通知 URL 為 `/my-payments`；月費結算若仍有「一鍵存檔」待儲存變更，Dialog 會提醒管理者先存檔並阻擋預覽 / 測試 / 發送；測試通知只給 `ADMIN`，且目標固定為目前登入管理員，文案與正式催繳相同，但只用該管理員綁定球員的未繳帳款組成內容。
+- 手動催繳通知在 `/fees` 頁首開啟 `FeePaymentReminderDialog`，只給 `fees:EDIT` / `ADMIN` 使用；管理者可勾選中港校隊、國中部與社區，選擇月費月份與季費季度後手動 preview / send，不做 cron 或自動排程。正式催繳只處理已存檔月費與季費未繳，依 linked profile 發送 targeted Web Push，通知 URL 為 `/my-payments`；月費結算若仍有「一鍵存檔」待儲存變更，Dialog 會提醒管理者先存檔並阻擋預覽 / 測試 / 發送；測試通知只給 `ADMIN`，且目標固定為目前登入管理員，文案與正式催繳相同，但只用該管理員綁定球員的未繳帳款組成內容。
 - Google Form 匯款資料走 `record-fee-remittance`，以 secret 驗證並建立付款 / 通知資料。
 
 重要規則：

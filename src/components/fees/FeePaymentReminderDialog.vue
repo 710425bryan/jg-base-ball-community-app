@@ -39,8 +39,8 @@ const visible = computed({
 })
 
 const categoryDescriptions: Record<FeePaymentReminderCategory, string> = {
-  chunggang_school_team: '校隊，且非新泰校隊',
-  xintai_school_team: '校隊，訓練項目為新泰校隊',
+  chunggang_school_team: '校隊，且訓練項目非國中部',
+  xintai_school_team: '校隊，訓練項目為國中部',
   community: '球員身分的月費或季費'
 }
 

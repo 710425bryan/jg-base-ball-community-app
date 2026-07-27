@@ -22,3 +22,10 @@ describe('PlayersView mobile filters', () => {
     expect(narrowScreenStyles).not.toMatch(/\.players-toolbar-filters\s*\{\s*display:\s*grid;/)
   })
 })
+
+describe('PlayersView school-team identity terminology', () => {
+  it('shows the junior-high program as 國中部', () => {
+    expect(source).toContain("{ label: '國中部', value: XINTAI_PLAYER_IDENTITY }")
+    expect(source).not.toContain("{ label: '新泰校隊', value: XINTAI_PLAYER_IDENTITY }")
+  })
+})

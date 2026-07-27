@@ -866,7 +866,7 @@ const defaultCommunityTeamGroupValue = computed(() =>
 const memberIdentityOptions: Array<{ label: string; value: MemberIdentity }> = [
   { label: '社區球員', value: COMMUNITY_PLAYER_IDENTITY },
   { label: '中港校隊', value: CHUNGGANG_PLAYER_IDENTITY },
-  { label: '新泰校隊', value: XINTAI_PLAYER_IDENTITY },
+  { label: '國中部', value: XINTAI_PLAYER_IDENTITY },
   { label: '教練', value: '教練' },
   { label: '管理群', value: '管理群' },
   { label: '其他', value: '其他' }
@@ -2332,8 +2332,7 @@ const getRoleClass = (role: string) => {
     case '球員': return 'border-primary text-primary bg-primary/10'
     case '中港校隊':
     case '中港球員': return 'border-pink-400 text-pink-600 bg-pink-50 shadow-sm'
-    case '新泰校隊':
-    case '新泰球員': return 'border-emerald-400 text-emerald-700 bg-emerald-50 shadow-sm'
+    case '國中部': return 'border-emerald-400 text-emerald-700 bg-emerald-50 shadow-sm'
     case '校隊': return 'border-pink-400 text-pink-600 bg-pink-50 shadow-sm'
     case '教練': return 'border-secondary text-[#ca8a04] bg-secondary/10'
     case '管理群': return 'border-slate-800 text-slate-800 bg-slate-100'

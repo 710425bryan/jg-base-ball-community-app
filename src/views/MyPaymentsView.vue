@@ -594,6 +594,7 @@ import {
 import {
   getMonthlyPaymentOpenPeriodKey,
   getNextMonthlyPaymentPeriodInfo,
+  isAdvanceMonthlyPaymentMember,
   isMonthlyPaymentPeriodOpen
 } from '@/utils/monthlyPaymentPeriods'
 import {
@@ -935,6 +936,10 @@ const createDialogEstimateHelperText = computed(() => {
   }
 
   if (createDialogMember.value.billing_mode === 'monthly') {
+    if (isXintaiPerSessionBillingMember(createDialogMember.value)) {
+      return '國中部月費每月 25 日起開放下個月，會依收費設定採單次月費，或依國中部當月訓練日期與單次費率自動帶入；請假只記錄、不扣款。'
+    }
+
     if (isFixedMonthlyPaymentMember(createDialogMember.value)) {
       return `${getPaymentMemberBillingLabel(createDialogMember.value)}會依收費設定的固定金額與既有月費扣減自動帶入金額。`
     }
@@ -998,7 +1003,14 @@ const createDialogMonthlyFormulaText = computed(() => {
   }
 
   if (estimate.calculation_type === 'monthly_fixed') {
-    return `${createDialogBillingModeLabel.value} ${formatCurrency(estimate.fixed_monthly_fee || 0)}，扣減 ${formatCurrency(estimate.deduction_amount)}`
+    const modeLabel = isXintaiPerSessionBillingMember(createDialogMember.value)
+      ? '國中部單次月費'
+      : createDialogBillingModeLabel.value
+    const leaveText = isXintaiPerSessionBillingMember(createDialogMember.value)
+      && estimate.leave_sessions != null
+        ? `；請假 ${estimate.leave_sessions} 天僅記錄、不扣款`
+        : ''
+    return `${modeLabel} ${formatCurrency(estimate.fixed_monthly_fee || 0)}，扣減 ${formatCurrency(estimate.deduction_amount)}${leaveText}`
   }
 
   if (
@@ -1886,8 +1898,8 @@ const submissionRules = {
         ) {
           const openPeriodKey = getMonthlyPaymentOpenPeriodKey(getPaymentMemberBillingConfig(targetMember))
           callback(new Error(
-            isFixedMonthlyPaymentMember(targetMember)
-              ? `${getPaymentMemberBillingLabel(targetMember)}目前只能新增 ${openPeriodKey} 或更早月份`
+            isAdvanceMonthlyPaymentMember(getPaymentMemberBillingConfig(targetMember))
+              ? `${getPaymentMemberBillingLabel(targetMember)}每月 25 日開放下個月，目前只能新增 ${openPeriodKey} 或更早月份`
               : `計次月費需等月份結束，目前只能新增 ${openPeriodKey} 或更早月份`
           ))
           return

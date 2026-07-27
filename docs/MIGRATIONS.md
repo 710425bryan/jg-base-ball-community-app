@@ -74,8 +74,8 @@
 | `supabase_zz_training_hotfix_verify.sql` | 特訓 hotfix 驗證 | 驗證用 SQL |
 | `supabase_training_dates_migration.sql` | 每月訓練日期設定、換月預設日期排程與日期異動通知 | `/training-dates` 主線，覆寫 `get_notification_feed()` / `get_my_home_snapshot()`，新增 `training-month-date-defaults-daily` DB cron |
 | `supabase_zzzzzzzzzzzzzzzzzz_training_program_scope_migration.sql` | 訓練項目設定與 program 分流 | 新增 `training_program_settings`、`training_month_date_settings.program_key`、`training_location_sessions.program_key`、`monthly_fees.training_program`，並新增 program-aware dates / locations RPC overload |
-| `supabase_zzzzzzzzzzzzzzzzzzzz_team_member_training_program_hotfix.sql` | 球員中港 / 新泰身分欄位 hotfix | 新增 `team_members.training_program` 並讓 program 判斷優先使用該欄，`team_group` 回歸所屬群組（熊隊） |
-| `supabase_zzzzzzzzzzzzzzzzzzzzz_training_program_label_rename_migration.sql` | 訓練項目顯示名稱調整 | 將預設 program label 更新為「中港總部」與「新泰總部」，不修改 program key 或舊 `team_group` fallback |
+| `supabase_zzzzzzzzzzzzzzzzzzzz_team_member_training_program_hotfix.sql` | 球員中港校隊 / 國中部身分欄位 hotfix | 新增 `team_members.training_program` 並讓 program 判斷優先使用該欄，`team_group` 回歸所屬群組（熊隊） |
+| `supabase_zzzzzzzzzzzzzzzzzzzzz_training_program_label_rename_migration.sql` | 訓練項目舊版顯示名稱調整 | 調整舊版預設 program label，不修改 program key 或舊 `team_group` fallback；現行名稱再由最新國中部 label migration 覆寫 |
 | `supabase_training_locations_migration.sql` | 場地與人員配置主 migration | `/training-locations` 主線 |
 | `supabase_training_locations_assignment_schema_hotfix.sql` | 場地指派 schema hotfix | 修改 assignment 前讀 |
 | `supabase_zzzzzzzzz_training_location_attendance_migration.sql` | 場地配置連動點名 | 覆寫場地列表 / 儲存 RPC，新增 `attendance_events.training_location_session_id` / `training_location_session_venue_id` |
@@ -130,8 +130,10 @@
 | `supabase_zzzzzzzzzzzz_quarterly_payment_open_period_migration.sql` | 季繳付款回報開放期別 | 每季最後一個月 25 日起開放下一季；覆寫付款估算 RPC，新增付款回報 trigger 防止未開放未來季寫入 |
 | `supabase_zzzzzzzzzzzzzz_monthly_payment_open_period_migration.sql` | 月繳付款回報開放期別 | 計次月費只開放已結束月份；固定月繳球員每月 25 日起開放下月，並以 trigger 防止未開放月份寫入 |
 | `supabase_zzzzzzzzzzzzzzzzzzzzzzzzzzzzz_my_home_payment_open_period_migration.sql` | 個人首頁付款待辦開放期別 hotfix | 覆寫 `get_my_home_snapshot()` 欠費摘要，只統計已開放付款的月費 / 季費期別 |
-| `supabase_zzzzzzzzzzzzzzzzzzzzzz_xintai_fixed_monthly_billing_migration.sql` | 新泰校隊固定月繳先收（歷史規則） | 新增 3 參數月費計算 helper；此規則後續由 `supabase_zzzzzzzzzzzzzzzzzzzzzzzz_school_team_training_date_per_session_migration.sql` 覆寫，保留本列作部署歷史索引 |
-| `supabase_zzzzzzzzzzzzzzzzzzzzzzzz_school_team_training_date_per_session_migration.sql` | 中港／新泰校隊獨立訓練日期計次月費 | 覆寫先前新泰固定月繳規則；中港按所屬訓練日扣除有效請假日，新泰請假只記錄不扣款，兩邊再使用各自可設定的一般 500／半價與手足 250 單次費率；同步家長付款試算與期別開放判斷，既有帳款不自動回寫 |
+| `supabase_zzzzzzzzzzzzzzzzzzzzzz_xintai_fixed_monthly_billing_migration.sql` | 國中部固定月繳先收（歷史規則） | 新增 3 參數月費計算 helper；此規則後續由 `supabase_zzzzzzzzzzzzzzzzzzzzzzzz_school_team_training_date_per_session_migration.sql` 覆寫，保留本列作部署歷史索引 |
+| `supabase_zzzzzzzzzzzzzzzzzzzzzzzz_school_team_training_date_per_session_migration.sql` | 中港校隊計次與國中部可切換月費 | 中港固定按訓練日扣除有效請假日；國中部預設單次月費 2,000 元，也可切換依當月訓練日期計算，兩種模式請假只記錄不扣款；國中部每月 25 日預繳下月，中港次月 1 日才開放，並同步設定 RPC、付款 trigger、家長試算與首頁摘要；既有帳款不自動回寫 |
+| `supabase_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz_junior_high_school_label_migration.sql` | 國中部顯示名稱統一 | 將 `junior_high_school_team` program label 與 `xintai_monthly_per_session_defaults` 設定描述統一為「國中部」，保留既有內部 key 與計費判斷 |
+| `supabase_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz_junior_high_single_monthly_payment_estimate_hotfix.sql` | 國中部單次月費付款估算 hotfix | 補齊單次月費設定／RPC，讓新增付款回報吃到設定金額；只修正台灣當月起、尚未繳且無待審回報的國中部舊快照，保留已繳／送審中歷史 |
 | `supabase_member_joined_fee_period_guard_migration.sql` | 月費／季費加入月份起算 | 新增加入期別 helper 與寫入 trigger，覆寫付款紀錄並補強付款估算、付款 RPC、首頁摘要及費用提醒，加入前未繳不再產生或顯示，已付款／送審歷史保留 |
 | `supabase_match_fees_migration.sql` | 比賽費 items / submissions | 比賽費與餘額整合 |
 | `supabase_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz_match_fee_payment_open_state_migration.sql` | 比賽費手動開放與防重複保護 | 新增 `matches.match_fee_payment_*`、應收簽章、開放 / 關閉與取消群組刪除 RPC；linked member 只讀已開放或已有付款歷程的項目，付款鎖定場次重驗，賽事刪除依付款歷程清除 / 阻擋 / 保留稽核紀錄 |

@@ -41,6 +41,16 @@ describe('MyPaymentsView Xintai monthly estimate', () => {
     expect(source).toContain('總堂數 ${estimate.total_sessions} − 請假 ${estimate.leave_sessions} = ${attendedSessions} 堂')
     expect(source).toContain('每堂 ${formatCurrency(estimate.per_session_fee)}')
     expect(source).not.toContain('每日折抵')
+    expect(source).toContain("? '國中部單次月費'")
+  })
+
+  it('opens Xintai advance payments on the 25th while keeping Chunggang in arrears', () => {
+    expect(source).toContain('isAdvanceMonthlyPaymentMember')
+    expect(source).toContain('國中部月費每月 25 日起開放下個月')
+    expect(source).toContain('採單次月費，或依國中部當月訓練日期')
+    expect(source).toContain('每月 25 日開放下個月，目前只能新增')
+    expect(source).toContain('計次月費需等月份結束')
+    expect(source).not.toContain('新泰計次月費')
   })
 })
 

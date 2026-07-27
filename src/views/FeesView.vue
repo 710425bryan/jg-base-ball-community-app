@@ -126,7 +126,10 @@
             @reviewed="handleMatchPaymentReviewed"
           />
           <div v-show="activeTab === 'monthly'">
-            <SchoolTeamFees @summary-change="handleMonthlySummaryChange" />
+            <SchoolTeamFees
+              ref="schoolTeamFeesRef"
+              @summary-change="handleMonthlySummaryChange"
+            />
           </div>
           <div v-show="activeTab === 'quarterly'">
             <QuarterlyFees @summary-change="handleQuarterlySummaryChange" />
@@ -141,7 +144,7 @@
             <PlayerBalanceManager />
           </div>
           <div v-show="activeTab === 'settings'">
-            <FeeSettings />
+            <FeeSettings @school-team-monthly-settings-updated="refreshMonthlyFeesAfterSettingsChange" />
           </div>
         </template>
       </div>
@@ -215,9 +218,14 @@ const createEmptySummary = (): FeeSummarySnapshot => ({
 const monthlySummary = ref<FeeSummarySnapshot>(createEmptySummary())
 const quarterlySummary = ref<FeeSummarySnapshot>(createEmptySummary())
 const matchFeeSummary = ref<FeeSummarySnapshot>(createEmptySummary())
+const schoolTeamFeesRef = ref<InstanceType<typeof SchoolTeamFees> | null>(null)
 const matchFeeManagementPanelRef = ref<InstanceType<typeof MatchFeeManagementPanel> | null>(null)
 const SUMMARY_COLLAPSE_SCROLL_TOP = 32
 const SUMMARY_EXPAND_SCROLL_TOP = 8
+
+const refreshMonthlyFeesAfterSettingsChange = () => {
+  void schoolTeamFeesRef.value?.refresh()
+}
 
 watch(() => [route.query.tab, route.query.highlight_match_submission_id], ([newTab, matchSubmissionId]) => {
   if (matchSubmissionId) {

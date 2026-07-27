@@ -43,7 +43,7 @@ describe('trainingDatesApi', () => {
       month_start: '2026-07-01',
       month: '2026-07',
       program_key: 'junior_high',
-      program_label: '新泰總部',
+      program_label: '國中部',
       training_dates: ['2026-07-04', '2026-07-11'],
       note: '暑訓',
       is_default: false
@@ -95,7 +95,7 @@ describe('trainingDatesApi', () => {
       changed: true,
       month_start: '2026-07-01',
       program_key: 'junior_high',
-      program_label: '新泰總部',
+      program_label: '國中部',
       training_dates: ['2026-07-04'],
       added_dates: ['2026-07-04'],
       removed_dates: [],
@@ -109,7 +109,7 @@ describe('trainingDatesApi', () => {
       body: {
         month_start: '2026-07-01',
         program_key: 'junior_high',
-        program_label: '新泰總部',
+        program_label: '國中部',
         training_dates: ['2026-07-04'],
         added_dates: ['2026-07-04'],
         removed_dates: [],

@@ -129,7 +129,7 @@ onMounted(() => {
     <div class="mx-auto flex max-w-6xl flex-col gap-4">
       <AppPageHeader
         title="訓練項目設定"
-        subtitle="管理中港總部、新泰總部等訓練項目的預設星期、時間與場地。"
+        subtitle="管理中港總部、國中部等訓練項目的預設星期、時間與場地。"
         :icon="Setting"
         as="h2"
       >
@@ -202,7 +202,7 @@ onMounted(() => {
               </h3>
               <div class="grid min-w-0 gap-4 md:grid-cols-2">
                 <el-form-item label="項目名稱" class="training-program-field !mb-0 min-w-0 font-bold">
-                  <el-input v-model="setting.label" :disabled="!canEdit" size="large" placeholder="例如：新泰總部" />
+                  <el-input v-model="setting.label" :disabled="!canEdit" size="large" placeholder="例如：國中部" />
                 </el-form-item>
                 <el-form-item label="項目代碼" class="training-program-field !mb-0 min-w-0 font-bold">
                   <el-input v-model="setting.program_key" :disabled="!canEdit || Boolean(setting.created_at)" size="large" placeholder="例如：junior_high_school_team" />

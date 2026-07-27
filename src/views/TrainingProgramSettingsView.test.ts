@@ -26,4 +26,10 @@ describe('TrainingProgramSettingsView mobile layout', () => {
     expect(source).toContain('default_weekdays: setting.default_weekdays')
     expect(source).toContain('default_venue_maps_url: setting.default_venue_maps_url')
   })
+
+  it('uses the 國中部 program label in visible guidance', () => {
+    expect(source).toContain('管理中港總部、國中部等訓練項目')
+    expect(source).toContain('placeholder="例如：國中部"')
+    expect(source).not.toContain('新泰總部')
+  })
 })

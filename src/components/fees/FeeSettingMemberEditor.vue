@@ -70,7 +70,7 @@ const saveButtonClass = (memberId: string) => {
             class="whitespace-nowrap rounded border px-1.5 py-0.5 text-[10px] font-bold"
             :class="getTrainingProgramTagClass(member.training_program)"
           >
-            {{ member.training_program_label || (isFixedMonthly ? '新泰總部' : '中港總部') }}
+            {{ member.training_program_label || (isFixedMonthly ? '國中部' : '中港總部') }}
           </span>
           <span
             v-if="member.has_active_fee_sibling"
@@ -130,7 +130,7 @@ const saveButtonClass = (memberId: string) => {
                   class="whitespace-nowrap rounded border px-1.5 py-0.5 text-[10px] font-bold"
                   :class="getTrainingProgramTagClass(member.training_program)"
                 >
-                  {{ member.training_program_label || (isFixedMonthly ? '新泰總部' : '中港總部') }}
+                  {{ member.training_program_label || (isFixedMonthly ? '國中部' : '中港總部') }}
                 </span>
                 <span
                   v-if="member.has_active_fee_sibling"

@@ -211,7 +211,7 @@
 ### 場地與人員配置
 
 - 後台路由 `/training-program-settings` 與 `/training-dates`，feature key 為 `training_dates`，actions：`VIEW / EDIT`；訓練項目設定使用 `training_program_settings`，只保存 program 名稱、對應 `team_group`、預設星期 / 時間 / 場地與啟用狀態。
-- `role = 校隊` 保持不變；中港 / 新泰身分存於 `team_members.training_program`，`team_group` 只作所屬群組（熊隊）使用。舊資料若沒有 `training_program`，才 fallback 用 `team_group` 對應 `training_program_settings.team_group`；仍找不到時校隊與計次月費 fallback 到中港總部 program。
+- `role = 校隊` 保持不變；中港校隊 / 國中部身分存於 `team_members.training_program`，`team_group` 只作所屬群組（熊隊）使用。舊資料若沒有 `training_program`，才 fallback 用 `team_group` 對應 `training_program_settings.team_group`；仍找不到時校隊與計次月費 fallback 到中港總部 program。
 - 資料表為 `training_month_date_settings`；`program_key` 與 `month_start` 共同決定每個 program 的月份設定。未設定月份由 `get_training_month_dates(p_month, p_program_key)` 依訓練項目預設星期產生。
 - 後台儲存走 `save_training_month_dates()`，只管理該 program 日期，不取代 `/training-locations` 的場地與人員配置。
 - DB 排程 `training-month-date-defaults-daily` 於台灣時間每日 00:05 呼叫 `ensure_training_month_date_setting()`；每月 1 日會自動建立預設設定，已存在設定時不覆蓋，也不發送通知。
@@ -243,12 +243,12 @@
 - 個人繳費回報走 `profile_payment_submissions` RPC；管理端審核在費用頁。
 - 球員餘額以 `player_balance_transactions` 流水帳管理，餘額屬於 `team_members`；管理員可手動調整與確認溢繳入帳，家長自助使用餘額後仍需管理端確認才正式扣款。
 - 社區球員固定月繳用 `team_members.fee_billing_mode = 'monthly_fixed'` 表示；球員身分仍是 `球員`，但併入 `monthly_fees`、排除 `quarterly_fees`，金額從 `fee_settings.monthly_fixed_fee` 帶入並在 `monthly_fees.fixed_monthly_fee` 留快照。
-- 校隊計次月費依 program 分開設定費率：中港校隊使用 `chunggang_school_team`，新泰校隊用 `role = 校隊` 且 raw `team_members.training_program = 'junior_high_school_team'` 判斷，不改 `role`、不從 `team_group` fallback 猜新泰身分；兩邊新建月費都使用 `per_session` calculation，並在 `monthly_fees.per_session_fee` 保留當期單次費率快照。
+- 校隊月費依 program 分開設定：中港校隊使用 `chunggang_school_team` 並固定採訓練日期計次；國中部用 `role = 校隊` 且 raw `team_members.training_program = 'junior_high_school_team'` 判斷，不改 `role`、不從 `team_group` fallback 猜身分。國中部可在收費設定切換 `single_monthly`／`training_dates`，預設 `single_monthly` 2,000 元；單次月費以 `monthly_fees.calculation_type = 'monthly_fixed'`、`fixed_monthly_fee` 留快照，訓練日期模式則以 `per_session`、`per_session_fee` 留快照。
 - 球員計次月費用 `team_members.fee_billing_mode = 'monthly_per_session'` 表示；球員身分仍是 `球員`，但隊費併入 `monthly_fees`、排除 `quarterly_fees`，堂數 / 請假 / 單次金額公式與校隊計次月費相同。
-- 中港校隊、新泰校隊與球員計次月費各自使用所屬 `/training-dates` 訓練日期。中港校隊與社區計次球員只把訓練日內全日 / 上午假單扣除堂數，公式為 `(訓練日數 - 符合條件的請假日數) × 單次費率 - 手動扣減`；新泰校隊的請假天數只作紀錄，不扣月費，公式為 `訓練日數 × 新泰單次費率 - 手動扣減`。中港、新泰一般單次費率預設 500 元、半價 / 有效手足折扣預設 250 元；社區計次球員仍逐人設定費率，社區固定月繳不參與堂數與請假計算。
+- 中港校隊、國中部與球員計次月費各自使用所屬 `/training-dates` 訓練日期。中港校隊與社區計次球員只把訓練日內全日 / 上午假單扣除堂數，公式為 `(訓練日數 - 符合條件的請假日數) × 單次費率 - 手動扣減`；國中部在 `training_dates` 模式的公式為 `訓練日數 × 國中部單次費率 - 手動扣減`，在預設 `single_monthly` 模式則為 `單次月費 - 手動扣減`。國中部兩種模式的請假天數都只作紀錄、不扣月費；單次月費一般預設 2,000 元，半價 / 有效手足折扣為 1,000 元，訓練日期模式的一般／折扣單次費率預設 500／250 元。社區計次球員仍逐人設定費率，社區固定月繳不參與堂數與請假計算。
 - 球員 / 校隊不收費用 `team_members.fee_billing_mode = 'no_fee'` 表示；不產生新的月費、季費與比賽費，切換前既有帳款保留，裝備加購付款仍維持自費。
 - 月費與季費都必須以 `team_members.joined_date` 的月份作為最早收費期別：月費不可早於加入月份，季費不可早於包含加入月份的季度；加入前的未繳費不可出現在管理端試算、家長待付款、首頁摘要或催繳通知，已付款／送審歷史則保留稽核。
-- 月繳付款回報開放期別依 `monthly_fees.calculation_type` / 有效收費模式判斷：中港校隊、球員計次月費與新泰校隊計次月費只開放已結束月份，避免本月堂數與請假還沒完整就提前收費；只有社區固定月繳每月 25 日起開放下個月。前端 helper、RPC / DB trigger 與文件規則必須同步；既有 `monthly_fees` 帳款不自動回寫或重算。
+- 月繳付款回報開放期別依成員身分與有效收費模式判斷：國中部採預繳，每月 25 日起開放下個月；中港校隊與社區計次月費需等月份結束、下個月 1 日才開放；社區固定月繳同樣每月 25 日起開放下個月。前端 helper、付款估算、DB trigger 與個人首頁摘要必須同步，且國中部身分只依 raw `training_program = 'junior_high_school_team'` 判斷。一般保留既有 `monthly_fees` 快照；國中部單次月費上線 hotfix 例外只修正台灣當月起、尚未繳且沒有待審付款回報的舊計次快照；已繳與送審中歷史不回寫。
 - 季繳球員付款回報以台灣日期判斷開放期別：每季最後一個月 25 日起開放下一季，開放前不可新增未來季付款回報；過去未繳季度仍可補繳。
 - 裝備付款在加購申請 `approved` 後即可回報，費用端確認收款只代表款項已完成，不代表商品已備貨或已領取；若要刪除已收款測試請購，必須先走退款 / 作廢收款，並反向處理球員餘額。
 - 多品項裝備在 `/my-payments` 與管理端付款清單顯示履約狀態時，必須依交易所屬請購品項的 `ready_at` / `picked_up_at` 判斷；父請購單聚合狀態不可覆蓋單一品項已備貨或已領取的狀態。

@@ -51,7 +51,7 @@ describe('memberBilling', () => {
     expect(isFixedMonthlyBillingMember(xintaiSchoolMember)).toBe(false)
     expect(getEffectivePaymentBillingMode(xintaiSchoolMember)).toBe('monthly')
     expect(getMonthlyFeeCalculationType(xintaiSchoolMember)).toBe('per_session')
-    expect(getMemberBillingLabel(xintaiSchoolMember)).toBe('新泰計次月費')
+    expect(getMemberBillingLabel(xintaiSchoolMember)).toBe('國中部月費')
     expect(isFixedMonthlyBillingMember(chunggangSchoolMember)).toBe(false)
     expect(getMonthlyFeeCalculationType(chunggangSchoolMember)).toBe('per_session')
     expect(getMemberBillingLabel(chunggangSchoolMember)).toBe('校隊月繳')

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   CHUNGGANG_SCHOOL_TEAM_PROGRAM_KEY,
   JUNIOR_HIGH_SCHOOL_TEAM_PROGRAM_KEY,
+  JUNIOR_HIGH_SCHOOL_TEAM_PROGRAM_LABEL,
   getTrainingProgramFallbackSettings,
   getTrainingProgramKeyForMember,
   getTrainingProgramTagClass,
@@ -20,10 +21,16 @@ describe('trainingPrograms', () => {
       is_active: true
     })).toMatchObject({
       program_key: 'junior_high',
-      label: '新泰總部',
+      label: JUNIOR_HIGH_SCHOOL_TEAM_PROGRAM_LABEL,
       default_weekdays: [0],
       is_active: true
     })
+    expect(normalizeTrainingProgramSetting({
+      program_key: JUNIOR_HIGH_SCHOOL_TEAM_PROGRAM_KEY,
+      label: '新泰總部',
+      default_weekdays: [0]
+    }).label).toBe(JUNIOR_HIGH_SCHOOL_TEAM_PROGRAM_LABEL)
+    expect(getTrainingProgramFallbackSettings()[1].label).toBe(JUNIOR_HIGH_SCHOOL_TEAM_PROGRAM_LABEL)
   })
 
   it('maps junior high team_group to junior high program', () => {

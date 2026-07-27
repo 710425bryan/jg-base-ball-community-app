@@ -4,6 +4,7 @@ import {
   getMonthlyPaymentOpenPeriodKey,
   getMonthlyPeriodIndex,
   getNextMonthlyPaymentPeriodInfo,
+  isAdvanceMonthlyPaymentMember,
   isMonthlyPaymentPeriodOpen
 } from './monthlyPaymentPeriods'
 
@@ -28,20 +29,23 @@ describe('monthlyPaymentPeriods', () => {
     expect(getMonthlyPaymentOpenPeriodKey(perSessionMonthlyPlayer, dayjs('2026-07-01'))).toBe('2026-06')
   })
 
-  it('opens only community fixed monthly periods from the 25th', () => {
+  it('opens Xintai and community fixed monthly periods in advance from the 25th', () => {
     expect(getMonthlyPaymentOpenPeriodKey(fixedMonthlyPlayer, dayjs('2026-07-24'))).toBe('2026-07')
     expect(getMonthlyPaymentOpenPeriodKey(fixedMonthlyPlayer, dayjs('2026-07-25'))).toBe('2026-08')
     expect(getMonthlyPaymentOpenPeriodKey(fixedMonthlyPlayer, dayjs('2026-12-25'))).toBe('2027-01')
-    expect(getMonthlyPaymentOpenPeriodKey(xintaiSchoolTeamMember, dayjs('2026-07-24'))).toBe('2026-06')
-    expect(getMonthlyPaymentOpenPeriodKey(xintaiSchoolTeamMember, dayjs('2026-07-25'))).toBe('2026-06')
+    expect(getMonthlyPaymentOpenPeriodKey(xintaiSchoolTeamMember, dayjs('2026-07-24'))).toBe('2026-07')
+    expect(getMonthlyPaymentOpenPeriodKey(xintaiSchoolTeamMember, dayjs('2026-07-25'))).toBe('2026-08')
+    expect(getMonthlyPaymentOpenPeriodKey(xintaiSchoolTeamMember, dayjs('2026-12-25'))).toBe('2027-01')
+    expect(isAdvanceMonthlyPaymentMember(xintaiSchoolTeamMember)).toBe(true)
+    expect(isAdvanceMonthlyPaymentMember(chunggangSchoolTeamMember)).toBe(false)
   })
 
   it('keeps past monthly periods payable but blocks unopened future months', () => {
     expect(getMonthlyPeriodIndex('2026-07')).toBe(24319)
     expect(isMonthlyPaymentPeriodOpen(chunggangSchoolTeamMember, '2026-06', dayjs('2026-07-01'))).toBe(true)
     expect(isMonthlyPaymentPeriodOpen(chunggangSchoolTeamMember, '2026-07', dayjs('2026-07-01'))).toBe(false)
-    expect(isMonthlyPaymentPeriodOpen(xintaiSchoolTeamMember, '2026-07', dayjs('2026-07-31'))).toBe(false)
-    expect(isMonthlyPaymentPeriodOpen(xintaiSchoolTeamMember, '2026-07', dayjs('2026-08-01'))).toBe(true)
+    expect(isMonthlyPaymentPeriodOpen(xintaiSchoolTeamMember, '2026-08', dayjs('2026-07-24'))).toBe(false)
+    expect(isMonthlyPaymentPeriodOpen(xintaiSchoolTeamMember, '2026-08', dayjs('2026-07-25'))).toBe(true)
     expect(isMonthlyPaymentPeriodOpen(perSessionMonthlyPlayer, '2026-07', dayjs('2026-07-01'))).toBe(false)
     expect(isMonthlyPaymentPeriodOpen(fixedMonthlyPlayer, '2026-08', dayjs('2026-07-24'))).toBe(false)
     expect(isMonthlyPaymentPeriodOpen(fixedMonthlyPlayer, '2026-08', dayjs('2026-07-25'))).toBe(true)
@@ -53,8 +57,8 @@ describe('monthlyPaymentPeriods', () => {
       openDate: '2026-08-01'
     })
     expect(getNextMonthlyPaymentPeriodInfo(xintaiSchoolTeamMember, dayjs('2026-07-01'))).toEqual({
-      periodKey: '2026-07',
-      openDate: '2026-08-01'
+      periodKey: '2026-08',
+      openDate: '2026-07-25'
     })
     expect(getNextMonthlyPaymentPeriodInfo(fixedMonthlyPlayer, dayjs('2026-07-01'))).toEqual({
       periodKey: '2026-08',

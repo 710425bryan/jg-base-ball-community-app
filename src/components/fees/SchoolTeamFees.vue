@@ -38,7 +38,7 @@
       <div class="w-full sm:w-auto flex flex-col gap-1.5 border-l-0 sm:border-l border-gray-200 pl-0 sm:pl-4">
         <span class="text-xs font-bold text-gray-500">月份統計說明</span>
         <p class="text-xs text-gray-500 leading-relaxed max-w-sm">
-          中港與新泰分開使用各自總部的訓練日期與單次費率；兩邊都只扣訓練日內的全日 / 上午假單。
+          中港校隊依訓練日期計次；國中部依收費設定使用單次月費，或切換為當月訓練日期計算。國中部請假只記錄、不扣款。
         </p>
         <p class="text-[11px] text-gray-400 leading-relaxed max-w-sm">
           {{ trainingMonthDateSummary }}
@@ -80,71 +80,48 @@
     </div>
 
     <div class="bg-white p-5 md:p-6 rounded-2xl border border-gray-100 shadow-sm">
-      <div class="app-search-filter-bar mb-4 md:grid-cols-[minmax(0,1fr)_220px]">
-        <el-input v-model="searchQuery" size="large" clearable class="app-search-control" placeholder="搜尋球員、組別或訓練項目" />
-        <button
-          type="button"
-          class="app-mobile-filter-trigger md:hidden"
-          aria-label="開啟月費篩選"
-          title="開啟月費篩選"
-          :aria-expanded="isMobileFiltersOpen"
-          @click="isMobileFiltersOpen = true"
-        >
-          <el-icon><Filter /></el-icon>
-          <span v-if="activeAdvancedFilterCount > 0" class="app-mobile-filter-badge">{{ activeAdvancedFilterCount }}</span>
-        </button>
-        <el-select v-model="programFilter" size="large" class="hidden w-full md:block">
-          <el-option label="全部訓練項目" value="all" />
-          <el-option
-            v-for="option in programOptions"
-            :key="option.value"
-            :label="option.label"
-            :value="option.value"
-          />
-        </el-select>
-      </div>
+      <MonthlyFeeProgramTabs
+        v-model="programFilter"
+        :options="monthlyFeeProgramTabs"
+        class="mb-4"
+      />
 
-      <AppMobileFilterSheet
-        v-model="isMobileFiltersOpen"
-        title="月費篩選"
-        :active-count="activeAdvancedFilterCount"
-        :clear-disabled="activeAdvancedFilterCount === 0"
-        @clear="clearAdvancedFilters"
+      <div
+        id="monthly-fee-program-panel"
+        role="tabpanel"
+        :aria-labelledby="`monthly-fee-program-tab-${programFilter}`"
       >
-        <div>
-          <label class="mb-1.5 block text-sm font-bold text-slate-600">訓練項目</label>
-          <el-select v-model="programFilter" size="large" class="w-full">
-            <el-option label="全部訓練項目" value="all" />
-            <el-option
-              v-for="option in programOptions"
-              :key="option.value"
-              :label="option.label"
-              :value="option.value"
-            />
-          </el-select>
+        <div class="mb-4">
+          <el-input
+            v-model="searchQuery"
+            size="large"
+            clearable
+            class="app-search-control w-full"
+            placeholder="搜尋目前分頁的球員或組別"
+          />
         </div>
-      </AppMobileFilterSheet>
-      <div class="flex flex-col gap-1 mb-4">
-        <p class="text-xs font-bold uppercase tracking-[0.24em] text-primary/70">{{ selectedMonth }} 月費總結</p>
-        <div class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-          <h3 class="text-lg font-black text-gray-800">月費摘要</h3>
-          <p class="text-xs text-gray-400">摘要依目前選定月份全部球員即時統計</p>
+        <div class="flex flex-col gap-1 mb-4">
+          <p class="text-xs font-bold uppercase tracking-[0.24em] text-primary/70">{{ selectedMonth }} 月費總結</p>
+          <div class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <h3 class="text-lg font-black text-gray-800">{{ activeProgramLabel }}月費摘要</h3>
+            <p class="text-xs text-gray-400">摘要依目前選定分頁即時統計</p>
+          </div>
         </div>
-      </div>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div
-          v-for="card in schoolTeamSummaryCards"
-          :key="card.key"
-          :class="card.cardClass"
-          class="rounded-2xl border p-4 md:p-5 shadow-sm"
-        >
-          <p :class="card.labelClass" class="text-sm font-bold">{{ card.label }}</p>
-          <p :class="card.amountClass" class="mt-3 text-3xl font-black tracking-tight">
-            {{ formatCurrency(card.amount) }}
-          </p>
-          <p :class="card.descriptionClass" class="mt-2 text-xs leading-relaxed">
-            {{ card.description }}
-          </p>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div
+            v-for="card in schoolTeamSummaryCards"
+            :key="card.key"
+            :class="card.cardClass"
+            class="rounded-2xl border p-4 md:p-5 shadow-sm"
+          >
+            <p :class="card.labelClass" class="text-sm font-bold">{{ card.label }}</p>
+            <p :class="card.amountClass" class="mt-3 text-3xl font-black tracking-tight">
+              {{ formatCurrency(card.amount) }}
+            </p>
+            <p :class="card.descriptionClass" class="mt-2 text-xs leading-relaxed">
+              {{ card.description }}
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -257,7 +234,7 @@
     <!-- Data Table -->
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden" v-loading="isLoading">
       <div class="px-4 py-3 text-xs text-gray-400 border-b border-gray-100 bg-gray-50/60">
-        中港校隊與新泰校隊分開試算：各自使用所屬總部的訓練日期與費率；新泰請假天數只記錄、不扣月費，中港與社區計次月費仍扣除訓練日內的全日 / 上午假單。社區固定月繳不參與堂數與請假計算。
+        中港校隊固定依訓練日期計次；國中部會依收費設定採單次月費或當月訓練日期計算。國中部請假天數只記錄、不扣月費，中港與社區計次月費仍扣除訓練日內的全日 / 上午假單。社區固定月繳不參與堂數與請假計算。
       </div>
       <div class="overflow-x-auto">
         <table class="w-full min-w-[900px]">
@@ -276,7 +253,7 @@
           <tbody class="divide-y divide-gray-100">
             <tr v-if="displayedFeesList.length === 0" class="hover:bg-gray-50/50">
               <td colspan="7" class="py-8 text-center text-gray-400 font-bold">
-                請點擊右上角「試算本月」載入月費名單
+                {{ monthlyFeeEmptyStateText }}
               </td>
             </tr>
             <tr :id="`fee-row-${fee.member_id}`" v-for="fee in displayedFeesList" :key="fee.member_id" class="hover:bg-gray-50/50 transition-colors duration-1000">
@@ -290,7 +267,8 @@
                     <el-tooltip v-if="fee.is_discounted" content="符合手足同行半價優惠" placement="top">
                       <span class="w-fit text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded leading-none shrink-0 border border-primary/20">半價優惠</span>
                     </el-tooltip>
-                    <span v-if="isFixedMonthlyFee(fee)" class="w-fit text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded leading-none shrink-0 border border-amber-200">社區月繳</span>
+                    <span v-if="isXintaiSingleMonthlyFee(fee)" class="w-fit text-[10px] font-bold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded leading-none shrink-0 border border-sky-200">單次月費</span>
+                    <span v-else-if="isFixedMonthlyFee(fee)" class="w-fit text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded leading-none shrink-0 border border-amber-200">社區月繳</span>
                     <span v-else-if="isPlayerPerSessionMonthlyFee(fee)" class="w-fit text-[10px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded leading-none shrink-0 border border-blue-200">計次月費</span>
                     <span
                       class="w-fit text-[10px] font-bold px-1.5 py-0.5 rounded leading-none shrink-0 border"
@@ -300,7 +278,7 @@
                 </div>
               </td>
               <td class="py-3 px-4">
-                <div v-if="isFixedMonthlyFee(fee)" class="text-center text-xs font-bold text-gray-400">
+                <div v-if="isCommunityFixedMonthlyFee(fee)" class="text-center text-xs font-bold text-gray-400">
                   不參與計算
                 </div>
                 <div v-else class="flex flex-col items-center justify-center gap-1 text-center font-bold text-gray-600">
@@ -316,7 +294,8 @@
                       <span class="ml-2 cursor-help text-blue-500" title="請假次數">{{ fee.leave_sessions }}</span>
                     </el-tooltip>
                   </div>
-                  <span v-if="isXintaiPerSessionFee(fee)" class="text-[10px] font-bold text-sky-600">請假僅記錄，不扣款</span>
+                  <span v-if="isXintaiSingleMonthlyFee(fee)" class="text-[10px] font-bold text-sky-600">單次月費不依堂數扣款</span>
+                  <span v-else-if="isXintaiPerSessionFee(fee)" class="text-[10px] font-bold text-sky-600">請假僅記錄，不扣款</span>
                 </div>
               </td>
               <!-- <td class="py-3 px-4 text-center font-mono text-gray-500 text-sm">${{ fee.per_session_fee }}</td> -->
@@ -369,8 +348,8 @@
 import { ref, onMounted, computed, watch, watchEffect, nextTick } from 'vue'
 import { supabase } from '@/services/supabase'
 import { ElMessage, ElMessageBox, ElNotification } from 'element-plus'
-import { Loading, BellFilled, Edit, Delete, Check, Calendar, Filter } from '@element-plus/icons-vue'
-import AppMobileFilterSheet from '@/components/common/AppMobileFilterSheet.vue'
+import { Loading, BellFilled, Edit, Delete, Check, Calendar } from '@element-plus/icons-vue'
+import MonthlyFeeProgramTabs from '@/components/fees/MonthlyFeeProgramTabs.vue'
 import dayjs from 'dayjs'
 import { useWindowSize } from '@vueuse/core'
 import { useRoute } from 'vue-router'
@@ -386,6 +365,10 @@ import { buildPaymentBreakdownText } from '@/utils/playerBalance'
 import { formatTrainingMonthDateLabel } from '@/utils/trainingMonthDates'
 import type { TrainingProgramSetting } from '@/types/trainingProgram'
 import {
+  CHUNGGANG_SCHOOL_TEAM_PROGRAM_KEY,
+  DEFAULT_TRAINING_PROGRAM_LABEL,
+  JUNIOR_HIGH_SCHOOL_TEAM_PROGRAM_KEY,
+  JUNIOR_HIGH_SCHOOL_TEAM_PROGRAM_LABEL,
   buildTrainingProgramOptions,
   getTrainingProgramFallbackSettings,
   getTrainingProgramForMember,
@@ -411,7 +394,9 @@ import type {
 } from '@/types/schoolTeamMonthlyFee'
 import {
   createDefaultSchoolTeamMonthlyPerSessionDefaultsByProgram,
-  getSchoolTeamMonthlyPerSessionFee
+  getSchoolTeamMonthlyPerSessionFee,
+  getSchoolTeamSingleMonthlyFee,
+  isSchoolTeamSingleMonthlyMode
 } from '@/utils/schoolTeamMonthlyFee'
 
 const emit = defineEmits<{
@@ -436,13 +421,12 @@ const schoolTeamPerSessionDefaults = ref<SchoolTeamMonthlyPerSessionDefaultsByPr
   createDefaultSchoolTeamMonthlyPerSessionDefaultsByProgram()
 )
 const programSettings = ref<TrainingProgramSetting[]>(getTrainingProgramFallbackSettings())
-const programFilter = ref('all')
+const MONTHLY_FEE_PROGRAM_KEYS: SchoolTeamMonthlyFeeProgramKey[] = [
+  CHUNGGANG_SCHOOL_TEAM_PROGRAM_KEY,
+  JUNIOR_HIGH_SCHOOL_TEAM_PROGRAM_KEY
+]
+const programFilter = ref<SchoolTeamMonthlyFeeProgramKey>(CHUNGGANG_SCHOOL_TEAM_PROGRAM_KEY)
 const searchQuery = ref('')
-const isMobileFiltersOpen = ref(false)
-const activeAdvancedFilterCount = computed(() => Number(programFilter.value !== 'all'))
-const clearAdvancedFilters = () => {
-  programFilter.value = 'all'
-}
 const trainingMonthDatesIsDefault = ref(false)
 const isLoading = ref(false)
 const isCalculating = ref(false)
@@ -477,9 +461,20 @@ const highlightFeeId = computed(() => route.query.highlight_fee_id as string | u
 const highlightMemberId = computed(() => route.query.highlight_member_id as string | undefined)
 
 const programOptions = computed(() => buildTrainingProgramOptions(programSettings.value))
+const monthlyFeeProgramTabs = computed(() => MONTHLY_FEE_PROGRAM_KEYS.map((value) => ({
+  value,
+  label: value === JUNIOR_HIGH_SCHOOL_TEAM_PROGRAM_KEY
+    ? JUNIOR_HIGH_SCHOOL_TEAM_PROGRAM_LABEL
+    : DEFAULT_TRAINING_PROGRAM_LABEL,
+  memberCount: feesList.value.filter((fee) => fee.training_program === value).length
+})))
+const activeProgramLabel = computed(() =>
+  monthlyFeeProgramTabs.value.find((option) => option.value === programFilter.value)?.label
+    || DEFAULT_TRAINING_PROGRAM_LABEL
+)
 const normalizedSearchQuery = computed(() => searchQuery.value.trim().toLowerCase())
 const displayedFeesList = computed(() => feesList.value.filter((fee) => {
-  if (programFilter.value !== 'all' && fee.training_program !== programFilter.value) return false
+  if (fee.training_program !== programFilter.value) return false
   const query = normalizedSearchQuery.value
   if (!query) return true
   return [
@@ -489,6 +484,15 @@ const displayedFeesList = computed(() => feesList.value.filter((fee) => {
     fee.team_group
   ].filter(Boolean).some((value) => String(value).toLowerCase().includes(query))
 }))
+const monthlyFeeEmptyStateText = computed(() => {
+  if (feesList.value.length === 0) {
+    return '請點擊右上角「試算本月」載入月費名單'
+  }
+  if (normalizedSearchQuery.value) {
+    return '目前分頁沒有符合搜尋條件的球員'
+  }
+  return `${activeProgramLabel.value}目前沒有月費結算球員`
+})
 
 const programSessionSummaries = computed(() =>
   programOptions.value.map((option) => ({
@@ -498,13 +502,12 @@ const programSessionSummaries = computed(() =>
   })).filter((summary) => summary.dates.length > 0 || feesList.value.some((fee) => fee.training_program === summary.value))
 )
 
-const visibleProgramSessionSummaries = computed(() => {
-  if (programFilter.value === 'all') {
-    return programSessionSummaries.value
-  }
+const visibleProgramSessionSummaries = computed(() =>
+  programSessionSummaries.value.filter((summary) => summary.value === programFilter.value)
+)
 
-  return programSessionSummaries.value.filter((summary) => summary.value === programFilter.value)
-})
+const isMonthlyFeeProgramKey = (value: unknown): value is SchoolTeamMonthlyFeeProgramKey =>
+  MONTHLY_FEE_PROGRAM_KEYS.includes(value as SchoolTeamMonthlyFeeProgramKey)
 
 // --- Watcher for Highlight Logic ---
 watch([isLoading, schoolTeamRemittances], ([newLoading, newRemittances]) => {
@@ -524,6 +527,10 @@ watch([isLoading, schoolTeamRemittances], ([newLoading, newRemittances]) => {
          }, 500)
       } else if (highlightMemberId.value) {
          // 2. 否則若在表格中
+         const highlightedFee = feesList.value.find((fee) => fee.member_id === highlightMemberId.value)
+         if (highlightedFee && isMonthlyFeeProgramKey(highlightedFee.training_program)) {
+           programFilter.value = highlightedFee.training_program
+         }
          setTimeout(() => {
             const el = document.getElementById(`fee-row-${highlightMemberId.value}`)
             if (el) {
@@ -559,7 +566,7 @@ const onMonthChange = () => {
 
 const syncMonthlyTotalToFees = () => {
   feesList.value.forEach((fee) => {
-    if (!isFixedMonthlyFee(fee)) {
+    if (!isCommunityFixedMonthlyFee(fee)) {
       fee.total_sessions = getMonthlyFeeTotalSessionsFromTrainingDates(fee.training_dates || [])
     }
   })
@@ -567,7 +574,7 @@ const syncMonthlyTotalToFees = () => {
 
 const markAllFeesChanged = () => {
   feesList.value.forEach((fee) => {
-    if (isFixedMonthlyFee(fee)) return
+    if (isCommunityFixedMonthlyFee(fee)) return
 
     if (!pendingChanges.value.includes(fee.member_id)) {
       pendingChanges.value.push(fee.member_id)
@@ -593,6 +600,12 @@ const formatCurrency = (amount: number) => {
 }
 
 const isFixedMonthlyFee = (fee: any) => fee.calculation_type === 'monthly_fixed'
+const isXintaiSingleMonthlyFee = (fee: any) =>
+  isFixedMonthlyFee(fee)
+  && fee.role === '校隊'
+  && fee.training_program === JUNIOR_HIGH_SCHOOL_TEAM_PROGRAM_KEY
+const isCommunityFixedMonthlyFee = (fee: any) =>
+  isFixedMonthlyFee(fee) && !isXintaiSingleMonthlyFee(fee)
 const isXintaiPerSessionFee = (fee: any) =>
   !isFixedMonthlyFee(fee) && isXintaiPerSessionBillingMember(fee)
 const isPlayerPerSessionMonthlyFee = (fee: any) =>
@@ -602,8 +615,9 @@ const getBillingModeMember = (member: any) => ({
   training_program: member.billing_training_program
 })
 const getMonthlyFeeModeLabel = (fee: any) => {
+  if (isXintaiSingleMonthlyFee(fee)) return '國中部單次月費'
   if (isFixedMonthlyFee(fee)) return '社區月繳'
-  if (isXintaiPerSessionFee(fee)) return '新泰計次月費'
+  if (isXintaiPerSessionFee(fee)) return '國中部計次月費'
   if (isPlayerPerSessionMonthlyFee(fee)) return '計次月費'
   return '校隊月繳'
 }
@@ -661,7 +675,7 @@ const schoolTeamSummaryCards = computed(() => {
       key: 'total',
       label: '本月應繳總額',
       amount: summary.total,
-      description: '目前篩選結果',
+      description: `${activeProgramLabel.value}目前分頁`,
       cardClass: 'border-primary/20 bg-gradient-to-br from-primary/10 via-amber-50 to-white',
       labelClass: 'text-primary',
       amountClass: 'text-gray-900',
@@ -671,7 +685,7 @@ const schoolTeamSummaryCards = computed(() => {
       key: 'paid',
       label: '本月已繳總額',
       amount: summary.paid,
-      description: '目前篩選結果已繳球員',
+      description: `${activeProgramLabel.value}已繳球員`,
       cardClass: 'border-emerald-100 bg-emerald-50/80',
       labelClass: 'text-emerald-700',
       amountClass: 'text-emerald-700',
@@ -681,7 +695,7 @@ const schoolTeamSummaryCards = computed(() => {
       key: 'unpaid',
       label: '本月未繳總額',
       amount: summary.unpaid,
-      description: '目前篩選結果未繳球員',
+      description: `${activeProgramLabel.value}未繳球員`,
       cardClass: 'border-amber-100 bg-amber-50/80',
       labelClass: 'text-amber-700',
       amountClass: 'text-amber-700',
@@ -719,7 +733,7 @@ const getPayableClass = (fee: any) => {
 }
 
 const fetchData = async () => {
-  calculateFees()
+  await calculateFees()
 }
 
 // 核心試算邏輯
@@ -864,9 +878,15 @@ const calculateFees = async () => {
 
     const existingFeeRows = existingFees || []
     const existingFeeMap = new Map(existingFeeRows.map(f => [f.member_id, f]))
-    const trainingDateCalculatedExistingFees = existingFeeRows.filter(
-      (fee: any) => fee.calculation_type !== 'monthly_fixed'
-    )
+    const trainingDateCalculatedExistingFees = existingFeeRows.filter((fee: any) => {
+      if (fee.calculation_type !== 'monthly_fixed') return true
+
+      const member = members.find((item) => item.id === fee.member_id)
+      return Boolean(
+        member
+        && isXintaiPerSessionBillingMember(getBillingModeMember(member))
+      )
+    })
     hasMonthlyTotalMismatch.value = trainingDateCalculatedExistingFees.some((fee: any) => {
       const member = members.find((item) => item.id === fee.member_id)
       const expectedTotal = member
@@ -877,23 +897,28 @@ const calculateFees = async () => {
 
     // 組裝
     feesList.value = members.map(m => {
-      const calculationType = getMonthlyFeeCalculationType(getBillingModeMember(m))
+      const billingModeMember = getBillingModeMember(m)
+      const isXintaiMember = isXintaiPerSessionBillingMember(billingModeMember)
+      const xintaiDefaults = schoolTeamPerSessionDefaults.value[JUNIOR_HIGH_SCHOOL_TEAM_PROGRAM_KEY]
+      const usesSingleMonthlyFee = isXintaiMember
+        && isSchoolTeamSingleMonthlyMode(xintaiDefaults)
+      const calculationType = usesSingleMonthlyFee
+        ? 'monthly_fixed'
+        : getMonthlyFeeCalculationType(billingModeMember)
       const isFixedMonthly = calculationType === 'monthly_fixed'
+      const isCommunityFixedMonthly = isFixedMonthly && !usesSingleMonthlyFee
       const isSchoolTeamMonthly = m.role === '校隊' && !isFixedMonthly
       const programKey = m.training_program
       const programDates = nextTrainingMonthDatesByProgram[programKey] || []
       const totalSessions = getMonthlyFeeTotalSessionsFromTrainingDates(programDates)
       let per_session_fee = isFixedMonthly ? 0 : (feeSettingMap.get(m.id) || 500)
       const existing = existingFeeMap.get(m.id)
-      const fixedMonthlyFee = isFixedMonthly
-        ? normalizeFixedMonthlyFee(existing?.fixed_monthly_fee ?? fixedMonthlyFeeMap.get(m.id) ?? DEFAULT_FIXED_MONTHLY_FEE)
-        : null
       
-      // 手足半價優惠處理 (直接折半單次費率)
+      // 手足半價優惠處理：計次費率使用獨立折扣費率，國中部單次月費則折半月費。
       let isDiscounted = false
-      if (!isFixedMonthly && shouldApplyManualHalfPrice(m, members)) {
+      if (!isCommunityFixedMonthly && shouldApplyManualHalfPrice(m, members)) {
         isDiscounted = true
-      } else if (!isFixedMonthly && m.sibling_ids && m.sibling_ids.length > 0) {
+      } else if (!isCommunityFixedMonthly && m.sibling_ids && m.sibling_ids.length > 0) {
         if (!m.is_primary_payer) {
           const siblings = m.sibling_ids.map((sId: string) => members.find(x => x.id === sId)).filter(Boolean)
           const hasPrimarySibling = siblings.some((s: any) => s.is_primary_payer)
@@ -914,6 +939,18 @@ const calculateFees = async () => {
         
       }
 
+      const configuredSingleMonthlyFee = usesSingleMonthlyFee
+        ? getSchoolTeamSingleMonthlyFee(isDiscounted, xintaiDefaults)
+        : DEFAULT_FIXED_MONTHLY_FEE
+      const fixedMonthlyFee = isFixedMonthly
+        ? normalizeFixedMonthlyFee(
+            usesSingleMonthlyFee && existing?.calculation_type !== 'monthly_fixed'
+              ? configuredSingleMonthlyFee
+              : existing?.fixed_monthly_fee ?? fixedMonthlyFeeMap.get(m.id) ?? configuredSingleMonthlyFee,
+            configuredSingleMonthlyFee
+          )
+        : null
+
       per_session_fee = isSchoolTeamMonthly
         ? getSchoolTeamMonthlyPerSessionFee(
             isDiscounted,
@@ -921,7 +958,7 @@ const calculateFees = async () => {
           )
         : calculateDiscountedPerSessionFee(per_session_fee, isDiscounted)
       
-      const countedLeaveDates = isFixedMonthly
+      const countedLeaveDates = isCommunityFixedMonthly
         ? []
         : (leaveDateMapsByProgram.get(programKey)?.get(m.id) || [])
       const leave_sessions = countedLeaveDates.length
@@ -936,7 +973,7 @@ const calculateFees = async () => {
         training_program_label: m.training_program_label,
         training_dates: programDates,
         month: selectedMonth.value,
-        total_sessions: isFixedMonthly ? 0 : totalSessions,
+        total_sessions: isCommunityFixedMonthly ? 0 : totalSessions,
         leave_sessions: leave_sessions,
         per_session_fee: per_session_fee,
         calculation_type: calculationType,
@@ -965,7 +1002,7 @@ const calculateFees = async () => {
         const existing = existingFeeMap.get(fee.member_id)
         if (!existing) return true
 
-        const ignoresTrainingDates = isFixedMonthlyFee(fee)
+        const ignoresTrainingDates = isCommunityFixedMonthlyFee(fee)
         return Number(existing.total_sessions || 0) !== (ignoresTrainingDates ? 0 : fee.total_sessions) ||
           String(existing.training_program || fee.training_program || '') !== String(fee.training_program || '') ||
           Number(existing.leave_sessions || 0) !== (ignoresTrainingDates ? 0 : fee.leave_sessions) ||
@@ -1000,8 +1037,8 @@ const saveAll = async () => {
         member_id: f.member_id,
         year_month: f.month,
         training_program: f.training_program || null,
-        total_sessions: isFixedMonthlyFee(f) ? 0 : f.total_sessions,
-        leave_sessions: isFixedMonthlyFee(f) ? 0 : f.leave_sessions,
+        total_sessions: isCommunityFixedMonthlyFee(f) ? 0 : f.total_sessions,
+        leave_sessions: isCommunityFixedMonthlyFee(f) ? 0 : f.leave_sessions,
         per_session_fee: isFixedMonthlyFee(f) ? 0 : f.per_session_fee,
         calculation_type: f.calculation_type,
         fixed_monthly_fee: isFixedMonthlyFee(f) ? normalizeFixedMonthlyFee(f.fixed_monthly_fee) : null,
@@ -1039,7 +1076,7 @@ const exportCSV = () => {
     return;
   }
 
-  const headers = ['姓名', '訓練項目', '月份', '收費模式', '總堂數', '請假天數', '請假日期', '單堂費用', '固定月繳', '應扣', '應收', '應繳'];
+  const headers = ['姓名', '訓練項目', '月份', '收費模式', '總堂數', '請假天數', '請假日期', '單堂費用', '單次／固定月費', '應扣', '應收', '應繳'];
   const rows = [headers];
 
   displayedFeesList.value.forEach(fee => {
@@ -1052,7 +1089,7 @@ const exportCSV = () => {
       fee.training_program_label || '-',
       fee.month,
       getMonthlyFeeModeLabel(fee),
-      isFixedMonthlyFee(fee) ? '-' : String(fee.total_sessions || 0),
+      isCommunityFixedMonthlyFee(fee) ? '-' : String(fee.total_sessions || 0),
       fee.leave_sessions.toString(),
       leaveDates,
       isFixedMonthlyFee(fee) ? '-' : fee.per_session_fee.toString(),
@@ -1071,7 +1108,7 @@ const exportCSV = () => {
   const url = URL.createObjectURL(blob);
   
   link.setAttribute('href', url);
-  link.setAttribute('download', `月費結算表_${selectedMonth.value}.csv`);
+  link.setAttribute('download', `月費結算表_${activeProgramLabel.value}_${selectedMonth.value}.csv`);
   link.style.visibility = 'hidden';
   document.body.appendChild(link);
   link.click();
@@ -1255,4 +1292,6 @@ const handleDeleteRemittance = async (id: string) => {
 onMounted(() => {
   fetchData()
 })
+
+defineExpose({ refresh: fetchData })
 </script>

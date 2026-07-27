@@ -102,9 +102,13 @@ describe('mobile UI/UX audit contracts', () => {
     })
 
     const schoolTeamFees = readComponent('fees/SchoolTeamFees')
-    expect(schoolTeamFees).toContain('AppMobileFilterSheet')
-    expect(schoolTeamFees).toContain('app-search-filter-bar')
-    expect(schoolTeamFees).toContain('aria-label="開啟月費篩選"')
+    const monthlyFeeProgramTabs = readComponent('fees/MonthlyFeeProgramTabs')
+    expect(schoolTeamFees).toContain('<MonthlyFeeProgramTabs')
+    expect(schoolTeamFees).toContain('class="app-search-control w-full"')
+    expect(schoolTeamFees).not.toContain('AppMobileFilterSheet')
+    expect(monthlyFeeProgramTabs).toContain('min-h-11')
+    expect(monthlyFeeProgramTabs).toContain('role="tablist"')
+    expect(monthlyFeeProgramTabs).toContain('overflow-x-auto')
   })
 
   it('keeps member search selectors to one input field on mobile and desktop', () => {

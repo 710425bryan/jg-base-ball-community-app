@@ -14,4 +14,10 @@ describe('FeesView equipment workspace extraction', () => {
   it('keeps the fee header focused on fee-owned areas', () => {
     expect(source).toContain('管理月費、球員季費、比賽費用、球員餘額與收費設定')
   })
+
+  it('refreshes monthly settlement after school-team monthly settings are saved', () => {
+    expect(source).toContain('ref="schoolTeamFeesRef"')
+    expect(source).toContain('@school-team-monthly-settings-updated="refreshMonthlyFeesAfterSettingsChange"')
+    expect(source).toContain('schoolTeamFeesRef.value?.refresh()')
+  })
 })
