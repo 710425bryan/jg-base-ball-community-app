@@ -92,8 +92,8 @@
 ### `jg-baseball-finance-payments`
 
 - 路徑：`.codex/skills/jg-baseball-finance-payments/SKILL.md`
-- 用途：收費、付款回報、球員餘額、比賽費、匯款表單匯入與費用提醒。
-- 典型情境：修改 `/fees`、`/equipment-purchases`、`/my-payments`、`src/components/fees/*`、`myPayments`、`playerBalances`、`matchFees`、`feeManagementReminders`、`record-fee-remittance`、或 Google Form 匯款 Apps Script。
+- 用途：收費、付款回報、球員餘額、比賽費、比賽費開放通知、匯款表單匯入與費用提醒。
+- 典型情境：修改 `/fees`、`/equipment-purchases`、`/my-payments`、`src/components/fees/*`、`myPayments`、`playerBalances`、`matchFees`、`matchFeePaymentNotifications`、`feeManagementReminders`、`record-fee-remittance`、或 Google Form 匯款 Apps Script。
 
 ### `jg-baseball-equipment-management`
 
