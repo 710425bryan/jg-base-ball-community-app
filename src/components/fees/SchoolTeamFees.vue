@@ -387,7 +387,9 @@ import {
   isXintaiPerSessionBillingMember,
   normalizeFixedMonthlyFee
 } from '@/utils/memberBilling'
-import { isActiveRosterMember, shouldApplyManualHalfPrice } from '@/utils/memberLifecycle'
+import { isActiveRosterMember } from '@/utils/memberLifecycle'
+import { shouldApplyMonthlyFeeDiscount } from '@/utils/monthlyFeeDiscount'
+import { normalizeSiblingIds } from '@/utils/siblingGroups'
 import type {
   SchoolTeamMonthlyFeeProgramKey,
   SchoolTeamMonthlyPerSessionDefaultsByProgram
@@ -767,7 +769,8 @@ const calculateFees = async () => {
       .in('role', ['校隊', '球員'])
     if (membersErr) throw membersErr
 
-    const members = membersData?.filter(m =>
+    const discountMembers = normalizeSiblingIds(membersData || [])
+    const members = discountMembers.filter(m =>
       isActiveRosterMember(m) &&
       !isNoFeeBillingMember(m) &&
       isMonthlyBillingMember(m) &&
@@ -780,7 +783,7 @@ const calculateFees = async () => {
         training_program: program.program_key,
         training_program_label: program.label
       }
-    }) || []
+    })
 
     const monthProgramKeys = Array.from(new Set([
       ...programOptions.value.map((option) => option.value),
@@ -806,21 +809,6 @@ const calculateFees = async () => {
       ...Object.values(nextTrainingMonthDatesByProgram).map(getMonthlyFeeTotalSessionsFromTrainingDates)
     )
     
-    // 預處理：確保手足連結是對稱的（防呆：萬一只單向填寫，另一方忘記填寫）
-    members.forEach(m => {
-      if (m.sibling_ids && m.sibling_ids.length > 0) {
-        m.sibling_ids.forEach((sId: string) => {
-          const sibling = members.find(x => x.id === sId)
-          if (sibling) {
-            if (!sibling.sibling_ids) sibling.sibling_ids = []
-            if (!sibling.sibling_ids.includes(m.id)) {
-              sibling.sibling_ids.push(m.id)
-            }
-          }
-        })
-      }
-    })
-
     const memberIds = members.map(m => m.id)
     currentSchoolTeamMembers.value = members
     
@@ -915,29 +903,8 @@ const calculateFees = async () => {
       const existing = existingFeeMap.get(m.id)
       
       // 手足半價優惠處理：計次費率使用獨立折扣費率，國中部單次月費則折半月費。
-      let isDiscounted = false
-      if (!isCommunityFixedMonthly && shouldApplyManualHalfPrice(m, members)) {
-        isDiscounted = true
-      } else if (!isCommunityFixedMonthly && m.sibling_ids && m.sibling_ids.length > 0) {
-        if (!m.is_primary_payer) {
-          const siblings = m.sibling_ids.map((sId: string) => members.find(x => x.id === sId)).filter(Boolean)
-          const hasPrimarySibling = siblings.some((s: any) => s.is_primary_payer)
-
-          if (hasPrimarySibling) {
-            // 有其他手足是主要繳費人，則自己必定享半價
-            isDiscounted = true
-          } else {
-            // 防呆/向下相容：若互相連結的手足都沒有人被設為 主要繳費人，退回原來的機制（系統比較 UUID）
-            for (const s of siblings) {
-              if (m.id > s.id) {
-                isDiscounted = true
-                break
-              }
-            }
-          }
-        }
-        
-      }
+      const isDiscounted = !isCommunityFixedMonthly
+        && shouldApplyMonthlyFeeDiscount(m, discountMembers)
 
       const configuredSingleMonthlyFee = usesSingleMonthlyFee
         ? getSchoolTeamSingleMonthlyFee(isDiscounted, xintaiDefaults)

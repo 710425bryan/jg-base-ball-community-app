@@ -11,6 +11,13 @@ describe('SchoolTeamFees joined-month scope', () => {
 })
 
 describe('SchoolTeamFees school-team per-session fees', () => {
+  it('evaluates sibling discounts against the full roster instead of monthly members only', () => {
+    expect(source).toContain("import { shouldApplyMonthlyFeeDiscount } from '@/utils/monthlyFeeDiscount'")
+    expect(source).toContain("import { normalizeSiblingIds } from '@/utils/siblingGroups'")
+    expect(source).toContain('const discountMembers = normalizeSiblingIds(membersData || [])')
+    expect(source).toContain('shouldApplyMonthlyFeeDiscount(m, discountMembers)')
+  })
+
   it('uses independent Chunggang and Xintai defaults with each program date set', () => {
     expect(source).toContain("import { getSchoolTeamMonthlyPerSessionDefaults } from '@/services/schoolTeamMonthlyFeeSettings'")
     expect(source).toContain('isXintaiPerSessionFee')

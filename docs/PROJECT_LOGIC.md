@@ -492,6 +492,7 @@ UI 約定：
 - `src/services/feeManagementReminders.ts`
 - `src/services/feePaymentReminders.ts`
 - `src/utils/memberBilling.ts`
+- `src/utils/monthlyFeeDiscount.ts`
 - `src/utils/monthlyFeeSettlement.ts`
 - `src/utils/quarterlyFeeFamilies.ts`
 - `src/utils/quarterlyFeeCompensation.ts`
@@ -530,7 +531,7 @@ UI 約定：
 - 季繳付款回報的開放期別由 `src/utils/quarterlyPaymentSubmissions.ts` 與 DB helper `get_quarterly_payment_open_period_key()` 共同決定：以台灣日期為準，每季最後一個月 25 日起開放下一季；未開放的未來季在家長端不顯示可勾選，RPC / trigger 也會拒絕寫入，過去未繳季度仍可補繳。
 - 個人付款回報由 `myPayments` RPC 建立，可選用球員餘額；一般繳費與裝備付款都在管理端確認時才正式扣餘額。
 - 球員餘額以 `player_balance_transactions` 流水帳計算，管理員可手動調整，付款審核時可把溢繳轉入餘額；退款 / 作廢收款必須以反向流水退回餘額扣抵或沖回溢繳轉入。
-- sibling / family grouping 與季費家庭金額計算在 utils。
+- sibling / family grouping 與季費家庭金額計算在 utils；月費半價／主要繳費人判斷會查看所有仍有效的球員／校隊手足，即使手足採不同月繳／季繳模式也仍屬同一家庭優惠範圍。
 - 手足主要繳費人退隊、離隊或關閉 / 畢業後，剩餘有效手足的新一期月費 / 季費試算不得沿用手足半價；主要繳費人恢復有效後，若 `sibling_ids` 與 `is_primary_payer` 仍保留，另一位有效手足可恢復手足減免。既有已保存帳款金額不自動覆寫，需由管理端重算或手動調整。
 - 比賽費由 `matches.match_fee_amount` 先產生 `match_fee_items` 供管理端核對，`matches.match_fee_payment_opened_at` 預設為空；管理者具 `fees:EDIT` 且每人費用大於 0、至少一筆非取消應繳明細時，才可透過 `set_match_fee_payment_open_state()` 開放。一般 linked member 的 `/my-payments` 只取得已開放的未繳項目，或自己已有付款歷程的待審 / 已付款 / 取消紀錄；具 `fees:VIEW` / `fees:EDIT` 者可代查未開放項目，前端會另列中性的「尚未開放繳費」，不計入待付款筆數、合計、提醒或可勾選項目。
 - 開放時會保存依 `(member_id, amount)` 排序的應收簽章；金額或應繳名單異動且沒有付款歷程時自動關閉，賽事名稱、日期時間、盃賽與組別異動只更新快照、不改開放狀態。任一明細曾送出付款後不得關閉；`create_match_payment_submission()` 會鎖定全部相關場次、重新同步並驗證仍為開放，避免關閉與付款競態。

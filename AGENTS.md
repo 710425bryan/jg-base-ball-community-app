@@ -25,6 +25,7 @@
 6. 如果任務碰到路由、登入、權限、敏感資料、公開頁或推播，必須補讀安全邊界相關檔案，不能只改 UI。
 7. 動手前先辨識目標檔案是原始碼、產物、維運腳本還是 migration。
 8. 修改後依本檔的驗證矩陣跑最貼近的檢查。
+   - 只要修改範圍會影響收費、折扣、付款期別、餘額、費用快照、付款估算或催繳結果，必須依「收費計算強制回歸」跑完整費用計算測試，不可只跑本次新增的單一案例。
 9. 回報時說清楚改了什麼、原因、驗證結果、剩餘風險。
 
 不要一開始就全專案掃檔；先用 `rg` / `rg --files` 精準定位。
@@ -364,6 +365,14 @@
 
 依修改範圍選擇：
 
+### 收費計算強制回歸
+
+- 凡修改 `/fees`、`/my-payments`、費用設定、球員收費旗標、訓練日期／請假扣堂、月費／季費／比賽費、付款估算、餘額、催繳、相關 service／utils／RPC／trigger／migration，即使看似只改 UI 或單一身分，也必須跑下方「收費 / 付款」完整計算回歸；只跑目標檔測試不足以完成任務。
+- 每次變更計算規則都必須新增或更新回歸案例，並確認：中港校隊、國中部兩種月費模式、社區固定月繳、社區計次月費、一般季費、`no_fee`、一般／手動半價／跨收費模式手足優惠、有效／失效手足、全日／上午／下午假、手動扣減、加入月份、月／季開放期別、球員餘額不可為負數，以及比賽費與裝備付款不互相污染。
+- 同一規則若同時存在前端 helper、管理端試算、已存費用快照、家長付款估算、首頁摘要、催繳或 DB RPC／trigger，必須以相同代表案例逐層比對結果；不可只驗證畫面顯示。
+- 修改 DB function、trigger 或 migration 時，除 unit test 外，必須用測試交易或可回復的查詢驗證代表資料，並確認未繳新帳款可正確重算，`pending_review`、已付款及既有付款歷史不被覆寫。套用 migration 後再執行 post-check。
+- 任一應涵蓋案例未驗證時，不得宣告完成；回報需列出未跑項目、原因與風險。
+
 - 文件-only：`git diff --check`
 - TypeScript / Vue：`pnpm exec vue-tsc --noEmit`
 - 純 utils：`pnpm exec vitest run <target.test.ts>`
@@ -372,7 +381,7 @@
 - 裝備：`pnpm exec vitest run src/utils/equipmentInventory.test.ts src/utils/equipmentPricing.test.ts src/utils/equipmentRequestStatus.test.ts`
 - 賽事同步：`pnpm exec vitest run src/utils/googleCalendarParser.test.ts src/services/matchesApi.test.ts`
 - 賽事紀錄 / 媒體：`pnpm exec vitest run src/services/matchesApi.test.ts src/utils/matchFieldEditor.test.ts src/utils/liveMatchScoreboard.test.ts src/utils/matchAudioTranscription.test.ts src/utils/lineupPhotoParser.test.ts src/services/weatherApi.test.ts`
-- 收費 / 付款：`pnpm exec vitest run src/utils/memberBilling.test.ts src/utils/monthlyPaymentPeriods.test.ts src/utils/monthlyFeeSettlement.test.ts src/utils/quarterlyFeeFamilies.test.ts src/utils/quarterlyFeeCompensation.test.ts src/utils/playerBalance.test.ts src/utils/feeManagementReminders.test.ts src/utils/feePaymentReminders.test.ts src/services/feePaymentReminders.test.ts`
+- 收費 / 付款（強制完整計算回歸）：`pnpm exec vitest run src/utils/memberBilling.test.ts src/utils/schoolTeamMonthlyFee.test.ts src/utils/monthlyPaymentPeriods.test.ts src/utils/monthlyFeeDiscount.test.ts src/utils/monthlyFeeSettlement.test.ts src/utils/quarterlyFeeFamilies.test.ts src/utils/quarterlyFeeCompensation.test.ts src/utils/quarterlyPaymentSubmissions.test.ts src/utils/playerBalance.test.ts src/utils/matchFeePaymentAvailability.test.ts src/utils/feeManagementReminders.test.ts src/utils/feePaymentReminders.test.ts src/services/myPayments.test.ts src/services/playerBalances.test.ts src/services/matchFees.test.ts src/services/feeManagementReminders.test.ts src/services/feePaymentReminders.test.ts src/services/schoolTeamMonthlyFeeSettings.test.ts src/components/fees/FeeSettings.test.ts src/components/fees/SchoolTeamFees.test.ts src/components/fees/QuarterlyFees.test.ts`
 - 請假 / 點名：`pnpm exec vitest run src/utils/leaveRequests.test.ts src/utils/dashboardHome.test.ts`
 - 訓練日期設定：`pnpm exec vitest run src/utils/trainingMonthDates.test.ts src/components/home/MyHomeTodayPanel.test.ts src/composables/useNotificationFeed.test.ts`
 - 教練排班表：`pnpm exec vitest run src/utils/coachSchedules.test.ts src/views/HomeView.test.ts`

@@ -23,7 +23,7 @@ description: "Finance, fees, payment submissions, player balances, match fees, e
 10. `src/services/matchFees.ts`
 11. `src/services/feeManagementReminders.ts`、`src/services/feePaymentReminders.ts`
 12. `src/types/payments.ts`、`src/types/playerBalances.ts`、`src/types/quarterlyFeeCompensation.ts`、`src/types/matchFees.ts`、`src/types/feeManagementReminders.ts`、`src/types/feePaymentReminders.ts`
-13. `src/utils/memberBilling.ts`、`src/utils/monthlyFeeSettlement.ts`、`src/utils/quarterlyFeeFamilies.ts`、`src/utils/quarterlyFeeCompensation.ts`、`src/utils/playerBalance.ts`、`src/utils/matchFeePaymentAvailability.ts`、`src/utils/siblingGroups.ts`、`src/utils/feePaymentReminders.ts`
+13. `src/utils/memberBilling.ts`、`src/utils/monthlyFeeDiscount.ts`、`src/utils/monthlyFeeSettlement.ts`、`src/utils/quarterlyFeeFamilies.ts`、`src/utils/quarterlyFeeCompensation.ts`、`src/utils/playerBalance.ts`、`src/utils/matchFeePaymentAvailability.ts`、`src/utils/siblingGroups.ts`、`src/utils/feePaymentReminders.ts`
 14. 相關 migration：`supabase_fees_migration.sql`、`supabase_quarterly_fees_migration.sql`、`supabase_profile_payment_submissions_migration.sql`、`supabase_player_balance_transactions_migration.sql`、`supabase_fixed_monthly_billing_migration.sql`、`supabase_quarterly_fee_compensation_migration.sql`、`supabase_match_fees_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz_match_fee_payment_open_state_migration.sql`、`supabase_fee_management_reminders_migration.sql`、`supabase_fee_payment_reminders_migration.sql`、`supabase_member_joined_fee_period_guard_migration.sql`
 15. 若改到匯款表單，再讀 `supabase/functions/record-fee-remittance/index.ts` 與 `scripts/google-form-remittance-apps-script.js`
 16. 若改到裝備付款，再同時讀 `jg-baseball-equipment-management` skill
@@ -63,6 +63,7 @@ description: "Finance, fees, payment submissions, player balances, match fees, e
 - 個人首頁 `get_my_home_snapshot()` 的付款待辦摘要必須沿用相同的月費 / 季費開放期別；尚未開放的帳款可保留在正式費用紀錄，但不可顯示成一般會員現在就要處理的欠費。
 - 季費補償的堂數不足只看當月週六數與 `/training-dates` 設定日期總數，補課日不限定週六。
 - `is_primary_payer`、`is_half_price`、sibling / family grouping 會影響金額，改費用時要同步檢查。
+- 月費的半價／主要繳費人判斷要使用所有仍有效的球員／校隊手足；手足即使分屬月繳與季繳，仍可構成家庭優惠，不可先依 billing mode 過濾後才判斷折扣。
 - 手足主要繳費人退隊、離隊或關閉 / 畢業後，剩餘有效手足的新一期月費 / 季費試算不得沿用手足半價；主要繳費人恢復有效後，若 `sibling_ids` 與 `is_primary_payer` 仍保留，另一位有效手足可恢復手足減免。既有已保存帳款金額不自動覆寫，需由管理端重算或手動調整。
 - 比賽費付款不得混入一般月費或裝備付款資料模型；只在 UI 與付款回報流程上整合。
 - linked member 只能看已開放比賽費，或自己既有付款歷程；不可只靠前端隱藏。付款 RPC 必須鎖定場次、同步名單並重驗開放狀態，防止管理者關閉與家長付款同時發生。
@@ -79,10 +80,28 @@ description: "Finance, fees, payment submissions, player balances, match fees, e
 5. 若新增付款來源，同步考慮 `/my-payments` 的合併付款、餘額分攤與審核後扣款。
 6. 若改通知或提醒，同時檢查 `push_dispatch_events`、`get_notification_feed()`、Web Push target 與 event key。
 7. 若改比賽費開放狀態，同步檢查管理端卡頭狀態、家長端清單 / 摘要 / 合併付款選項、RLS、付款 RPC 鎖定順序與賽事刪除 trigger。
+8. 任何可能改變金額、折扣、付款期別、快照、付款估算或催繳結果的修改，都要依下方「費用計算強制回歸」完成全套驗證；不可只跑本次修改檔案的測試。
+
+## 費用計算強制回歸
+
+每次費用相關修改都必須驗證完整計算規則，避免修正單一身分或單一月份時讓既有正確情境回歸。完成條件如下：
+
+1. 新增或更新能重現本次變更的 regression test，先證明舊邏輯會失敗，再確認修正後通過。
+2. 跑完整費用計算測試，不可只跑新增測試。至少涵蓋：
+   - 中港校隊計次、國中部 `single_monthly`／`training_dates`、社區 `monthly_fixed`／`monthly_per_session`、一般季費與 `no_fee`。
+   - 一般價、手動半價、主要繳費人、跨月繳／季繳手足優惠，以及手足有效、退隊、關閉或畢業後的結果。
+   - 中港校隊／社區計次的全日與上午假扣堂、下午假不扣堂；國中部請假只記錄不扣款；手動扣減不得產生負數。
+   - `joined_date` 最早收費期別、月費／季費付款開放日、球員餘額不可扣成負數。
+   - 未繳新帳款可重算，但 `pending_review`、已付款、已送出或曾有付款歷史的金額快照不得被批次回寫。
+   - 月費、季費、比賽費、裝備付款與餘額交易各自維持資料模型與審核邊界。
+3. 若規則橫跨前端 helper、管理端試算、`monthly_fees`／`quarterly_fees` 快照、家長付款估算、首頁摘要、催繳或 DB RPC／trigger，要用相同案例比對每一層的結果，不能只看 UI。
+4. 若修改 RPC、trigger 或 migration，要以測試交易或可回復查詢驗證一般價、折扣價與歷史保護案例；套用後再查正式 function 與受影響資料，確認 post-check 結果。
+5. 任一項無法執行時，不得省略不報；完成回報必須列出未驗證項目、原因與可能回歸風險。
 
 ## 驗證
 
 - 基本檢查：`pnpm exec vue-tsc --noEmit`
-- 費用純邏輯：`pnpm exec vitest run src/utils/memberBilling.test.ts src/utils/monthlyFeeSettlement.test.ts src/utils/quarterlyFeeFamilies.test.ts src/utils/quarterlyFeeCompensation.test.ts src/utils/playerBalance.test.ts src/utils/feeManagementReminders.test.ts src/utils/feePaymentReminders.test.ts src/services/feePaymentReminders.test.ts`
+- 費用完整計算回歸（所有費用相關修改必跑）：`pnpm exec vitest run src/utils/memberBilling.test.ts src/utils/schoolTeamMonthlyFee.test.ts src/utils/monthlyPaymentPeriods.test.ts src/utils/monthlyFeeDiscount.test.ts src/utils/monthlyFeeSettlement.test.ts src/utils/quarterlyFeeFamilies.test.ts src/utils/quarterlyFeeCompensation.test.ts src/utils/quarterlyPaymentSubmissions.test.ts src/utils/playerBalance.test.ts src/utils/matchFeePaymentAvailability.test.ts src/utils/feeManagementReminders.test.ts src/utils/feePaymentReminders.test.ts src/services/myPayments.test.ts src/services/playerBalances.test.ts src/services/matchFees.test.ts src/services/feeManagementReminders.test.ts src/services/feePaymentReminders.test.ts src/services/schoolTeamMonthlyFeeSettings.test.ts src/components/fees/FeeSettings.test.ts src/components/fees/SchoolTeamFees.test.ts src/components/fees/QuarterlyFees.test.ts`
+- 另跑本次直接影響的 view／component／service／Edge Function 測試；完整回歸不能取代直接測試，直接測試也不能取代完整回歸。
 - 比賽費或付款 UI 風險高時跑：`pnpm build`
 - 人工 sanity check：家長 linked member 可見性、管理端審核、餘額扣抵、社區固定月繳 / 國中部月費與球員計次月費排除季費、不收費排除隊費與比賽費、比賽費付款、裝備付款整合。

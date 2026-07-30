@@ -38,6 +38,7 @@ description: "Project-specific workflow for jg-base-ball-community-app. Use when
 - 改到球員、請假、特訓報名 / 點數、收費、賽事等核心流程時，順手檢查是否影響同步、通知、彙總或關聯資料，並轉讀對應 feature skill。
 - 改 `/training`、特訓報名、點數管理、特訓點名或禁報流程時，先讀 `jg-baseball-training` skill。
 - 改 `/fees`、`/my-payments`、球員餘額、比賽費、匯款匯入或費用提醒時，先讀 `jg-baseball-finance-payments` skill。
+- 任何可能改變費用金額、折扣、付款期別、費用快照、付款估算或催繳結果的修改，都必須完成 `jg-baseball-finance-payments` 定義的完整計算回歸；只跑本次修改檔案的單一測試不能作為完成依據。
 - 改 `/calendar`、`/match-records`、陣容、照片、語音、天氣或賽事提醒時，先讀 `jg-baseball-match-records-media` skill。
 - 改 `/leave-requests`、`/my-leave-requests`、`/attendance`、點名 detail 或請假 webhook 時，先讀 `jg-baseball-leave-attendance` skill。
 - 改球員名單、使用者、linked member、team group 或敏感欄位時，先讀 `jg-baseball-roster-users-team-groups` skill。
