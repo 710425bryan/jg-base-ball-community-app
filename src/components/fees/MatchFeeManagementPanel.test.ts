@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   confirm: vi.fn(async () => undefined),
   list: vi.fn(),
   setOpenState: vi.fn(),
+  sendOpenedNotifications: vi.fn(),
   deleteGroup: vi.fn(),
   rollback: vi.fn(),
   success: vi.fn(),
@@ -26,6 +27,10 @@ vi.mock('@/services/matchFees', () => ({
   setMatchFeePaymentOpenState: mocks.setOpenState,
   deleteCancelledMatchFeeGroup: mocks.deleteGroup,
   rollbackMatchPaymentSubmission: mocks.rollback
+}))
+
+vi.mock('@/services/matchFeePaymentNotifications', () => ({
+  sendMatchFeePaymentOpenedNotifications: mocks.sendOpenedNotifications
 }))
 
 vi.mock('@/utils/pushNotifications', () => ({
@@ -95,6 +100,17 @@ beforeEach(() => {
     payment_opened_at: '2026-07-01T00:00:00Z',
     payable_item_count: 2,
     payable_amount: 200
+  })
+  mocks.sendOpenedNotifications.mockResolvedValue({
+    success: true,
+    match_id: 'match-1',
+    target_user_count: 1,
+    subscription_count: 1,
+    created_count: 1,
+    duplicate_count: 0,
+    dispatched_count: 1,
+    expired_count: 0,
+    failed_count: 0
   })
   mocks.deleteGroup.mockResolvedValue(1)
 })
@@ -186,6 +202,31 @@ describe('MatchFeeManagementPanel', () => {
       expect.objectContaining({ confirmButtonText: '確認開放' })
     )
     expect(mocks.setOpenState).toHaveBeenCalledWith('match-1', true)
+    expect(mocks.sendOpenedNotifications).toHaveBeenCalledWith('match-1')
+    expect(mocks.success).toHaveBeenCalledWith(
+      '已開放比賽費用繳費；已發送站內通知與瀏覽器通知。'
+    )
+  })
+
+  it('keeps payment open and warns when notification delivery fails', async () => {
+    mocks.list.mockResolvedValue([makeItem()])
+    mocks.sendOpenedNotifications.mockRejectedValueOnce(new Error('function unavailable'))
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
+    const wrapper = await mountPanel()
+    await wrapper.get('[data-testid="open-payment-button"]').trigger('click')
+    await flushPromises()
+
+    expect(consoleWarn).toHaveBeenCalledWith(
+      'Match fee payment opened notification failed',
+      expect.any(Error)
+    )
+    expect(mocks.setOpenState).toHaveBeenCalledWith('match-1', true)
+    expect(mocks.warning).toHaveBeenCalledWith(
+      '已開放比賽費用繳費，但通知發送失敗，請稍後確認通知服務。'
+    )
+    expect(mocks.error).not.toHaveBeenCalled()
+    consoleWarn.mockRestore()
   })
 
   it('disables closing and cancelled-group deletion when any item has payment history', async () => {

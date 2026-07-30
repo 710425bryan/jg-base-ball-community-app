@@ -11,8 +11,10 @@ import {
   rollbackMatchPaymentSubmission,
   setMatchFeePaymentOpenState
 } from '@/services/matchFees'
+import { sendMatchFeePaymentOpenedNotifications } from '@/services/matchFeePaymentNotifications'
 import { usePermissionsStore } from '@/stores/permissions'
 import type { MatchFeeItem, MatchPaymentSubmission } from '@/types/matchFees'
+import { describeMatchFeePaymentNotificationResult } from '@/utils/matchFeePaymentNotifications'
 import { buildPushEventKey, dispatchPushNotification } from '@/utils/pushNotifications'
 
 type MatchFeeGroup = {
@@ -225,7 +227,7 @@ const changePaymentOpenState = async (group: MatchFeeGroup, isOpen: boolean) => 
   try {
     if (isOpen) {
       await ElMessageBox.confirm(
-        `每位球員 ${formatCurrency(group.matchFeeAmount)}，應繳 ${group.activeItems.length} 人，總計 ${formatCurrency(group.total)}。開放後家長即可看見並回報付款。`,
+        `每位球員 ${formatCurrency(group.matchFeeAmount)}，應繳 ${group.activeItems.length} 人，總計 ${formatCurrency(group.total)}。開放後家長即可看見並回報付款，系統也會通知相關球員的綁定帳號。`,
         '確認開放比賽費用繳費',
         {
           confirmButtonText: '確認開放',
@@ -253,7 +255,20 @@ const changePaymentOpenState = async (group: MatchFeeGroup, isOpen: boolean) => 
   setProcessing(processingKey, true)
   try {
     await setMatchFeePaymentOpenState(matchId, isOpen)
-    ElMessage.success(isOpen ? '已開放比賽費用繳費' : '已關閉比賽費用繳費')
+
+    if (isOpen) {
+      try {
+        const notificationResult = await sendMatchFeePaymentOpenedNotifications(matchId)
+        const feedback = describeMatchFeePaymentNotificationResult(notificationResult)
+        ElMessage[feedback.type](`已開放比賽費用繳費；${feedback.message}`)
+      } catch (notificationError) {
+        console.warn('Match fee payment opened notification failed', notificationError)
+        ElMessage.warning('已開放比賽費用繳費，但通知發送失敗，請稍後確認通知服務。')
+      }
+    } else {
+      ElMessage.success('已關閉比賽費用繳費')
+    }
+
     await refresh()
   } catch (error: any) {
     ElMessage.error(error?.message || (isOpen ? '開放比賽費用失敗' : '關閉比賽費用失敗'))

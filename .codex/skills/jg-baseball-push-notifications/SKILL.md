@@ -31,6 +31,7 @@ description: "Push notification workflow for jg-base-ball-community-app. Use whe
 - `/match-records` 未來賽事的手動通知走 `send-match-reminders`，由 bearer user 的 `matches:EDIT` 權限控制，通知中心事件使用 `matches` + `REMINDER`。
 - 賽事提醒自動排程同樣走 `send-match-reminders`，每分鐘依 `system_settings.match_reminder_schedule_config` 判斷到期規則；event key 要包含 match、rule、scheduled date/time，避免每分鐘重複發送並支援同一場多組提醒。
 - 收費催繳通知走 `send-fee-payment-reminders`，不走自動排程；`preview/send` 由 bearer user 的 `fees:EDIT` 或 `ADMIN` 控制，`test` 只允許 `ADMIN` 且只通知目前登入者，文案使用目前管理員綁定球員的未繳帳款組成。通知中心事件使用 `fees` + `PAYMENT_REMINDER`，source 為 `fee_payment_reminder`，URL 使用 `/my-payments`。
+- 比賽費開放通知走 `send-match-fee-payment-notifications`；Edge Function 需重驗 `fees:EDIT` / `ADMIN` 與場次開放狀態，只通知未繳球員所綁定的 active profiles。通知中心事件同樣使用 `fees` + `PAYMENT_REMINDER`，event key 必須包含 `match_id`、`match_fee_payment_opened_at` 與 `user_id`，URL 使用 `/my-payments`。
 
 ## 工作流程
 
@@ -54,3 +55,4 @@ description: "Push notification workflow for jg-base-ball-community-app. Use whe
 - 改到 click target 或 deep link 時，補跑 `pnpm exec vitest run src/utils/pushDeepLink.test.ts src/composables/useNotificationFeed.test.ts`。
 - 針對可能重複觸發的入口做一次 dedupe 檢查。
 - 若動到 Edge Function payload 或 summary，確認前端呼叫端仍能正常解讀結果。
+- 比賽費開放通知：`pnpm exec vitest run src/utils/matchFeePaymentNotifications.test.ts src/services/matchFeePaymentNotifications.test.ts src/components/fees/MatchFeeManagementPanel.test.ts supabase/functions/send-match-fee-payment-notifications/index.test.ts`。

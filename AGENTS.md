@@ -257,6 +257,7 @@
 - sibling / quarter fee / monthly settlement 等邏輯已拆在 `src/utils/*fee*` 與相關測試。
 - 手足主要繳費人退隊、離隊或關閉 / 畢業後，剩餘有效手足的新一期月費 / 季費試算不得沿用手足半價；主要繳費人恢復有效後，若 `sibling_ids` 與 `is_primary_payer` 仍保留，另一位有效手足可恢復手足減免。既有已保存帳款金額不自動覆寫，需由管理端重算或手動調整。
 - 比賽費走 `src/services/matchFees.ts`、`match_fee_items`、`match_payment_submissions`、`match_payment_submission_items`，可在 `/my-payments` 合併回報，在 `/fees` 審核。費用先在管理端產生並預設未開放；只有具 `fees:EDIT` 的管理者呼叫 `set_match_fee_payment_open_state()` 開放後，linked member 才可看見未繳項目並送出付款。
+- 比賽費開放成功後，`MatchFeeManagementPanel` 會呼叫 `src/services/matchFeePaymentNotifications.ts` 與 `send-match-fee-payment-notifications`；Function 會再次驗證 `fees:EDIT` / `ADMIN`，只依該場仍為 `unpaid` 的明細與 `profiles.linked_team_member_ids` 分組，為每個相關帳號寫入 targeted `push_dispatch_events` 並派送 Web Push。通知導向 `/my-payments`，event key 使用 `match_id + match_fee_payment_opened_at + user_id`，同一次開放重試不可重複通知；通知失敗不回滾已完成的開放狀態。
 - 比賽費開放後若金額或非取消應繳球員集合改變，且整場沒有付款歷程，應收簽章會自動清除並改回未開放；名稱、日期、時間、盃賽或組別更新不改開放狀態。任一明細曾送出付款後不得關閉，付款 RPC 必須鎖定場次並重新驗證仍為開放。
 - 全場明細皆為 `cancelled` 時，只有 `fees:DELETE` 可呼叫 `delete_cancelled_match_fee_group()` 整場刪除；任何目前或歷史付款關聯都必須保留。比賽費不可直接由 authenticated 寫入 / 刪除，開關與群組刪除都走固定 `search_path` 的 security-definer RPC。
 - 匯款表單匯入走 `supabase/functions/record-fee-remittance/index.ts` 與 `scripts/google-form-remittance-apps-script.js`，不得硬編碼 secret。
@@ -311,7 +312,7 @@
 ### 推播與 Web Push
 
 - 前端派送入口統一走 `src/utils/pushNotifications.ts` 的 `dispatchPushNotification()`。
-- Edge Function：`supabase/functions/send-push-notification/index.ts`；排程型通知可用專屬 Edge Function，例如 `send-match-reminders`、`send-training-registration-notifications`；手動 targeted 通知也可用專屬 Edge Function，例如 `send-fee-payment-reminders`；共用 helper 在 `supabase/functions/_shared/push.ts`。
+- Edge Function：`supabase/functions/send-push-notification/index.ts`；排程型通知可用專屬 Edge Function，例如 `send-match-reminders`、`send-training-registration-notifications`；手動 targeted 通知也可用專屬 Edge Function，例如 `send-fee-payment-reminders`，比賽費開放則使用 `send-match-fee-payment-notifications`；共用 helper 在 `supabase/functions/_shared/push.ts`。
 - 訂閱資料表：`web_push_subscriptions`。
 - 同一事件可能由表單、Realtime、重試或多入口觸發時，必須提供穩定 `eventKey`，由 `send-push-notification` 搭配 `push_dispatch_events` 去重。
 - 新球員通知是持久化 Outbox 例外：event key 為 `team_member:<member_id>`，由 DB trigger 建立，`push_dispatch_deliveries` 逐裝置記錄 `pending / processing / sent / expired / failed`，最多嘗試 6 次。
