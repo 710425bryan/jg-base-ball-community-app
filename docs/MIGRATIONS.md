@@ -103,6 +103,7 @@
 | `supabase_match_reminder_schedule_config_migration.sql` | 賽事提醒排程設定 | `system_settings.match_reminder_schedule_config`、每分鐘 cron checker |
 | `supabase_match_reminder_health_migration.sql` | 賽事提醒排程健康檢查 | `get_match_reminder_health_status()`、`matches:HEALTH_ALERT` ADMIN targeted 通知、覆寫 `get_notification_feed()` |
 | `supabase_match_leave_absences_migration.sql` | 未來賽事假單請假同步 | `preview_match_leave_absences()`、`get_match_leave_absences()`、`leave_requests` / `matches` trigger，只管理 `source = 'leave_request'` 的 `matches.absent_players`；半日假單規則以後續 `supabase_zzzzzzzzzzzzzzzz_leave_time_segments_migration.sql` 為準 |
+| `supabase_zzzzzzzzzzzzzzzzz_historical_match_leave_absences_migration.sql` | 歷史賽事假單同步補強 | 移除歷史日期限制，讓表單預覽、詳情 RPC 與假單 trigger 同步所有有日期賽事；部署時回填既有賽事並保留手動請假列與比賽費付款歷史 guard |
 | `supabase_location_geocoding_cache_migration.sql` | 地點 geocoding cache | `resolve-location` Edge Function 使用 |
 
 ## 收費、付款、餘額與比賽費

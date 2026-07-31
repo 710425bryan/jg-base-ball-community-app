@@ -90,7 +90,7 @@
 | `src/services/playerRosterApi.ts` | 球員名單 safe/full 分流與 cache meta RPC | `team_members_safe` / `list_team_members_for_edit()` / `get_team_members_cache_meta()` |
 | `src/services/teamGroupsApi.ts` | team group 設定 RPC | `team_group_settings` 相關 RPC |
 | `src/services/matchesApi.ts` | 賽事 CRUD | `matches` |
-| `src/services/matchLeaveAbsences.ts` | 未來賽事假單同步請假預覽 / 詳情讀取 | `preview_match_leave_absences()`、`get_match_leave_absences()` |
+| `src/services/matchLeaveAbsences.ts` | 歷史與未來賽事假單同步請假預覽 / 詳情讀取 | `preview_match_leave_absences()`、`get_match_leave_absences()` |
 | `src/services/matchReminderNotifications.ts` | 未來賽事手動通知、提醒排程設定與排程健康狀態 RPC | `send-match-reminders` Edge Function、`system_settings.match_reminder_schedule_config`、`get_match_reminder_health_status()` |
 | `src/services/matchCalendarSync.ts` | Google Calendar 手動同步預覽 | `sync-match-calendar` Edge Function、瀏覽器 proxy fallback |
 | `src/services/matchAudioApi.ts` | 比賽語音轉紀錄 Edge Function 呼叫 | `transcribe-match-audio` |
@@ -276,7 +276,7 @@
 | `src/components/match-records/SyncCalendarDialog.vue` | Google Calendar / iCal 同步 |
 | `src/components/match-records/MatchLineupTab.vue` | 陣容 |
 | `src/components/match-records/MatchFieldEditor.vue` | 視覺化守位編輯 |
-| `src/components/match-records/MatchAttendanceStatsTab.vue` | 出席統計 |
+| `src/components/match-records/MatchAttendanceStatsTab.vue` | 賽事出席統計、姓名／背號搜尋與應出席賽事 hover 清單；以 `matches.players` 場次為分母並用 `absent_players` 判斷請假 |
 | `src/components/match-records/MatchTournamentStatsTab.vue` | 盃賽統計 |
 | `src/components/match-records/MatchLiveController.vue` | 即時比賽控制 |
 | `src/components/match-records/MatchAudioRecorder.vue` | 比賽語音錄製與轉紀錄 |
@@ -341,7 +341,7 @@
 | 權限 / RLS | `supabase_access_control_rls_migration.sql`、`supabase_access_control_policy_cleanup_migration.sql` |
 | Profile access | `supabase_profile_access_control_migration.sql`、`supabase_profiles_personal_settings_migration.sql` |
 | 公開首頁 / Dashboard | `supabase_dashboard_snapshot_migration.sql`、`supabase_my_home_snapshot_migration.sql`、`supabase_zz_my_home_training_points_migration.sql` |
-| 假單 | `supabase_my_leave_requests_migration.sql`、`supabase_match_leave_absences_migration.sql`、`supabase_zzzzzzzzzzzzzzzz_leave_time_segments_migration.sql` |
+| 假單 | `supabase_my_leave_requests_migration.sql`、`supabase_match_leave_absences_migration.sql`、`supabase_zzzzzzzzzzzzzzzz_leave_time_segments_migration.sql`、`supabase_zzzzzzzzzzzzzzzzz_historical_match_leave_absences_migration.sql` |
 | 個人成績 | `supabase_my_player_records_migration.sql` |
 | 收費 / 付款 | `supabase_fees_migration.sql`、`supabase_quarterly_fees_migration.sql`、`supabase_profile_payment_submissions_migration.sql`、`supabase_player_balance_transactions_migration.sql`、`supabase_fixed_monthly_billing_migration.sql`、`supabase_zzzzzzzzzzzzzzz_monthly_per_session_billing_migration.sql`、`supabase_zzzzzzzzzzzzzzzzz_monthly_fee_leave_time_segment_migration.sql`、`supabase_quarterly_fee_compensation_migration.sql`、`supabase_match_fees_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz_match_fee_payment_open_state_migration.sql`、`supabase_fee_management_reminders_migration.sql`、`supabase_fee_payment_reminders_migration.sql`、`supabase_zzzzzzzzzzzz_quarterly_payment_open_period_migration.sql`、`supabase_zzzzzzzzzzzzzz_monthly_payment_open_period_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzzzzzz_xintai_fixed_monthly_billing_migration.sql`、`supabase_member_joined_fee_period_guard_migration.sql` |
 | 裝備 | `supabase_equipment_management_migration.sql`、`supabase_equipment_inventory_adjustments_migration.sql`、`supabase_equipment_manual_purchase_records_migration.sql`、`supabase_equipment_multiple_photos_migration.sql`、`supabase_zzzzzz_equipment_inventory_snapshot_rpc_migration.sql`、`supabase_zzzzzzzz_equipment_ready_for_pickup_payment_scope_migration.sql`、`supabase_zzzzzzzzz_equipment_custom_order_migration.sql`、`supabase_zzzzzzzzzz_equipment_approved_payment_scope_migration.sql`、`supabase_zzzzzzzzzzz_equipment_payment_refund_migration.sql`、`supabase_zzzzzzzzzzzz_equipment_create_request_inventory_guard_transaction_fix_migration.sql`、`supabase_zzzzzzzzzzzzz_equipment_request_item_fulfillment_migration.sql`、`supabase_zzzzzzzzzzzzzz_equipment_payment_item_fulfillment_status_migration.sql`、`supabase_zzzzzzzzzzzzzzz_equipment_stock_out_adjustment_migration.sql`、`supabase_zzzzzzzzzzzzzzzz_equipment_request_ready_inventory_guard_fix_migration.sql` |

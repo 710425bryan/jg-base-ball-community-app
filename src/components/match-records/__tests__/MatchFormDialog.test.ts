@@ -233,6 +233,43 @@ describe('MatchFormDialog leave request absence sync', () => {
     ])
   })
 
+  it('adds leave request absences for selected historical match players', async () => {
+    const wrapper = await mountDialog()
+    const vm = wrapper.vm as any
+
+    vm.formData.match_date = '2026-07-26'
+    vm.formData.match_time = '08:50 - 10:10'
+    vm.formData.players = '黃煜文,王小明'
+    await nextTick()
+    vi.mocked(previewMatchLeaveAbsences).mockClear()
+    vi.mocked(previewMatchLeaveAbsences).mockResolvedValueOnce([
+      {
+        name: '黃煜文',
+        type: '事假',
+        source: 'leave_request',
+        member_id: 'member-huang',
+        leave_request_ids: ['leave-historical'],
+        start_date: '2026-07-26',
+        end_date: '2026-07-26',
+        leave_time_segment: 'full_day'
+      }
+    ])
+    await vm.syncLeaveRequestAbsences()
+
+    expect(previewMatchLeaveAbsences).toHaveBeenLastCalledWith(
+      '2026-07-26',
+      ['黃煜文', '王小明'],
+      '08:50 - 10:10'
+    )
+    expect(vm.formData.absent_players).toEqual([
+      expect.objectContaining({
+        name: '黃煜文',
+        source: 'leave_request',
+        leave_request_ids: ['leave-historical']
+      })
+    ])
+  })
+
   it('uses calendar note gather time when match time is empty', async () => {
     const wrapper = await mountDialog()
     const vm = wrapper.vm as any

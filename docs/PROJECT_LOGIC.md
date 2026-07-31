@@ -248,7 +248,7 @@ UI 約定：
 - `team_members.fee_billing_mode = 'no_fee'` 的球員 / 校隊不進新的點名名單與場地連動點名同步；若舊點名事件已存在 `attendance_records`，仍保留顯示歷史紀錄。
 - 外部請假 webhook 會處理 member match、建立假單與通知，必須檢查 secret、payload normalize 與推播 target。
 - 今日訓練點名摘要走 `get_dashboard_today_attendance_status()`，會回傳今日所有點名單與請假名單，只顯示給 `leave_requests:VIEW`。
-- `leave_requests` 新增 / 更新 / 刪除會透過假單同步 trigger 重算今日與未來賽事中 `source = 'leave_request'` 的 `matches.absent_players`；手動請假列不會被假單同步刪除。半日假單優先使用 `matches.match_time` 判斷是否與比賽時間重疊；若時間欄位空白，會從 `matches.note` 的「集合時間 / 比賽時間 / 開打時間」等備註抓取時間；仍沒有時間時視為全日。
+- `leave_requests` 新增 / 更新 / 刪除會透過假單同步 trigger 重算所有有日期賽事中 `source = 'leave_request'` 的 `matches.absent_players`，包含補登或修正的歷史假單；手動請假列不會被假單同步刪除。半日假單優先使用 `matches.match_time` 判斷是否與比賽時間重疊；若時間欄位空白，會從 `matches.note` 的「集合時間 / 比賽時間 / 開打時間」等備註抓取時間；仍沒有時間時視為全日。
 
 重要規則：
 
@@ -299,9 +299,10 @@ UI 約定：
 - Google Calendar / iCal parser 負責把外部日曆轉成 match payload；手動同步預覽優先走 `sync-match-calendar` Edge Function dry-run，瀏覽器第三方 CORS proxy 只作 fallback。同步 roster 會辨識 `fee_billing_mode = 'no_fee'` 並排除於新比賽名單與 lineup payload。
 - 同步規劃維持 `create`、`update`、`skip` 三種結果。
 - 比賽紀錄元件處理陣容、照片、出席統計、賽事細節與 live controller。
+- `MatchAttendanceStatsTab` 的賽事出席率只以每場 `matches.players` 入選名單計算應到場次；同一球員同一場只計一次。若該球員同時存在於 `absent_players`，該場計為請假而非出席，公式為 `(應到場次 - 請假場次) / 應到場次`；不在該場入選名單的請假列不納入統計。表格可依球員姓名或背號搜尋，桌機 hover「應出席」數字可查看日期、時間、賽事、對手、級別與出席／請假狀態。
 - `/calendar?match_id=...` 會開啟 `MatchDetailDialog`；推播與通知的比賽詳情 URL 統一導向這條路徑。
 - `MatchFormDialog` 會用 `preview_match_leave_absences(p_match_date, p_player_names, p_match_time)` 預覽出賽名單內、假單日期與時段涵蓋比賽的球員；前端傳入的時間會先取比賽時間欄位，沒有時再取備註中的集合時間，顯示成不可手動改名的 `source = 'leave_request'` 請假列。
-- `MatchDetailDialog` 的「賽事備註」卡會合併已儲存手動請假列與 `get_match_leave_absences(p_match_id)` 的最新假單同步列；今日 / 未來賽事中已刪除假單留下的舊自動列不再顯示。
+- `MatchDetailDialog` 的「賽事備註」卡會合併已儲存手動請假列與 `get_match_leave_absences(p_match_id)` 的最新假單同步列；歷史、今日與未來賽事中已刪除假單留下的舊自動列都不再顯示。
 - `/match-records` 的「未來賽事」可由具 `matches:EDIT` 的使用者手動發送單場賽事通知；「提醒排程」同樣只給 `matches:EDIT` 使用者管理，設定存在 `system_settings.match_reminder_schedule_config`，透過 `get_match_reminder_schedule_config()` / `save_match_reminder_schedule_config(jsonb)` 讀寫全站共用多組規則，並透過 `get_match_reminder_health_status()` 顯示 ADMIN 可見的排程健康狀態。
 - Edge Function `send-match-reminders` 會驗證手動 bearer user 權限或排程 secret；自動排程每分鐘以 Asia/Taipei 判斷到期規則，寫入 `push_dispatch_events` 並發送 Web Push，通知 URL 統一導向 `/calendar?match_id=...`；自動模式會檢查近 30 分鐘漏發與派送異常，使用 `matches` + `HEALTH_ALERT` targeted event 通知 active `ADMIN`，不自動補發給家長 / 球員。
 - 陣容照片解析會先在前端壓縮 / 轉 data URL，再呼叫 `parse-lineup`，AI 結果需要 normalize 與 unresolved flow。
@@ -313,7 +314,7 @@ UI 約定：
 - 保留 `google_calendar_event_id` 欄位缺失時的 fallback。
 - 同步比對先用 `google_calendar_event_id`，再用日期 + 時間 + 標題 fallback。
 - 自動假單同步只新增 / 更新 / 刪除 `matches.absent_players` 中 `source = 'leave_request'` 的列；手動列與 Google Calendar 匯入既有列不得被 trigger 移除。
-- 假單同步只作用於今日與未來賽事，且只比對該場 `players` 出賽名單內的球員；刪除或調整假單時段後既有比賽費 trigger 需跟著重算。
+- 假單同步作用於所有有日期賽事，且只比對該場 `players` 出賽名單內的球員；補登、刪除或調整歷史假單時段後，自動請假列與既有比賽費 trigger 都需跟著重算，已付款歷史仍依比賽費 guard 保留。
 - `parse-lineup` 與 `transcribe-match-audio` 使用 service role 時，必須先驗證 bearer user，再用 user scoped client 檢查 `matches:CREATE` 或 `matches:EDIT`。
 - AI 不可把沒有在照片 / 語音中明確出現的球員硬塞進陣容或紀錄。
 

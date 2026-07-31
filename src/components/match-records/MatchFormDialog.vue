@@ -301,11 +301,6 @@ const removeAbsent = (index: number) => {
   formData.value.absent_players.splice(index, 1)
 }
 
-const isPastMatchDate = (matchDate: string | null | undefined) => {
-  if (!matchDate) return false
-  return dayjs(matchDate).isBefore(dayjs(), 'day')
-}
-
 const syncLeaveRequestAbsences = async () => {
   const runId = ++leaveAbsenceSyncRunId
   const matchDate = formData.value.match_date
@@ -313,7 +308,7 @@ const syncLeaveRequestAbsences = async () => {
 
   leaveAbsenceSyncError.value = ''
 
-  if (!visible.value || !matchDate || !playerNames.length || isPastMatchDate(matchDate)) {
+  if (!visible.value || !matchDate || !playerNames.length) {
     formData.value.absent_players = withoutLeaveRequestAbsentPlayers(formData.value.absent_players)
     return
   }

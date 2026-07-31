@@ -40,7 +40,8 @@ description: "Leave request, attendance event, roll call, dashboard attendance s
 - `/attendance/:id` 顯示單場點名 detail。
 - 今日訓練點名狀態走 `get_dashboard_today_attendance_status()`，需支援同一天多筆點名單，只給 `leave_requests:VIEW` 使用者顯示。
 - `leave-webhook` 可接 Google Form / 外部請假來源，並可能建立推播事件。
-- 今日 / 未來賽事會依 `leave_requests` trigger 同步 `matches.absent_players` 中 `source = 'leave_request'` 的請假列；手動請假列不受假單刪除影響。
+- 歷史、今日與未來賽事都會依 `leave_requests` trigger 同步 `matches.absent_players` 中 `source = 'leave_request'` 的請假列；手動請假列不受假單刪除影響。
+- 賽事出席率只在球員已列入該場 `matches.players` 時採計其請假，同場請假代表未出席，不可把請假再加成另一筆應到場次。
 
 ## 不可破壞規則
 
@@ -48,7 +49,7 @@ description: "Leave request, attendance event, roll call, dashboard attendance s
 - 若需要處理既有缺席資料或特訓禁報，必須走明確管理流程，不把 `缺席` 按鈕直接放回 Detail。
 - 家長端只能為自己的 linked member 建立 / 刪除請假。
 - 後台頁面顯示權限不能取代 DB RLS / policy。
-- 改請假日期、假別、點名狀態時，要檢查通知中心、推播、今日摘要、費用統計、未來賽事假單同步與特訓禁報是否受影響。
+- 改請假日期、假別、點名狀態時，要檢查通知中心、推播、今日摘要、費用統計、歷史與未來賽事假單同步及特訓禁報是否受影響。
 - 點名與請假統計涉及 `team_group` 時，要讀 `jg-baseball-roster-users-team-groups` skill。
 
 ## 工作流程

@@ -71,14 +71,9 @@ const isFuture = computed(() => {
   return dayjs(matchData.value.match_date).isAfter(dayjs(), 'day')
 })
 
-const shouldRefreshLeaveAbsences = computed(() => {
-  if (!matchData.value?.match_date) return false
-  return !dayjs(matchData.value.match_date).isBefore(dayjs(), 'day')
-})
-
 const displayAbsentPlayers = computed(() => {
   const savedPlayers = matchData.value?.absent_players || []
-  if (!shouldRefreshLeaveAbsences.value || !liveLeaveAbsencesLoaded.value) return savedPlayers
+  if (!liveLeaveAbsencesLoaded.value) return savedPlayers
   return mergeManualAndLeaveAbsences(savedPlayers, liveLeaveAbsences.value)
 })
 
@@ -87,7 +82,7 @@ const refreshLiveLeaveAbsences = async () => {
   liveLeaveAbsencesLoaded.value = false
   liveLeaveAbsences.value = []
 
-  if (!visible.value || !props.matchId || !shouldRefreshLeaveAbsences.value) return
+  if (!visible.value || !props.matchId) return
 
   try {
     const rows = await getMatchLeaveAbsences(props.matchId)

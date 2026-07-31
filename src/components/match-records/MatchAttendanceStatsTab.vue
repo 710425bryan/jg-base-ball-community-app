@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { DataLine, UserFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import AppSearchInput from '@/components/common/AppSearchInput.vue'
 import { supabase } from '@/services/supabase'
 import type { MatchRecord } from '@/types/match'
 import { calculateMatchAttendanceStats, type MatchRosterMeta } from '@/utils/matchRecordStats'
@@ -12,8 +13,19 @@ const props = defineProps<{
 
 const roster = ref<MatchRosterMeta[]>([])
 const loadingRoster = ref(false)
+const playerSearchQuery = ref('')
 
 const attendanceRows = computed(() => calculateMatchAttendanceStats(props.matches, roster.value))
+const filteredAttendanceRows = computed(() => {
+  const query = playerSearchQuery.value.trim().toLocaleLowerCase('zh-Hant')
+  const numberQuery = query.replace(/^#/, '')
+  if (!query) return attendanceRows.value
+
+  return attendanceRows.value.filter((row) =>
+    row.name.toLocaleLowerCase('zh-Hant').includes(query)
+    || (Boolean(numberQuery) && row.number.toLocaleLowerCase('zh-Hant').includes(numberQuery))
+  )
+})
 const totalCalledUp = computed(() => attendanceRows.value.reduce((sum, row) => sum + row.calledUp, 0))
 const totalAttended = computed(() => attendanceRows.value.reduce((sum, row) => sum + row.attended, 0))
 const totalAbsent = computed(() => attendanceRows.value.reduce((sum, row) => sum + row.absentTotal, 0))
@@ -32,6 +44,9 @@ const getRateBarClass = (rate: number) => {
   if (rate >= 60) return 'bg-orange-400'
   return 'bg-red-500'
 }
+
+const getMatchTitle = (match: { tournamentName: string; matchName: string }) =>
+  match.tournamentName || match.matchName || '未命名賽事'
 
 const fetchRoster = async () => {
   loadingRoster.value = true
@@ -109,8 +124,21 @@ onMounted(() => {
             <p class="mt-0.5 text-xs font-semibold text-slate-500">依目前篩選後的已賽比賽名單統計，總請假 {{ totalAbsent }} 人次</p>
           </div>
         </div>
-        <div class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500">
-          球員 {{ attendanceRows.length }} 人
+        <div class="flex w-full flex-col gap-2 md:w-auto md:min-w-64 md:items-end">
+          <AppSearchInput
+            v-model="playerSearchQuery"
+            class="w-full md:w-64"
+            placeholder="搜尋球員姓名或背號"
+            aria-label="搜尋賽事出席球員姓名或背號"
+          />
+          <div class="w-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500">
+            <template v-if="playerSearchQuery.trim()">
+              符合 {{ filteredAttendanceRows.length }} / {{ attendanceRows.length }} 人
+            </template>
+            <template v-else>
+              球員 {{ attendanceRows.length }} 人
+            </template>
+          </div>
         </div>
       </div>
 
@@ -123,11 +151,11 @@ onMounted(() => {
       <el-table
         v-else
         v-loading="loadingRoster"
-        :data="attendanceRows"
+        :data="filteredAttendanceRows"
         stripe
         border
         style="width: 100%"
-        empty-text="無出席資料"
+        empty-text="查無符合的球員"
         :default-sort="{ prop: 'attendanceRate', order: 'descending' }"
       >
         <el-table-column prop="name" label="球員姓名" min-width="130" fixed sortable>
@@ -143,7 +171,54 @@ onMounted(() => {
             <span class="font-mono font-bold text-slate-500">{{ row.number || '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="calledUp" label="應出席" width="100" align="center" sortable />
+        <el-table-column prop="calledUp" label="應出席" width="100" align="center" sortable>
+          <template #default="{ row }">
+            <el-popover trigger="hover" placement="top" :width="360" :show-after="150">
+              <template #reference>
+                <button
+                  type="button"
+                  class="min-h-9 min-w-9 cursor-help rounded-lg px-2 font-mono font-black text-blue-700 underline decoration-dotted underline-offset-4 transition-colors hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                  :aria-label="`${row.name}應出席${row.calledUp}場，查看賽事`"
+                >
+                  {{ row.calledUp }}
+                </button>
+              </template>
+
+              <div class="space-y-2">
+                <div class="font-black text-slate-800">{{ row.name }}的應出席賽事</div>
+                <div class="max-h-72 space-y-2 overflow-y-auto pr-1">
+                  <div
+                    v-for="match in row.calledUpMatches"
+                    :key="match.matchId"
+                    class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
+                  >
+                    <div class="flex items-start justify-between gap-3">
+                      <div class="min-w-0">
+                        <div class="text-xs font-bold text-slate-500">
+                          {{ match.matchDate || '日期未設定' }}
+                          <span v-if="match.matchTime">・{{ match.matchTime }}</span>
+                        </div>
+                        <div class="mt-0.5 truncate text-sm font-black text-slate-800">
+                          {{ getMatchTitle(match) }}
+                        </div>
+                        <div class="mt-0.5 text-xs font-semibold text-slate-500">
+                          <span v-if="match.opponent">對手：{{ match.opponent }}</span>
+                          <span v-if="match.matchLevel">・{{ match.matchLevel }}</span>
+                        </div>
+                      </div>
+                      <span
+                        class="shrink-0 rounded-full px-2 py-1 text-xs font-black"
+                        :class="match.status === 'absent' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'"
+                      >
+                        {{ match.status === 'absent' ? '請假' : '出席' }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </el-popover>
+          </template>
+        </el-table-column>
         <el-table-column prop="attended" label="實出席" width="100" align="center" sortable />
         <el-table-column prop="absentTotal" label="總請假" width="100" align="center" sortable />
         <el-table-column label="請假紀錄" align="center">

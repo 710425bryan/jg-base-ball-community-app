@@ -130,6 +130,34 @@ describe('MatchDetailDialog leave request absence display', () => {
     expect(text).not.toContain('舊假單球員')
   })
 
+  it('refreshes leave request absences for historical matches', async () => {
+    vi.mocked(getMatchLeaveAbsences).mockResolvedValueOnce([
+      {
+        name: '黃煜文',
+        type: '事假',
+        source: 'leave_request',
+        member_id: 'member-huang',
+        leave_request_ids: ['leave-historical'],
+        start_date: '2026-07-26',
+        end_date: '2026-07-26',
+        leave_time_segment: 'full_day'
+      }
+    ])
+
+    const wrapper = await mountDialog({
+      ...baseMatch,
+      id: 'historical-match',
+      match_name: '古柏盃',
+      match_date: '2026-07-26',
+      match_time: '08:50 - 10:10',
+      players: '黃煜文,王小明'
+    })
+
+    expect(getMatchLeaveAbsences).toHaveBeenCalledWith('historical-match')
+    expect(wrapper.text()).toContain('黃煜文')
+    expect(wrapper.text()).toContain('假單同步・全日')
+  })
+
   it('shows the database reason when fee payment history blocks match deletion', async () => {
     mocks.confirm.mockResolvedValue(undefined)
     mocks.deleteMatch.mockRejectedValue(new Error('此比賽仍有待確認或已付款的費用'))

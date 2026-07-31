@@ -214,19 +214,22 @@ describe('matchRecordStats', () => {
     expect(pitchingRows.map((row) => row.matchId)).toEqual(['regular-2', 'regular-1'])
   })
 
-  it('calculates attendance from match player and absent lists with roster metadata fallback', () => {
+  it('counts each selected player once per match and treats matching leave records as absences', () => {
     const rows = calculateMatchAttendanceStats([
       buildMatch({
         id: 'att-1',
         match_level: '一級',
-        players: '王小明,李小華',
+        players: '王小明,李小華,陳新生,李小華',
         absent_players: [{ name: '陳新生', type: '事假' }]
       }),
       buildMatch({
         id: 'att-2',
         match_level: '二級',
-        players: '王小明',
-        absent_players: [{ name: '李小華', type: '病假' }]
+        players: '王小明,李小華',
+        absent_players: [
+          { name: '李小華', type: '病假' },
+          { name: '未入選球員', type: '事假' }
+        ]
       })
     ], [
       { name: '王小明', jersey_number: '10', team_group: '黑熊(中組)' },
@@ -240,6 +243,12 @@ describe('matchRecordStats', () => {
     expect(amy).toMatchObject({ number: '10', category: '黑熊(中組)', calledUp: 2, attended: 2, absentTotal: 0, attendanceRate: 100 })
     expect(bob).toMatchObject({ number: '12', category: '校隊', calledUp: 2, attended: 1, absentTotal: 1, absentLevel2: 1, attendanceRate: 50 })
     expect(missingRoster).toMatchObject({ number: '', category: '', calledUp: 1, attended: 0, absentTotal: 1, absentLevel1: 1, attendanceRate: 0 })
+    expect(bob?.calledUpMatches).toEqual(expect.arrayContaining([
+      expect.objectContaining({ matchId: 'att-1', status: 'attended' }),
+      expect.objectContaining({ matchId: 'att-2', status: 'absent' })
+    ]))
+    expect(rows).toHaveLength(3)
+    expect(rows.find((row) => row.name === '未入選球員')).toBeUndefined()
   })
 
   it('builds per-game batting and pitching detail rows for one tournament player', () => {

@@ -39,7 +39,9 @@ description: "Match records, schedule detail, lineup, media, live controller, au
 - 賽事提醒排程是全站共用多組規則，設定存在 `system_settings.match_reminder_schedule_config`，自動排程由 `send-match-reminders` 每分鐘依 Asia/Taipei 判斷到期規則；健康檢查使用 `get_match_reminder_health_status()` 與 `matches:HEALTH_ALERT` targeted event，只通知 active `ADMIN`，不自動補發。
 - `/my-records` 透過 `myPlayerRecords` RPC 讀 linked member 可見紀錄，不直接使用後台 `matchesApi` 列表。
 - 比賽照片使用 `matches-photos` bucket。
-- 今日 / 未來賽事的假單同步請假列走 `matchLeaveAbsences` service 與 `supabase_match_leave_absences_migration.sql`，只管理 `matches.absent_players` 中 `source = 'leave_request'` 的列。
+- 歷史、今日與未來賽事的假單同步請假列走 `matchLeaveAbsences` service、`supabase_match_leave_absences_migration.sql` 與歷史同步補強 migration，只管理 `matches.absent_players` 中 `source = 'leave_request'` 的列。
+- 賽事出席率以 `matches.players` 的每人每場入選紀錄為唯一分母；同場 `absent_players` 命中時改計請假，不可再額外增加一次應到場次，也不可統計未入選球員的請假列。
+- `MatchAttendanceStatsTab` 提供姓名／背號搜尋；「應出席」數字的 hover 清單需保留日期、時間、賽事名稱、對手、級別與該場出席／請假狀態。
 - 陣容照片解析走 `parse-lineup` Edge Function 與 `lineupPhotoParser` 前處理。
 - 比賽語音轉紀錄走 `transcribe-match-audio` Edge Function、`matchAudioApi`、`matchAudioTranscription` 與 IndexedDB draft store。
 - 天氣預報走 `weatherApi`，地點解析優先呼叫 `resolve-location` Edge Function，再使用本地 fallback。
@@ -52,7 +54,8 @@ description: "Match records, schedule detail, lineup, media, live controller, au
 - 上傳照片、語音檔或 AI 解析結果時，不要繞過使用者權限檢查。
 - `parse-lineup` 與 `transcribe-match-audio` 使用 service role 時，要先驗證 bearer token 使用者，再以 user scoped client 檢查 `matches:CREATE` 或 `matches:EDIT`。
 - AI 解析不可把未在照片或語音中明確出現的球員硬塞進結果；未匹配球員要走 unresolved flow。
-- 假單同步請假列不可刪除手動請假列；刪除 / 修改假單後，今日與未來賽事的自動列必須可移除並讓比賽費重算。
+- 假單同步請假列不可刪除手動請假列；補登、刪除或修改假單後，所有有日期賽事的自動列必須可增刪並讓比賽費重算，已付款歷史仍須保留。
+- 賽事出席率必須維持 `應到 = 出席 + 請假`；同一球員名稱在單場名單重複時仍只能計一場。
 - 比賽刪除必須保留比賽費稽核邊界：待審 / 已付款或仍有目前付款關聯時由 DB 阻擋並在 `MatchDetailDialog` 顯示原因；無付款歷程費用直接清除，已駁回 / 回滾歷史解除 `match_id` 後保留。
 - 修改賽事時間要沿用 `matches.id`；Google Calendar 同步以 event UID 更新既有賽事。不可用名稱 / 日期模糊合併比賽或比賽費，也不可因文字 / 時間異動重建費用。
 - 修改 `matches` 欄位時，同步更新 type、service select / payload、form dialog、grid/table/detail、相關 test 與 migration。

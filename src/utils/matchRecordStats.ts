@@ -78,6 +78,17 @@ export interface PlayerMatchIdentity {
   number?: string | number | null
 }
 
+export interface MatchAttendanceGame {
+  matchId: string
+  matchName: string
+  tournamentName: string
+  matchDate: string
+  matchTime: string
+  opponent: string
+  matchLevel: string
+  status: 'attended' | 'absent'
+}
+
 export interface MatchAttendanceRow {
   name: string
   number: string
@@ -90,6 +101,7 @@ export interface MatchAttendanceRow {
   absentLevel3: number
   absentOther: number
   attendanceRate: number
+  calledUpMatches: MatchAttendanceGame[]
 }
 
 const toNumber = (value: unknown) => {
@@ -552,7 +564,8 @@ export const calculateMatchAttendanceStats = (
         absentLevel2: 0,
         absentLevel3: 0,
         absentOther: 0,
-        attendanceRate: 0
+        attendanceRate: 0,
+        calledUpMatches: []
       })
     }
 
@@ -560,15 +573,31 @@ export const calculateMatchAttendanceStats = (
   }
 
   matches.forEach((match) => {
-    parsePlayerNames(match.players).forEach((name) => {
-      const row = ensureRow(name)
-      row.calledUp += 1
-      row.attended += 1
-    })
+    const selectedPlayerNames = [...new Set(parsePlayerNames(match.players))]
+    const absentPlayerNames = new Set(
+      normalizeAbsentPlayers(match.absent_players).map((player) => player.name)
+    )
 
-    normalizeAbsentPlayers(match.absent_players).forEach((player) => {
-      const row = ensureRow(player.name)
+    selectedPlayerNames.forEach((name) => {
+      const row = ensureRow(name)
+      const isAbsent = absentPlayerNames.has(name)
       row.calledUp += 1
+      row.calledUpMatches.push({
+        matchId: match.id,
+        matchName: normalizeName(match.match_name),
+        tournamentName: normalizeName(match.tournament_name),
+        matchDate: normalizeName(match.match_date),
+        matchTime: normalizeName(match.match_time),
+        opponent: normalizeName(match.opponent),
+        matchLevel: normalizeName(match.match_level),
+        status: isAbsent ? 'absent' : 'attended'
+      })
+
+      if (!isAbsent) {
+        row.attended += 1
+        return
+      }
+
       row.absentTotal += 1
 
       if (match.match_level === '一級') row.absentLevel1 += 1
@@ -582,7 +611,12 @@ export const calculateMatchAttendanceStats = (
     .filter((row) => row.calledUp > 0)
     .map((row) => ({
       ...row,
-      attendanceRate: row.calledUp > 0 ? Math.round((row.attended / row.calledUp) * 1000) / 10 : 0
+      attendanceRate: row.calledUp > 0 ? Math.round((row.attended / row.calledUp) * 1000) / 10 : 0,
+      calledUpMatches: [...row.calledUpMatches].sort((left, right) =>
+        right.matchDate.localeCompare(left.matchDate)
+        || right.matchTime.localeCompare(left.matchTime)
+        || left.matchName.localeCompare(right.matchName, 'zh-Hant')
+      )
     }))
     .sort((left, right) => right.attendanceRate - left.attendanceRate || right.calledUp - left.calledUp || left.name.localeCompare(right.name, 'zh-Hant'))
 }
