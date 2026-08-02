@@ -80,7 +80,7 @@
 | --- | --- | --- |
 | `src/services/publicLanding.ts` | 公開首頁摘要與匿名入隊申請 | `get_public_landing_snapshot()`；申請只 INSERT、不讀回私密資料 |
 | `src/services/dashboardAttendance.ts` | 後台大廳今日訓練點名狀態，含今日多筆點名單 | `get_dashboard_today_attendance_status()` |
-| `src/services/myHome.ts` | 個人化首頁摘要與依 linked member 篩選的 Next Up | `get_my_home_snapshot()` / `get_my_home_next_event()` |
+| `src/services/myHome.ts` | 個人化首頁摘要與 linked member 一週內 Next Up 比賽 RPC | `get_my_home_snapshot()` / `get_my_home_next_event()` |
 | `src/services/myLeaveRequests.ts` | 我的假單 RPC | `list_my_leave_members()` 等 |
 | `src/services/myPayments.ts` | 我的繳費 RPC | `profile_payment_submissions` 相關 RPC |
 | `src/services/playerBalances.ts` | 球員餘額 RPC | `player_balance_transactions`、餘額查詢 / 調整 |
@@ -117,6 +117,7 @@
 | `src/composables/useVersionCheck.ts` | 版本輪詢與更新列 |
 | `src/composables/useNotificationFeed.ts` | 通知中心資料 controller |
 | `src/composables/useHolidayTheme.ts` | 節日主題公開設定、v2 config normalize |
+| `src/composables/useMyHomeNextMatch.ts` | 個人首頁 Next Up 請求競態控制與本人賽事資格驗證 |
 
 ## 7. Utils
 
@@ -170,7 +171,7 @@
 | `src/utils/leaveRequests.ts` | 假單工具邏輯 |
 | `src/utils/training.ts` | 特訓狀態 label、報名可送出 / 禁用原因、錄取名單 normalize |
 | `src/utils/dashboardHome.ts` | 後台首頁摘要與 hero match 邏輯 |
-| `src/utils/myHomeSnapshot.ts` | 個人首頁 snapshot todo / 今日摘要組裝 |
+| `src/utils/myHomeSnapshot.ts` | 個人首頁 snapshot todo、今日摘要與一週內本人賽事判斷 |
 
 ## 8. Views
 
@@ -340,7 +341,7 @@
 | --- | --- |
 | 權限 / RLS | `supabase_access_control_rls_migration.sql`、`supabase_access_control_policy_cleanup_migration.sql` |
 | Profile access | `supabase_profile_access_control_migration.sql`、`supabase_profiles_personal_settings_migration.sql` |
-| 公開首頁 / Dashboard | `supabase_dashboard_snapshot_migration.sql`、`supabase_my_home_snapshot_migration.sql`、`supabase_zz_my_home_training_points_migration.sql` |
+| 公開首頁 / Dashboard | `supabase_dashboard_snapshot_migration.sql`、`supabase_my_home_snapshot_migration.sql`、`supabase_zz_my_home_training_points_migration.sql`、`supabase_my_home_next_match_week_window_migration.sql` |
 | 假單 | `supabase_my_leave_requests_migration.sql`、`supabase_match_leave_absences_migration.sql`、`supabase_zzzzzzzzzzzzzzzz_leave_time_segments_migration.sql`、`supabase_zzzzzzzzzzzzzzzzz_historical_match_leave_absences_migration.sql` |
 | 個人成績 | `supabase_my_player_records_migration.sql` |
 | 收費 / 付款 | `supabase_fees_migration.sql`、`supabase_quarterly_fees_migration.sql`、`supabase_profile_payment_submissions_migration.sql`、`supabase_player_balance_transactions_migration.sql`、`supabase_fixed_monthly_billing_migration.sql`、`supabase_zzzzzzzzzzzzzzz_monthly_per_session_billing_migration.sql`、`supabase_zzzzzzzzzzzzzzzzz_monthly_fee_leave_time_segment_migration.sql`、`supabase_quarterly_fee_compensation_migration.sql`、`supabase_match_fees_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz_match_fee_payment_open_state_migration.sql`、`supabase_fee_management_reminders_migration.sql`、`supabase_fee_payment_reminders_migration.sql`、`supabase_zzzzzzzzzzzz_quarterly_payment_open_period_migration.sql`、`supabase_zzzzzzzzzzzzzz_monthly_payment_open_period_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzzzzzz_xintai_fixed_monthly_billing_migration.sql`、`supabase_member_joined_fee_period_guard_migration.sql` |

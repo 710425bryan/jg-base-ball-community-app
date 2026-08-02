@@ -7,6 +7,7 @@ import {
   getSelectedMyHomeMember,
   isMyHomeMemberInEventPlayers,
   isMyHomeNextEventExpired,
+  isMyHomeNextMatchEligibleForMember,
   normalizeMyHomeNextEvent
 } from '@/utils/myHomeSnapshot'
 
@@ -86,7 +87,7 @@ describe('myHomeSnapshot utilities', () => {
         id: 'match-1',
         type: 'match',
         title: '週末盃賽',
-        date: '2026-05-09',
+        date: '2026-05-07',
         time: '09:00',
         location: null,
         opponent: null,
@@ -120,6 +121,41 @@ describe('myHomeSnapshot utilities', () => {
     } as const
 
     expect(isMyHomeMemberInEventPlayers(event, member)).toBe(true)
+  })
+
+  it('accepts only the selected member regular matches in the seven-date window', () => {
+    const member = {
+      id: 'm1',
+      name: '小安',
+      role: '球員',
+      team_group: null,
+      status: '在隊',
+      jersey_number: '8',
+      avatar_url: null
+    }
+    const event = {
+      id: 'match-1',
+      type: 'match',
+      title: '週末盃賽',
+      date: '2026-05-01',
+      time: '13:00 - 15:00',
+      location: null,
+      opponent: null,
+      category_group: null,
+      match_level: '正式賽',
+      coaches: null,
+      players: '小安',
+      route: '/calendar?match_id=match-1'
+    } as const
+    const now = dayjs('2026-05-01T12:00:00')
+
+    expect(isMyHomeNextMatchEligibleForMember(event, member, now)).toBe(true)
+    expect(isMyHomeNextMatchEligibleForMember({ ...event, date: '2026-05-07' }, member, now)).toBe(true)
+    expect(isMyHomeNextMatchEligibleForMember({ ...event, date: '2026-05-08' }, member, now)).toBe(false)
+    expect(isMyHomeNextMatchEligibleForMember({ ...event, time: '09:00 - 11:00' }, member, now)).toBe(false)
+    expect(isMyHomeNextMatchEligibleForMember({ ...event, match_level: '特訓課' }, member, now)).toBe(false)
+    expect(isMyHomeNextMatchEligibleForMember({ ...event, players: '' }, member, now)).toBe(false)
+    expect(isMyHomeNextMatchEligibleForMember({ ...event, players: '小宇' }, member, now)).toBe(false)
   })
 
   it('shows leave action only when today or tomorrow has a relevant training or rostered event', () => {

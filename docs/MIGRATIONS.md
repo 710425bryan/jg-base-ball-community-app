@@ -53,6 +53,7 @@
 | `supabase_my_home_equipment_payment_ownership_migration.sql` | 個人首頁裝備付款歸屬修正 | 裝備付款摘要必讀 |
 | `supabase_my_home_next_event_match_only_hotfix.sql` | 個人首頁 Next Up 僅顯示賽程 | 避免點名單搶佔 Next Up |
 | `supabase_my_home_personalized_next_event_migration.sql` | 個人首頁 Next Up 依 linked member 篩選特訓報名 | 有效報名特訓才顯示，否則跳過到下一場賽事 |
+| `supabase_my_home_next_match_week_window_migration.sql` | 個人首頁 Next Up 收斂為本人一週內比賽 | 只取 `matches.players` 含目前 linked member 的非特訓比賽；限今天至六天後、排除今天已結束與空白名單 |
 | `supabase_inactive_member_visibility_migration.sql` | 關閉 / 畢業成員可見性修正 | 覆寫 `list_my_payment_members()`、`list_my_leave_members()`、`create_my_leave_requests()` 與 `get_dashboard_today_attendance_status()`，排除退隊、離隊、關閉 / 畢業成員 |
 | `supabase_my_leave_requests_migration.sql` | 我的假單 RPC | 家長端請假安全入口 |
 | `supabase_zzzzzzzzzzzzzzzz_leave_time_segments_migration.sql` | 單日假單全日 / 上午 / 下午時段 | 新增 `leave_requests.leave_time_segment`，覆寫我的假單 RPC、賽事假單同步、比賽費同步與今日點名摘要的時段重疊判斷；賽事判斷會優先用 `matches.match_time`，再 fallback 到 `matches.note` 的集合時間 |

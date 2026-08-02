@@ -13,6 +13,7 @@ import { isActiveTrainingRegistrationStatus } from '@/utils/training'
 const TIME_TOKEN_PATTERN = /\d{1,2}:\d{2}/g
 const PLAYER_LIST_SEPARATOR_PATTERN = /[,，、\n\r;；/]+/
 const LEADING_PLAYER_NUMBER_PATTERN = /^#?(\d{1,3})(?:\D|$)/
+const MY_HOME_NEXT_MATCH_WINDOW_DAYS = 7
 
 const safeNumber = (value: unknown) => {
   const parsed = Number(value)
@@ -163,11 +164,32 @@ export const isMyHomeMemberInEventPlayers = (
   })
 }
 
-const normalizeTodoToday = (today: Dayjs | string | null | undefined) => {
-  if (dayjs.isDayjs(today)) return today.startOf('day')
+export const isMyHomeNextMatchEligibleForMember = (
+  event: MyHomeNextEvent | null,
+  member: MyHomeMember | null,
+  nowInput: Dayjs | string = dayjs()
+): event is MyHomeNextEvent => {
+  if (!event || !member || event.match_level === '特訓課') return false
+
+  const now = dayjs.isDayjs(nowInput) ? nowInput : dayjs(nowInput)
+  const eventDate = dayjs(event.date)
+  if (!now.isValid() || !eventDate.isValid()) return false
+
+  const windowStart = now.startOf('day')
+  const windowEnd = windowStart.add(MY_HOME_NEXT_MATCH_WINDOW_DAYS - 1, 'day')
+  if (eventDate.isBefore(windowStart, 'day') || eventDate.isAfter(windowEnd, 'day')) {
+    return false
+  }
+
+  return !isMyHomeNextEventExpired(event, now)
+    && isMyHomeMemberInEventPlayers(event, member)
+}
+
+const normalizeTodoNow = (today: Dayjs | string | null | undefined) => {
+  if (dayjs.isDayjs(today)) return today
 
   const parsed = today ? dayjs(today) : dayjs()
-  return parsed.isValid() ? parsed.startOf('day') : dayjs().startOf('day')
+  return parsed.isValid() ? parsed : dayjs()
 }
 
 const isTodayOrTomorrow = (dateValue: string | null | undefined, today: Dayjs) => {
@@ -307,7 +329,8 @@ export const buildMyHomeTodoItems = (
   todayInput?: Dayjs | string | null
 ): MyHomeTodoItem[] => {
   const selectedMember = getSelectedMyHomeMember(snapshot.members, selectedMemberId)
-  const today = normalizeTodoToday(todayInput)
+  const now = normalizeTodoNow(todayInput)
+  const today = now.startOf('day')
 
   if (!selectedMember) {
     return [{
@@ -324,7 +347,7 @@ export const buildMyHomeTodoItems = (
   const todayLeave = getMyHomeMemberLeave(snapshot, selectedMember.id)
   const nextEvent = snapshot.next_event
 
-  if (nextEvent && isMyHomeMemberInEventPlayers(nextEvent, selectedMember)) {
+  if (isMyHomeNextMatchEligibleForMember(nextEvent, selectedMember, now)) {
     items.push({
       key: 'next-event',
       title: '下一場賽事',

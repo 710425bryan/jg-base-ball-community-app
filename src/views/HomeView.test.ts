@@ -438,6 +438,8 @@ afterEach(() => {
 
 describe('HomeView dashboard redesign', () => {
   it('loads a personalized Next Up event and refreshes it when the selected member changes', async () => {
+    const firstMatchDate = dayjs().add(2, 'day').format('YYYY-MM-DD')
+    const secondMatchDate = dayjs().add(3, 'day').format('YYYY-MM-DD')
     const snapshot = {
       ...createEmptyMyHomeSnapshot(),
       members: [
@@ -445,39 +447,39 @@ describe('HomeView dashboard redesign', () => {
         { id: 'member-2', name: '小宇', role: '球員', team_group: null, status: '在隊', jersey_number: null, avatar_url: null }
       ],
       next_event: {
-        id: 'unregistered-training',
+        id: 'unverified-global-match',
         type: 'match' as const,
-        title: '未報名特訓',
-        date: '2026-07-12',
+        title: '全隊賽事',
+        date: firstMatchDate,
         time: '09:00 - 11:00',
         location: '中港國小',
         opponent: null,
         category_group: null,
-        match_level: '特訓課',
+        match_level: '友誼賽',
         coaches: null,
-        players: null,
-        route: '/calendar?match_id=unregistered-training'
+        players: '其他球員',
+        route: '/calendar?match_id=unverified-global-match'
       }
     }
     const regularEvent = {
       ...snapshot.next_event,
-      id: 'regular-match',
-      title: '週末友誼賽',
-      match_level: '友誼賽',
-      route: '/calendar?match_id=regular-match'
+      id: 'member-1-match',
+      title: '小安友誼賽',
+      players: '小安',
+      route: '/calendar?match_id=member-1-match'
     }
-    const registeredTrainingEvent = {
+    const secondMemberEvent = {
       ...snapshot.next_event,
-      id: 'registered-training',
-      title: '已報名特訓',
-      training_registration_status: 'selected' as const,
-      is_training_registration_open: true,
-      route: '/calendar?match_id=registered-training'
+      id: 'member-2-match',
+      title: '小宇盃賽',
+      date: secondMatchDate,
+      players: '小宇',
+      route: '/calendar?match_id=member-2-match'
     }
     myHomeServiceMocks.getMyHomeSnapshot.mockResolvedValue(snapshot)
     myHomeServiceMocks.getMyHomeNextEvent
       .mockResolvedValueOnce(regularEvent)
-      .mockResolvedValueOnce(registeredTrainingEvent)
+      .mockResolvedValueOnce(secondMemberEvent)
 
     const { wrapper } = await mountHomeView({
       role: 'MEMBER',
@@ -489,7 +491,7 @@ describe('HomeView dashboard redesign', () => {
       memberId: 'member-1',
       today: dayjs().format('YYYY-MM-DD')
     })
-    expect(panel.props('nextEvent')).toMatchObject({ id: 'regular-match' })
+    expect(panel.props('nextEvent')).toMatchObject({ id: 'member-1-match' })
 
     panel.vm.$emit('update:selectedMemberId', 'member-2')
     await flushPromises()
@@ -498,10 +500,10 @@ describe('HomeView dashboard redesign', () => {
       memberId: 'member-2',
       today: dayjs().format('YYYY-MM-DD')
     })
-    expect(panel.props('nextEvent')).toMatchObject({ id: 'registered-training' })
+    expect(panel.props('nextEvent')).toMatchObject({ id: 'member-2-match' })
   })
 
-  it('does not fall back to an unverified training event when the personalized RPC fails', async () => {
+  it('does not fall back to an unverified snapshot event when the personalized RPC fails', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     myHomeServiceMocks.getMyHomeSnapshot.mockResolvedValue({
       ...createEmptyMyHomeSnapshot(),
@@ -509,18 +511,18 @@ describe('HomeView dashboard redesign', () => {
         { id: 'member-1', name: '小安', role: '球員', team_group: null, status: '在隊', jersey_number: null, avatar_url: null }
       ],
       next_event: {
-        id: 'unverified-training',
+        id: 'unverified-global-match',
         type: 'match',
-        title: '特訓課',
-        date: '2026-07-12',
+        title: '全隊賽事',
+        date: dayjs().add(2, 'day').format('YYYY-MM-DD'),
         time: '09:00 - 11:00',
         location: '中港國小',
         opponent: null,
         category_group: null,
-        match_level: '特訓課',
+        match_level: '友誼賽',
         coaches: null,
-        players: null,
-        route: '/calendar?match_id=unverified-training'
+        players: '小安',
+        route: '/calendar?match_id=unverified-global-match'
       }
     })
     myHomeServiceMocks.getMyHomeNextEvent.mockRejectedValue(new Error('RPC unavailable'))

@@ -10,9 +10,10 @@ import MyHomeTodayPanel from '@/components/home/MyHomeTodayPanel.vue'
 import MatchDetailDialog from '@/components/match-records/MatchDetailDialog.vue'
 import FeeManagementReminderPanel from '@/components/fees/FeeManagementReminderPanel.vue'
 import EquipmentPhotoCarousel from '@/components/equipment/EquipmentPhotoCarousel.vue'
+import { useMyHomeNextMatch } from '@/composables/useMyHomeNextMatch'
 import { listCoachScheduleDashboardMonth } from '@/services/coachSchedulesApi'
 import { getDashboardTodayAttendanceStatus } from '@/services/dashboardAttendance'
-import { getMyHomeNextEvent, getMyHomeSnapshot } from '@/services/myHome'
+import { getMyHomeSnapshot } from '@/services/myHome'
 import { supabase } from '@/services/supabase'
 import { getMatchWeatherForecast, type WeatherSnapshot } from '@/services/weatherApi'
 import { useAuthStore } from '@/stores/auth'
@@ -22,7 +23,7 @@ import { usePermissionsStore } from '@/stores/permissions'
 import { createEmptyDashboardStats, type DashboardAnnouncement, type DashboardTodayAttendanceEvent } from '@/types/dashboard'
 import type { Equipment } from '@/types/equipment'
 import type { MatchRecord } from '@/types/match'
-import { createEmptyMyHomeSnapshot, type MyHomeNextEvent } from '@/types/myHome'
+import { createEmptyMyHomeSnapshot } from '@/types/myHome'
 import type { CoachScheduleMonthPayload } from '@/types/coachSchedule'
 import {
   getEquipmentRemainingOverallQuantity,
@@ -130,7 +131,6 @@ const selectedMatchId = ref<string | null>(null)
 const now = ref(dayjs())
 const weatherStatus = ref<WeatherStatus>('loading')
 const myHomeSnapshot = ref(createEmptyMyHomeSnapshot())
-const myHomeNextEvent = ref<MyHomeNextEvent | null>(null)
 const selectedMyHomeMemberId = ref('')
 const isMyHomeLoading = ref(false)
 const myHomeError = ref('')
@@ -143,7 +143,6 @@ const coachSchedulePayload = ref<CoachScheduleMonthPayload | null>(null)
 const isCoachScheduleLoading = ref(false)
 
 let clockId: ReturnType<typeof setInterval> | null = null
-let myHomeNextEventRequestId = 0
 let isMyHomeSnapshotRefreshInFlight = false
 let lastMyHomeScheduleRefreshAt = 0
 
@@ -161,6 +160,16 @@ const hasLinkedTeamMembers = computed(() => {
 const shouldShowMyHomePanel = computed(() => {
   const role = authStore.profile?.role
   return role === 'MEMBER' || role === 'PARENT' || hasLinkedTeamMembers.value
+})
+const {
+  nextMatch: myHomeNextEvent,
+  fetchNextMatch: fetchMyHomeNextEvent,
+  clearNextMatch: clearMyHomeNextEvent
+} = useMyHomeNextMatch({
+  snapshot: myHomeSnapshot,
+  selectedMemberId: selectedMyHomeMemberId,
+  enabled: shouldShowMyHomePanel,
+  now
 })
 const shouldShowCoachSchedulePanel = computed(() => canViewCoachSchedules.value || isCoachProfile.value)
 const showMyHomeTrainingRegistrationAction = computed(() =>
@@ -614,39 +623,10 @@ const fetchEquipmentAddonData = async () => {
   }
 }
 
-const getSafeMyHomeNextEventFallback = () => {
-  const fallback = myHomeSnapshot.value.next_event
-  return fallback?.match_level === '特訓課' ? null : fallback
-}
-
-const fetchMyHomeNextEvent = async (memberId = selectedMyHomeMemberId.value) => {
-  const requestId = ++myHomeNextEventRequestId
-  myHomeNextEvent.value = null
-
-  if (!shouldShowMyHomePanel.value) {
-    return
-  }
-
-  try {
-    const nextEvent = await getMyHomeNextEvent({
-      memberId: memberId || null,
-      today: now.value.format('YYYY-MM-DD')
-    })
-    if (requestId === myHomeNextEventRequestId) {
-      myHomeNextEvent.value = nextEvent
-    }
-  } catch (error) {
-    console.warn('Error fetching personalized my home Next Up event:', error)
-    if (requestId === myHomeNextEventRequestId) {
-      myHomeNextEvent.value = getSafeMyHomeNextEventFallback()
-    }
-  }
-}
-
 const fetchMyHomeSnapshotData = async (options: MyHomeSnapshotFetchOptions = {}) => {
   if (!shouldShowMyHomePanel.value) {
     myHomeSnapshot.value = createEmptyMyHomeSnapshot()
-    myHomeNextEvent.value = null
+    clearMyHomeNextEvent()
     selectedMyHomeMemberId.value = ''
     return
   }
@@ -671,11 +651,14 @@ const fetchMyHomeSnapshotData = async (options: MyHomeSnapshotFetchOptions = {})
     await fetchMyHomeNextEvent(selectedMyHomeMemberId.value)
   } catch (error: any) {
     console.error('Error fetching personal home snapshot:', error)
-    if (options.silent) return
+    if (options.silent) {
+      clearMyHomeNextEvent()
+      return
+    }
 
     myHomeError.value = error?.message || '無法載入個人化首頁資料'
     myHomeSnapshot.value = createEmptyMyHomeSnapshot()
-    myHomeNextEvent.value = null
+    clearMyHomeNextEvent()
     selectedMyHomeMemberId.value = ''
   } finally {
     isMyHomeSnapshotRefreshInFlight = false

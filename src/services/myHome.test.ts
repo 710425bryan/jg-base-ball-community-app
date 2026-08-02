@@ -307,19 +307,18 @@ describe('myHome service', () => {
     ])
   })
 
-  it('loads and normalizes the personalized Next Up event', async () => {
+  it('loads and normalizes the personalized Next Up match', async () => {
     rpcMock.mockResolvedValueOnce({
       data: {
-        id: 'training-match-1',
+        id: 'regular-match-1',
         type: 'match',
-        title: '投捕特訓課',
+        title: '週末友誼賽',
         date: '2026-07-12',
         time: '09:00 - 11:00',
         location: '中港國小',
-        match_level: '特訓課',
-        training_registration_status: 'selected',
-        is_training_registration_open: true,
-        route: '/match-records?match_id=training-match-1'
+        match_level: '友誼賽',
+        players: '小安',
+        route: '/match-records?match_id=regular-match-1'
       },
       error: null
     })
@@ -335,11 +334,10 @@ describe('myHome service', () => {
       p_today: '2026-07-11'
     })
     expect(nextEvent).toMatchObject({
-      id: 'training-match-1',
-      match_level: '特訓課',
-      training_registration_status: 'selected',
-      is_training_registration_open: true,
-      route: '/calendar?match_id=training-match-1'
+      id: 'regular-match-1',
+      match_level: '友誼賽',
+      players: '小安',
+      route: '/calendar?match_id=regular-match-1'
     })
   })
 
