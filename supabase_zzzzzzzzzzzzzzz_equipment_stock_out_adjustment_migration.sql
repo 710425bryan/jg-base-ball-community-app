@@ -265,7 +265,7 @@ end;
 $$;
 
 revoke all on function public.create_equipment_inventory_adjustment(uuid, date, uuid, text, text, integer, text)
-  from public;
+  from public, anon;
 grant execute on function public.create_equipment_inventory_adjustment(uuid, date, uuid, text, text, integer, text)
   to authenticated, service_role;
 

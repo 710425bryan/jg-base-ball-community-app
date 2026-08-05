@@ -13,6 +13,8 @@ describe('equipment stock-out adjustment migration', () => {
     expect(migration).toContain("when v_signed_quantity < 0 then 'stock_out'")
     expect(migration).toContain('v_quantity integer := abs(coalesce(p_quantity_delta, 0))')
     expect(migration).toContain('v_adjustment_type,')
+    expect(migration).toContain('from public, anon;')
+    expect(migration).toContain('to authenticated, service_role;')
   })
 
   it('requires edit permission and a reason before reducing stock', () => {
