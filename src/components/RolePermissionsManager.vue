@@ -145,6 +145,7 @@
       :show-close="false"
       class="permissions-drawer lg:hidden"
       :with-header="false"
+      append-to-body
     >
       <div class="h-full flex flex-col">
         <!-- Drawer Header -->
@@ -160,14 +161,20 @@
             <div v-if="selectedRole?.is_system" class="px-2 py-1 bg-gray-100 text-gray-500 rounded-lg text-xs font-bold border border-gray-200">
               系統預設
             </div>
-            <button @click="isDrawerOpen = false" class="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors">
+            <button
+              type="button"
+              aria-label="關閉權限設定"
+              title="關閉權限設定"
+              @click="isDrawerOpen = false"
+              class="flex h-11 w-11 items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+            >
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
           </div>
         </div>
 
         <!-- Drawer Body -->
-        <div class="flex-1 overflow-y-auto p-4" v-loading="isLoadingPermissions">
+        <div class="permissions-drawer__scroll flex-1 overflow-y-auto p-4" v-loading="isLoadingPermissions">
           <div v-if="selectedRole?.role_key === 'ADMIN'" class="p-3 bg-orange-50 text-orange-700 text-xs font-bold text-center border border-orange-200 rounded-xl mb-4">
             ADMIN 為最高權限，自動擁有所有操作權，無法單獨調整。
           </div>
@@ -605,5 +612,10 @@ onMounted(() => {
 .permissions-drawer .el-drawer__body {
   padding: 0;
   overflow: hidden;
+}
+
+.permissions-drawer__scroll {
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  -webkit-overflow-scrolling: touch;
 }
 </style>

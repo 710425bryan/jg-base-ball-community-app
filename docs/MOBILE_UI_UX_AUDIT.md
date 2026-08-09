@@ -51,7 +51,7 @@
 | P2-03 | `/training-program-settings` | 手機欄位標籤與輸入框互相擠壓，星期選項觸控區偏小，狀態與儲存操作層級不清 | 欄位改為手機上下排列、星期等寬 44px 網格，狀態與儲存分區 | 待驗收 | View／mobile audit／API／utils 共 66 tests＋`vue-tsc` 通過；待 360／390px 實機驗收 |
 | P2-04 | `/coach-schedules` | 篩選缺 ARIA；actions/footer 偏小 | segmented ARIA、44px、共用 footer | 待驗收 | coach schedules 10 tests＋source contract 通過 |
 | P2-05 | `/players` | 搜尋篩選與四個功能操作混排；舊 `<640px` CSS 曾覆蓋 `hidden` 造成上下兩組篩選 | toolbar 分層；手機只保留搜尋＋篩選觸發器，條件由底部展開；超過兩個操作使用 overflow | 待驗收 | PlayersView mobile filter regression test＋search/filter source contract 通過 |
-| P2-06 | `/users` | 搜尋／篩選／檢視切換放在 header actions；桌機搜尋與登入狀態篩選的寬度、間距及高度不一致 | 移到獨立 toolbar；桌機 filter group 統一 8px 間距與 44px 高度；手機狀態篩選由底部展開；row icon 44px＋ARIA | 待驗收 | UsersView／ViewModeSwitch／mobile audit 共 58 tests＋`vue-tsc` 通過 |
+| P2-06 | `/users` | 搜尋／篩選／檢視切換放在 header actions；桌機搜尋與登入狀態篩選的寬度、間距及高度不一致；角色權限 Drawer 原本留在 route DOM，最後一個功能會被手機底部導覽遮住 | 移到獨立 toolbar；桌機 filter group 統一 8px 間距與 44px 高度；手機狀態篩選由底部展開；row icon 44px＋ARIA；權限 Drawer 掛到 body 並保留 iOS safe area 尾距 | 待驗收 | UsersView／ViewModeSwitch／mobile audit 共 58 tests；權限 Drawer、UsersView 與元件載入共 45 tests＋`vue-tsc`＋build 通過；待登入後 iPhone 實機驗收 |
 | P2-07 | `/leave-requests` | 設定、日期 chips、刪除與 footer 偏小 | 44px、`aria-pressed`、共用 footer | 待驗收 | LeaveRequests 2 tests＋source contract 通過 |
 | P2-08 | `/attendance` | 建立、刪除、開始點名與 footer 偏小 | 功能操作至少 44px，保留既有權限 | 待驗收 | AttendanceList test＋source contract 通過 |
 | P2-09 | `/join-inquiries` | 手機清單在載入失敗或零筆資料時沒有狀態內容，會呈現整頁空白 | 手機卡片；共用 loading、可重試錯誤與明確空狀態；Danger 44px＋ARIA | 待驗收 | JoinInquiriesView tests、`vue-tsc`、build＋source contract 通過 |
