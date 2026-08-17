@@ -171,6 +171,7 @@
 | `src/utils/leaveRequests.ts` | 假單工具邏輯 |
 | `src/utils/training.ts` | 特訓狀態 label、報名可送出 / 禁用原因、錄取名單 normalize |
 | `src/utils/dashboardHome.ts` | 後台首頁摘要與 hero match 邏輯 |
+| `src/utils/dashboardMemberStats.ts` | 後台 Team Members 有效名單、國小校隊／國中部與總人數統計 |
 | `src/utils/myHomeSnapshot.ts` | 個人首頁 snapshot todo、今日摘要與一週內本人賽事判斷 |
 
 ## 8. Views

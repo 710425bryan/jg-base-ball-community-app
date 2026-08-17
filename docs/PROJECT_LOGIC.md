@@ -139,6 +139,7 @@ UI 約定：
 資料流：
 
 - 個人化首頁摘要走 `get_my_home_snapshot(p_today)`，`MyHomeTodayPanel` 的 Next Up 另走 `get_my_home_next_event(p_member_id, p_today)`；RPC 只回傳目前選取 linked member 有列在 `matches.players` 的下一場非特訓比賽，日期限台灣今天至六天後共 7 個日期，今天已結束或入選名單空白時不納入。前端 `useMyHomeNextMatch` 會再次驗證 linked member、日期、賽事類型與結束時間，RPC 錯誤或沒有符合賽事時直接隱藏卡片，不使用未驗證的 snapshot 賽事 fallback；點名狀態固定留在「今日訓練點名狀態」區塊；點數欄位優先由 snapshot 的 `members[*]` 帶入，若線上 RPC 尚未更新則由 `list_my_training_members()` 補齊，只呈現自己的 linked member；付款待辦只統計依月費 / 季費付款規則已開放回報的期別，尚未開放的當月計次月費或未來期別不可提前顯示為待處理。
+- 後台 Team Members 卡片的統計集中在 `src/utils/dashboardMemberStats.ts`：退隊、離隊與 `is_inactive_or_graduated = true` 成員完全排除；`training_program = 'junior_high_school_team'` 的校隊列為國中部，其餘校隊列為國小校隊，總人數只加總兩類校隊與社區球員，教練另列但不納入總數。
 - 後台大廳的「今日訓練點名狀態」走 `get_dashboard_today_attendance_status(p_today)`，會列出今日所有點名單，只給具備 `leave_requests:VIEW` 的角色顯示。
 - 我的假單：
   - `list_my_leave_members()`

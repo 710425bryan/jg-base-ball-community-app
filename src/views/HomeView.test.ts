@@ -205,12 +205,14 @@ const sampleAttendanceEvents = [
 ]
 
 const sampleTeamMembers = [
-  { id: 'school-1', role: '校隊', status: '在隊' },
+  { id: 'school-1', role: '校隊', training_program: 'chunggang_school_team', status: '在隊' },
+  { id: 'junior-high-1', role: '校隊', training_program: 'junior_high_school_team', status: '在隊' },
   { id: 'community-1', role: '球員', status: '在隊' },
   { id: 'leave-only-1', role: '球員', status: '在隊' },
   { id: 'coach-1', role: '教練', status: '在隊' },
   { id: 'inactive-community-1', role: '球員', status: '離隊' },
-  { id: 'inactive-coach-1', role: '教練', status: '退隊' }
+  { id: 'inactive-school-1', role: '校隊', training_program: 'junior_high_school_team', status: '退隊' },
+  { id: 'inactive-coach-1', role: '教練', status: '在隊', is_inactive_or_graduated: true }
 ]
 
 const sampleTodayAttendanceStatus = {
@@ -543,25 +545,41 @@ describe('HomeView dashboard redesign', () => {
     expect(wrapper.find('[data-test="admin-stats"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('Team Members')
     expect(wrapper.text()).toContain('Today Leaves')
-    expect(wrapper.find('[data-test="team-members-total"]').text()).toContain('3')
-    expect(wrapper.find('[data-test="school-team-count"]').text()).toContain('校隊 1')
+    expect(wrapper.find('[data-test="team-members-total"]').text()).toContain('4')
+    expect(wrapper.find('[data-test="elementary-school-team-count"]').text()).toContain('國小校隊 1')
+    expect(wrapper.find('[data-test="junior-high-school-team-count"]').text()).toContain('國中部 1')
     expect(wrapper.find('[data-test="community-members-count"]').text()).toContain('社區 2')
     expect(wrapper.find('[data-test="coach-members-count"]').text()).toContain('教練 1')
-    expect(wrapper.find('[data-test="inactive-members-count"]').text()).toContain('退隊/離隊 1')
+    expect(wrapper.find('[data-test="inactive-members-count"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('退隊/離隊')
     expect(wrapper.find('[data-test="today-leaves-total"]').text()).toContain('3')
     expect(wrapper.find('[data-test="today-leave-requests-count"]').text()).toContain('請假系統 2')
     expect(wrapper.find('[data-test="today-attendance-leaves-count"]').text()).toContain('今日點名 2')
     expect(wrapper.find('[data-test="today-attendance-events-count"]').text()).toContain('點名單 2')
+    expect(teamMembersSelectMock).toHaveBeenCalledWith('id, role, status, is_inactive_or_graduated, training_program')
     expect(teamMembersInMock).toHaveBeenCalledWith('role', ['球員', '校隊', '教練'])
     expect(attendanceEventsSelectMock).toHaveBeenCalledWith('id, attendance_records(member_id, status)')
     expect(channelMock).not.toHaveBeenCalled()
   })
 
-  it('excludes coaches from the Team Members total while keeping the coach count visible', async () => {
+  it('splits school-team counts and excludes coaches from the Team Members total', async () => {
     const teamMembers = [
-      ...Array.from({ length: 16 }, (_, index) => ({ id: `school-${index}`, role: '校隊', status: '在隊' })),
+      ...Array.from({ length: 10 }, (_, index) => ({
+        id: `elementary-${index}`,
+        role: '校隊',
+        training_program: 'chunggang_school_team',
+        status: '在隊'
+      })),
+      ...Array.from({ length: 6 }, (_, index) => ({
+        id: `junior-high-${index}`,
+        role: '校隊',
+        training_program: 'junior_high_school_team',
+        status: '在隊'
+      })),
       ...Array.from({ length: 60 }, (_, index) => ({ id: `community-${index}`, role: '球員', status: '在隊' })),
-      ...Array.from({ length: 6 }, (_, index) => ({ id: `coach-${index}`, role: '教練', status: '在隊' }))
+      ...Array.from({ length: 6 }, (_, index) => ({ id: `coach-${index}`, role: '教練', status: '在隊' })),
+      { id: 'departed-junior-high', role: '校隊', training_program: 'junior_high_school_team', status: '離隊' },
+      { id: 'departed-community', role: '球員', status: '退隊' }
     ]
 
     const { wrapper } = await mountHomeView({
@@ -570,9 +588,11 @@ describe('HomeView dashboard redesign', () => {
     })
 
     expect(wrapper.find('[data-test="team-members-total"]').text()).toContain('76')
-    expect(wrapper.find('[data-test="school-team-count"]').text()).toContain('校隊 16')
+    expect(wrapper.find('[data-test="elementary-school-team-count"]').text()).toContain('國小校隊 10')
+    expect(wrapper.find('[data-test="junior-high-school-team-count"]').text()).toContain('國中部 6')
     expect(wrapper.find('[data-test="community-members-count"]').text()).toContain('社區 60')
     expect(wrapper.find('[data-test="coach-members-count"]').text()).toContain('教練 6')
+    expect(wrapper.text()).not.toContain('退隊/離隊')
   })
 
   it('refreshes admin stats when the app window regains focus', async () => {
@@ -580,7 +600,7 @@ describe('HomeView dashboard redesign', () => {
       role: 'ADMIN'
     })
 
-    expect(wrapper.find('[data-test="team-members-total"]').text()).toContain('3')
+    expect(wrapper.find('[data-test="team-members-total"]').text()).toContain('4')
 
     teamMembersInMock.mockResolvedValueOnce({
       data: [

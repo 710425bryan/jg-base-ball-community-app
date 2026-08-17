@@ -39,20 +39,17 @@ import {
   pickDashboardHeroMatch
 } from '@/utils/dashboardHome'
 import {
+  buildDashboardMemberStats,
+  DASHBOARD_MEMBER_STAT_ROLES,
+  type DashboardMemberStatRow
+} from '@/utils/dashboardMemberStats'
+import {
   canShowMyHomeTrainingRegistrationAction,
   isMyHomeNextEventExpired
 } from '@/utils/myHomeSnapshot'
-import { isActiveRosterMember } from '@/utils/memberLifecycle'
 
 type WeatherStatus = 'loading' | 'success' | 'unavailable'
 type WeatherIconName = 'cloudy' | 'lightning' | 'moon-night' | 'partly-cloudy' | 'pouring' | 'sunny'
-
-type TeamMemberStatRow = {
-  id: string | null
-  role: string | null
-  status: string | null
-  is_inactive_or_graduated?: boolean | null
-}
 
 type LeaveRequestStatRow = {
   user_id: string | null
@@ -82,8 +79,6 @@ type MyHomeSnapshotFetchOptions = {
 }
 
 const TEAM_LABEL = '中港熊戰'
-const PLAYER_MEMBER_STAT_ROLES = ['球員', '校隊']
-const MEMBER_STAT_ROLES = [...PLAYER_MEMBER_STAT_ROLES, '教練']
 const DEFAULT_WEATHER_TEMP = 26
 const DEFAULT_WEATHER_RAIN = 20
 const DEFAULT_WEATHER_WIND = 2
@@ -368,12 +363,6 @@ const getAddonAvailabilityLabel = (equipment: Equipment) => {
   return equipment.is_custom_order ? `${baseLabel}｜訂製品` : baseLabel
 }
 
-const isActiveDashboardMember = (member: TeamMemberStatRow) =>
-  isActiveRosterMember(member)
-
-const isDashboardTeamMember = (member: TeamMemberStatRow) =>
-  PLAYER_MEMBER_STAT_ROLES.includes(String(member.role || ''))
-
 const resetAdminStats = () => {
   Object.assign(stats, createEmptyDashboardStats())
 }
@@ -458,8 +447,8 @@ const fetchAdminStats = async () => {
     const [membersRes, todayLeaveRequestsRes, todayAttendanceEventsRes] = await Promise.all([
       supabase
         .from('team_members')
-        .select('id, role, status, is_inactive_or_graduated')
-        .in('role', MEMBER_STAT_ROLES),
+        .select('id, role, status, is_inactive_or_graduated, training_program')
+        .in('role', [...DASHBOARD_MEMBER_STAT_ROLES]),
       supabase
         .from('leave_requests')
         .select('user_id')
@@ -476,17 +465,10 @@ const fetchAdminStats = async () => {
     if (todayAttendanceEventsRes.error) throw todayAttendanceEventsRes.error
 
     const rosterMembers = Array.isArray(membersRes.data)
-      ? membersRes.data as TeamMemberStatRow[]
+      ? membersRes.data as DashboardMemberStatRow[]
       : []
-    const members = rosterMembers.filter(isActiveDashboardMember)
-    const inactiveMembers = rosterMembers.filter((member) =>
-      isDashboardTeamMember(member) && !isActiveDashboardMember(member)
-    ).length
-    const activeMemberIds = new Set(
-      members
-        .map((member) => member.id)
-        .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
-    )
+    const memberStats = buildDashboardMemberStats(rosterMembers)
+    const activeMemberIds = memberStats.activeMemberIds
     const todayLeaveRequests = Array.isArray(todayLeaveRequestsRes.data)
       ? todayLeaveRequestsRes.data as LeaveRequestStatRow[]
       : []
@@ -512,15 +494,11 @@ const fetchAdminStats = async () => {
 
     const todayLeaveMemberIds = new Set([...leaveRequestMemberIds, ...attendanceLeaveMemberIds])
 
-    const schoolTeamMembers = members.filter((member) => member.role === '校隊').length
-    const communityMembers = members.filter((member) => member.role === '球員').length
-    const coachMembers = members.filter((member) => member.role === '教練').length
-
-    stats.totalMembers = schoolTeamMembers + communityMembers
-    stats.schoolTeamMembers = schoolTeamMembers
-    stats.communityMembers = communityMembers
-    stats.coachMembers = coachMembers
-    stats.inactiveMembers = inactiveMembers
+    stats.totalMembers = memberStats.totalMembers
+    stats.elementarySchoolTeamMembers = memberStats.elementarySchoolTeamMembers
+    stats.juniorHighSchoolTeamMembers = memberStats.juniorHighSchoolTeamMembers
+    stats.communityMembers = memberStats.communityMembers
+    stats.coachMembers = memberStats.coachMembers
     stats.todayLeaves = todayLeaveMemberIds.size
     stats.todayLeaveRequests = leaveRequestMemberIds.size
     stats.todayAttendanceLeaves = attendanceLeaveMemberIds.size
@@ -1264,9 +1242,13 @@ onUnmounted(() => {
             <span class="pb-1 text-[1.4rem] font-bold leading-none text-slate-400 sm:text-[1.7rem] md:text-[2rem]">人</span>
           </div>
           <div class="mt-5 flex flex-wrap gap-3 text-sm font-semibold text-slate-500 sm:text-[15px]">
-            <span data-test="school-team-count" class="inline-flex items-center gap-2.5 whitespace-nowrap rounded-full bg-white/85 px-3 py-1.5 shadow-sm shadow-slate-200/70">
+            <span data-test="elementary-school-team-count" class="inline-flex items-center gap-2.5 whitespace-nowrap rounded-full bg-white/85 px-3 py-1.5 shadow-sm shadow-slate-200/70">
               <span class="h-2.5 w-2.5 shrink-0 rounded-full bg-[#60a5fa]"></span>
-              校隊 {{ stats.schoolTeamMembers }}
+              國小校隊 {{ stats.elementarySchoolTeamMembers }}
+            </span>
+            <span data-test="junior-high-school-team-count" class="inline-flex items-center gap-2.5 whitespace-nowrap rounded-full bg-white/85 px-3 py-1.5 shadow-sm shadow-slate-200/70">
+              <span class="h-2.5 w-2.5 shrink-0 rounded-full bg-[#8b5cf6]"></span>
+              國中部 {{ stats.juniorHighSchoolTeamMembers }}
             </span>
             <span data-test="community-members-count" class="inline-flex items-center gap-2.5 whitespace-nowrap rounded-full bg-white/85 px-3 py-1.5 shadow-sm shadow-slate-200/70">
               <span class="h-2.5 w-2.5 shrink-0 rounded-full bg-[#22c55e]"></span>
@@ -1275,10 +1257,6 @@ onUnmounted(() => {
             <span data-test="coach-members-count" class="inline-flex items-center gap-2.5 whitespace-nowrap rounded-full bg-white/85 px-3 py-1.5 shadow-sm shadow-slate-200/70">
               <span class="h-2.5 w-2.5 shrink-0 rounded-full bg-[#f59e0b]"></span>
               教練 {{ stats.coachMembers }}
-            </span>
-            <span data-test="inactive-members-count" class="inline-flex items-center gap-2.5 whitespace-nowrap rounded-full bg-red-50 px-3 py-1.5 text-red-600 shadow-sm shadow-red-100/70">
-              <span class="h-2.5 w-2.5 shrink-0 rounded-full bg-[#ef4444]"></span>
-              退隊/離隊 {{ stats.inactiveMembers }}
             </span>
           </div>
         </article>

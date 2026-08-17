@@ -1,9 +1,9 @@
 export interface DashboardStats {
   totalMembers: number
-  schoolTeamMembers: number
+  elementarySchoolTeamMembers: number
+  juniorHighSchoolTeamMembers: number
   communityMembers: number
   coachMembers: number
-  inactiveMembers: number
   todayLeaves: number
   todayLeaveRequests: number
   todayAttendanceLeaves: number
@@ -79,10 +79,10 @@ export interface NotificationFeedItem {
 
 export const createEmptyDashboardStats = (): DashboardStats => ({
   totalMembers: 0,
-  schoolTeamMembers: 0,
+  elementarySchoolTeamMembers: 0,
+  juniorHighSchoolTeamMembers: 0,
   communityMembers: 0,
   coachMembers: 0,
-  inactiveMembers: 0,
   todayLeaves: 0,
   todayLeaveRequests: 0,
   todayAttendanceLeaves: 0,

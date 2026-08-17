@@ -160,6 +160,7 @@
 ### 後台大廳、公告與通知中心
 
 - `MainLayout` 顯示桌機導覽、手機更多選單、底部行動導覽、通知中心、版本更新提示、節日橫幅。
+- `HomeView` 的 Team Members 只統計有效名單：`status in ('退隊', '離隊')` 或 `is_inactive_or_graduated = true` 不顯示、不納入總人數；校隊依 `training_program = 'junior_high_school_team'` 分為國中部，其餘校隊顯示為國小校隊，總人數包含兩類校隊與社區球員但不含教練。
 - `HomeView` 的「今日訓練點名狀態」走 `get_dashboard_today_attendance_status()`，會列出今日所有點名單並只顯示給 `leave_requests:VIEW` 使用者。
 - 通知中心優先走 `get_notification_feed()`；若 RPC 缺失，依 `useNotificationFeed` 的 fallback fetcher 邏輯處理。
 - 公告管理在 `AnnouncementsView`，資料表為 `announcements`，附件 / 圖片目前使用 storage。

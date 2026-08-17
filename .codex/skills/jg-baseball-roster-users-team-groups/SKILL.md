@@ -38,6 +38,7 @@ description: "Player roster, users, profile binding, team groups, roster cache, 
 - team group 設定透過 `team_group_settings` 與 `teamGroupsApi` RPC 管理，前端共用 `teamGroups` store。
 - team group 只適用在 eligible role，非球員類角色不應保留無效分組。
 - 中港校隊 / 國中部身分存於 `team_members.training_program`；`team_group` 只作所屬群組（熊隊）使用。`PlayersView` 的所屬群組下拉不可因中港校隊 / 國中部身分而 disabled，也不可改名為訓練項目。
+- Dashboard Team Members 只統計有效名單；國中部只依 `training_program = 'junior_high_school_team'` 分類，其餘校隊歸國小校隊，不以 `team_group` 推導。退隊、離隊或關閉 / 畢業成員不可顯示，也不可納入總人數。
 - 球員年級存在 `team_members.grade`；新增 / 空值時依 `birth_date` 預設，出生日期 9 月 2 日以後晚一屆，名單年級每年 6 月 19 日由 DB 排程自動升級，表單可手動調整。
 - 球員名單的 U-level 標籤由 `src/utils/playerULevel.ts` 依 `birth_date` 和今年生日是否已到計算；不使用 `grade`、9 月 2 日入學切點或 `is_early_enrollment`。
 
