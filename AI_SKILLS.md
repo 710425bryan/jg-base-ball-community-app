@@ -41,6 +41,12 @@
 - 用途：球員名單日常管理、使用者 profile、綁定球員、team group、名單快取與敏感欄位。
 - 典型情境：修改 `PlayersView`、`UsersView`、`TeamGroupSettingsDialog`、`playerRoster`、`teamGroups`、`linked_team_member_ids`、`team_members_safe`、`joined_date`、`team_group`、或完整個資欄位。
 
+### `jg-baseball-registration-forms`
+
+- 路徑：`.codex/skills/jg-baseball-registration-forms/SKILL.md`
+- 用途：報名表範本上傳／下載、完整名單選取、OOXML 自動填寫、照片關聯、產檔權限與個資稽核。
+- 典型情境：修改 `/registration-forms`、`registration_forms` feature、`registration_form_templates`、`registration_form_generation_logs`、private `registration-forms` bucket 或 `registration-form-documents` Edge Function。
+
 ### `jg-baseball-push-notifications`
 
 - 路徑：`.codex/skills/jg-baseball-push-notifications/SKILL.md`

@@ -88,6 +88,7 @@
 | `src/services/schoolTeamMonthlyFeeSettings.ts` | 中港校隊計次費率與國中部單次月費／訓練日期模式設定 RPC | `system_settings.chunggang_monthly_per_session_defaults`、`system_settings.xintai_monthly_per_session_defaults` |
 | `src/services/myPlayerRecords.ts` | 我的成績 RPC | `list_my_player_record_members()`、`get_my_player_match_records()` |
 | `src/services/playerRosterApi.ts` | 球員名單 safe/full 分流與 cache meta RPC | `team_members_safe` / `list_team_members_for_edit()` / `get_team_members_cache_meta()` |
+| `src/services/registrationFormsApi.ts` | 報名表範本清單、私有原檔下載與 Edge binary 呼叫 | `registration_form_templates` / `registration-forms` / `registration-form-documents` |
 | `src/services/teamGroupsApi.ts` | team group 設定 RPC | `team_group_settings` 相關 RPC |
 | `src/services/matchesApi.ts` | 賽事 CRUD | `matches` |
 | `src/services/matchLeaveAbsences.ts` | 歷史與未來賽事假單同步請假預覽 / 詳情讀取 | `preview_match_leave_absences()`、`get_match_leave_absences()` |
@@ -125,6 +126,7 @@
 | --- | --- |
 | `src/utils/appUpdate.ts` | app shell refresh 與目前路徑處理 |
 | `src/utils/playerSync.ts` | Google Form / Sheet 球員同步、dedupe、保護欄位 |
+| `src/utils/registrationForms.ts` | 報名表版型前端設定、有效名單排序、輸出列與必填／警告驗證 |
 | `src/utils/pushNotifications.ts` | 前端推播派送、event key helper |
 | `src/utils/pushDeepLink.ts` | Web Push 點擊 target 正規化、IndexedDB / Cache Storage pending target、iOS PWA deep link fallback 與診斷 |
 | `src/utils/trainingRegistrationNotification.ts` | 特訓報名開始 / 截止前提醒與單筆報名 / 錄取通知文案、URL、event key |
@@ -189,6 +191,7 @@
 | `/my-leave-requests` | `src/views/MyLeaveRequestsView.vue` | 個人假單 |
 | `/leave-requests` | `src/views/LeaveRequestsView.vue` | `leave_requests:VIEW` |
 | `/players` | `src/views/PlayersView.vue` | `players:VIEW` |
+| `/registration-forms` | `src/views/RegistrationFormsView.vue` | `registration_forms:VIEW`；產檔另需 `registration_forms:CREATE + players:EDIT` |
 | `/users` | `src/views/UsersView.vue` | `users:VIEW` |
 | `/join-inquiries` | `src/views/JoinInquiriesView.vue` | `join_inquiries:VIEW` |
 | `/announcements` | `src/views/AnnouncementsView.vue` | `announcements:VIEW` |
@@ -211,6 +214,15 @@
 | `/physical-tests/:memberId` | `src/views/PhysicalTestsDetailView.vue` | `physical_tests` + linked member exception |
 
 ## 9. Feature Components
+
+### Registration Forms
+
+| 檔案 | 用途 |
+| --- | --- |
+| `src/components/registration-forms/RegistrationFormWizard.vue` | 隊職員、球員選取／排序、輸出欄位補正與檢查下載三步驟精靈 |
+| `src/types/registrationForm.ts` | 範本 metadata、隊職員、球員 override 與 generate payload 型別 |
+| `supabase/functions/registration-form-documents/index.ts` | JWT / feature 權限、範本 Storage、完整名單與 binary response 邊界 |
+| `supabase/functions/registration-form-documents/logic.ts` | ZIP 安全、版型偵測、Excel / Word XML 映射與等比例照片 anchor |
 
 ### Equipment
 

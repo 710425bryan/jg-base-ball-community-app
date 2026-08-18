@@ -17,7 +17,7 @@
 | --- | --- | --- |
 | `SUPABASE_URL` | Edge Function 建立 Supabase client | 多數 Edge Functions |
 | `SUPABASE_SERVICE_ROLE_KEY` | service role client | 多數 Edge Functions |
-| `SUPABASE_ANON_KEY` | user scoped client 權限檢查 | `sync-match-calendar`、`send-match-reminders`、`parse-lineup`、`transcribe-match-audio` |
+| `SUPABASE_ANON_KEY` | user scoped client 權限檢查 | `sync-match-calendar`、`send-match-reminders`、`parse-lineup`、`transcribe-match-audio`、`registration-form-documents` |
 
 ## Function 專用環境變數
 
@@ -64,12 +64,15 @@
 | `supabase/functions/transcribe-match-audio/index.ts` | 比賽語音轉文字與結構化紀錄 | 先驗證 bearer user，AI 結果需 normalize unresolved players |
 | `supabase/functions/resolve-location/index.ts` | 地點 geocoding API | 外部 API 失敗時前端要 fallback |
 | `supabase/functions/resolve-location/logic.ts` | 地點解析純邏輯 | 有 Vitest coverage |
+| `supabase/functions/registration-form-documents/index.ts` | 報名表範本上傳／刪除與原格式 binary 產檔 | bearer JWT；上傳需 `registration_forms:CREATE`、刪除需 `DELETE`、產檔需 `registration_forms:CREATE + players:EDIT`；multipart / Storage key 使用 ASCII 固定檔名，中文原檔名另存 metadata，實際類型由 OOXML profile 決定；完整名單只走 user-scoped `list_team_members_for_edit()`，輸出 `no-store` 且不保存 |
+| `supabase/functions/registration-form-documents/logic.ts` | OOXML ZIP 安全、已知版型偵測、Excel／Word 映射與照片 relationships | 10 MB 原檔、50 MB 解壓、500 entries；拒絕 macro / OLE / 外部 relationship / 路徑穿越；有 Vitest 與兩份實檔 QA |
 
 ## 本地注意事項
 
 - 新球員 Outbox cron 需要 Vault entries：`team_member_outbox_function_url`、`team_member_outbox_authorization`、`team_member_outbox_secret`；最後一項需與 Edge secret `TEAM_MEMBER_OUTBOX_SECRET` 相同。
 - `supabase/functions/send-training-location-reminders/` 目前是空目錄，沒有 `index.ts`，不要當成已部署 function。
 - `supabase/functions/deno.json` 與 `supabase/functions/import_map.json` 是 Edge Function runtime 設定，改 import 或 Deno test 時要檢查。
+- `registration-form-documents` 使用函式目錄內的 `deno.json` 固定 `fflate` 與 `@xmldom/xmldom` 版本，部署時不可改用未固定版本或共用設定取代。
 - `.env` 與 `.env.example` 目前被 `.gitignore` 排除；AI 不應假設 repo 內一定有完整環境變數範本。
 
 ## 驗證

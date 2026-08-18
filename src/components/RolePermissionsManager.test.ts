@@ -25,4 +25,10 @@ describe('RolePermissionsManager mobile drawer', () => {
     expect(source).toContain('title="關閉權限設定"')
     expect(source).toContain('class="flex h-11 w-11 items-center justify-center')
   })
+
+  it('exposes registration form VIEW, CREATE, EDIT and DELETE permissions', () => {
+    expect(source).toContain("key: 'registration_forms'")
+    expect(source).toContain("name: '報名表管理'")
+    expect(source).toMatch(/key: 'registration_forms',[\s\S]*?actions: \['VIEW', 'CREATE', 'EDIT', 'DELETE'\]/)
+  })
 })

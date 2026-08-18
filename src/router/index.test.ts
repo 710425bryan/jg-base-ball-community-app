@@ -20,6 +20,26 @@ vi.mock('@/stores/permissions', () => ({
   usePermissionsStore: () => permissionsStoreMock
 }))
 
+vi.mock('../layouts/PublicLayout.vue', () => ({
+  default: { template: '<router-view />' }
+}))
+
+vi.mock('../layouts/MainLayout.vue', () => ({
+  default: { template: '<router-view />' }
+}))
+
+vi.mock('../views/PushEntryView.vue', () => ({
+  default: { template: '<div />' }
+}))
+
+vi.mock('../views/LandingView.vue', () => ({
+  default: { template: '<div />' }
+}))
+
+vi.mock('../views/HomeView.vue', () => ({
+  default: { template: '<div />' }
+}))
+
 describe('router route and guard coverage', () => {
   beforeEach(() => {
     authStoreMock.isInitializing = false
@@ -52,6 +72,7 @@ describe('router route and guard coverage', () => {
     expect(routes.find((route) => route.path === '/equipment')?.meta.feature).toBe('equipment')
     expect(routes.find((route) => route.path === '/equipment-purchases')?.meta.feature).toBe('fees')
     expect(routes.find((route) => route.path === '/vendors')?.meta.feature).toBe('vendors')
+    expect(routes.find((route) => route.path === '/registration-forms')?.meta.feature).toBe('registration_forms')
   })
 
   it('redirects legacy equipment fee links to the independent workspace', async () => {

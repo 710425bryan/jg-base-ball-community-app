@@ -2,9 +2,9 @@
 
 本文件依 `docs/MOBILE_UI_UX_RULES.md` 追蹤登入後 `MainLayout` 頁面的實際調整進度。規則文件是目標規格，本文件是執行帳本；未完成程式修改與視覺驗收前，不得將項目標示為「完成」。
 
-清單涵蓋 28 個登入後路由、26 個實作頁面；能力／體測列表與明細各自共用一套實作頁面。
+清單涵蓋 29 個登入後路由、27 個實作頁面；能力／體測列表與明細各自共用一套實作頁面。
 
-- 最後更新：2026-07-27
+- 最後更新：2026-08-18
 - 本輪範圍：P0 → P1 → P2 → P3 程式調整與自動檢查。
 - 本輪結論：自動檢查通過，因目前沒有可登入的一般 linked-member 與 ADMIN 裝置環境，全部維持「待驗收」。
 
@@ -60,6 +60,7 @@
 | P2-12 | `/fees` | tabs 與子元件 Dialog 規格不一；校隊月費搜尋與 program 篩選並排 | tabs 44px＋ARIA；月費結算以中港總部／國中部固定分頁切換；可見 Dialog footer 統一；裝備請購／付款移至獨立管理頁 | 待驗收 | 收費設定已拆成計次、固定月繳、季費補償、不收費四個 44px ARIA tabs；月費結算另以中港總部／國中部 44px ARIA tabs 分開名單、摘要與 CSV，手機不用另開篩選面板；計次頁籤內兩個 program 各有獨立手機友善費率卡，國中部的單次月費／訓練日期 switch 可換行且金額欄滿寬，社區成員費率手機改用卡片；待 360–767px 視覺驗收 |
 | P2-13 | `/vendors` | 卡片三個操作；table icons 偏小；手機分類在頁內向下展開 | 每筆最多兩個操作，其他 overflow；icons 44px＋ARIA；分類篩選由底部展開 | 待驗收 | vendors 5 tests＋search/filter source contract 通過 |
 | P2-14 | `/equipment-purchases` | 原本付款與請購六個狀態區塊同時堆疊於 `/fees`，桌機與手機資訊量過高 | 付款／請購雙頁籤；`>=1024px` 主清單＋明細，較小螢幕全螢幕 Drawer；摘要／進階篩選預設收起；進階條件統一 Element Plus 控制；請購數量依目前篩選跨分頁彙整，桌機表格／手機分組列；付款狀態沿用藍／綠／橘語意色與原說明文字；主清單依狀態顯示淡色外框／底色；分頁後捲到新頁第一筆且選取明細不重設頁碼；刪除請購使用獨立 Danger 按鈕；44px、safe area、深層連結與單一頁面捲動 | 待驗收 | 搬移後全量 154 files、754 tests；Element Plus 篩選回歸 3 files、90 tests；狀態色彩、主清單外框／底色與文案回歸測試通過；請購刪除操作 targeted tests 通過；分頁捲動回歸 3 files、73 tests；數量統計／分頁狀態 7 files、51 tests；`vue-tsc`、build 通過；管理台仍待登入後裝置驗收 |
+| P2-15 | `/registration-forms` | 新增範本管理與三步驟報名表精靈，需要在窄手機容納完整球員欄位與固定操作列 | 清單無水平溢位；隊職員姓名使用可搜尋／可自訂選單並自動帶入名單電話；選球員提供所有人／U-level／清除全選快捷操作與容量提示；`<768px` 精靈使用全螢幕單欄，`>=768px` 使用可捲動 Dialog 與多欄欄位；操作列不被底部導覽遮住 | 完成 | 44 個 targeted tests、`vue-tsc`、production build 通過；Playwright 以 ADMIN store／REST fixtures 驗證 360px、390px、700px、1280px，無水平溢位；fixture 不寫入遠端資料庫 |
 
 ## P3：特殊介面
 
@@ -72,6 +73,12 @@
 | P3-05 | 能力／體測明細 | 返回及紀錄操作偏小 | 44px、`rounded-xl`、ARIA 與 Danger 確認 | 待驗收 | performance API/config 5 tests＋build 通過 |
 
 ## 驗收紀錄
+
+### 2026-08-18 報名表管理
+
+- `/registration-forms` 清單在 360px 保持單欄卡片與完整操作；三步驟精靈在 360px、390px 使用全螢幕單欄，在 700px、1280px 使用可捲動 Dialog，四種寬度的 document scroll width 均未超出 viewport。
+- 實際操作驗證隊職員必填阻擋、球員依背號排序、多人選取、肖像授權／缺照片警告、Excel 非必填守位欄位，以及桌機多欄排列；固定 footer 在手機與桌機皆保持可見。
+- Playwright 驗收以本機 ADMIN store 與 REST fixtures 隔離後端資料，沒有寫入 production；因模擬登入未建立真實 Supabase session，MainLayout 通知 feed 出現預期的未驗證錯誤，報名表頁面本身沒有 console error。
 
 ### 2026-07-27 收費設定分頁與國中部計次月費
 

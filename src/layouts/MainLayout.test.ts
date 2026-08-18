@@ -42,4 +42,9 @@ describe('MainLayout team member notification security', () => {
     expect(source).toContain('@click="router.push(item.to)"')
     expect(source).not.toContain('@click="router.push(\'/fees\')"')
   })
+
+  it('shows registration forms in desktop and mobile admin menus only with feature visibility', () => {
+    const item = "{ label: '報名表管理', to: '/registration-forms', visible: permissionsStore.can('registration_forms', 'VIEW') }"
+    expect(source.split(item)).toHaveLength(3)
+  })
 })

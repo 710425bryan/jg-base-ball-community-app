@@ -206,6 +206,15 @@ UI 約定：
 - team group 設定使用 `teamGroups` store 與 `teamGroupsApi`；新增、改名、排序、刪除轉移都要同步影響 `PlayersView`、`TrainingView`、`TrainingLocationsView`、`LeaveRequestsView`、`RollCallView` 的組別選項。
 - 非 eligible role 不應保留 team group；刪除組別時要有轉移或清理策略。
 
+### 報名表範本與產檔
+
+- `/registration-forms` 讀取 `registration_form_templates`，可下載 private `registration-forms` bucket 的原始 XLSX / DOCX 範本；範本上傳、刪除及產生文件統一走 `registration-form-documents` Edge Function。multipart 與 Storage object key 使用 ASCII 固定檔名，中文原檔名另存於 metadata 與下載檔名；實際檔案類型以通過安全檢查的 OOXML profile 為準，不只依賴 multipart `File.name`。
+- `registration_forms` feature 使用 `VIEW / CREATE / EDIT / DELETE`，migration 只預設授予 `ADMIN`。產生含完整個資的文件另需 `players:EDIT`，Edge Function 使用 bearer JWT 建立 user-scoped client 呼叫 `list_team_members_for_edit()`，不以 service role 直接讀 `team_members`。
+- 前端精靈包含隊職員資料、有效球員／校隊選取與檢查下載三步；隊職員姓名可從有效教練、管理群、球員或校隊名單搜尋選取並自動帶入 `guardian_phone`，也可自訂姓名與手動修正本次電話；選球員提供所有人、動態 U-level 與清除全選快捷操作，超過版型容量時依背號只選前 N 人並提示；球員預設依背號排序且可調整順序，Excel 上限 30、Word 上限 20。
+- 球員姓名、肖像授權與照片來源只讀主檔；背號、生日、身分證、投打、學校、年級與守位可作本次輸出 override，但不得回寫名單。守位只在版型有對應欄位時顯示且為非必填，留白不阻擋產檔；左右開弓不可自動轉為 R/L，需人工選擇。
+- 版型引擎直接修改原始 OOXML ZIP 的目標 XML 與圖片 relationships，保留其他版式、合併儲存格與列印設定。原檔限制 10 MB、解壓限制 50 MB / 500 entries，拒絕 macro、OLE、外部 relationship 與不安全路徑。
+- 產出檔不保存；成功後只在 `registration_form_generation_logs` 留下非個資 audit metadata，再以 `no-store` binary 回傳瀏覽器。
+
 同步規則：
 
 - Google Form / Sheet 同步使用 `src/utils/playerSync.ts`。

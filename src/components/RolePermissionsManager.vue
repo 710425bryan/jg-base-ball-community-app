@@ -316,6 +316,12 @@ const systemFeatures = [
     actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
   },
   {
+    key: 'registration_forms',
+    name: '報名表管理',
+    desc: '管理範本並從完整球員名單產生含個資的報名表',
+    actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
+  },
+  {
     key: 'baseball_ability',
     name: '棒球能力數據',
     desc: '檢視與維護跑壘、球速、擊球與傳接球測驗',

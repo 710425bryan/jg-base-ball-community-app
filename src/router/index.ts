@@ -152,6 +152,12 @@ const router = createRouter({
           meta: { feature: 'players' }
         },
         {
+          path: 'registration-forms',
+          name: 'RegistrationForms',
+          component: () => import('../views/RegistrationFormsView.vue'),
+          meta: { feature: 'registration_forms' }
+        },
+        {
           path: 'users',
           name: 'Users',
           component: () => import('../views/UsersView.vue'),

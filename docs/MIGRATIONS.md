@@ -41,6 +41,12 @@
 | `supabase_team_group_rename_migration.sql` | team group 改名 / 轉移 | 改名不可留下孤兒組別 |
 | `supabase_team_group_non_player_cleanup_migration.sql` | 清理非球員組別資料 | 保持 eligible role 規則 |
 
+## 報名表
+
+| 檔案 | 用途 | 注意事項 |
+| --- | --- | --- |
+| `supabase_registration_forms_migration.sql` | 報名表範本 metadata、最小化產生紀錄、`registration_forms` feature 與 private Storage | 只預設 `ADMIN` 四個 action；產生個資文件仍由 Edge Function 額外檢查 `players:EDIT`，產出檔不保存 |
+
 ## 公開頁、Dashboard 與個人功能
 
 | 檔案 | 用途 | 注意事項 |

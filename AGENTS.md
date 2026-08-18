@@ -40,6 +40,7 @@
 | 手機版面、功能按鈕、搜尋篩選、Dialog、safe area | `jg-baseball-project-workflow` | `docs/MOBILE_UI_UX_RULES.md`、`src/style.css`、`AppPageHeader.vue`、`AppMobileFilterSheet.vue`、相關 view/component |
 | 登入、角色、路由守衛、feature/action | `jg-baseball-auth-permissions` | `src/router/index.ts`、`src/stores/auth.ts`、`src/stores/permissions.ts`、相關 migration |
 | 球員名單、使用者、綁定球員、team group | `jg-baseball-roster-users-team-groups` | `PlayersView.vue`、`UsersView.vue`、`TeamGroupSettingsDialog.vue`、`src/stores/playerRoster.ts`、`src/stores/teamGroups.ts` |
+| 報名表範本、球員帶入、OOXML 產檔 | `jg-baseball-registration-forms` | `RegistrationFormsView.vue`、`RegistrationFormWizard.vue`、`src/services/registrationFormsApi.ts`、`registration-form-documents/*`、`supabase_registration_forms_migration.sql` |
 | 球員名單、Google Form / Sheet 同步 | `jg-baseball-player-sync` | `src/utils/playerSync.ts`、`src/utils/playerSync.test.ts`、`PlayersView.vue` |
 | 請假、點名、今日點名摘要 | `jg-baseball-leave-attendance` | `MyLeaveRequestsView.vue`、`LeaveRequestsView.vue`、`AttendanceListView.vue`、`RollCallView.vue`、`leave-webhook/*` |
 | 推播、通知中心、eventKey、subscription | `jg-baseball-push-notifications` | `src/utils/pushNotifications.ts`、`supabase/functions/send-push-notification/*` |
@@ -126,7 +127,7 @@
 登入後頁面掛在 `MainLayout`，父層 `meta.requiresAuth = true`。
 
 - 不需額外 feature 的登入頁：`/dashboard`、`/calendar`、`/profile`、`/my-records`、`/my-payments`、`/equipment-addons`、`/my-leave-requests`。
-- 需要 `meta.feature` 的後台頁：`leave_requests`、`players`、`users`、`join_inquiries`、`announcements`、`holiday_theme_settings`、`attendance`、`training`、`training_dates`（含 `/training-dates`、`/training-program-settings`）、`training_locations`、`coach_schedules`、`matches`、`fees`（含 `/fees`、`/equipment-purchases`）、`baseball_ability`、`physical_tests`、`equipment`、`vendors`。
+- 需要 `meta.feature` 的後台頁：`leave_requests`、`players`、`registration_forms`、`users`、`join_inquiries`、`announcements`、`holiday_theme_settings`、`attendance`、`training`、`training_dates`（含 `/training-dates`、`/training-program-settings`）、`training_locations`、`coach_schedules`、`matches`、`fees`（含 `/fees`、`/equipment-purchases`）、`baseball_ability`、`physical_tests`、`equipment`、`vendors`。
 - `baseball_ability` 與 `physical_tests` 有 `allowLinkedMemberView` 例外：有綁定球員者可唯讀自己的資料；管理權限者可看全隊。
 - 無權限時導回 `/dashboard`。
 
@@ -175,6 +176,15 @@
 - Google 表單 / Sheet 同步不得覆蓋既有 `team_members.is_primary_payer`、`team_members.is_half_price` 與 `team_members.fee_billing_mode`；新增球員時前兩者預設 `false`，收費模式預設 `role_default`。
 - 使用者管理在 `UsersView`，profile 新增 / 更新 / 刪除優先走 `admin_insert_profile()`、`admin_update_profile()`、`admin_delete_user()`。
 - 權限 UI 在 `RolePermissionsManager.vue`，對應 `app_roles` 與 `app_role_permissions`。
+
+### 報名表管理
+
+- 後台路由 `/registration-forms` 使用 `registration_forms:VIEW`；`CREATE / EDIT / DELETE` 分別控制範本上傳與產檔、metadata 維護及刪除，預設只有 `ADMIN` 擁有四個 action。
+- 範本 metadata 存在 `registration_form_templates`，原檔放 private `registration-forms` bucket；`registration_form_generation_logs` 只記範本、產生者、時間、輸出檔名與球員數，不可保存球員 ID、個資或產出檔。
+- 前端 `RegistrationFormsView` / `RegistrationFormWizard` 只負責 UX；含完整個資的 `generate` 必須由 `registration-form-documents` Edge Function 同時檢查 `registration_forms:CREATE` 與 `players:EDIT`，並以 user-scoped `list_team_members_for_edit()` 重新取得資料。
+- 第一版只支援「就是棒臺北」XLSX 30 人與「主委盃 U9」DOCX 20 人；版型偵測、欄位映射與 OOXML 安全限制集中在 function logic。未知版型、巨集、OLE、外部關聯、路徑穿越或超限 ZIP 必須拒絕。
+- 本次補正值只進產出檔，不回寫 `team_members`；姓名、`portrait_auth` 與 `avatar_url` 不接受前端 override。未授權或缺照片只留空照片格，不阻擋產檔。
+- 產出 binary 使用 `Cache-Control: no-store` 並立即下載，不寫 Storage；照片只允許同一 Supabase 專案 `avatars` bucket、單張最多 1 MB。
 
 ### 請假與點名
 
