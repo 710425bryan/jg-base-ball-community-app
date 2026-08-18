@@ -674,7 +674,7 @@ const adminDesktopNavItems = computed<DesktopNavItem[]>(() => [
   { label: '裝備請購／付款', to: '/equipment-purchases', visible: permissionsStore.can('fees', 'VIEW') },
   { label: '裝備管理', to: '/equipment', visible: permissionsStore.can('equipment', 'VIEW') },
   { label: '廠商名單', to: '/vendors', visible: permissionsStore.can('vendors', 'VIEW') },
-  { label: '報名表管理', to: '/registration-forms', visible: permissionsStore.can('registration_forms', 'VIEW') },
+  { label: '賽事報名管理', to: '/registration-forms', visible: permissionsStore.can('registration_forms', 'VIEW') },
   { label: '使用者名單', to: '/users', visible: permissionsStore.can('users', 'VIEW') }
 ].filter(isVisibleDesktopNavItem));
 
@@ -737,7 +737,7 @@ const mobileMenuGroups = computed<MobileMenuGroup[]>(() => [
       { label: '裝備請購／付款', to: '/equipment-purchases', visible: permissionsStore.can('fees', 'VIEW') },
       { label: '裝備管理', to: '/equipment', visible: permissionsStore.can('equipment', 'VIEW') },
       { label: '廠商名單', to: '/vendors', visible: permissionsStore.can('vendors', 'VIEW') },
-      { label: '報名表管理', to: '/registration-forms', visible: permissionsStore.can('registration_forms', 'VIEW') },
+      { label: '賽事報名管理', to: '/registration-forms', visible: permissionsStore.can('registration_forms', 'VIEW') },
       { label: '使用者名單', to: '/users', visible: permissionsStore.can('users', 'VIEW') }
     ].filter(isVisibleMobileMenuItem)
   }

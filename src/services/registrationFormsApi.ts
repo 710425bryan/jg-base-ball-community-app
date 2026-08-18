@@ -1,5 +1,8 @@
 import { supabase } from '@/services/supabase'
 import type {
+  RegistrationFormEvent,
+  RegistrationFormEventInput,
+  RegistrationFormGenerationLog,
   RegistrationFormTemplate,
   RegistrationGeneratePayload
 } from '@/types/registrationForm'
@@ -47,6 +50,58 @@ export const fetchRegistrationFormTemplates = async (): Promise<RegistrationForm
     .order('created_at', { ascending: false })
   if (error) throw error
   return (data || []) as RegistrationFormTemplate[]
+}
+
+export const fetchRegistrationFormEvents = async (): Promise<RegistrationFormEvent[]> => {
+  const { data, error } = await supabase
+    .from('registration_form_events')
+    .select('*, registration_form_event_templates(template_id, sort_order)')
+    .order('season_year', { ascending: false })
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data || []).map((rawRow: any) => {
+    const { registration_form_event_templates: links = [], ...row } = rawRow
+    return {
+      ...row,
+      template_ids: [...links]
+      .sort((left: any, right: any) => Number(left.sort_order || 0) - Number(right.sort_order || 0))
+      .map((link: any) => String(link.template_id))
+    }
+  }) as RegistrationFormEvent[]
+}
+
+export const fetchRegistrationFormGenerationLogs = async (): Promise<RegistrationFormGenerationLog[]> => {
+  const { data, error } = await supabase
+    .from('registration_form_generation_logs')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(500)
+  if (error) throw error
+  return (data || []) as RegistrationFormGenerationLog[]
+}
+
+export const saveRegistrationFormEvent = async (input: RegistrationFormEventInput) => {
+  const { data, error } = await supabase.rpc('save_registration_form_event', {
+    p_event_id: input.id || null,
+    p_name: input.name.trim(),
+    p_season_year: input.season_year,
+    p_category: input.category.trim(),
+    p_organizer: input.organizer.trim(),
+    p_registration_deadline: input.registration_deadline || null,
+    p_status: input.status,
+    p_notes: input.notes.trim(),
+    p_template_ids: input.template_ids
+  })
+  if (error) throw error
+  return String(data)
+}
+
+export const deleteRegistrationFormEvent = async (eventId: string) => {
+  const { error } = await supabase
+    .from('registration_form_events')
+    .delete()
+    .eq('id', eventId)
+  if (error) throw error
 }
 
 export const uploadRegistrationFormTemplate = async (file: File, displayName = '') => {

@@ -317,8 +317,8 @@ const systemFeatures = [
   },
   {
     key: 'registration_forms',
-    name: '報名表管理',
-    desc: '管理範本並從完整球員名單產生含個資的報名表',
+    name: '賽事報名管理',
+    desc: '管理賽事、可重用範本，並從完整球員名單產生含個資的報名表',
     actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
   },
   {

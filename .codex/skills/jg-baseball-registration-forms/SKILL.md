@@ -1,23 +1,23 @@
 ---
 name: jg-baseball-registration-forms
-description: "Registration form template, roster selection and OOXML generation workflow for jg-base-ball-community-app. Use when changing /registration-forms, registration_forms permissions, registration_form_templates, registration_form_generation_logs, the private registration-forms bucket, registrationFormsApi, RegistrationFormWizard, or registration-form-documents Edge Function."
+description: "Competition registration, reusable template, roster selection and OOXML generation workflow for jg-base-ball-community-app. Use when changing /registration-forms, registration_forms permissions, registration_form_events, registration_form_event_templates, registration_form_templates, registration_form_generation_logs, the private registration-forms bucket, registrationFormsApi, RegistrationEventDialog, RegistrationFormWizard, or registration-form-documents Edge Function."
 ---
 
 # JG Baseball Registration Forms
 
 ## Overview
 
-用這個 skill 處理報名表原始範本上傳／下載、有效球員選取、輸出欄位補正、Excel / Word OOXML 自動填寫、照片關聯與個資安全。這個功能會接觸身分證、生日與照片，前端路由或按鈕不是安全邊界。
+用這個 skill 處理賽事報名主檔、可重用範本上傳／下載、有效球員選取、輸出欄位補正、Excel / Word OOXML 自動填寫、照片關聯與個資安全。這個功能會接觸身分證、生日與照片，前端路由或按鈕不是安全邊界。
 
 ## 讀取順序
 
 1. 先讀 `AGENTS.md`。
 2. 讀 `docs/PROJECT_LOGIC.md` 的「報名表範本與產檔」與 `docs/FILE_MAP.md`。
 3. 讀 `src/types/registrationForm.ts`、`src/utils/registrationForms.ts`、`src/services/registrationFormsApi.ts`。
-4. 若改 UI，讀 `src/views/RegistrationFormsView.vue` 與 `src/components/registration-forms/RegistrationFormWizard.vue`。
+4. 若改 UI，讀 `src/views/RegistrationFormsView.vue`、`RegistrationEventDialog.vue` 與 `RegistrationFormWizard.vue`。
 5. 若改權限或路由，讀 `src/router/index.ts`、`src/layouts/MainLayout.vue`、`src/components/RolePermissionsManager.vue` 與 `jg-baseball-auth-permissions` skill。
 6. 若改完整名單欄位，讀 `src/stores/playerRoster.ts`、`src/services/playerRosterApi.ts` 與 `jg-baseball-roster-users-team-groups` skill。
-7. 若改 DB / Storage，讀 `supabase_registration_forms_migration.sql` 與 `docs/MIGRATIONS.md`。
+7. 若改 DB / Storage，讀 `supabase_registration_forms_migration.sql`、`supabase/migrations/*registration_form_events.sql` 與 `docs/MIGRATIONS.md`。
 8. 若改產檔，讀 `supabase/functions/registration-form-documents/index.ts`、`logic.ts`、對應測試與 `docs/EDGE_FUNCTIONS.md`。
 
 ## 固定安全邊界
@@ -32,6 +32,7 @@ description: "Registration form template, roster selection and OOXML generation 
 - Storage object key 必須使用 UUID 與 ASCII 固定檔名；使用者原始檔名只保存於 `original_file_name`，不可直接拼入 object key。
 - multipart 傳輸檔名固定使用 ASCII `template.xlsx` / `template.docx`，原始檔名以獨立文字欄位傳送；後端以已驗證 OOXML profile 決定實際 file type，不可只信任 multipart `File.name`。
 - `registration_form_generation_logs` 不可加入球員 ID、個資欄位、request payload 或產出檔 path。
+- `registration_form_events` 與 `registration_form_event_templates` 只保存賽事 metadata／範本關聯，不保存球員 ID、個資或產出檔；產檔前必須由後端驗證 event-template 關聯。
 - 產出檔只回傳 binary，必須含 `Cache-Control: no-store`，不可上傳到 Storage。
 
 ## 版型與 OOXML 規則
@@ -50,6 +51,8 @@ description: "Registration form template, roster selection and OOXML generation 
 ## UI 規則
 
 - 頁面使用 `AppPageHeader`、`AppLoadingState` 與 Element Plus 表單控制。
+- 主頁固定以「賽事報名／範本庫」分流；範本可掛到多場賽事，產檔只能從賽事內進入。
+- 賽事狀態固定為草稿／準備中／已送出／已截止；草稿第一次成功產檔後推進準備中，已截止事件不可產檔。
 - 精靈固定三步：隊職員資料、球員選取／排序、檢查下載。
 - 隊職員姓名使用可搜尋／可自訂的名單選單；選取有效教練、管理群、球員或校隊成員時，自動帶入完整名單的 `guardian_phone`，本次電話仍可手動修正且不得回寫主檔。
 - 有效名單只含角色「球員／校隊」，排除退隊、離隊與 `is_inactive_or_graduated = true`。

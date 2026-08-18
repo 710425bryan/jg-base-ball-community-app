@@ -44,6 +44,18 @@ describe('registration-form-documents Edge Function boundary', () => {
     expect(generateSection).toContain("from('registration_form_generation_logs').insert")
   })
 
+  it('requires an event-template link and writes only event metadata to the generation log', () => {
+    const eventSection = source.slice(source.indexOf('const getEventForTemplate'), source.indexOf('const handleDelete'))
+    const generateSection = source.slice(source.indexOf('const handleGenerate'), source.indexOf('serve(async'))
+    expect(eventSection).toContain("from('registration_form_events')")
+    expect(eventSection).toContain("from('registration_form_event_templates')")
+    expect(eventSection).toContain(".eq('template_id', templateId)")
+    expect(generateSection).toContain("requireString(payload?.event_id, '賽事報名')")
+    expect(generateSection).toContain('event_id: event.id')
+    expect(generateSection).toContain('event_name_snapshot: event.name')
+    expect(generateSection).not.toContain('member_ids:')
+  })
+
   it('keeps name, portrait authorization and avatar outside the allowed override fields', () => {
     const playerSection = source.slice(source.indexOf('const buildDocumentPlayers'), source.indexOf('const handleGenerate'))
     expect(playerSection).toContain('name: String(member.name')

@@ -1,6 +1,7 @@
 export type RegistrationFormFileType = 'xlsx' | 'docx'
 export type RegistrationFormProfileKey = 'just_baseball_taipei' | 'chairperson_cup_u9'
 export type RegistrationPosition = 'P' | 'C' | 'IF' | 'OF' | ''
+export type RegistrationFormEventStatus = 'draft' | 'in_progress' | 'submitted' | 'closed'
 
 export interface RegistrationFormTemplate {
   id: string
@@ -16,6 +17,46 @@ export interface RegistrationFormTemplate {
   updated_by: string | null
   created_at: string
   updated_at: string
+}
+
+export interface RegistrationFormEvent {
+  id: string
+  name: string
+  season_year: number
+  category: string
+  organizer: string
+  registration_deadline: string | null
+  status: RegistrationFormEventStatus
+  notes: string
+  template_ids: string[]
+  created_by: string | null
+  updated_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface RegistrationFormEventInput {
+  id?: string | null
+  name: string
+  season_year: number
+  category: string
+  organizer: string
+  registration_deadline: string | null
+  status: RegistrationFormEventStatus
+  notes: string
+  template_ids: string[]
+}
+
+export interface RegistrationFormGenerationLog {
+  id: string
+  event_id: string | null
+  event_name_snapshot: string | null
+  template_id: string | null
+  template_name_snapshot: string
+  output_file_name: string
+  player_count: number
+  generated_by: string | null
+  created_at: string
 }
 
 export interface RegistrationStaffFields {
@@ -53,13 +94,17 @@ export interface RegistrationPlayerRow {
   overrides: RegistrationPlayerOverrides
 }
 
-export interface RegistrationGeneratePayload {
+export interface RegistrationWizardPayload {
   template_id: string
   fields: RegistrationStaffFields
   players: Array<{
     member_id: string
     overrides: RegistrationPlayerOverrides
   }>
+}
+
+export interface RegistrationGeneratePayload extends RegistrationWizardPayload {
+  event_id: string
 }
 
 export interface RegistrationValidationResult {

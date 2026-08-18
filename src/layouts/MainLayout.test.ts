@@ -44,7 +44,7 @@ describe('MainLayout team member notification security', () => {
   })
 
   it('shows registration forms in desktop and mobile admin menus only with feature visibility', () => {
-    const item = "{ label: '報名表管理', to: '/registration-forms', visible: permissionsStore.can('registration_forms', 'VIEW') }"
+    const item = "{ label: '賽事報名管理', to: '/registration-forms', visible: permissionsStore.can('registration_forms', 'VIEW') }"
     expect(source.split(item)).toHaveLength(3)
   })
 })

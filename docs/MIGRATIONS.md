@@ -46,6 +46,8 @@
 | 檔案 | 用途 | 注意事項 |
 | --- | --- | --- |
 | `supabase_registration_forms_migration.sql` | 報名表範本 metadata、最小化產生紀錄、`registration_forms` feature 與 private Storage | 只預設 `ADMIN` 四個 action；產生個資文件仍由 Edge Function 額外檢查 `players:EDIT`，產出檔不保存 |
+| `supabase/migrations/20260818075514_registration_form_events.sql` | 賽事報名主檔、多範本關聯與 event-aware generation log | 明確 grants + RLS；`save_registration_form_event()` 使用 security invoker；不保存球員 ID、個資或產出檔 |
+| `supabase/migrations/20260818075618_registration_form_event_audit_indexes.sql` | 賽事報名 audit foreign key 索引 | 補齊 `created_by` / `updated_by` covering indexes，消除新表 advisor 提醒 |
 
 ## 公開頁、Dashboard 與個人功能
 

@@ -64,7 +64,7 @@
 | `supabase/functions/transcribe-match-audio/index.ts` | 比賽語音轉文字與結構化紀錄 | 先驗證 bearer user，AI 結果需 normalize unresolved players |
 | `supabase/functions/resolve-location/index.ts` | 地點 geocoding API | 外部 API 失敗時前端要 fallback |
 | `supabase/functions/resolve-location/logic.ts` | 地點解析純邏輯 | 有 Vitest coverage |
-| `supabase/functions/registration-form-documents/index.ts` | 報名表範本上傳／刪除與原格式 binary 產檔 | bearer JWT；上傳需 `registration_forms:CREATE`、刪除需 `DELETE`、產檔需 `registration_forms:CREATE + players:EDIT`；multipart / Storage key 使用 ASCII 固定檔名，中文原檔名另存 metadata，實際類型由 OOXML profile 決定；完整名單只走 user-scoped `list_team_members_for_edit()`，輸出 `no-store` 且不保存 |
+| `supabase/functions/registration-form-documents/index.ts` | 報名表範本上傳／刪除與賽事原格式 binary 產檔 | bearer JWT；上傳需 `registration_forms:CREATE`、刪除需 `DELETE`、產檔需 `registration_forms:CREATE + players:EDIT`；產檔另驗證 `event_id + template_id` 關聯並拒絕已截止事件；multipart / Storage key 使用 ASCII 固定檔名，中文原檔名另存 metadata，實際類型由 OOXML profile 決定；完整名單只走 user-scoped `list_team_members_for_edit()`，輸出 `no-store` 且不保存 |
 | `supabase/functions/registration-form-documents/logic.ts` | OOXML ZIP 安全、已知版型偵測、Excel／Word 映射與照片 relationships | 10 MB 原檔、50 MB 解壓、500 entries；拒絕 macro / OLE / 外部 relationship / 路徑穿越；有 Vitest 與兩份實檔 QA |
 
 ## 本地注意事項

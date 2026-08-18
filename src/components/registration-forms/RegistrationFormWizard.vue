@@ -3,9 +3,9 @@ import { computed, ref, watch } from 'vue'
 import { ArrowDown, ArrowUp, Delete, Picture } from '@element-plus/icons-vue'
 import type {
   RegistrationFormTemplate,
-  RegistrationGeneratePayload,
   RegistrationPlayerRow,
-  RegistrationStaffFields
+  RegistrationStaffFields,
+  RegistrationWizardPayload
 } from '@/types/registrationForm'
 import {
   createRegistrationPlayerRow,
@@ -27,7 +27,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
-  generate: [payload: RegistrationGeneratePayload]
+  generate: [payload: RegistrationWizardPayload]
 }>()
 
 const step = ref(0)

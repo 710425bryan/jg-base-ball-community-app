@@ -88,7 +88,7 @@
 | `src/services/schoolTeamMonthlyFeeSettings.ts` | 中港校隊計次費率與國中部單次月費／訓練日期模式設定 RPC | `system_settings.chunggang_monthly_per_session_defaults`、`system_settings.xintai_monthly_per_session_defaults` |
 | `src/services/myPlayerRecords.ts` | 我的成績 RPC | `list_my_player_record_members()`、`get_my_player_match_records()` |
 | `src/services/playerRosterApi.ts` | 球員名單 safe/full 分流與 cache meta RPC | `team_members_safe` / `list_team_members_for_edit()` / `get_team_members_cache_meta()` |
-| `src/services/registrationFormsApi.ts` | 報名表範本清單、私有原檔下載與 Edge binary 呼叫 | `registration_form_templates` / `registration-forms` / `registration-form-documents` |
+| `src/services/registrationFormsApi.ts` | 賽事報名 CRUD、範本關聯／清單、generation log、私有原檔下載與 Edge binary 呼叫 | `registration_form_events` / `registration_form_event_templates` / `registration_form_templates` / `registration-form-documents` |
 | `src/services/teamGroupsApi.ts` | team group 設定 RPC | `team_group_settings` 相關 RPC |
 | `src/services/matchesApi.ts` | 賽事 CRUD | `matches` |
 | `src/services/matchLeaveAbsences.ts` | 歷史與未來賽事假單同步請假預覽 / 詳情讀取 | `preview_match_leave_absences()`、`get_match_leave_absences()` |
@@ -219,10 +219,12 @@
 
 | 檔案 | 用途 |
 | --- | --- |
+| `src/components/registration-forms/RegistrationEventDialog.vue` | 賽事名稱、年度、組別、截止日、狀態、備註與多範本關聯編輯 |
 | `src/components/registration-forms/RegistrationFormWizard.vue` | 隊職員、球員選取／排序、輸出欄位補正與檢查下載三步驟精靈 |
-| `src/types/registrationForm.ts` | 範本 metadata、隊職員、球員 override 與 generate payload 型別 |
-| `supabase/functions/registration-form-documents/index.ts` | JWT / feature 權限、範本 Storage、完整名單與 binary response 邊界 |
+| `src/types/registrationForm.ts` | 賽事／範本 metadata、狀態、隊職員、球員 override 與 generate payload 型別 |
+| `supabase/functions/registration-form-documents/index.ts` | JWT / feature 權限、賽事範本關聯、範本 Storage、完整名單與 binary response 邊界 |
 | `supabase/functions/registration-form-documents/logic.ts` | ZIP 安全、版型偵測、Excel / Word XML 映射與等比例照片 anchor |
+| `supabase/migrations/20260818075514_registration_form_events.sql` | 賽事報名主檔、可重用範本關聯、RLS、原子儲存 RPC 與 generation log event snapshot |
 
 ### Equipment
 

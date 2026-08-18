@@ -44,8 +44,8 @@
 ### `jg-baseball-registration-forms`
 
 - 路徑：`.codex/skills/jg-baseball-registration-forms/SKILL.md`
-- 用途：報名表範本上傳／下載、完整名單選取、OOXML 自動填寫、照片關聯、產檔權限與個資稽核。
-- 典型情境：修改 `/registration-forms`、`registration_forms` feature、`registration_form_templates`、`registration_form_generation_logs`、private `registration-forms` bucket 或 `registration-form-documents` Edge Function。
+- 用途：賽事報名主檔、可重用範本上傳／下載、完整名單選取、OOXML 自動填寫、照片關聯、產檔權限與個資稽核。
+- 典型情境：修改 `/registration-forms`、`registration_forms` feature、`registration_form_events`、`registration_form_event_templates`、`registration_form_templates`、`registration_form_generation_logs`、private `registration-forms` bucket 或 `registration-form-documents` Edge Function。
 
 ### `jg-baseball-push-notifications`
 

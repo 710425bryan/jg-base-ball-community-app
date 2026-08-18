@@ -28,7 +28,7 @@ describe('RolePermissionsManager mobile drawer', () => {
 
   it('exposes registration form VIEW, CREATE, EDIT and DELETE permissions', () => {
     expect(source).toContain("key: 'registration_forms'")
-    expect(source).toContain("name: '報名表管理'")
+    expect(source).toContain("name: '賽事報名管理'")
     expect(source).toMatch(/key: 'registration_forms',[\s\S]*?actions: \['VIEW', 'CREATE', 'EDIT', 'DELETE'\]/)
   })
 })

@@ -156,6 +156,29 @@ const getTemplate = async (templateId: string) => {
   return data
 }
 
+const getEventForTemplate = async (eventId: string, templateId: string) => {
+  const { data: event, error: eventError } = await serviceClient
+    .from('registration_form_events')
+    .select('id, name, status')
+    .eq('id', eventId)
+    .maybeSingle()
+  if (eventError) throw eventError
+  if (!event) throw jsonResponse({ success: false, error: '賽事報名不存在' }, 404)
+  if (event.status === 'closed') {
+    throw jsonResponse({ success: false, error: '此賽事報名已截止，請先調整狀態後再產生文件' }, 400)
+  }
+
+  const { data: link, error: linkError } = await serviceClient
+    .from('registration_form_event_templates')
+    .select('event_id')
+    .eq('event_id', eventId)
+    .eq('template_id', templateId)
+    .maybeSingle()
+  if (linkError) throw linkError
+  if (!link) throw jsonResponse({ success: false, error: '此範本未掛在指定的賽事報名' }, 400)
+  return event
+}
+
 const handleDelete = async (payload: any, userClient: SupabaseClient) => {
   await assertPermission(userClient, 'registration_forms', 'DELETE')
   const templateId = requireString(payload?.template_id, '範本')
@@ -276,6 +299,7 @@ const handleGenerate = async (payload: any, userId: string, userClient: Supabase
   await assertPermission(userClient, 'registration_forms', 'CREATE')
   await assertPermission(userClient, 'players', 'EDIT')
   const template = await getTemplate(requireString(payload?.template_id, '範本'))
+  const event = await getEventForTemplate(requireString(payload?.event_id, '賽事報名'), template.id)
   const profileKey = String(template.profile_key || '') as RegistrationProfileKey
   const profile = REGISTRATION_PROFILES[profileKey]
   if (!profile || profile.version !== Number(template.profile_version)) {
@@ -315,8 +339,10 @@ const handleGenerate = async (payload: any, userId: string, userClient: Supabase
   const datePart = (type: Intl.DateTimeFormatPartTypes) => dateParts.find((part) => part.type === type)?.value || ''
   const date = `${datePart('year')}${datePart('month')}${datePart('day')}`
   const baseName = String(template.original_file_name || template.name).replace(/\.(xlsx|docx)$/i, '')
-  const outputFileName = safeFileName(`${baseName}_已填寫_${date}.${profile.fileType}`)
+  const outputFileName = safeFileName(`${event.name}_${baseName}_已填寫_${date}.${profile.fileType}`)
   const { error: logError } = await serviceClient.from('registration_form_generation_logs').insert({
+    event_id: event.id,
+    event_name_snapshot: event.name,
     template_id: template.id,
     template_name_snapshot: template.name,
     output_file_name: outputFileName,
@@ -324,6 +350,15 @@ const handleGenerate = async (payload: any, userId: string, userClient: Supabase
     generated_by: userId
   })
   if (logError) throw logError
+
+  if (event.status === 'draft') {
+    const { error: statusError } = await serviceClient
+      .from('registration_form_events')
+      .update({ status: 'in_progress', updated_by: userId })
+      .eq('id', event.id)
+      .eq('status', 'draft')
+    if (statusError) throw statusError
+  }
 
   const contentType = profile.fileType === 'xlsx'
     ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
