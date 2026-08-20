@@ -31,13 +31,13 @@ export default defineComponent({
     const selectRef = ref<SelectSearchInstance | null>(null)
     let isComposing = false
 
-    const refreshComposingSearch = (event: Event) => {
+    const refreshComposingSearch = (event: Event, force = false) => {
       const target = event.target
       const inputEvent = event as InputEvent
 
       if (!(target instanceof HTMLInputElement)) return
       if (!target.classList.contains('el-select__input')) return
-      if (!isComposing && !inputEvent.isComposing) return
+      if (!force && !isComposing && !inputEvent.isComposing) return
 
       const filterMethod = attrs.filterMethod ?? attrs['filter-method']
       if (typeof filterMethod === 'function') {
@@ -57,9 +57,15 @@ export default defineComponent({
       callEventHandler(attrs.onCompositionstart, event)
     }
 
+    const handleCompositionUpdate = (event: Event) => {
+      callEventHandler(attrs.onCompositionupdate, event)
+      refreshComposingSearch(event, true)
+    }
+
     const handleCompositionEnd = (event: Event) => {
       isComposing = false
       callEventHandler(attrs.onCompositionend, event)
+      refreshComposingSearch(event, true)
     }
 
     const handleInput = (event: Event) => {
@@ -76,6 +82,7 @@ export default defineComponent({
       ...attrs,
       ref: selectRef,
       onCompositionstart: handleCompositionStart,
+      onCompositionupdate: handleCompositionUpdate,
       onCompositionend: handleCompositionEnd,
       onInput: handleInput
     }, slots)

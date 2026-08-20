@@ -20,6 +20,26 @@ const startComposing = (input: HTMLInputElement, value: string) => {
   }))
 }
 
+const endCompositionWithoutInput = (input: HTMLInputElement, value: string) => {
+  input.value = value
+  input.dispatchEvent(new CompositionEvent('compositionend', {
+    bubbles: true,
+    data: value
+  }))
+}
+
+const updateCompositionWithoutInput = (input: HTMLInputElement, value: string) => {
+  input.dispatchEvent(new CompositionEvent('compositionstart', {
+    bubbles: true,
+    data: ''
+  }))
+  input.value = value
+  input.dispatchEvent(new CompositionEvent('compositionupdate', {
+    bubbles: true,
+    data: value
+  }))
+}
+
 const mountSelect = (filterMethod?: (query: string) => void) => mount(AppGlobalSelect, {
   attachTo: document.body,
   attrs: {
@@ -56,6 +76,23 @@ describe('AppGlobalSelect', () => {
     wrapper.unmount()
   })
 
+  it('updates the built-in option filter when composition updates without an input event', async () => {
+    const wrapper = mountSelect()
+    const input = wrapper.get('input.el-select__input').element as HTMLInputElement
+
+    input.click()
+    await nextTick()
+    updateCompositionWithoutInput(input, '田')
+    await nextTick()
+
+    const options = wrapper.findAll('.el-select-dropdown__item')
+    expect(options).toHaveLength(2)
+    expect(options[0].isVisible()).toBe(false)
+    expect(options[1].isVisible()).toBe(true)
+
+    wrapper.unmount()
+  })
+
   it('runs an existing custom filter method during Chinese IME composition', () => {
     const filterMethod = vi.fn()
     const wrapper = mountSelect(filterMethod)
@@ -64,6 +101,18 @@ describe('AppGlobalSelect', () => {
     startComposing(input, '田')
 
     expect(filterMethod).toHaveBeenCalledWith('田')
+
+    wrapper.unmount()
+  })
+
+  it('refreshes an existing custom filter when iOS ends composition without an input event', () => {
+    const filterMethod = vi.fn()
+    const wrapper = mountSelect(filterMethod)
+    const input = wrapper.get('input.el-select__input').element as HTMLInputElement
+
+    endCompositionWithoutInput(input, '張')
+
+    expect(filterMethod).toHaveBeenCalledWith('張')
 
     wrapper.unmount()
   })

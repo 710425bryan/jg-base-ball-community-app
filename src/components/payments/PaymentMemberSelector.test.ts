@@ -148,4 +148,36 @@ describe('PaymentMemberSelector', () => {
 
     wrapper.unmount()
   })
+
+  it('filters the real select when iOS ends composition without an input event', async () => {
+    const wrapper = mount(PaymentMemberSelector, {
+      props: {
+        modelValue: 'member-1',
+        members,
+        helperText: '切換成員後會更新繳費資料。',
+        getOptionLabel: (member: MyPaymentMember) => `${member.name}｜${member.role}`,
+        getBillingLabel: (member: MyPaymentMember) => member.billing_mode === 'monthly' ? '月繳' : '季繳'
+      },
+      global: {
+        components: {
+          'el-select': AppGlobalSelect,
+          'el-option': ElOption
+        }
+      }
+    })
+    const input = wrapper.get('input.el-select__input').element as HTMLInputElement
+
+    input.value = '陳'
+    input.dispatchEvent(new CompositionEvent('compositionend', {
+      bubbles: true,
+      data: '陳'
+    }))
+    await nextTick()
+
+    const options = wrapper.findAllComponents(ElOption)
+    expect(options).toHaveLength(1)
+    expect(options[0].props('value')).toBe('member-2')
+
+    wrapper.unmount()
+  })
 })

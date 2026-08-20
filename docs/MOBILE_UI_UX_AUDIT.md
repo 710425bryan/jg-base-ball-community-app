@@ -28,7 +28,7 @@
 | P0-04 | 共用 Dialog | footer 排列、寬度與 safe area 不一致；未掛到 `body` 的 Dialog 會被固定 App shell 裁切 | `AppGlobalDialog` 統一掛到 `body`；`AppDialogFooter` 手機等寬、取消在前、確認在後 | 待驗收 | 全站 Dialog wrapper、註冊與 AppDialogFooter tests 通過；待實機 home indicator／鍵盤驗收 |
 | P0-05 | 場地／節日活動卡片 | 可點擊卡片內含另一個按鈕 | 拆成獨立卡片選取區與操作區，HTML 不再巢狀互動 | 待驗收 | TrainingLocations／HolidayTheme tests 與 source contract 通過 |
 | P0-06 | 共用搜尋／篩選 | 手機搜尋欄與篩選、檢視及操作按鈕同列，搜尋寬度不足；低頻篩選在頁內向下展開 | 搜尋使用剩餘完整寬度；進階條件使用 `AppMobileFilterSheet` 自底部展開；快速 chips 保留頁面內 | 待驗收 | AppMobileFilterSheet 3 tests＋6 個搜尋／篩選介面 source contract 通過；待 360–767px 視覺驗收 |
-| P0-07 | 共用可搜尋 Select | iOS 中文 IME 組字期間，Element Plus 會暫停 `filter-method`，造成文字已顯示但球員／教練選項未更新 | 保留原本 `el-select` 單選／多選與單一輸入欄位，由 `AppGlobalSelect` 在組字期間刷新內建或既有自訂篩選 | 待驗收 | 共用 Select 組字、本地／自訂篩選、單／多選 model、focus／blur、付款頁整合與全站註冊測試通過；全量 203 files、981 tests、`vue-tsc`、build 通過；待登入後 iPhone 中文輸入法驗收 |
+| P0-07 | 共用可搜尋 Select | iOS 中文 IME 可能只更新組字事件而未另送可用的 `input`；1.1.43 真機仍出現文字已顯示但球員／教練選項未更新 | 保留原本 `el-select` 單選／多選與單一輸入欄位，由 `AppGlobalSelect` 直接從 `input`、`compositionupdate`、`compositionend` 刷新內建或既有自訂篩選 | 待驗收 | 已補上「組字更新／結束但沒有 input」的共用 Select 與付款頁失敗回歸；203 files、984 tests、`vue-tsc`、production build 通過，仍須登入 iPhone 中文輸入法重驗 |
 
 ## P1：高頻個人頁面
 
@@ -77,9 +77,9 @@
 
 ### 2026-08-20 全站手機 Select 中文輸入搜尋
 
-- 截圖中的查詢字已出現在 Element Plus Select 輸入框，但中文 IME 尚在 composition 階段；Element Plus 會在此階段略過 `filter-method`，因此選項仍顯示完整名單。
-- `src/main.ts` 新增全站 `AppGlobalSelect` 包裝；所有既有 `el-select` 標記、Element Plus 底層元件、單選／多選 model、props、events 與 slots 保持不變，只在中文組字輸入事件中提早刷新內建篩選或既有自訂 `filter-method`。
-- 自動測試已覆蓋中文組字時的內建選項篩選、自訂 filter method、單／多選 model、公開 focus／blur、`/my-payments` 實際包裝整合、`/training` 既有正規化搜尋與全站元件註冊；全量 203 files、981 tests、`vue-tsc` 與 production build 通過，build 只保留既有 chunk size warning。真實 iPhone／PWA 中文鍵盤仍列為待驗收。
+- 1.1.43 的第一版只在組字中的 `input` 事件提早刷新；新的 iPhone 截圖證實輸入框已顯示「張」時仍保留完整名單，因此不能假設 iOS 每次組字更新／結束後都會另送可用的 `input`。
+- `AppGlobalSelect` 改為同時處理 `compositionupdate` 與 `compositionend`，即使事件序列沒有 `input`，仍會把目前輸入值交給既有自訂 `filter-method`，或寫入 Element Plus 內建查詢後刷新 options。所有既有 `el-select` 標記、底層元件、單選／多選 model、props、events 與 slots 保持不變。
+- 回歸測試新增兩條原本會失敗的路徑：內建篩選只收到 composition update，以及 `/my-payments` 自訂篩選只收到 composition end；全量 203 files、984 tests、`vue-tsc` 與 production build 已通過，build 只保留既有 chunk size warning。仍須以真實 iPhone／PWA 中文鍵盤重驗。
 
 ### 2026-08-18 報名表管理
 
