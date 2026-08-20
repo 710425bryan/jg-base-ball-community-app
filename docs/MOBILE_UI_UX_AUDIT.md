@@ -28,7 +28,7 @@
 | P0-04 | 共用 Dialog | footer 排列、寬度與 safe area 不一致；未掛到 `body` 的 Dialog 會被固定 App shell 裁切 | `AppGlobalDialog` 統一掛到 `body`；`AppDialogFooter` 手機等寬、取消在前、確認在後 | 待驗收 | 全站 Dialog wrapper、註冊與 AppDialogFooter tests 通過；待實機 home indicator／鍵盤驗收 |
 | P0-05 | 場地／節日活動卡片 | 可點擊卡片內含另一個按鈕 | 拆成獨立卡片選取區與操作區，HTML 不再巢狀互動 | 待驗收 | TrainingLocations／HolidayTheme tests 與 source contract 通過 |
 | P0-06 | 共用搜尋／篩選 | 手機搜尋欄與篩選、檢視及操作按鈕同列，搜尋寬度不足；低頻篩選在頁內向下展開 | 搜尋使用剩餘完整寬度；進階條件使用 `AppMobileFilterSheet` 自底部展開；快速 chips 保留頁面內 | 待驗收 | AppMobileFilterSheet 3 tests＋6 個搜尋／篩選介面 source contract 通過；待 360–767px 視覺驗收 |
-| P0-07 | 共用可搜尋 Select | 1.1.43、1.1.44 真機皆出現文字已顯示但球員／教練選項未更新，證實不可依賴 iOS 的 input／composition 事件序列 | 保留原本 `el-select` 單選／多選與單一輸入欄位；`AppGlobalSelect` 同步文字事件，並只在聚焦期間觀察實際 input value，值改變才刷新內建或既有自訂篩選 | 待驗收 | 共用內建／自訂篩選與付款頁「完全沒有文字事件」回歸通過；完整 203 files／988 tests、`vue-tsc`、build 與 390px 瀏覽器截圖通過，待 1.1.45 iPhone 真機驗收 |
+| P0-07 | 共用可搜尋 Select | 1.1.43–1.1.45 真機皆曾出現文字已顯示但球員／教練選項未更新；最終確認手機全域 CSS 的 `display: flex !important` 會蓋掉 Element Plus 過濾選項的 inline `display: none` | 保留原本 `el-select` 單選／多選與單一輸入欄位；Select option 只用一般 `display: flex` 保留排版，並由 `AppGlobalSelect` 在聚焦或下拉開啟期間同步實際 input value | 待驗收 | 4 個 targeted files／73 tests、收費完整 21 files／106 tests、全量 204 files／992 tests、`vue-tsc`、build 與 390px 球員餘額實際元件截圖通過，待新版 iPhone 真機驗收 |
 
 ## P1：高頻個人頁面
 
@@ -79,9 +79,11 @@
 
 - 1.1.43 的第一版只在組字中的 `input` 事件提早刷新；新的 iPhone 截圖證實輸入框已顯示「張」時仍保留完整名單，因此不能假設 iOS 每次組字更新／結束後都會另送可用的 `input`。
 - 1.1.44 再補 `compositionupdate`／`compositionend`，但新版真機截圖仍顯示輸入「田」後保留完整名單；production bundle 已確認共用 `AppGlobalSelect` 有完成註冊，因此問題收斂為 iOS 顯示值更新不一定會經過 wrapper 可用的文字事件。
-- `AppGlobalSelect` 改為在 Select 聚焦期間每 50ms 比對一次實際 input value，只有值改變才交給既有 `filter-method` 或刷新 Element Plus 內建 options；失焦、輸入節點移除或元件卸載即停止。所有既有 `el-select` 標記、底層元件、單選／多選 model、props、events 與 slots 保持不變。
-- 回歸測試新增比事件模擬更嚴格的路徑：聚焦後直接改變 input value、完全不派送 `input` 或 composition 事件，並分別驗證內建篩選、自訂 filter method 與 `/my-payments` 實際整合；完整 `vitest run` 共 203 files／988 tests、`vue-tsc --noEmit` 與 production build 均通過。
-- 390×844 Playwright 瀏覽器驗證使用實際 `AppGlobalSelect`＋`PaymentMemberSelector`：不派送任何文字事件而直接把聚焦 input value 改為「田」，欄位持續顯示「田」，清單只剩「田小明｜校隊」，console error 為 0；1.1.45 發布後仍需 iPhone 真機最終驗收。
+- 1.1.45 已在線上 `/version.json` 確認部署，但「收費管理 → 球員餘額」真機仍失敗；該頁原始碼確實使用全域接管的 `<el-select>`，不是漏換元件。
+- 載入實際 `src/style.css` 後成功在 390px 瀏覽器重現：Element Plus 內部查詢與 option visibility 已更新，但手機規則及可讀文字模式把 `.el-select-dropdown__item` 設為 `display: flex !important`，權重高於過濾時的 inline `display: none`，因此畫面仍顯示全部選項。兩處規則改用一般 `display: flex`，保留垂直置中與觸控高度，同時讓過濾隱藏恢復生效。
+- `AppGlobalSelect` 另補下拉啟動韌性：除了原本焦點路徑，也會在 Element Plus `visible-change` 回報開啟時直接取得 input ref 並啟動 50ms 比對；下拉關閉、失焦、輸入節點移除或元件卸載即停止。所有既有 `el-select` 標記、底層元件、單選／多選 model、props、events 與 slots 保持不變。
+- 回歸測試涵蓋完全沒有文字／可辨識焦點事件的內建與自訂篩選、既有 `visible-change` handler、球員餘額實際元件，以及禁止全域 CSS 再以 `!important` 強制顯示 Select options；targeted 共 4 files／73 tests，收費完整計算回歸 21 files／106 tests，全量 204 files／992 tests、`vue-tsc --noEmit` 與 production build 均通過。
+- 390×844 Playwright 使用實際 `PlayerBalanceManager`、`AppGlobalSelect` 與完整專案樣式：開啟下拉後直接把 input value 改為「田」且不派送文字事件，欄位持續顯示「田」，清單只剩「田小明｜校隊」，console／page error 為 0；仍需發布後 iPhone 真機最終驗收。
 
 ### 2026-08-18 報名表管理
 

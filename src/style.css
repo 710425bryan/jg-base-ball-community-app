@@ -325,7 +325,7 @@ html.app-readable-text-mode :where(.el-dialog__body) {
 html.app-readable-text-mode :where(.el-select-dropdown__item, .el-dropdown-menu__item) {
   align-items: center !important;
   box-sizing: border-box !important;
-  display: flex !important;
+  display: flex;
   min-height: 52px !important;
   font-size: 1.0625rem !important;
   line-height: 1.35 !important;
@@ -454,7 +454,7 @@ html.app-readable-text-mode :where(.el-select-dropdown__item, .el-dropdown-menu_
   .el-autocomplete-suggestion li {
     align-items: center !important;
     box-sizing: border-box !important;
-    display: flex !important;
+    display: flex;
     min-height: 44px !important;
     font-size: 0.9375rem !important;
     line-height: 1.35 !important;

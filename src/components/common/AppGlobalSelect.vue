@@ -1,5 +1,5 @@
 <script lang="ts">
-import { defineComponent, h, onBeforeUnmount, ref } from 'vue'
+import { defineComponent, h, nextTick, onBeforeUnmount, ref } from 'vue'
 import { ElSelect } from 'element-plus'
 
 const SEARCH_INPUT_POLL_INTERVAL_MS = 50
@@ -9,20 +9,21 @@ type SelectSearchInstance = {
     inputValue: string
   }
   updateOptions?: () => void
+  inputRef?: HTMLInputElement | null
   focus?: () => void
   blur?: () => void
 }
 
-const callEventHandler = (handler: unknown, event: Event) => {
+const callEventHandler = (handler: unknown, payload: unknown) => {
   if (Array.isArray(handler)) {
     handler.forEach((callback) => {
-      if (typeof callback === 'function') callback(event)
+      if (typeof callback === 'function') callback(payload)
     })
     return
   }
 
   if (typeof handler === 'function') {
-    handler(event)
+    handler(payload)
   }
 }
 
@@ -97,6 +98,14 @@ export default defineComponent({
       }, SEARCH_INPUT_POLL_INTERVAL_MS)
     }
 
+    const startSearchInputPollingFromSelect = () => {
+      const input = selectRef.value?.inputRef
+      if (!(input instanceof HTMLInputElement)) return false
+
+      startSearchInputPolling(input)
+      return true
+    }
+
     const handleCompositionStart = (event: Event) => {
       callEventHandler(attrs.onCompositionstart, event)
     }
@@ -135,6 +144,19 @@ export default defineComponent({
       stopSearchInputPolling()
     }
 
+    const handleVisibleChange = (visible: boolean) => {
+      callEventHandler(attrs.onVisibleChange, visible)
+
+      if (!visible) {
+        stopSearchInputPolling()
+        return
+      }
+
+      if (!startSearchInputPollingFromSelect()) {
+        void nextTick(startSearchInputPollingFromSelect)
+      }
+    }
+
     onBeforeUnmount(stopSearchInputPolling)
 
     expose({
@@ -151,7 +173,8 @@ export default defineComponent({
       onInput: handleInput,
       onFocus: handleFocus,
       onFocusin: handleFocusIn,
-      onBlur: handleBlur
+      onBlur: handleBlur,
+      onVisibleChange: handleVisibleChange
     }, slots)
   }
 })

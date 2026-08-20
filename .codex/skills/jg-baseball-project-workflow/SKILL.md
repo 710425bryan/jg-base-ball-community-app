@@ -50,7 +50,7 @@ description: "Project-specific workflow for jg-base-ball-community-app. Use when
 - 登入後 route 的頁面級垂直捲動由 `MainLayout .app-main-scroll` 負責；route root 不得使用 `h-full + overflow-hidden` 裁切內容。
 - 手機搜尋／低頻進階條件優先使用 `app-search-filter-bar` 與 `AppMobileFilterSheet`；快速頁籤或狀態 chips 不收進底部面板。
 - 登入後表單與篩選預設沿用 Element Plus `el-input`、`el-select`、`el-date-picker`、`el-time-picker`；同一欄位群組不可混搭原生日期／選單控制。原生控制只保留給 Element Plus 無對應的檔案、顏色或平台能力，並需記錄例外。
-- 全站可搜尋單選／多選仍使用 Element Plus `el-select`，由 `src/components/common/AppGlobalSelect.vue` 補強中文 IME 的事件同步，並在 Select 聚焦期間觀察實際 input value，涵蓋 iOS 沒有送出可用 `input`／composition 事件的路徑；不要為手機另加第二個搜尋框或換掉既有元件。修改這層時需測試內建篩選、自訂 `filter-method`、完全無文字事件的 input value 變更、既有 model events 與公開的 `focus`／`blur`。
+- 全站可搜尋單選／多選仍使用 Element Plus `el-select`，由 `src/components/common/AppGlobalSelect.vue` 補強中文 IME 的事件同步，並在 Select 聚焦或下拉開啟期間觀察實際 input value，涵蓋 iOS 沒有送出可用 `input`／composition／input focus 事件的路徑；不要為手機另加第二個搜尋框或換掉既有元件。修改這層時需測試內建篩選、自訂 `filter-method`、完全無文字與焦點事件的 input value 變更、既有 model events、`visible-change` 與公開的 `focus`／`blur`。
 - 手機模式目標為 `<768px`，對齊 `MainLayout` 底部導覽；`<640px` 只作窄手機附加調整。
 - 延續既有 `#D88F22` 主色、白色 surface、slate 文字與圓角風格，不為單一頁面建立另一套功能按鈕色盤。
 - 手機互動區不得小於 44px；同一操作區最多一個 Primary，超過兩個可見操作時應收進 overflow menu。

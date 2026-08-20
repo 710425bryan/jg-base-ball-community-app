@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 const readView = (name: string) => readFileSync(new URL(`../${name}.vue`, import.meta.url), 'utf8')
 const readComponent = (path: string) => readFileSync(new URL(`../../components/${path}.vue`, import.meta.url), 'utf8')
+const globalStyle = readFileSync(new URL('../../style.css', import.meta.url), 'utf8')
 
 const auditedViews = [
   'HomeView',
@@ -123,6 +124,17 @@ describe('mobile UI/UX audit contracts', () => {
       expect(source).toContain(':filter-method=')
       expect(source).not.toContain('<template #header>')
       expect(source).not.toContain('<el-input')
+    })
+  })
+
+  it('does not force filtered Element Plus options back to visible', () => {
+    const selectDropdownRules = Array.from(
+      globalStyle.matchAll(/([^{}]*\.el-select-dropdown__item[^{}]*)\{([^}]*)\}/g)
+    )
+
+    expect(selectDropdownRules.length).toBeGreaterThan(0)
+    selectDropdownRules.forEach(([, , declarations]) => {
+      expect(declarations).not.toMatch(/display:\s*flex\s*!important/)
     })
   })
 

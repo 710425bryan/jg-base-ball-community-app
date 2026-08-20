@@ -101,7 +101,7 @@
 - 修改原始碼前若目標檔案已超過約 600 行，或修改後預估會超過約 700 行，必須優先評估並進行程式碼內容優化；Vue 單檔元件應盡可能拆出單一職責子元件、composable、utils、services 或 types，避免繼續把邏輯堆在同一檔。若因任務範圍或風險無法拆分，回報時需說明原因與後續建議拆分方向。
 - UI 文案以繁體中文為主，語氣貼近現有系統。
 - 登入後業務表單與篩選的文字、選項、日期／時間控制預設使用既有 Element Plus 元件（例如 `el-input`、`el-select`、`el-date-picker`、`el-time-picker`），同一欄位群組不可混用原生 `<input type="date">`／`<select>` 與 Element Plus；只有檔案、顏色或平台能力等 Element Plus 無對應控制時可使用原生元件，並需在測試或回報說明例外。
-- 全站 `<el-select filterable>` 仍使用 Element Plus 原元件，並由 `src/components/common/AppGlobalSelect.vue` 統一監聽輸入、`compositionupdate`／`compositionend`，以及在聚焦期間觀察實際 input value，補強手機中文 IME 即使未送出可用文字事件也能即時篩選；不可在個別手機選單另加第二個搜尋框，也不可繞過共用包裝改成另一套選擇器。
+- 全站 `<el-select filterable>` 仍使用 Element Plus 原元件，並由 `src/components/common/AppGlobalSelect.vue` 統一監聽輸入、`compositionupdate`／`compositionend`，以及在聚焦或下拉開啟期間觀察實際 input value，補強手機中文 IME 即使未送出可用文字事件或可辨識的 input focus event 也能即時篩選；不可在個別手機選單另加第二個搜尋框，也不可繞過共用包裝改成另一套選擇器。
 - 頁面專屬邏輯留在 `views`；可重用 UI 放 `components`；可測試邏輯放 `utils` / `composables`；外部資料存取放 `services`。
 - 新增或調整型別時同步更新 `src/types/*` 與實際資料 normalize 流程。
 - 新增、修改或刪除原始碼檔案時，必須同步新增或更新對應 unit test；每個被動到的 `views`、`components`、`stores`、`services`、`composables`、`utils`、Edge Function logic 檔案，都要有同名測試或明確被既有測試涵蓋。若是文件、純型別、migration、產物或其他不適合 unit test 的例外，回報時必須說明原因與替代驗證。
