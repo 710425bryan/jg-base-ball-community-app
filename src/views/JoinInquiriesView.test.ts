@@ -17,4 +17,8 @@ describe('JoinInquiriesView responsive states', () => {
     expect(source).toContain("loadError.value = ''")
     expect(source).toContain("loadError.value = '目前無法取得資料，請稍後再試。'")
   })
+
+  it('shows an explicit fallback when an optional phone number is absent', () => {
+    expect(source.match(/phone \|\| '未填寫'/g)).toHaveLength(2)
+  })
 })

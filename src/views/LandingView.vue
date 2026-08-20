@@ -388,47 +388,7 @@
       </template>
     </el-dialog>
 
-    <!-- 加入我們 表單 Modal -->
-    <el-dialog
-      v-model="isJoinModalOpen"
-      title="聯絡我們 / 加入球隊"
-      width="90%"
-      style="max-width: 500px; border-radius: 16px;"
-      class="custom-dialog"
-    >
-      <div class="mb-4 text-gray-500 text-sm leading-relaxed">
-        歡迎對棒球有熱誠的孩子加入我們！請留下您的基本聯絡資訊，教練團會盡快與您聯繫並安排體驗。也可以直接加 LINE 預約：
-        <span class="font-black text-primary">cloud019</span>
-        或
-        <span class="font-black text-primary">yayu0215</span>。
-      </div>
-      <el-form :model="joinForm" :rules="joinRules" ref="joinFormRef" label-position="top">
-        <el-form-item label="家長姓名" prop="parent_name" class="font-bold">
-          <el-input v-model="joinForm.parent_name" placeholder="請輸入家長姓名" />
-        </el-form-item>
-        <el-form-item label="聯絡電話" prop="phone" class="font-bold">
-          <el-input v-model="joinForm.phone" placeholder="09XX-XXX-XXX" />
-        </el-form-item>
-        <el-form-item label="Line ID" prop="line_id" class="font-bold">
-          <el-input v-model="joinForm.line_id" placeholder="可選填，方便教練用 LINE 聯絡" />
-        </el-form-item>
-        <el-form-item label="小孩年紀或年級" prop="child_age_or_grade" class="font-bold">
-          <el-input v-model="joinForm.child_age_or_grade" placeholder="例如：二年級、8歲" />
-        </el-form-item>
-        <el-form-item label="想問的問題或備註" prop="message" class="font-bold">
-          <el-input v-model="joinForm.message" type="textarea" :rows="3" placeholder="有什麼想先了解的嗎？" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <div class="flex gap-2 justify-end mt-4">
-          <button @click="isJoinModalOpen = false" class="px-5 py-2 text-gray-500 font-bold hover:bg-gray-100 rounded-xl transition-all">取消</button>
-          <button @click="submitJoinForm" :disabled="isSubmitting" class="px-6 py-2 bg-primary hover:bg-primary-hover active:scale-95 disabled:opacity-70 text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center min-w-[100px]">
-            <span v-if="isSubmitting" class="flex gap-2 items-center"><el-icon class="is-loading"><Loading /></el-icon> 傳送中</span>
-            <span v-else>送出資料</span>
-          </button>
-        </div>
-      </template>
-    </el-dialog>
+    <PublicJoinInquiryDialog v-model="isJoinModalOpen" />
 
     <MatchDetailDialog
       v-model="upcomingMatchDialogVisible"
@@ -439,28 +399,26 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Bell, Loading } from '@element-plus/icons-vue'
+import { Bell } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 
 import PreviewableImage from '@/components/common/PreviewableImage.vue'
 import HomeHolidayHeroOverlay from '@/components/home/HomeHolidayHeroOverlay.vue'
+import PublicJoinInquiryDialog from '@/components/home/PublicJoinInquiryDialog.vue'
 import MatchDetailDialog from '@/components/match-records/MatchDetailDialog.vue'
-import { createPublicJoinInquiry, getPublicLandingSnapshot } from '@/services/publicLanding'
+import { getPublicLandingSnapshot } from '@/services/publicLanding'
 import { useAuthStore } from '@/stores/auth'
 import { useMatchesStore } from '@/stores/matches'
 import { usePermissionsStore } from '@/stores/permissions'
 import type { PublicLandingAnnouncement, PublicLandingMatch } from '@/types/publicLanding'
-import { buildPushEventKey, dispatchPushNotification } from '@/utils/pushNotifications'
 
 const authStore = useAuthStore()
 const permissionsStore = usePermissionsStore()
 const matchesStore = useMatchesStore()
 
 const isJoinModalOpen = ref(false)
-const isSubmitting = ref(false)
-const joinFormRef = ref()
 
 const isAnnouncementModalOpen = ref(false)
 const selectedAnnouncement = ref<PublicLandingAnnouncement | null>(null)
@@ -619,79 +577,6 @@ const openUpcomingMatch = async (matchId: string) => {
     console.error('Error fetching match detail:', error)
     upcomingMatchDialogVisible.value = false
     ElMessage.error('載入比賽資料失敗，請稍後再試。')
-  }
-}
-
-const joinForm = reactive({
-  parent_name: '',
-  phone: '',
-  line_id: '',
-  child_age_or_grade: '',
-  message: ''
-})
-
-const joinRules = {
-  parent_name: [{ required: true, message: '請填寫家長姓名', trigger: 'blur' }],
-  phone: [{ required: true, message: '請填寫聯絡電話', trigger: 'blur' }]
-}
-
-const buildJoinContactSummary = () => {
-  const contacts = [`電話：${joinForm.phone}`]
-  const lineId = joinForm.line_id.trim()
-
-  if (lineId) {
-    contacts.push(`Line ID：${lineId}`)
-  }
-
-  return contacts.join('，')
-}
-
-const submitJoinForm = async () => {
-  if (!joinFormRef.value) return
-
-  try {
-    const valid = await joinFormRef.value.validate()
-    if (!valid) return
-  } catch {
-    return
-  }
-
-  isSubmitting.value = true
-
-  try {
-    const inquiryId = await createPublicJoinInquiry({
-      parent_name: joinForm.parent_name,
-      phone: joinForm.phone,
-      line_id: joinForm.line_id.trim() || null,
-      child_age_or_grade: joinForm.child_age_or_grade,
-      message: joinForm.message
-    })
-
-    void dispatchPushNotification({
-      title: `[入隊詢問] 收到 ${joinForm.parent_name} 的聯絡表單`,
-      body: `${buildJoinContactSummary()}，請到後台查看完整內容。`,
-      url: '/join-inquiries',
-      feature: 'join_inquiries',
-      action: 'VIEW',
-      eventKey: buildPushEventKey('join_inquiry', inquiryId)
-    }).catch((pushErr) => {
-      console.warn('Join inquiry push notification failed', pushErr)
-    })
-
-    ElMessage.success('表單已送出，我們會盡快和你聯絡。')
-    isJoinModalOpen.value = false
-    Object.assign(joinForm, {
-      parent_name: '',
-      phone: '',
-      line_id: '',
-      child_age_or_grade: '',
-      message: ''
-    })
-  } catch (error: any) {
-    console.error('Failed to submit join inquiry:', error)
-    ElMessage.error(`送出失敗：${error?.message || '請稍後再試'}`)
-  } finally {
-    isSubmitting.value = false
   }
 }
 

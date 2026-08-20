@@ -50,7 +50,7 @@
           <div class="flex items-start justify-between gap-3">
             <div>
               <div class="font-black text-slate-800">{{ inquiry.parent_name }}</div>
-              <div class="mt-1 text-sm font-bold text-primary">{{ inquiry.phone }}</div>
+              <div class="mt-1 text-sm font-bold text-primary">{{ inquiry.phone || '未填寫' }}</div>
               <div class="mt-1 text-xs text-gray-400">{{ formatDate(inquiry.created_at) }}</div>
             </div>
             <button type="button" class="app-icon-button !border-red-100 !bg-red-50 !text-red-500" aria-label="刪除入隊申請" title="刪除入隊申請" @click="deleteInquiry(inquiry.id)">
@@ -90,7 +90,7 @@
         </el-table-column>
         <el-table-column label="聯絡電話" min-width="140">
           <template #default="scope">
-            <div class="text-primary font-bold tracking-wider">{{ scope.row.phone }}</div>
+            <div class="text-primary font-bold tracking-wider">{{ scope.row.phone || '未填寫' }}</div>
           </template>
         </el-table-column>
         <el-table-column label="Line ID" min-width="130">

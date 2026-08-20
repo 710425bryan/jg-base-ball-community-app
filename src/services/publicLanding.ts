@@ -11,8 +11,8 @@ type PublicLandingSnapshotPayload = Partial<PublicLandingSnapshot> | null
 
 export type PublicJoinInquiryInput = {
   parent_name: string
-  phone: string
-  line_id: string | null
+  phone: string | null
+  line_id: string
   child_age_or_grade: string
   message: string
 }

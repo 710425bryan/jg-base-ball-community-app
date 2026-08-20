@@ -54,6 +54,7 @@
 | 檔案 | 用途 | 注意事項 |
 | --- | --- | --- |
 | `supabase_dashboard_snapshot_migration.sql` | 公開 / dashboard 摘要 | 公開頁只能回去敏感資料 |
+| `supabase/migrations/20260820110213_require_join_inquiry_line_id.sql` | 公開入隊申請聯絡方式必填規則 | LINE ID 改為必填且不可空白、電話改為選填；不回寫既有申請資料 |
 | `supabase_dashboard_today_attendance_status_migration.sql` | 今日訓練點名狀態 | `HomeView` dashboard 區塊依賴 |
 | `supabase_zzzzzzzzzz_dashboard_today_attendance_events_migration.sql` | 今日訓練點名狀態多筆點名單 | 覆寫 `get_dashboard_today_attendance_status()` 回傳 `todayEvents` |
 | `supabase_my_home_snapshot_migration.sql` | 個人首頁 snapshot | linked member 安全邊界 |

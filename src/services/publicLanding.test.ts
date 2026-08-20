@@ -32,7 +32,7 @@ describe('public landing service', () => {
     const { createPublicJoinInquiry } = await import('./publicLanding')
     const result = await createPublicJoinInquiry({
       parent_name: '測試家長',
-      phone: '0900000000',
+      phone: null,
       line_id: 'test-line',
       child_age_or_grade: '二年級',
       message: '想了解體驗課'
@@ -42,7 +42,7 @@ describe('public landing service', () => {
     expect(insertMock).toHaveBeenCalledWith({
       id: inquiryId,
       parent_name: '測試家長',
-      phone: '0900000000',
+      phone: null,
       line_id: 'test-line',
       child_age_or_grade: '二年級',
       message: '想了解體驗課'
@@ -71,8 +71,8 @@ describe('public landing service', () => {
 
     await expect(createPublicJoinInquiry({
       parent_name: '測試家長',
-      phone: '0900000000',
-      line_id: null,
+      phone: null,
+      line_id: 'required-line',
       child_age_or_grade: '',
       message: ''
     })).rejects.toBe(insertError)
