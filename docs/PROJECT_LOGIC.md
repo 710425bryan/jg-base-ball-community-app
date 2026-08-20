@@ -32,7 +32,7 @@ UI 約定：
 - P0–P3 的逐頁實作狀態與驗證證據集中在 `docs/MOBILE_UI_UX_AUDIT.md`；未完成登入後裝置驗收的項目不得標示為完成。
 - 登入後頁面的垂直捲動由 `MainLayout .app-main-scroll` 單一負責；route root 使用 `min-h-full`，不得以 `h-full + overflow-hidden` 裁切內容。
 - 手機搜尋與進階篩選使用 `app-search-filter-bar` 與 `AppMobileFilterSheet`：搜尋常駐，select／日期區間等低頻條件由底部展開；頁籤、月份與狀態 chips 等快速切換留在頁面內。
-- `src/main.ts` 以 `AppGlobalSelect` 包裝全站既有 Element Plus `el-select`；可搜尋的單選／多選會從 `input`、`compositionupdate` 與 `compositionend` 同步中文查詢，因此手機 IME 即使未另送 `input` 事件也會刷新本地或既有自訂篩選，元件 API、選取值與 options 資料流不變。
+- `src/main.ts` 以 `AppGlobalSelect` 包裝全站既有 Element Plus `el-select`；可搜尋的單選／多選會從文字事件同步中文查詢，並在聚焦期間以 50ms 間隔比對實際 input value，只有值改變才刷新本地或既有自訂篩選。失焦、輸入節點移除或元件卸載即停止觀察，元件 API、選取值與 options 資料流不變。
 - 手機一致性目標以 `<768px` 為界，對齊 `MainLayout` 的底部導覽；既有部分全域規則仍只涵蓋 `<640px`，屬 P0 待辦而非已完成現況。
 - 登入後 route-level 功能頁第一層標題使用 `src/components/common/AppPageHeader.vue`。
 - 每個功能頁 title 都提供 Element Plus 小型 inline icon；badge 用 `title-suffix`，返回按鈕用 `before`，右側操作用 `actions`。

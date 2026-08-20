@@ -2,7 +2,7 @@
 
 import { mount } from '@vue/test-utils'
 import { ElOption } from 'element-plus'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import AppGlobalSelect from '@/components/common/AppGlobalSelect.vue'
 import PaymentMemberSelector from './PaymentMemberSelector.vue'
@@ -64,6 +64,11 @@ const mountSelector = () => mount(PaymentMemberSelector, {
 })
 
 describe('PaymentMemberSelector', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+    document.body.innerHTML = ''
+  })
+
   it('uses one searchable select and filters normalized Chinese name spacing', async () => {
     const wrapper = mountSelector()
     const select = wrapper.getComponent(ElSelectStub)
@@ -145,6 +150,7 @@ describe('PaymentMemberSelector', () => {
     const options = wrapper.findAllComponents(ElOption)
     expect(options).toHaveLength(1)
     expect(options[0].props('value')).toBe('member-2')
+    expect(input.value).toBe('陳')
 
     wrapper.unmount()
   })
@@ -177,6 +183,41 @@ describe('PaymentMemberSelector', () => {
     const options = wrapper.findAllComponents(ElOption)
     expect(options).toHaveLength(1)
     expect(options[0].props('value')).toBe('member-2')
+    expect(input.value).toBe('陳')
+
+    wrapper.unmount()
+  })
+
+  it('filters the real select when the focused input value changes without text events', async () => {
+    vi.useFakeTimers()
+    const wrapper = mount(PaymentMemberSelector, {
+      attachTo: document.body,
+      props: {
+        modelValue: 'member-1',
+        members,
+        helperText: '切換成員後會更新繳費資料。',
+        getOptionLabel: (member: MyPaymentMember) => `${member.name}｜${member.role}`,
+        getBillingLabel: (member: MyPaymentMember) => member.billing_mode === 'monthly' ? '月繳' : '季繳'
+      },
+      global: {
+        components: {
+          'el-select': AppGlobalSelect,
+          'el-option': ElOption
+        }
+      }
+    })
+    const input = wrapper.get('input.el-select__input').element as HTMLInputElement
+
+    input.focus()
+    await nextTick()
+    input.value = '陳'
+    await vi.advanceTimersByTimeAsync(60)
+    await nextTick()
+
+    const options = wrapper.findAllComponents(ElOption)
+    expect(options).toHaveLength(1)
+    expect(options[0].props('value')).toBe('member-2')
+    expect(input.value).toBe('陳')
 
     wrapper.unmount()
   })

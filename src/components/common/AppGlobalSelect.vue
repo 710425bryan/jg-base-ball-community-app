@@ -1,6 +1,8 @@
 <script lang="ts">
-import { defineComponent, h, ref } from 'vue'
+import { defineComponent, h, onBeforeUnmount, ref } from 'vue'
 import { ElSelect } from 'element-plus'
+
+const SEARCH_INPUT_POLL_INTERVAL_MS = 50
 
 type SelectSearchInstance = {
   states?: {
@@ -29,49 +31,111 @@ export default defineComponent({
   inheritAttrs: false,
   setup(_, { attrs, expose, slots }) {
     const selectRef = ref<SelectSearchInstance | null>(null)
-    let isComposing = false
+    let activeSearchInput: HTMLInputElement | null = null
+    let lastSyncedSearchValue = ''
+    let searchInputPollId: number | null = null
 
-    const refreshComposingSearch = (event: Event, force = false) => {
+    const getSearchInput = (event: Event) => {
       const target = event.target
-      const inputEvent = event as InputEvent
 
-      if (!(target instanceof HTMLInputElement)) return
-      if (!target.classList.contains('el-select__input')) return
-      if (!force && !isComposing && !inputEvent.isComposing) return
+      if (!(target instanceof HTMLInputElement)) return null
+      if (!target.classList.contains('el-select__input')) return null
+
+      return target
+    }
+
+    const syncSearchValue = (input: HTMLInputElement, force = false) => {
+      const searchValue = input.value
+      if (!force && searchValue === lastSyncedSearchValue) return
+
+      lastSyncedSearchValue = searchValue
+
+      const select = selectRef.value
+      if (select?.states) {
+        select.states.inputValue = searchValue
+      }
 
       const filterMethod = attrs.filterMethod ?? attrs['filter-method']
       if (typeof filterMethod === 'function') {
-        filterMethod(target.value)
+        filterMethod(searchValue)
         return
       }
 
-      const select = selectRef.value
       if (!select?.states) return
 
-      select.states.inputValue = target.value
       select.updateOptions?.()
     }
 
+    const refreshSearchFromEvent = (event: Event) => {
+      const input = getSearchInput(event)
+      if (input) syncSearchValue(input)
+    }
+
+    const stopSearchInputPolling = () => {
+      if (searchInputPollId !== null && typeof window !== 'undefined') {
+        window.clearInterval(searchInputPollId)
+      }
+
+      searchInputPollId = null
+      activeSearchInput = null
+    }
+
+    const startSearchInputPolling = (input: HTMLInputElement) => {
+      stopSearchInputPolling()
+      activeSearchInput = input
+      lastSyncedSearchValue = input.value
+
+      if (typeof window === 'undefined') return
+
+      searchInputPollId = window.setInterval(() => {
+        if (!activeSearchInput || !activeSearchInput.isConnected) {
+          stopSearchInputPolling()
+          return
+        }
+
+        syncSearchValue(activeSearchInput)
+      }, SEARCH_INPUT_POLL_INTERVAL_MS)
+    }
+
     const handleCompositionStart = (event: Event) => {
-      isComposing = true
       callEventHandler(attrs.onCompositionstart, event)
     }
 
     const handleCompositionUpdate = (event: Event) => {
       callEventHandler(attrs.onCompositionupdate, event)
-      refreshComposingSearch(event, true)
+      refreshSearchFromEvent(event)
     }
 
     const handleCompositionEnd = (event: Event) => {
-      isComposing = false
       callEventHandler(attrs.onCompositionend, event)
-      refreshComposingSearch(event, true)
+      refreshSearchFromEvent(event)
     }
 
     const handleInput = (event: Event) => {
       callEventHandler(attrs.onInput, event)
-      refreshComposingSearch(event)
+      refreshSearchFromEvent(event)
     }
+
+    const handleFocus = (event: Event) => {
+      callEventHandler(attrs.onFocus, event)
+
+      const input = getSearchInput(event)
+      if (input) startSearchInputPolling(input)
+    }
+
+    const handleFocusIn = (event: Event) => {
+      callEventHandler(attrs.onFocusin, event)
+
+      const input = getSearchInput(event)
+      if (input) startSearchInputPolling(input)
+    }
+
+    const handleBlur = (event: Event) => {
+      callEventHandler(attrs.onBlur, event)
+      stopSearchInputPolling()
+    }
+
+    onBeforeUnmount(stopSearchInputPolling)
 
     expose({
       focus: () => selectRef.value?.focus?.(),
@@ -84,7 +148,10 @@ export default defineComponent({
       onCompositionstart: handleCompositionStart,
       onCompositionupdate: handleCompositionUpdate,
       onCompositionend: handleCompositionEnd,
-      onInput: handleInput
+      onInput: handleInput,
+      onFocus: handleFocus,
+      onFocusin: handleFocusIn,
+      onBlur: handleBlur
     }, slots)
   }
 })

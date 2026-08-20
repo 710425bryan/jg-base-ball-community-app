@@ -58,6 +58,7 @@ const mountSelect = (filterMethod?: (query: string) => void) => mount(AppGlobalS
 
 describe('AppGlobalSelect', () => {
   afterEach(() => {
+    vi.useRealTimers()
     document.body.innerHTML = ''
   })
 
@@ -117,6 +118,45 @@ describe('AppGlobalSelect', () => {
     wrapper.unmount()
   })
 
+  it('observes the focused input value when iOS dispatches no text event', async () => {
+    vi.useFakeTimers()
+    const filterMethod = vi.fn()
+    const wrapper = mountSelect(filterMethod)
+    const input = wrapper.get('input.el-select__input').element as HTMLInputElement
+
+    input.focus()
+    await nextTick()
+    input.value = '田'
+    await vi.advanceTimersByTimeAsync(60)
+    await nextTick()
+
+    expect(filterMethod).toHaveBeenCalledWith('田')
+    expect(input.value).toBe('田')
+
+    wrapper.unmount()
+  })
+
+  it('refreshes built-in options from the focused input value without text events', async () => {
+    vi.useFakeTimers()
+    const wrapper = mountSelect()
+    const input = wrapper.get('input.el-select__input').element as HTMLInputElement
+
+    input.focus()
+    input.click()
+    await nextTick()
+    input.value = '田'
+    await vi.advanceTimersByTimeAsync(60)
+    await nextTick()
+
+    const options = wrapper.findAll('.el-select-dropdown__item')
+    expect(options).toHaveLength(2)
+    expect(options[0].isVisible()).toBe(false)
+    expect(options[1].isVisible()).toBe(true)
+    expect(input.value).toBe('田')
+
+    wrapper.unmount()
+  })
+
   it('forwards the existing single and multiple model contracts', () => {
     const updateSingle = vi.fn()
     const single = mount(AppGlobalSelect, {
@@ -156,6 +196,29 @@ describe('AppGlobalSelect', () => {
     exposed.blur()
     await nextTick()
     expect(document.activeElement).not.toBe(input)
+
+    wrapper.unmount()
+  })
+
+  it('forwards existing focus and blur event handlers after adding input observation', async () => {
+    const onFocus = vi.fn()
+    const onBlur = vi.fn()
+    const wrapper = mount(AppGlobalSelect, {
+      attachTo: document.body,
+      attrs: {
+        filterable: true,
+        modelValue: '',
+        teleported: false,
+        onFocus,
+        onBlur
+      }
+    })
+    const select = wrapper.getComponent(ElSelect)
+    select.vm.$emit('focus', new FocusEvent('focus'))
+    select.vm.$emit('blur', new FocusEvent('blur'))
+
+    expect(onFocus).toHaveBeenCalledTimes(1)
+    expect(onBlur).toHaveBeenCalledTimes(1)
 
     wrapper.unmount()
   })
