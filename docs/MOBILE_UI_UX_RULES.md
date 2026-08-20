@@ -96,6 +96,7 @@
 - 登入後業務表單與篩選預設使用既有 Element Plus 控制：文字用 `el-input`、單／多選用 `el-select`、日期／時間用 `el-date-picker`／`el-time-picker`；同一欄位群組不可混用原生 `<input type="date">`、`<select>` 與 Element Plus。
 - 日期控制需明確設定 `type`、`format`、`value-format`、placeholder 與是否 `clearable`；選單使用 `el-option` 並提供清楚的「全部／不限」空值語意。並排控制需統一 `size="large"`、滿寬與 label 間距，確保高度、focus、disabled、clear icon 及鍵盤操作一致。
 - 原生表單控制只保留給 Element Plus 沒有對應的檔案、顏色或平台能力；使用例外時需在同名 unit test 或稽核紀錄說明原因，不得只為省略元件寫法而混用。
+- 可搜尋的單選／多選維持單一 `el-select filterable` 輸入欄位；全站透過 `AppGlobalSelect` 保留 Element Plus 元件與既有 props／events／slots，同時讓 iOS 中文 IME 在仍組字時就更新選項。個別頁面不可再嵌入第二個手機搜尋框。
 - 搜尋輸入、select、date picker 與主要表單欄位在手機預設滿寬；搜尋與篩選同列時採 `minmax(0, 1fr) + 44px`，搜尋欄取得扣除篩選按鈕後的完整可用寬度。
 - 輸入控制高度不得低於 44px；文字輸入維持至少 16px，避免 iOS 自動縮放。
 - `<768px` 的低頻 select、日期區間與進階條件使用 `AppMobileFilterSheet` 從畫面底部展開；觸發按鈕為 44×44 icon button，已套用條件以數字 badge 顯示。

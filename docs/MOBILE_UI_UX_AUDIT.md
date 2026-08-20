@@ -4,7 +4,7 @@
 
 清單涵蓋 29 個登入後路由、27 個實作頁面；能力／體測列表與明細各自共用一套實作頁面。
 
-- 最後更新：2026-08-18
+- 最後更新：2026-08-20
 - 本輪範圍：P0 → P1 → P2 → P3 程式調整與自動檢查。
 - 本輪結論：自動檢查通過，因目前沒有可登入的一般 linked-member 與 ADMIN 裝置環境，全部維持「待驗收」。
 
@@ -28,6 +28,7 @@
 | P0-04 | 共用 Dialog | footer 排列、寬度與 safe area 不一致；未掛到 `body` 的 Dialog 會被固定 App shell 裁切 | `AppGlobalDialog` 統一掛到 `body`；`AppDialogFooter` 手機等寬、取消在前、確認在後 | 待驗收 | 全站 Dialog wrapper、註冊與 AppDialogFooter tests 通過；待實機 home indicator／鍵盤驗收 |
 | P0-05 | 場地／節日活動卡片 | 可點擊卡片內含另一個按鈕 | 拆成獨立卡片選取區與操作區，HTML 不再巢狀互動 | 待驗收 | TrainingLocations／HolidayTheme tests 與 source contract 通過 |
 | P0-06 | 共用搜尋／篩選 | 手機搜尋欄與篩選、檢視及操作按鈕同列，搜尋寬度不足；低頻篩選在頁內向下展開 | 搜尋使用剩餘完整寬度；進階條件使用 `AppMobileFilterSheet` 自底部展開；快速 chips 保留頁面內 | 待驗收 | AppMobileFilterSheet 3 tests＋6 個搜尋／篩選介面 source contract 通過；待 360–767px 視覺驗收 |
+| P0-07 | 共用可搜尋 Select | iOS 中文 IME 組字期間，Element Plus 會暫停 `filter-method`，造成文字已顯示但球員／教練選項未更新 | 保留原本 `el-select` 單選／多選與單一輸入欄位，由 `AppGlobalSelect` 在組字期間刷新內建或既有自訂篩選 | 待驗收 | 共用 Select 組字、本地／自訂篩選、單／多選 model、focus／blur、付款頁整合與全站註冊測試通過；全量 203 files、981 tests、`vue-tsc`、build 通過；待登入後 iPhone 中文輸入法驗收 |
 
 ## P1：高頻個人頁面
 
@@ -73,6 +74,12 @@
 | P3-05 | 能力／體測明細 | 返回及紀錄操作偏小 | 44px、`rounded-xl`、ARIA 與 Danger 確認 | 待驗收 | performance API/config 5 tests＋build 通過 |
 
 ## 驗收紀錄
+
+### 2026-08-20 全站手機 Select 中文輸入搜尋
+
+- 截圖中的查詢字已出現在 Element Plus Select 輸入框，但中文 IME 尚在 composition 階段；Element Plus 會在此階段略過 `filter-method`，因此選項仍顯示完整名單。
+- `src/main.ts` 新增全站 `AppGlobalSelect` 包裝；所有既有 `el-select` 標記、Element Plus 底層元件、單選／多選 model、props、events 與 slots 保持不變，只在中文組字輸入事件中提早刷新內建篩選或既有自訂 `filter-method`。
+- 自動測試已覆蓋中文組字時的內建選項篩選、自訂 filter method、單／多選 model、公開 focus／blur、`/my-payments` 實際包裝整合、`/training` 既有正規化搜尋與全站元件註冊；全量 203 files、981 tests、`vue-tsc` 與 production build 通過，build 只保留既有 chunk size warning。真實 iPhone／PWA 中文鍵盤仍列為待驗收。
 
 ### 2026-08-18 報名表管理
 

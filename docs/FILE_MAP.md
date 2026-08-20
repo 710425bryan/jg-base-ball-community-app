@@ -13,7 +13,7 @@
 
 | 檔案 | 用途 | 注意事項 |
 | --- | --- | --- |
-| `src/main.ts` | Vue app 初始化 | 掛 Pinia、Router、Vue Query、Element Plus |
+| `src/main.ts` | Vue app 初始化 | 掛 Pinia、Router、Vue Query、Element Plus，註冊全站 Dialog／Select 包裝 |
 | `src/App.vue` | Auth 初始化與全站效果入口 | 初始化前顯示 loading；掛 `HolidayThemeSiteEffects` |
 | `src/router/index.ts` | 路由、登入 guard、feature guard | 保留 `createWebHashHistory()` 與 chunk reload fallback |
 | `src/services/supabase.ts` | Supabase client | 保留手機休眠 token refresh 保護 |
@@ -54,6 +54,7 @@
 | `src/components/common/AppActionOverflow.vue` | 手機與桌機共用的 44px「更多操作」下拉按鈕 |
 | `src/components/common/AppCollapseButton.vue` | 區塊收合共用按鈕，統一 44px 觸控高度、圖示與 ARIA 關聯 |
 | `src/components/common/AppGlobalDialog.vue` | 全站 Element Plus Dialog 包裝，預設掛到 `body`，避免固定 App shell 與手機底部導覽裁切內容／footer |
+| `src/components/common/AppGlobalSelect.vue` | 全站 Element Plus Select 包裝，保留原元件 API，補強手機中文 IME 組字期間的單選／多選即時搜尋 |
 | `src/components/common/AppDialogFooter.vue` | Dialog 取消／確認按鈕順序、loading、Danger 與手機等寬 footer |
 | `src/components/common/AppMobileFilterSheet.vue` | `<768px` 進階條件自底部展開的共用篩選面板，含 safe area footer |
 | `src/components/common/PreviewableImage.vue` | 可預覽圖片 |

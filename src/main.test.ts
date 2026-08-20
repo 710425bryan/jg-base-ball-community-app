@@ -73,6 +73,12 @@ vi.mock('@/components/common/AppGlobalDialog.vue', () => ({
   }
 }))
 
+vi.mock('@/components/common/AppGlobalSelect.vue', () => ({
+  default: {
+    name: 'AppGlobalSelect'
+  }
+}))
+
 vi.mock('./router', () => ({
   default: routerMock
 }))
@@ -102,6 +108,7 @@ describe('main app entry', () => {
     expect(createPiniaMock).toHaveBeenCalledTimes(1)
     expect(useMock).toHaveBeenCalledTimes(4)
     expect(componentMock).toHaveBeenCalledWith('el-dialog', { name: 'AppGlobalDialog' })
+    expect(componentMock).toHaveBeenCalledWith('el-select', { name: 'AppGlobalSelect' })
     expect(mountMock).toHaveBeenCalledWith('#app')
   })
 

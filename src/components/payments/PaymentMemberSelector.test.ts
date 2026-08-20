@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
 
 import { mount } from '@vue/test-utils'
+import { ElOption } from 'element-plus'
 import { describe, expect, it } from 'vitest'
 import { nextTick } from 'vue'
+import AppGlobalSelect from '@/components/common/AppGlobalSelect.vue'
 import PaymentMemberSelector from './PaymentMemberSelector.vue'
 import type { MyPaymentMember } from '@/types/payments'
 
@@ -110,5 +112,40 @@ describe('PaymentMemberSelector', () => {
     expect(wrapper.emitted('update:modelValue')).toEqual([
       ['member-2']
     ])
+  })
+
+  it('filters the real select while a mobile Chinese IME is still composing', async () => {
+    const wrapper = mount(PaymentMemberSelector, {
+      props: {
+        modelValue: 'member-1',
+        members,
+        helperText: '切換成員後會更新繳費資料。',
+        getOptionLabel: (member: MyPaymentMember) => `${member.name}｜${member.role}`,
+        getBillingLabel: (member: MyPaymentMember) => member.billing_mode === 'monthly' ? '月繳' : '季繳'
+      },
+      global: {
+        components: {
+          'el-select': AppGlobalSelect,
+          'el-option': ElOption
+        }
+      }
+    })
+    const input = wrapper.get('input.el-select__input').element as HTMLInputElement
+
+    input.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true, data: '陳' }))
+    input.value = '陳'
+    input.dispatchEvent(new InputEvent('input', {
+      bubbles: true,
+      data: '陳',
+      inputType: 'insertCompositionText',
+      isComposing: true
+    }))
+    await nextTick()
+
+    const options = wrapper.findAllComponents(ElOption)
+    expect(options).toHaveLength(1)
+    expect(options[0].props('value')).toBe('member-2')
+
+    wrapper.unmount()
   })
 })

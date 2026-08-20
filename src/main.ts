@@ -7,6 +7,7 @@ import 'element-plus/dist/index.css'
 import './style.css'
 import App from './App.vue'
 import AppGlobalDialog from '@/components/common/AppGlobalDialog.vue'
+import AppGlobalSelect from '@/components/common/AppGlobalSelect.vue'
 
 import router from './router'
 import {
@@ -133,6 +134,7 @@ app.use(ElementPlus, {
   locale: zhTw,
 })
 app.component('el-dialog', AppGlobalDialog)
+app.component('el-select', AppGlobalSelect)
 
 app.mount('#app')
 
