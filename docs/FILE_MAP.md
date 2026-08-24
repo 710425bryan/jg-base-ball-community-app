@@ -225,7 +225,9 @@
 | `src/types/registrationForm.ts` | 賽事／範本 metadata、狀態、隊職員、球員 override 與 generate payload 型別 |
 | `supabase/functions/registration-form-documents/index.ts` | JWT / feature 權限、賽事範本關聯、範本 Storage、完整名單與 binary response 邊界 |
 | `supabase/functions/registration-form-documents/logic.ts` | ZIP 安全、版型偵測、Excel / Word XML 映射與等比例照片 anchor |
+| `supabase/functions/registration-form-documents/pdfLogic.ts` | 眼鏡蛇盃 PDF 原檔指紋／頁面驗證、第 6 頁固定欄位覆寫、中文字型 checksum 與文字縮放邊界 |
 | `supabase/migrations/20260818075514_registration_form_events.sql` | 賽事報名主檔、可重用範本關聯、RLS、原子儲存 RPC 與 generation log event snapshot |
+| `supabase/migrations/20260824034124_registration_form_pdf_profile.sql` | 開放 PDF 範本 MIME / metadata constraint，加入 `cobra_cup_u9_pdf@1` profile |
 
 ### Equipment
 

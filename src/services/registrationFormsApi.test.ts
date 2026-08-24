@@ -133,6 +133,18 @@ describe('registrationFormsApi', () => {
     expect((form.get('file') as File).name).toBe('template.docx')
   })
 
+  it('keeps PDF uploads on the fixed ASCII transport filename', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({
+      template: { id: 'template-pdf', name: '眼鏡蛇盃 U9' }
+    }), { status: 201, headers: { 'Content-Type': 'application/json' } }))
+    const { uploadRegistrationFormTemplate } = await import('./registrationFormsApi')
+    const file = new File(['%PDF-1.7'], '眼鏡蛇盃競賽規程.pdf', { type: 'application/pdf' })
+    await uploadRegistrationFormTemplate(file)
+    const form = fetchMock.mock.calls[0][1]?.body as FormData
+    expect(form.get('original_file_name')).toBe(file.name)
+    expect((form.get('file') as File).name).toBe('template.pdf')
+  })
+
   it('surfaces JSON errors before attempting a binary download', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({
       error: '第 1 位球員缺少生日'

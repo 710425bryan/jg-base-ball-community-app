@@ -120,4 +120,10 @@ describe('RegistrationFormsView', () => {
       template_id: 'template-1'
     }), expect.stringContaining('就是棒秋季聯賽'))
   })
+
+  it('allows supported PDF templates in the upload control', async () => {
+    const wrapper = shallowMount(RegistrationFormsView, { global: { stubs } })
+    await flushPromises()
+    expect(wrapper.find('el-upload-stub').attributes('accept')).toBe('.xlsx,.docx,.pdf')
+  })
 })

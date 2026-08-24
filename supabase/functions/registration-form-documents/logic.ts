@@ -19,14 +19,17 @@ const RELNS = 'http://schemas.openxmlformats.org/package/2006/relationships'
 const OFFICE_RELNS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
 const WORDNS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
 
-export type RegistrationProfileKey = 'just_baseball_taipei' | 'chairperson_cup_u9'
+export type RegistrationProfileKey = 'just_baseball_taipei' | 'chairperson_cup_u9' | 'cobra_cup_u9_pdf'
+export type OoxmlRegistrationProfileKey = Exclude<RegistrationProfileKey, 'cobra_cup_u9_pdf'>
 
 export interface RegistrationProfile {
   key: RegistrationProfileKey
   version: 1
   label: string
-  fileType: 'xlsx' | 'docx'
+  fileType: 'xlsx' | 'docx' | 'pdf'
+  minPlayers: number
   maxPlayers: number
+  hasPhotoSlots: boolean
 }
 
 export const REGISTRATION_PROFILES: Record<RegistrationProfileKey, RegistrationProfile> = {
@@ -35,14 +38,27 @@ export const REGISTRATION_PROFILES: Record<RegistrationProfileKey, RegistrationP
     version: 1,
     label: '就是棒臺北',
     fileType: 'xlsx',
-    maxPlayers: 30
+    minPlayers: 1,
+    maxPlayers: 30,
+    hasPhotoSlots: true
   },
   chairperson_cup_u9: {
     key: 'chairperson_cup_u9',
     version: 1,
     label: '主委盃 U9',
     fileType: 'docx',
-    maxPlayers: 20
+    minPlayers: 1,
+    maxPlayers: 20,
+    hasPhotoSlots: true
+  },
+  cobra_cup_u9_pdf: {
+    key: 'cobra_cup_u9_pdf',
+    version: 1,
+    label: '眼鏡蛇盃 U9',
+    fileType: 'pdf',
+    minPlayers: 10,
+    maxPlayers: 14,
+    hasPhotoSlots: false
   }
 }
 
@@ -60,6 +76,7 @@ export interface StaffFields {
   manager_phone?: string
   contact_name: string
   contact_phone: string
+  address?: string
 }
 
 export interface DocumentPlayer {
@@ -72,6 +89,7 @@ export interface DocumentPlayer {
   batting_hand?: string
   school_name?: string
   grade?: string
+  notes?: string
   portrait_auth?: boolean
   position?: 'P' | 'C' | 'IF' | 'OF' | ''
   avatar?: { bytes: Uint8Array; mimeType: 'image/png' | 'image/jpeg' }
@@ -559,7 +577,7 @@ const fillWord = (files: Record<string, Uint8Array>, input: GenerateDocumentInpu
 
 export const generateRegistrationDocument = (
   templateBytes: Uint8Array,
-  profileKey: RegistrationProfileKey,
+  profileKey: OoxmlRegistrationProfileKey,
   input: GenerateDocumentInput
 ) => {
   const detected = detectRegistrationProfile(templateBytes)

@@ -11,10 +11,12 @@ const denoConfig = JSON.parse(readFileSync(
 ))
 
 describe('registration-form-documents Edge Function boundary', () => {
-  it('keeps pinned OOXML dependencies isolated to this function', () => {
+  it('keeps pinned document dependencies isolated to this function', () => {
     expect(denoConfig.imports).toEqual({
+      '@pdf-lib/fontkit': 'npm:@pdf-lib/fontkit@1.1.1',
       '@xmldom/xmldom': 'npm:@xmldom/xmldom@0.9.11',
-      fflate: 'npm:fflate@0.8.2'
+      fflate: 'npm:fflate@0.8.2',
+      'pdf-lib': 'npm:pdf-lib@1.17.1'
     })
   })
 
@@ -60,10 +62,20 @@ describe('registration-form-documents Edge Function boundary', () => {
     const playerSection = source.slice(source.indexOf('const buildDocumentPlayers'), source.indexOf('const handleGenerate'))
     expect(playerSection).toContain('name: String(member.name')
     expect(playerSection).toContain('portrait_auth: member.portrait_auth === true')
-    expect(playerSection).toContain('avatar: await loadAvatar(member)')
+    expect(playerSection).toContain('avatar: includeAvatars ? await loadAvatar(member) : undefined')
     expect(playerSection).not.toContain('override.name')
     expect(playerSection).not.toContain('override.portrait_auth')
     expect(playerSection).not.toContain('override.avatar')
+  })
+
+  it('detects approved PDFs, skips avatars and returns the PDF MIME type', () => {
+    const uploadSection = source.slice(source.indexOf('const handleUpload'), source.indexOf('const parseJson'))
+    const generateSection = source.slice(source.indexOf('const handleGenerate'), source.indexOf('serve(async'))
+    expect(uploadSection).toContain('detectRegistrationPdfProfile(bytes)')
+    expect(uploadSection).toContain("['xlsx', 'docx', 'pdf']")
+    expect(generateSection).toContain('generateRegistrationPdfDocument')
+    expect(generateSection).toContain('profile.hasPhotoSlots')
+    expect(source).toContain("if (fileType === 'pdf') return 'application/pdf'")
   })
 
   it('keeps the Excel position override optional during server validation', () => {

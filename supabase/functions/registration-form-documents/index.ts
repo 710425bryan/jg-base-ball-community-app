@@ -8,9 +8,15 @@ import {
   generateRegistrationDocument,
   normalizeHandCode,
   type DocumentPlayer,
+  type OoxmlRegistrationProfileKey,
   type RegistrationProfileKey,
   type StaffFields
 } from './logic.ts'
+import {
+  detectRegistrationPdfProfile,
+  generateRegistrationPdfDocument,
+  isPdfDocument
+} from './pdfLogic.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || ''
@@ -69,6 +75,13 @@ const safeFileName = (value: string) => value
   .trim()
   .slice(0, 180)
 
+const contentTypeForFileType = (fileType: string) => {
+  if (fileType === 'xlsx') return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  if (fileType === 'docx') return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  if (fileType === 'pdf') return 'application/pdf'
+  throw new Error('不支援的報名表檔案類型')
+}
+
 const handleUpload = async (req: Request, userId: string, userClient: SupabaseClient) => {
   await assertPermission(userClient, 'registration_forms', 'CREATE')
   const form = await req.formData()
@@ -87,14 +100,16 @@ const handleUpload = async (req: Request, userId: string, userClient: SupabaseCl
   const submittedExtension = dotIndex >= 0
     ? normalizedFileName.slice(dotIndex + 1).trim().toLowerCase()
     : ''
-  if (submittedExtension && submittedExtension !== 'xlsx' && submittedExtension !== 'docx') {
-    throw jsonResponse({ success: false, error: '只接受 .xlsx 或 .docx 範本' }, 400)
+  if (submittedExtension && !['xlsx', 'docx', 'pdf'].includes(submittedExtension)) {
+    throw jsonResponse({ success: false, error: '只接受 .xlsx、.docx 或 .pdf 範本' }, 400)
   }
 
   const bytes = new Uint8Array(await file.arrayBuffer())
   let profile
   try {
-    profile = detectRegistrationProfile(bytes)
+    profile = isPdfDocument(bytes)
+      ? REGISTRATION_PROFILES[await detectRegistrationPdfProfile(bytes)]
+      : detectRegistrationProfile(bytes)
   } catch (error) {
     throw jsonResponse({ success: false, error: error instanceof Error ? error.message : '尚未支援此報名表版型' }, 400)
   }
@@ -109,9 +124,7 @@ const handleUpload = async (req: Request, userId: string, userClient: SupabaseCl
     : `${sanitizedSubmittedFileName || 'template'}.${extension}`
   const displayName = safeFileName(String(form.get('display_name') || '')) || profile.label
   const storagePath = `${userId}/${crypto.randomUUID()}/template.${extension}`
-  const contentType = extension === 'xlsx'
-    ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  const contentType = contentTypeForFileType(extension)
 
   const { error: uploadError } = await serviceClient.storage
     .from('registration-forms')
@@ -127,7 +140,7 @@ const handleUpload = async (req: Request, userId: string, userClient: SupabaseCl
       profile_key: profile.key,
       profile_version: profile.version,
       max_players: profile.maxPlayers,
-      has_photo_slots: true,
+      has_photo_slots: profile.hasPhotoSlots,
       storage_path: storagePath,
       created_by: userId,
       updated_by: userId
@@ -210,7 +223,8 @@ const normalizeStaffFields = (value: any): StaffFields => ({
   manager_name: requireString(value?.manager_name, '管理'),
   manager_phone: String(value?.manager_phone || '').trim(),
   contact_name: requireString(value?.contact_name, '聯絡人'),
-  contact_phone: requireString(value?.contact_phone, '聯絡手機')
+  contact_phone: requireString(value?.contact_phone, '聯絡手機'),
+  address: String(value?.address || '').trim().slice(0, 120)
 })
 
 const isActivePlayer = (member: any) => (
@@ -227,10 +241,13 @@ const validatePlayers = (profileKey: RegistrationProfileKey, players: DocumentPl
     if (!player.name || !player.jersey_number || !/^\d{4}-\d{2}-\d{2}/.test(player.birth_date)) {
       throw jsonResponse({ success: false, error: `${prefix}缺少姓名、背號或生日` }, 400)
     }
-    if (profileKey === 'just_baseball_taipei') {
-      if (!player.national_id || !player.school_name || !player.grade) {
-        throw jsonResponse({ success: false, error: `${prefix}缺少身分證、學校或年級` }, 400)
+    if (profileKey === 'just_baseball_taipei' || profileKey === 'cobra_cup_u9_pdf') {
+      if (!player.national_id || !player.grade) {
+        throw jsonResponse({ success: false, error: `${prefix}缺少身分證或年級` }, 400)
       }
+    }
+    if (profileKey === 'just_baseball_taipei') {
+      if (!player.school_name) throw jsonResponse({ success: false, error: `${prefix}缺少學校` }, 400)
       if (!normalizeHandCode(player.throwing_hand || '') || !normalizeHandCode(player.batting_hand || '')) {
         throw jsonResponse({ success: false, error: `${prefix}的投打慣用手需要人工確認為左或右` }, 400)
       }
@@ -263,7 +280,7 @@ const loadAvatar = async (member: any): Promise<DocumentPlayer['avatar'] | undef
   return { bytes: new Uint8Array(await data.arrayBuffer()), mimeType }
 }
 
-const buildDocumentPlayers = async (userClient: SupabaseClient, selections: any[]) => {
+const buildDocumentPlayers = async (userClient: SupabaseClient, selections: any[], includeAvatars: boolean) => {
   if (!Array.isArray(selections) || selections.length < 1) {
     throw jsonResponse({ success: false, error: '請至少選擇一位球員' }, 400)
   }
@@ -288,9 +305,10 @@ const buildDocumentPlayers = async (userClient: SupabaseClient, selections: any[
       batting_hand: normalizeOverride(override.batting_hand) || String(member.batting_hand || '').trim(),
       school_name: normalizeOverride(override.school_name) || String(member.school_name || '').trim(),
       grade: normalizeOverride(override.grade) || String(member.grade || '').trim(),
+      notes: normalizeOverride(override.notes),
       position: normalizeOverride(override.position) as DocumentPlayer['position'],
       portrait_auth: member.portrait_auth === true,
-      avatar: await loadAvatar(member)
+      avatar: includeAvatars ? await loadAvatar(member) : undefined
     } satisfies DocumentPlayer
   }))
 }
@@ -307,11 +325,17 @@ const handleGenerate = async (payload: any, userId: string, userClient: Supabase
   }
 
   const selections = Array.isArray(payload?.players) ? payload.players : []
+  if (selections.length < profile.minPlayers) {
+    throw jsonResponse({ success: false, error: `此版型至少 ${profile.minPlayers} 人` }, 400)
+  }
   if (selections.length > profile.maxPlayers) {
     throw jsonResponse({ success: false, error: `此版型最多 ${profile.maxPlayers} 人` }, 400)
   }
   const fields = normalizeStaffFields(payload?.fields)
-  const players = await buildDocumentPlayers(userClient, selections)
+  if (profileKey === 'cobra_cup_u9_pdf' && !fields.address) {
+    throw jsonResponse({ success: false, error: '地址為必填' }, 400)
+  }
+  const players = await buildDocumentPlayers(userClient, selections, profile.hasPhotoSlots)
   validatePlayers(profileKey, players)
 
   const { data: templateBlob, error: downloadError } = await serviceClient.storage
@@ -321,11 +345,14 @@ const handleGenerate = async (payload: any, userId: string, userClient: Supabase
 
   let output: Uint8Array
   try {
-    output = generateRegistrationDocument(
-      new Uint8Array(await templateBlob.arrayBuffer()),
-      profileKey,
-      { fields, players }
-    )
+    const templateBytes = new Uint8Array(await templateBlob.arrayBuffer())
+    output = profile.fileType === 'pdf'
+      ? await generateRegistrationPdfDocument(templateBytes, { fields, players })
+      : generateRegistrationDocument(
+          templateBytes,
+          profileKey as OoxmlRegistrationProfileKey,
+          { fields, players }
+        )
   } catch (error) {
     throw jsonResponse({ success: false, error: error instanceof Error ? error.message : '產生檔案失敗' }, 400)
   }
@@ -338,7 +365,7 @@ const handleGenerate = async (payload: any, userId: string, userClient: Supabase
   }).formatToParts(new Date())
   const datePart = (type: Intl.DateTimeFormatPartTypes) => dateParts.find((part) => part.type === type)?.value || ''
   const date = `${datePart('year')}${datePart('month')}${datePart('day')}`
-  const baseName = String(template.original_file_name || template.name).replace(/\.(xlsx|docx)$/i, '')
+  const baseName = String(template.original_file_name || template.name).replace(/\.(xlsx|docx|pdf)$/i, '')
   const outputFileName = safeFileName(`${event.name}_${baseName}_已填寫_${date}.${profile.fileType}`)
   const { error: logError } = await serviceClient.from('registration_form_generation_logs').insert({
     event_id: event.id,
@@ -360,9 +387,7 @@ const handleGenerate = async (payload: any, userId: string, userClient: Supabase
     if (statusError) throw statusError
   }
 
-  const contentType = profile.fileType === 'xlsx'
-    ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  const contentType = contentTypeForFileType(profile.fileType)
   const encoded = encodeURIComponent(outputFileName)
   return new Response(output, {
     status: 200,

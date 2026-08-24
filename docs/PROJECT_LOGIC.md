@@ -210,12 +210,12 @@ UI 約定：
 ### 賽事報名、範本與產檔
 
 - `/registration-forms` 以「賽事報名／範本庫」雙分頁管理；`registration_form_events` 保存賽事 metadata 與草稿／準備中／已送出／已截止狀態，`registration_form_event_templates` 將可重用範本掛到一或多場賽事。事件表與關聯表不保存球員 ID 或個資。
-- `registration_form_templates` 可下載 private `registration-forms` bucket 的原始 XLSX / DOCX 範本；範本上傳、刪除及產生文件統一走 `registration-form-documents` Edge Function。multipart 與 Storage object key 使用 ASCII 固定檔名，中文原檔名另存於 metadata 與下載檔名；實際檔案類型以通過安全檢查的 OOXML profile 為準，不只依賴 multipart `File.name`。
+- `registration_form_templates` 可下載 private `registration-forms` bucket 的原始 XLSX / DOCX / PDF 範本；範本上傳、刪除及產生文件統一走 `registration-form-documents` Edge Function。multipart 與 Storage object key 使用 ASCII 固定檔名，中文原檔名另存於 metadata 與下載檔名；實際檔案類型以通過內容與指紋檢查的已知 profile 為準，不只依賴 multipart `File.name`。
 - `registration_forms` feature 使用 `VIEW / CREATE / EDIT / DELETE`，migration 只預設授予 `ADMIN`。產生含完整個資的文件另需 `players:EDIT`，Edge Function 使用 bearer JWT 建立 user-scoped client 呼叫 `list_team_members_for_edit()`，不以 service role 直接讀 `team_members`。
 - 產檔 payload 必須帶 `event_id` 與 `template_id`；Edge Function 重新驗證兩者關聯，已截止事件不得產檔。成功產檔會把草稿事件推進「準備中」，generation log 只增加非個資的賽事 snapshot。
-- 前端精靈包含隊職員資料、有效球員／校隊選取與檢查下載三步；隊職員姓名可從有效教練、管理群、球員或校隊名單搜尋選取並自動帶入 `guardian_phone`，也可自訂姓名與手動修正本次電話；選球員提供所有人、動態 U-level 與清除全選快捷操作，超過版型容量時依背號只選前 N 人並提示；球員預設依背號排序且可調整順序，Excel 上限 30、Word 上限 20。
-- 球員姓名、肖像授權與照片來源只讀主檔；背號、生日、身分證、投打、學校、年級與守位可作本次輸出 override，但不得回寫名單。守位只在版型有對應欄位時顯示且為非必填，留白不阻擋產檔；左右開弓不可自動轉為 R/L，需人工選擇。
-- 版型引擎直接修改原始 OOXML ZIP 的目標 XML 與圖片 relationships，保留其他版式、合併儲存格與列印設定。原檔限制 10 MB、解壓限制 50 MB / 500 entries，拒絕 macro、OLE、外部 relationship 與不安全路徑。
+- 前端精靈包含隊職員資料、有效球員／校隊選取與檢查下載三步；隊職員姓名可從有效教練、管理群、球員或校隊名單搜尋選取並自動帶入 `guardian_phone`，也可自訂姓名與手動修正本次電話；選球員提供所有人、動態 U-level 與清除全選快捷操作，超過版型容量時依背號只選前 N 人並提示；球員預設依背號排序且可調整順序，Excel 上限 30、Word 上限 20、眼鏡蛇盃 PDF 限 10–14 人。
+- 球員姓名、肖像授權與照片來源只讀主檔；背號、生日、身分證、投打、學校、年級、守位與備註可依版型作本次輸出 override，但不得回寫名單。守位只在版型有對應欄位時顯示且為非必填，留白不阻擋產檔；左右開弓不可自動轉為 R/L，需人工選擇。眼鏡蛇盃 PDF 沒有照片格，另要求隊址及每位球員的生日、身分證與年級。
+- XLSX / DOCX 引擎直接修改原始 OOXML ZIP 的目標 XML 與圖片 relationships，保留其他版式、合併儲存格與列印設定；原檔限制 10 MB、解壓限制 50 MB / 500 entries，拒絕 macro、OLE、外部 relationship 與不安全路徑。眼鏡蛇盃 PDF 只接受指定原檔 SHA-256 與 6 頁 A4 結構，完整保留規程第 1–5 頁並在第 6 頁報名表覆寫欄位；中文字型採固定 URL 與 checksum 驗證的 jf open 粉圓完整字型。
 - 產出檔不保存；成功後只在 `registration_form_generation_logs` 留下非個資 audit metadata，再以 `no-store` binary 回傳瀏覽器。
 
 同步規則：

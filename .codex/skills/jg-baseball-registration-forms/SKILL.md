@@ -1,13 +1,13 @@
 ---
 name: jg-baseball-registration-forms
-description: "Competition registration, reusable template, roster selection and OOXML generation workflow for jg-base-ball-community-app. Use when changing /registration-forms, registration_forms permissions, registration_form_events, registration_form_event_templates, registration_form_templates, registration_form_generation_logs, the private registration-forms bucket, registrationFormsApi, RegistrationEventDialog, RegistrationFormWizard, or registration-form-documents Edge Function."
+description: "Competition registration, reusable template, roster selection, OOXML and approved PDF generation workflow for jg-base-ball-community-app. Use when changing /registration-forms, registration_forms permissions, registration_form_events, registration_form_event_templates, registration_form_templates, registration_form_generation_logs, the private registration-forms bucket, registrationFormsApi, RegistrationEventDialog, RegistrationFormWizard, or registration-form-documents Edge Function."
 ---
 
 # JG Baseball Registration Forms
 
 ## Overview
 
-用這個 skill 處理賽事報名主檔、可重用範本上傳／下載、有效球員選取、輸出欄位補正、Excel / Word OOXML 自動填寫、照片關聯與個資安全。這個功能會接觸身分證、生日與照片，前端路由或按鈕不是安全邊界。
+用這個 skill 處理賽事報名主檔、可重用範本上傳／下載、有效球員選取、輸出欄位補正、Excel / Word OOXML 與白名單 PDF 自動填寫、照片關聯與個資安全。這個功能會接觸身分證、生日與照片，前端路由或按鈕不是安全邊界。
 
 ## 讀取順序
 
@@ -18,7 +18,7 @@ description: "Competition registration, reusable template, roster selection and 
 5. 若改權限或路由，讀 `src/router/index.ts`、`src/layouts/MainLayout.vue`、`src/components/RolePermissionsManager.vue` 與 `jg-baseball-auth-permissions` skill。
 6. 若改完整名單欄位，讀 `src/stores/playerRoster.ts`、`src/services/playerRosterApi.ts` 與 `jg-baseball-roster-users-team-groups` skill。
 7. 若改 DB / Storage，讀 `supabase_registration_forms_migration.sql`、`supabase/migrations/*registration_form_events.sql` 與 `docs/MIGRATIONS.md`。
-8. 若改產檔，讀 `supabase/functions/registration-form-documents/index.ts`、`logic.ts`、對應測試與 `docs/EDGE_FUNCTIONS.md`。
+8. 若改產檔，讀 `supabase/functions/registration-form-documents/index.ts`、`logic.ts`、`pdfLogic.ts`、對應測試與 `docs/EDGE_FUNCTIONS.md`。
 
 ## 固定安全邊界
 
@@ -30,23 +30,27 @@ description: "Competition registration, reusable template, roster selection and 
 - 姓名、`portrait_auth`、`avatar_url` 由後端完整名單決定，不接受前端 override。未授權者不可置入照片。
 - 本次補正值只寫入輸出檔，不更新 `team_members`。
 - Storage object key 必須使用 UUID 與 ASCII 固定檔名；使用者原始檔名只保存於 `original_file_name`，不可直接拼入 object key。
-- multipart 傳輸檔名固定使用 ASCII `template.xlsx` / `template.docx`，原始檔名以獨立文字欄位傳送；後端以已驗證 OOXML profile 決定實際 file type，不可只信任 multipart `File.name`。
+- multipart 傳輸檔名固定使用 ASCII `template.xlsx` / `template.docx` / `template.pdf`，原始檔名以獨立文字欄位傳送；後端以通過內容或指紋驗證的已知 profile 決定實際 file type，不可只信任 multipart `File.name`。
 - `registration_form_generation_logs` 不可加入球員 ID、個資欄位、request payload 或產出檔 path。
 - `registration_form_events` 與 `registration_form_event_templates` 只保存賽事 metadata／範本關聯，不保存球員 ID、個資或產出檔；產檔前必須由後端驗證 event-template 關聯。
 - 產出檔只回傳 binary，必須含 `Cache-Control: no-store`，不可上傳到 Storage。
 
-## 版型與 OOXML 規則
+## 版型與 OOXML / PDF 規則
 
-- 第一版只接受 `.xlsx` / `.docx` 及兩個 profile：
+- 只接受 `.xlsx` / `.docx` / `.pdf` 及下列 profile：
   - `just_baseball_taipei@1`：30 人、Excel 球員資料／照片工作表。
   - `chairperson_cup_u9@1`：20 人、Word 表格／照片格。
+  - `cobra_cup_u9_pdf@1`：眼鏡蛇盃 U9、10–14 人、6 頁 A4 PDF，第 6 頁報名表，沒有照片格。
 - 未知結構要回「尚未支援」，不可只用副檔名判斷成功。
-- 原始 ZIP 上限 10 MB、中央目錄 500 entries、總解壓 50 MB；先檢查中央目錄再解壓。
+- OOXML 原始 ZIP 上限 10 MB、中央目錄 500 entries、總解壓 50 MB；先檢查中央目錄再解壓。
 - 拒絕路徑穿越、ZIP64、macro / VBA、OLE / embeddings、外部 relationships。
 - 修改目標 cell / table cell / drawing relationship；保留其他 XML、合併、字型、列印與頁面設定。
 - 照片只允許同一 Supabase 專案的 `avatars` bucket，單張最多 1 MB、JPEG / PNG；等比例縮放、置中、不裁切。
 - Excel 投打只輸出 `R / L`；「左右開弓」或同時含左右的值必須阻擋並由使用者人工選擇。
 - `portrait_auth` 是布林來源；未授權或缺照片只顯示警告並清空照片格，不阻擋產檔。
+- 眼鏡蛇盃 PDF 只接受 SHA-256 `a25dbfa7c561c7f320557602b29a46fd43944821f9847e70ca2ece5fe882a8c3` 的主辦單位原檔；保留第 1–5 頁，只在第 6 頁固定表格座標覆寫資料。
+- 眼鏡蛇盃 PDF 另要求隊址與每位球員的姓名、出生日期、身分證、年級，備註選填；文字必須縮小至格內，無法容納時阻擋產檔，不可靜默截斷。
+- PDF 中文字型使用 justfont 官方固定 commit 的 `jf-openhuninn-2.1.ttf`，須驗證 SHA-256 `9d5bf4932d31fe94c18cd8cfddc98bc1b14ce10f4e354c682179db290a99c825`。必須嵌入完整字型；目前 pdf-lib subset 會造成中文字形遺失，不可開啟。
 
 ## UI 規則
 
@@ -68,8 +72,8 @@ description: "Competition registration, reusable template, roster selection and 
   `pnpm exec vitest run src/utils/registrationForms.test.ts src/services/registrationFormsApi.test.ts src/components/registration-forms/RegistrationFormWizard.test.ts src/views/RegistrationFormsView.test.ts`
 - DB / Edge boundary：
   `pnpm exec vitest run src/services/registrationFormsMigration.test.ts src/services/registrationFormDocumentsEdge.test.ts`
-- OOXML：
-  `pnpm exec vitest run supabase/functions/registration-form-documents/logic.test.ts`
+- OOXML / PDF：
+  `pnpm exec vitest run supabase/functions/registration-form-documents/logic.test.ts supabase/functions/registration-form-documents/pdfLogic.test.ts`
 - 共用權限／導覽：跑 `src/router/index.test.ts`、`src/layouts/MainLayout.test.ts`、`src/components/RolePermissionsManager.test.ts`。
 - 型別與建置：`pnpm exec vue-tsc --noEmit`、`pnpm build`、`git diff --check`。
-- 實檔：兩個已知附件各驗 1 人與滿額；Word 需 render 全頁，Excel 需 inspect 目標 range / drawings，確認缺照格空白、照片置中、不跨頁且版式／列印設定保留。
+- 實檔：三個已知附件各驗最少人數與滿額；Word 需 render 全頁，Excel 需 inspect 目標 range / drawings，確認缺照格空白、照片置中、不跨頁且版式／列印設定保留。PDF 必須 render 全 6 頁並驗證第 1–5 頁與原檔視覺一致、第 6 頁滿額文字不重疊或截斷。

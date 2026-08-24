@@ -1,5 +1,5 @@
-export type RegistrationFormFileType = 'xlsx' | 'docx'
-export type RegistrationFormProfileKey = 'just_baseball_taipei' | 'chairperson_cup_u9'
+export type RegistrationFormFileType = 'xlsx' | 'docx' | 'pdf'
+export type RegistrationFormProfileKey = 'just_baseball_taipei' | 'chairperson_cup_u9' | 'cobra_cup_u9_pdf'
 export type RegistrationPosition = 'P' | 'C' | 'IF' | 'OF' | ''
 export type RegistrationFormEventStatus = 'draft' | 'in_progress' | 'submitted' | 'closed'
 
@@ -73,6 +73,7 @@ export interface RegistrationStaffFields {
   manager_phone: string
   contact_name: string
   contact_phone: string
+  address: string
 }
 
 export interface RegistrationPlayerOverrides {
@@ -84,6 +85,7 @@ export interface RegistrationPlayerOverrides {
   school_name: string
   grade: string
   position: RegistrationPosition
+  notes: string
 }
 
 export interface RegistrationPlayerRow {

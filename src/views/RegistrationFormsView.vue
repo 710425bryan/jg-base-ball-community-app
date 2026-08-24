@@ -160,8 +160,8 @@ const uploadTemplate = async (uploadFile: UploadFile, _uploadFiles: UploadFiles)
   const file = uploadFile.raw
   if (!file || uploading.value) return
   const extension = file.name.split('.').pop()?.toLowerCase()
-  if (!['xlsx', 'docx'].includes(extension || '')) {
-    ElMessage.error('只接受 .xlsx 或 .docx 範本')
+  if (!['xlsx', 'docx', 'pdf'].includes(extension || '')) {
+    ElMessage.error('只接受 .xlsx、.docx 或 .pdf 範本')
     return
   }
   if (file.size > 10 * 1024 * 1024) {
@@ -353,11 +353,11 @@ onMounted(loadData)
           <div class="mb-4 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 class="font-black text-slate-900">可重用報名表範本</h2>
-              <p class="mt-1 text-sm text-slate-500">檔名可以不同；系統依內部 OOXML 結構辨識支援版型。</p>
+              <p class="mt-1 text-sm text-slate-500">檔名可以不同；系統依檔案內容辨識已支援的 Word、Excel 或 PDF 版型。</p>
             </div>
             <el-upload
               v-if="canCreate"
-              accept=".xlsx,.docx"
+              accept=".xlsx,.docx,.pdf"
               :auto-upload="false"
               :show-file-list="false"
               :on-change="uploadTemplate"
@@ -368,7 +368,7 @@ onMounted(loadData)
           </div>
 
           <el-empty v-if="!templates.length" description="尚未上傳報名表範本">
-            <p class="mb-4 text-sm text-slate-500">目前支援「就是棒臺北」Excel 與「主委盃 U9」Word。</p>
+            <p class="mb-4 text-sm text-slate-500">目前支援「就是棒臺北」Excel、「主委盃 U9」Word 與「眼鏡蛇盃 U9」PDF。</p>
           </el-empty>
           <section v-else class="grid gap-4 md:grid-cols-2" aria-label="報名表範本庫">
             <article v-for="template in templates" :key="template.id" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

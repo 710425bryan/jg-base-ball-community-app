@@ -40,7 +40,7 @@
 | 手機版面、功能按鈕、搜尋篩選、Dialog、safe area | `jg-baseball-project-workflow` | `docs/MOBILE_UI_UX_RULES.md`、`src/style.css`、`AppPageHeader.vue`、`AppMobileFilterSheet.vue`、相關 view/component |
 | 登入、角色、路由守衛、feature/action | `jg-baseball-auth-permissions` | `src/router/index.ts`、`src/stores/auth.ts`、`src/stores/permissions.ts`、相關 migration |
 | 球員名單、使用者、綁定球員、team group | `jg-baseball-roster-users-team-groups` | `PlayersView.vue`、`UsersView.vue`、`TeamGroupSettingsDialog.vue`、`src/stores/playerRoster.ts`、`src/stores/teamGroups.ts` |
-| 賽事報名、報名表範本、球員帶入、OOXML 產檔 | `jg-baseball-registration-forms` | `RegistrationFormsView.vue`、`RegistrationEventDialog.vue`、`RegistrationFormWizard.vue`、`src/services/registrationFormsApi.ts`、`registration-form-documents/*`、報名表 migrations |
+| 賽事報名、報名表範本、球員帶入、Excel / Word / PDF 產檔 | `jg-baseball-registration-forms` | `RegistrationFormsView.vue`、`RegistrationEventDialog.vue`、`RegistrationFormWizard.vue`、`src/services/registrationFormsApi.ts`、`registration-form-documents/*`、報名表 migrations |
 | 球員名單、Google Form / Sheet 同步 | `jg-baseball-player-sync` | `src/utils/playerSync.ts`、`src/utils/playerSync.test.ts`、`PlayersView.vue` |
 | 請假、點名、今日點名摘要 | `jg-baseball-leave-attendance` | `MyLeaveRequestsView.vue`、`LeaveRequestsView.vue`、`AttendanceListView.vue`、`RollCallView.vue`、`leave-webhook/*` |
 | 推播、通知中心、eventKey、subscription | `jg-baseball-push-notifications` | `src/utils/pushNotifications.ts`、`supabase/functions/send-push-notification/*` |
@@ -184,7 +184,8 @@
 - `registration_form_events` 保存賽事名稱、年度、組別、主辦單位、截止日、狀態與備註；`registration_form_event_templates` 讓同一範本可掛在多場賽事。不得在這兩張表保存球員 ID、身分證、生日、照片或產出檔。
 - 範本 metadata 存在 `registration_form_templates`，原檔放 private `registration-forms` bucket；`registration_form_generation_logs` 只記賽事／範本 snapshot、產生者、時間、輸出檔名與球員數，不可保存球員 ID、個資或產出檔。
 - 前端 `RegistrationFormsView` / `RegistrationEventDialog` / `RegistrationFormWizard` 只負責 UX；含完整個資的 `generate` 必須由 `registration-form-documents` Edge Function 同時檢查 `registration_forms:CREATE` 與 `players:EDIT`、驗證賽事與範本關聯，並以 user-scoped `list_team_members_for_edit()` 重新取得資料。
-- 第一版只支援「就是棒臺北」XLSX 30 人與「主委盃 U9」DOCX 20 人；版型偵測、欄位映射與 OOXML 安全限制集中在 function logic。未知版型、巨集、OLE、外部關聯、路徑穿越或超限 ZIP 必須拒絕。
+- 已知版型包含「就是棒臺北」XLSX 30 人、「主委盃 U9」DOCX 20 人，以及指定原檔指紋的「眼鏡蛇盃 U9」PDF 10–14 人；版型偵測、欄位映射與 OOXML / PDF 安全限制集中在 function logic。未知版型、巨集、OLE、外部關聯、路徑穿越、超限 ZIP 或非白名單 PDF 必須拒絕。
+- 眼鏡蛇盃 PDF 必須保留原規程第 1–5 頁，只在第 6 頁報名表覆寫隊職員、地址與球員欄位；此版型沒有照片格，姓名、出生日期、身分證、年級為球員必填，備註可選填。中文字型使用固定版本與 SHA-256 驗證的 jf open 粉圓完整字型，不可啟用目前會遺失字形的 subset。
 - 本次補正值只進產出檔，不回寫 `team_members`；姓名、`portrait_auth` 與 `avatar_url` 不接受前端 override。未授權或缺照片只留空照片格，不阻擋產檔。
 - 產出 binary 使用 `Cache-Control: no-store` 並立即下載，不寫 Storage；照片只允許同一 Supabase 專案 `avatars` bucket、單張最多 1 MB。
 

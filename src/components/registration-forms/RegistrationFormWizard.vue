@@ -14,7 +14,8 @@ import {
   isActiveRegistrationPlayer,
   isActiveRegistrationStaffMember,
   sortRegistrationMembers,
-  validateRegistrationForm
+  validateRegistrationForm,
+  REGISTRATION_FORM_PROFILES
 } from '@/utils/registrationForms'
 import { inferPlayerULevelFromBirthDate } from '@/utils/playerULevel'
 
@@ -86,6 +87,11 @@ const staffMemberOptions = computed(() => props.members
   ))
 const capacity = computed(() => Number(props.template?.max_players || 0))
 const isExcelProfile = computed(() => props.template?.profile_key === 'just_baseball_taipei')
+const isCobraPdfProfile = computed(() => props.template?.profile_key === 'cobra_cup_u9_pdf')
+const profileConfig = computed(() => props.template ? REGISTRATION_FORM_PROFILES[props.template.profile_key] : null)
+const hasPhotoSlots = computed(() => profileConfig.value?.hasPhotoSlots === true)
+const requiresNationalId = computed(() => isExcelProfile.value || isCobraPdfProfile.value)
+const requiresGrade = computed(() => isExcelProfile.value || isCobraPdfProfile.value)
 const validation = computed(() => props.template
   ? validateRegistrationForm(props.template.profile_key, capacity.value, fields.value, playerRows.value)
   : { blocking: ['尚未選擇範本'], warnings: [] })
@@ -154,7 +160,8 @@ const staffMissing = computed(() => [
   fields.value.head_coach_name,
   fields.value.manager_name,
   fields.value.contact_name,
-  fields.value.contact_phone
+  fields.value.contact_phone,
+  isCobraPdfProfile.value ? fields.value.address : 'not-required'
 ].some((value) => !String(value || '').trim()))
 
 const close = () => {
@@ -218,7 +225,9 @@ const submit = () => {
     <section v-if="step === 0" aria-label="隊職員資料">
       <el-alert
         v-if="staffMissing"
-        title="請完成隊名、領隊、總教練、管理、聯絡人與聯絡手機"
+        :title="isCobraPdfProfile
+          ? '請完成隊名、領隊、總教練、管理、聯絡人、聯絡手機與地址'
+          : '請完成隊名、領隊、總教練、管理、聯絡人與聯絡手機'"
         type="warning"
         :closable="false"
         class="mb-4"
@@ -230,6 +239,9 @@ const submit = () => {
         <div class="grid gap-x-4 sm:grid-cols-2 lg:grid-cols-3">
           <el-form-item label="隊名" required>
             <el-input v-model="fields.team_name" />
+          </el-form-item>
+          <el-form-item v-if="isCobraPdfProfile" label="地址" required class="sm:col-span-2">
+            <el-input v-model="fields.address" maxlength="120" show-word-limit />
           </el-form-item>
           <template v-for="config in staffFieldConfigs" :key="config.key">
             <el-form-item :label="config.label" :required="config.required">
@@ -323,7 +335,7 @@ const submit = () => {
           class="rounded-2xl border border-slate-200 bg-white p-4"
         >
           <div class="mb-4 flex flex-wrap items-center gap-3">
-            <div class="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-slate-100">
+            <div v-if="hasPhotoSlots" class="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-slate-100">
               <img
                 v-if="player.portrait_auth && player.avatar_url"
                 :src="player.avatar_url"
@@ -334,7 +346,7 @@ const submit = () => {
             </div>
             <div class="min-w-0 flex-1">
               <div class="font-bold text-slate-900">{{ index + 1 }}. {{ player.name }}</div>
-              <div class="text-xs" :class="player.portrait_auth ? 'text-slate-500' : 'text-amber-700'">
+              <div v-if="hasPhotoSlots" class="text-xs" :class="player.portrait_auth ? 'text-slate-500' : 'text-amber-700'">
                 {{ player.portrait_auth ? (player.avatar_url ? '肖像已授權／有照片' : '肖像已授權／缺照片') : '肖像未授權，照片不會置入' }}
               </div>
             </div>
@@ -360,10 +372,13 @@ const submit = () => {
                   class="!w-full"
                 />
               </el-form-item>
+              <el-form-item v-if="requiresNationalId" label="身分證" required>
+                <el-input v-model="player.overrides.national_id" />
+              </el-form-item>
+              <el-form-item v-if="requiresGrade" label="年級" required>
+                <el-input v-model="player.overrides.grade" />
+              </el-form-item>
               <template v-if="isExcelProfile">
-                <el-form-item label="身分證" required>
-                  <el-input v-model="player.overrides.national_id" />
-                </el-form-item>
                 <el-form-item label="守位（非必填）">
                   <el-select v-model="player.overrides.position" clearable placeholder="選擇守位（非必填）" class="w-full">
                     <el-option label="投手 P" value="P" />
@@ -387,10 +402,10 @@ const submit = () => {
                 <el-form-item label="學校" required>
                   <el-input v-model="player.overrides.school_name" />
                 </el-form-item>
-                <el-form-item label="年級" required>
-                  <el-input v-model="player.overrides.grade" />
-                </el-form-item>
               </template>
+              <el-form-item v-if="isCobraPdfProfile" label="備註（非必填）" class="sm:col-span-2">
+                <el-input v-model="player.overrides.notes" maxlength="30" show-word-limit />
+              </el-form-item>
             </div>
           </el-form>
         </article>

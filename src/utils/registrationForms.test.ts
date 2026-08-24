@@ -71,4 +71,33 @@ describe('registrationForms', () => {
     expect(result.blocking.some((message) => message.includes('打擊慣用手'))).toBe(true)
     expect(result.warnings.some((message) => message.includes('未同意肖像授權'))).toBe(true)
   })
+
+  it('validates the 10 to 14 player Cobra Cup PDF without photo warnings', () => {
+    const fields = createRegistrationStaffFields()
+    Object.assign(fields, {
+      leader_name: '領隊',
+      head_coach_name: '總教練',
+      manager_name: '管理',
+      contact_name: '聯絡人',
+      contact_phone: '0900',
+      address: '新北市'
+    })
+    const players = Array.from({ length: 10 }, (_, index) => createRegistrationPlayerRow({
+      id: `m${index}`,
+      name: `球員${index}`,
+      jersey_number: String(index + 1),
+      birth_date: '2018-01-01',
+      national_id: `A12345678${index}`,
+      grade: '一年級',
+      portrait_auth: false
+    }))
+    const valid = validateRegistrationForm('cobra_cup_u9_pdf', 14, fields, players)
+    expect(valid.blocking).toEqual([])
+    expect(valid.warnings).toEqual([])
+
+    expect(validateRegistrationForm('cobra_cup_u9_pdf', 14, fields, players.slice(0, 9)).blocking)
+      .toContain('此版型至少需要 10 位球員')
+    players[0].overrides.national_id = ''
+    expect(validateRegistrationForm('cobra_cup_u9_pdf', 14, fields, players).blocking.join('、')).toContain('身分證')
+  })
 })

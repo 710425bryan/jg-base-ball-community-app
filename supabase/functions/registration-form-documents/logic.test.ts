@@ -7,6 +7,7 @@ import {
   generateRegistrationDocument,
   inspectZipArchive,
   normalizeHandCode,
+  REGISTRATION_PROFILES,
   type GenerateDocumentInput
 } from './logic'
 
@@ -85,6 +86,12 @@ describe('registration form OOXML logic', () => {
     expect(detectRegistrationProfile(createExcelFixture()).key).toBe('just_baseball_taipei')
     expect(detectRegistrationProfile(createWordFixture()).key).toBe('chairperson_cup_u9')
     expect(() => detectRegistrationProfile(zipSync({ 'hello.txt': xml('hello') }))).toThrow('尚未支援')
+    expect(REGISTRATION_PROFILES.cobra_cup_u9_pdf).toMatchObject({
+      fileType: 'pdf',
+      minPlayers: 10,
+      maxPlayers: 14,
+      hasPhotoSlots: false
+    })
   })
 
   it('inspects central directory limits and rejects external relationships', () => {

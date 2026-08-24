@@ -20,6 +20,18 @@ const template = {
   updated_at: '2026-08-18'
 } as const
 
+const cobraPdfTemplate = {
+  ...template,
+  id: 'template-pdf',
+  name: '眼鏡蛇盃 U9',
+  original_file_name: '眼鏡蛇盃競賽規程.pdf',
+  file_type: 'pdf',
+  profile_key: 'cobra_cup_u9_pdf',
+  max_players: 14,
+  has_photo_slots: false,
+  storage_path: 'templates/template.pdf'
+} as const
+
 const members = [{
   id: 'member-1',
   name: '小熊',
@@ -188,5 +200,27 @@ describe('RegistrationFormWizard', () => {
     })
     expect(payload.players[0]).not.toHaveProperty('portrait_auth')
     expect(payload.players[0]).not.toHaveProperty('name')
+  })
+
+  it('requires the Cobra Cup address and exposes PDF-specific player fields without photo slots', () => {
+    const wrapper = mount(RegistrationFormWizard, {
+      props: { modelValue: true, template: cobraPdfTemplate, members },
+      global: { stubs }
+    })
+    const vm = wrapper.vm as any
+    Object.assign(vm.fields, {
+      leader_name: '領隊',
+      head_coach_name: '總教練',
+      manager_name: '管理',
+      contact_name: '聯絡人',
+      contact_phone: '0900'
+    })
+    expect(vm.isCobraPdfProfile).toBe(true)
+    expect(vm.requiresNationalId).toBe(true)
+    expect(vm.requiresGrade).toBe(true)
+    expect(vm.hasPhotoSlots).toBe(false)
+    expect(vm.staffMissing).toBe(true)
+    vm.fields.address = '新北市'
+    expect(vm.staffMissing).toBe(false)
   })
 })

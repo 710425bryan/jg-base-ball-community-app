@@ -9,6 +9,10 @@ const eventSource = readFileSync(
   new URL('../../supabase/migrations/20260818075514_registration_form_events.sql', import.meta.url),
   'utf8'
 )
+const pdfProfileSource = readFileSync(
+  new URL('../../supabase/migrations/20260824034124_registration_form_pdf_profile.sql', import.meta.url),
+  'utf8'
+)
 
 describe('registration forms migration', () => {
   it('creates metadata and privacy-minimized generation log tables with RLS', () => {
@@ -66,5 +70,15 @@ describe('registration forms migration', () => {
     expect(eventSource).toContain('registration_form_events_created_by_idx')
     expect(eventSource).toContain('registration_form_events_updated_by_idx')
     expect(eventSource).toContain('registration_form_event_templates_created_by_idx')
+  })
+
+  it('adds the approved PDF profile and MIME type without changing the private bucket boundary', () => {
+    expect(pdfProfileSource).toContain("file_type in ('xlsx', 'docx', 'pdf')")
+    expect(pdfProfileSource).toContain("profile_key = 'cobra_cup_u9_pdf'")
+    expect(pdfProfileSource).toContain("file_type = 'pdf'")
+    expect(pdfProfileSource).toContain('max_players = 14')
+    expect(pdfProfileSource).toContain("'application/pdf'")
+    expect(pdfProfileSource).toContain("where id = 'registration-forms'")
+    expect(pdfProfileSource).not.toContain('public = true')
   })
 })

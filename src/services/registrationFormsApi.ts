@@ -106,7 +106,7 @@ export const deleteRegistrationFormEvent = async (eventId: string) => {
 
 export const uploadRegistrationFormTemplate = async (file: File, displayName = '') => {
   const extension = file.name.split('.').pop()?.toLowerCase()
-  const transportFileName = extension === 'xlsx' || extension === 'docx'
+  const transportFileName = extension === 'xlsx' || extension === 'docx' || extension === 'pdf'
     ? `template.${extension}`
     : 'template.bin'
   const form = new FormData()
