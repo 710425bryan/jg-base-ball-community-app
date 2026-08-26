@@ -23,6 +23,12 @@
 - 用途：本專案通用工作入口，適合大多數 Vue / Supabase 功能修改。
 - 典型情境：頁面調整、store / service / composable / utils 修改、migration、Edge Function、PWA 問題；`/my-records` 我的成績頁併入此通用 workflow，不另外新增 skill。
 
+### `jg-baseball-delivery-workflow`
+
+- 路徑：`.codex/skills/jg-baseball-delivery-workflow/SKILL.md`
+- 用途：把一段需求編排成 Feature Spec、開發、測試失敗回修、Vercel Preview、Supabase staging / release gate 與 production readiness。
+- 典型情境：要求「從需求做到上線」、完整 delivery / release、建立 Spec 後持續開發測試、Preview 驗收、Supabase migration / Edge Function 發布規劃；啟用 skill 本身不代表已授權 production mutation。
+
 ### `jg-baseball-auth-permissions`
 
 - 路徑：`.codex/skills/jg-baseball-auth-permissions/SKILL.md`

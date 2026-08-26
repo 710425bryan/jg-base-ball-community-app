@@ -7,7 +7,7 @@ const migration = readFileSync(
     import.meta.url
   ),
   'utf8'
-)
+).replace(/\r\n?/g, '\n')
 
 describe('equipment request-ready inventory guard migration', () => {
   it('keeps the existing validator contract and inventory protection', () => {

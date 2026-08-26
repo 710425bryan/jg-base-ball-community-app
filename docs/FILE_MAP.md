@@ -33,6 +33,9 @@
 | `docs/FILE_MAP.md`　　　　　　　| 重要檔案地圖　　　　　　　　　　　　　　　　　　|
 | `docs/MOBILE_UI_UX_RULES.md`　 | 登入後手機版面、功能按鈕、Dialog、safe area 與稽核規則 |
 | `docs/MOBILE_UI_UX_AUDIT.md`　 | 登入後頁面 P0–P3 調整狀態、完成條件與驗證證據 |
+| `docs/DELIVERY_WORKFLOW.md` | 需求、Spec、GitHub CI、Vercel Preview、Supabase release gate 與 rollback |
+| `docs/templates/FEATURE_SPEC.md` | 完整交付任務的 Feature Spec 與 release manifest 模板 |
+| `.github/workflows/ci.yml` | PR / main 的 secret scan、typecheck、全量 Vitest 與 production build 品質閘門 |
 | `docs/MIGRATIONS.md`　　　　　　| migration、hotfix、repair 索引　　　　　　　　　|
 | `docs/EDGE_FUNCTIONS.md`　　　　| Edge Functions、外部服務與環境變數索引　　　　　|
 | `docs/EQUIPMENT_REFUND_FLOW.md` | 裝備退款 / 作廢收款流程　　　　　　　　　　　　 |

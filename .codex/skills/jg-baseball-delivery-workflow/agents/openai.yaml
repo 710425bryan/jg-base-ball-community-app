@@ -1,0 +1,7 @@
+interface:
+  display_name: "JG Delivery Workflow"
+  short_description: "把需求轉成 Spec、測試、Preview 與安全正式發布流程"
+  default_prompt: "Use $jg-baseball-delivery-workflow to turn this requirement into a spec, implement it, verify it, and prepare a safe release."
+
+policy:
+  allow_implicit_invocation: true

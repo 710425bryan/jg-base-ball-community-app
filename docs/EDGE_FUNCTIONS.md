@@ -11,6 +11,8 @@
 5. 修改賽事、陣容、語音或天氣讀 `jg-baseball-match-records-media` skill。
 6. 不硬編碼 secret、service role key、cron authorization 或 API key。
 
+> 發布阻擋（2026-08-26 稽核）：`supabase/functions/_shared/push.ts` 與 `supabase/functions/send-training-registration-notifications/index.ts` 仍有 hard-coded private VAPID material；`leave-webhook` 的 gateway `verify_jwt` 模式也尚未寫入 `supabase/config.toml`。在私鑰撤銷 / 旋轉並移至 Supabase secrets、逐支 function auth mode 完成版本化之前，不得自動部署 Edge Functions。請勿在文件、log 或回報中輸出任何現有值。
+
 ## 共用環境變數
 
 | 變數 | 用途 | 使用位置 |

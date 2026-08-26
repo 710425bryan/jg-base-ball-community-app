@@ -37,6 +37,7 @@
 | 任務類型 | 必讀 skill | 常見必讀檔案 |
 | --- | --- | --- |
 | 一般 Vue / Supabase 修改 | `jg-baseball-project-workflow` | `src/router/index.ts`、相關 `view/component/store/service/type` |
+| 從需求 / Spec 到開發、測試、Preview 與上線準備 | `jg-baseball-delivery-workflow` | `docs/DELIVERY_WORKFLOW.md`、`docs/templates/FEATURE_SPEC.md`、相關 feature skill、`.github/workflows/ci.yml` |
 | 手機版面、功能按鈕、搜尋篩選、Dialog、safe area | `jg-baseball-project-workflow` | `docs/MOBILE_UI_UX_RULES.md`、`src/style.css`、`AppPageHeader.vue`、`AppMobileFilterSheet.vue`、相關 view/component |
 | 登入、角色、路由守衛、feature/action | `jg-baseball-auth-permissions` | `src/router/index.ts`、`src/stores/auth.ts`、`src/stores/permissions.ts`、相關 migration |
 | 球員名單、使用者、綁定球員、team group | `jg-baseball-roster-users-team-groups` | `PlayersView.vue`、`UsersView.vue`、`TeamGroupSettingsDialog.vue`、`src/stores/playerRoster.ts`、`src/stores/teamGroups.ts` |
@@ -85,6 +86,7 @@
 - `docs/FILE_MAP.md`：重要檔案地圖，協助 AI 快速定位該讀或該改的檔案。
 - `docs/MOBILE_UI_UX_RULES.md`：登入後手機版面、功能按鈕、Dialog、safe area 與分批稽核規則。
 - `docs/MOBILE_UI_UX_AUDIT.md`：登入後頁面 P0–P3 實際調整狀態、完成條件與驗證證據。
+- `docs/DELIVERY_WORKFLOW.md`：需求、Spec、開發、CI、Vercel Preview、Supabase staging / production gate 與 rollback 流程。
 - `docs/MIGRATIONS.md`：migration / hotfix / repair 索引，修改 DB function / policy 前必讀。
 - `docs/EDGE_FUNCTIONS.md`：Supabase Edge Functions、外部服務與環境變數索引。
 - `.codex/skills/`：專案 AI workflow。
@@ -375,6 +377,9 @@
 以 `package.json` 為準，本專案目前有：
 
 - 開發：`pnpm dev`
+- 型別檢查：`pnpm typecheck`
+- 全量單元測試：`pnpm test`
+- 完整品質閘門：`pnpm check`
 - 建置：`pnpm build`
 - 預覽：`pnpm preview`
 

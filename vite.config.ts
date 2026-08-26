@@ -16,6 +16,7 @@ const getPackageVersion = () => {
 }
 
 const appVersion = getPackageVersion()
+const isVitest = process.env.VITEST === 'true'
 
 const versionUpdatePlugin = () => {
   return {
@@ -49,7 +50,10 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(appVersion)
   },
   plugins: [
-    vue(),
+    vue(isVitest ? {
+      // Public-root asset URLs are served by Vite; rewriting them as file URLs breaks Vitest on Windows.
+      template: { transformAssetUrls: false }
+    } : {}),
     versionUpdatePlugin(),
     legacy({
       targets: ['defaults', 'not IE 11']
