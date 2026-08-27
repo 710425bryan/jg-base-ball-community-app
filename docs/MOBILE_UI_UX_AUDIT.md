@@ -47,7 +47,7 @@
 
 | ID | 路由／頁面 | 現況差異 | 目標與完成條件 | 狀態 | 驗證證據 |
 | --- | --- | --- | --- | --- | --- |
-| P2-01 | `/training-locations` | 巢狀按鈕、小型 actions、多重捲動；近期訓練卡原本只顯示全部配置人數 | 拆分互動、44px、單一主要捲動區；近期訓練卡同時顯示各場地個別人數 | 待驗收 | View 4 tests＋場地摘要 2 tests＋API／通知 9 tests、`vue-tsc`、build 通過 |
+| P2-01 | `/training-locations` | 巢狀按鈕、小型 actions、多重捲動；近期訓練卡原本只顯示全部配置人數且依距離現在最近排序 | 拆分互動、44px、單一主要捲動區；近期訓練依時間降冪排序，卡片同時顯示各場地總人數、上課與請假人數 | 待驗收 | View 5 tests＋場地摘要 3 tests＋API／通知 9 tests、`vue-tsc`、build 通過 |
 | P2-02 | `/training-dates` | 頁首四個可見操作且高度不足 | 保留 Primary＋最高頻 Secondary，其餘 overflow | 待驗收 | dates API／utils 12 tests＋source contract 通過 |
 | P2-03 | `/training-program-settings` | 手機欄位標籤與輸入框互相擠壓，星期選項觸控區偏小，狀態與儲存操作層級不清 | 欄位改為手機上下排列、星期等寬 44px 網格，狀態與儲存分區 | 待驗收 | View／mobile audit／API／utils 共 66 tests＋`vue-tsc` 通過；待 360／390px 實機驗收 |
 | P2-04 | `/coach-schedules` | 篩選缺 ARIA；actions/footer 偏小 | segmented ARIA、44px、共用 footer | 待驗收 | coach schedules 10 tests＋source contract 通過 |
@@ -77,9 +77,10 @@
 
 ### 2026-08-27 場地配置近期訓練個別人數
 
-- `/training-locations` 的近期訓練卡保留「場地總數｜總人數」，並新增依場地順序顯示的「場地編號・場地名稱：人數」摘要；空白場地名稱會回退為場地編號。
-- 個別人數直接使用管理端 session 已載入的 `venues[].member_ids` 計算，不新增 RPC、資料庫查詢或權限範圍。
-- 摘要顯示已拆成獨立元件，targeted 3 files／10 tests、通知回歸 2 files／15 tests、`vue-tsc --noEmit` 與 production build 通過；登入後 360px、390px 與桌機實際卡片高度／換行仍待 staging 驗收。
+- `/training-locations` 的近期訓練卡保留「場地總數｜總人數」，並依場地順序顯示「場地編號・場地名稱：總人數」，下方再分列上課與請假人數；空白場地名稱會回退為場地編號。
+- 個別總人數直接使用管理端 session 已載入的 `venues[].member_ids`，請假人數沿用 `venues[].assignments[].is_on_leave` 的場地日期／時段重疊判定，上課人數為場地總人數扣除請假人數；不新增 RPC、資料庫查詢或權限範圍。
+- 近期訓練清單改依訓練日期與時間降冪排序，同一天較晚時段在前；未設定開始時間時沿用既有結束時間／午夜 fallback。
+- 摘要顯示已拆成獨立元件，targeted 3 files／12 tests、通知回歸 2 files／15 tests、`vue-tsc --noEmit` 與 production build 通過；登入後 360px、390px 與桌機實際卡片高度／換行仍待 staging 驗收。
 
 ### 2026-08-20 全站手機 Select 中文輸入搜尋
 

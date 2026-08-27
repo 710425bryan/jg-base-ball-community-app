@@ -9,7 +9,8 @@ import type { TrainingLocationSessionVenue } from '@/types/trainingLocation'
 const createVenue = (
   venueName: string,
   memberIds: string[],
-  id: string | null = null
+  id: string | null = null,
+  leaveMemberIds: string[] = []
 ): TrainingLocationSessionVenue => ({
   id,
   venue_id: null,
@@ -24,7 +25,15 @@ const createVenue = (
   sort_order: 0,
   note: null,
   member_ids: memberIds,
-  assignments: []
+  assignments: memberIds.map((memberId, index) => ({
+    member_id: memberId,
+    name: `球員 ${index + 1}`,
+    role: '球員',
+    team_group: null,
+    jersey_number: null,
+    fee_billing_mode: 'role_default',
+    is_on_leave: leaveMemberIds.includes(memberId)
+  }))
 })
 
 describe('TrainingLocationSessionSummary', () => {
@@ -35,7 +44,7 @@ describe('TrainingLocationSessionSummary', () => {
           venue_count: 2,
           assignment_count: 3,
           venues: [
-            createVenue('中港國小', ['member-1', 'member-2'], 'venue-1'),
+            createVenue('中港國小', ['member-1', 'member-2'], 'venue-1', ['member-2']),
             createVenue('新泰國中', ['member-3'], 'venue-2')
           ]
         }
@@ -43,9 +52,17 @@ describe('TrainingLocationSessionSummary', () => {
     })
 
     expect(wrapper.get('[data-test="training-location-session-total"]').text()).toBe('2 場地｜3 人')
-    expect(wrapper.findAll('[data-test="training-location-venue-count"]').map((item) => item.text())).toEqual([
-      '場地 1・中港國小：2 人',
-      '場地 2・新泰國中：1 人'
+    expect(wrapper.findAll('[data-test="training-location-venue-total-count"]').map((item) => item.text())).toEqual([
+      '：2 人',
+      '：1 人'
+    ])
+    expect(wrapper.findAll('[data-test="training-location-venue-attending-count"]').map((item) => item.text())).toEqual([
+      '上課 1 人',
+      '上課 1 人'
+    ])
+    expect(wrapper.findAll('[data-test="training-location-venue-leave-count"]').map((item) => item.text())).toEqual([
+      '請假 1 人',
+      '請假 0 人'
     ])
   })
 
@@ -60,6 +77,25 @@ describe('TrainingLocationSessionSummary', () => {
       }
     })
 
-    expect(wrapper.get('[data-test="training-location-venue-count"]').text()).toBe('場地 1：0 人')
+    expect(wrapper.get('[data-test="training-location-venue-count"]').text()).toContain('場地 1：0 人')
+    expect(wrapper.get('[data-test="training-location-venue-attending-count"]').text()).toBe('上課 0 人')
+    expect(wrapper.get('[data-test="training-location-venue-leave-count"]').text()).toBe('請假 0 人')
+  })
+
+  it('shows zero attending members when everyone at a venue is on leave', () => {
+    const wrapper = mount(TrainingLocationSessionSummary, {
+      props: {
+        session: {
+          venue_count: 1,
+          assignment_count: 2,
+          venues: [
+            createVenue('中港國小', ['member-1', 'member-2'], 'venue-1', ['member-1', 'member-2'])
+          ]
+        }
+      }
+    })
+
+    expect(wrapper.get('[data-test="training-location-venue-attending-count"]').text()).toBe('上課 0 人')
+    expect(wrapper.get('[data-test="training-location-venue-leave-count"]').text()).toBe('請假 2 人')
   })
 })

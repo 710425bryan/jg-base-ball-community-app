@@ -230,22 +230,8 @@ const getSessionStartAt = (session: Pick<TrainingLocationSession, 'training_date
   return dateOnly.isValid() ? dateOnly : dayjs(0)
 }
 
-const sortSessionsByNearestTime = (items: TrainingLocationSession[]) => {
-  const now = dayjs()
-  return [...items].sort((a, b) => {
-    const aStart = getSessionStartAt(a)
-    const bStart = getSessionStartAt(b)
-    const aDistance = Math.abs(aStart.diff(now))
-    const bDistance = Math.abs(bStart.diff(now))
-    if (aDistance !== bDistance) return aDistance - bDistance
-
-    const aIsFuture = aStart.isAfter(now) || aStart.isSame(now)
-    const bIsFuture = bStart.isAfter(now) || bStart.isSame(now)
-    if (aIsFuture !== bIsFuture) return aIsFuture ? -1 : 1
-
-    return aStart.valueOf() - bStart.valueOf()
-  })
-}
+const sortSessionsByDescendingTime = (items: TrainingLocationSession[]) =>
+  [...items].sort((a, b) => getSessionStartAt(b).valueOf() - getSessionStartAt(a).valueOf())
 
 const getVenueMembers = (venue: EditableVenue) =>
   venue.member_ids
@@ -349,7 +335,7 @@ const loadProgramSettings = async () => {
 const loadSessions = async () => {
   const from = dayjs().subtract(14, 'day').format('YYYY-MM-DD')
   const to = dayjs().add(45, 'day').format('YYYY-MM-DD')
-  sessions.value = sortSessionsByNearestTime(await trainingLocationsApi.listSessions(from, to, selectedProgram.value.program_key))
+  sessions.value = sortSessionsByDescendingTime(await trainingLocationsApi.listSessions(from, to, selectedProgram.value.program_key))
 }
 
 const loadRoster = async () => {

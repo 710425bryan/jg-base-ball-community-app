@@ -179,6 +179,38 @@ describe('TrainingLocationsView', () => {
     expect(sharedSettingsGridClasses).not.toContain('xl:grid-cols-4')
   })
 
+  it('sorts recent training sessions by date and time in descending order', async () => {
+    const createSession = (sessionId: string, trainingDate: string, startTime: string) => ({
+      session_id: sessionId,
+      program_key: 'chunggang_school_team',
+      program_label: '中港總部',
+      title: sessionId,
+      training_date: trainingDate,
+      start_time: startTime,
+      end_time: '17:00',
+      status: 'published',
+      note: null,
+      created_at: null,
+      updated_at: null,
+      venue_count: 0,
+      assignment_count: 0,
+      venues: []
+    })
+    mocks.listSessions.mockResolvedValue([
+      createSession('morning', '2026-08-29', '09:00'),
+      createSession('next-day', '2026-08-30', '08:00'),
+      createSession('afternoon', '2026-08-29', '13:00')
+    ])
+
+    const wrapper = await mountView()
+
+    expect(wrapper.vm.sessions.map((session) => session.session_id)).toEqual([
+      'next-day',
+      'afternoon',
+      'morning'
+    ])
+  })
+
   it('passes venue assignments to the recent session summary', async () => {
     const session = {
       session_id: 'session-1',
