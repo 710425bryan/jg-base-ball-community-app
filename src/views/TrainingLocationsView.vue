@@ -16,6 +16,7 @@ import {
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
 import AppSearchInput from '@/components/common/AppSearchInput.vue'
+import TrainingLocationSessionSummary from '@/components/training-locations/TrainingLocationSessionSummary.vue'
 import { usePointerDragSupport } from '@/composables/usePointerDragSupport'
 import { TrainingLocationAuthError, trainingLocationsApi } from '@/services/trainingLocationsApi'
 import { trainingProgramsApi } from '@/services/trainingProgramsApi'
@@ -988,8 +989,8 @@ onMounted(() => {
                   </span>
                 </div>
               </button>
-              <div class="mt-3 flex items-center justify-between text-xs font-bold text-slate-400">
-                <span>{{ session.venue_count }} 場地｜{{ session.assignment_count }} 人</span>
+              <div class="mt-3 flex items-end justify-between gap-2 text-xs font-bold text-slate-400">
+                <TrainingLocationSessionSummary :session="session" />
                 <button
                   v-if="canDelete"
                   type="button"

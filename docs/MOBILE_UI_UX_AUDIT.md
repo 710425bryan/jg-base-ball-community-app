@@ -4,7 +4,7 @@
 
 清單涵蓋 29 個登入後路由、27 個實作頁面；能力／體測列表與明細各自共用一套實作頁面。
 
-- 最後更新：2026-08-20
+- 最後更新：2026-08-27
 - 本輪範圍：P0 → P1 → P2 → P3 程式調整與自動檢查。
 - 本輪結論：自動檢查通過，因目前沒有可登入的一般 linked-member 與 ADMIN 裝置環境，全部維持「待驗收」。
 
@@ -47,7 +47,7 @@
 
 | ID | 路由／頁面 | 現況差異 | 目標與完成條件 | 狀態 | 驗證證據 |
 | --- | --- | --- | --- | --- | --- |
-| P2-01 | `/training-locations` | 巢狀按鈕、小型 actions、多重捲動 | 拆分互動、44px、單一主要捲動區 | 待驗收 | View 3 tests＋API／通知 9 tests 通過 |
+| P2-01 | `/training-locations` | 巢狀按鈕、小型 actions、多重捲動；近期訓練卡原本只顯示全部配置人數 | 拆分互動、44px、單一主要捲動區；近期訓練卡同時顯示各場地個別人數 | 待驗收 | View 4 tests＋場地摘要 2 tests＋API／通知 9 tests、`vue-tsc`、build 通過 |
 | P2-02 | `/training-dates` | 頁首四個可見操作且高度不足 | 保留 Primary＋最高頻 Secondary，其餘 overflow | 待驗收 | dates API／utils 12 tests＋source contract 通過 |
 | P2-03 | `/training-program-settings` | 手機欄位標籤與輸入框互相擠壓，星期選項觸控區偏小，狀態與儲存操作層級不清 | 欄位改為手機上下排列、星期等寬 44px 網格，狀態與儲存分區 | 待驗收 | View／mobile audit／API／utils 共 66 tests＋`vue-tsc` 通過；待 360／390px 實機驗收 |
 | P2-04 | `/coach-schedules` | 篩選缺 ARIA；actions/footer 偏小 | segmented ARIA、44px、共用 footer | 待驗收 | coach schedules 10 tests＋source contract 通過 |
@@ -74,6 +74,12 @@
 | P3-05 | 能力／體測明細 | 返回及紀錄操作偏小 | 44px、`rounded-xl`、ARIA 與 Danger 確認 | 待驗收 | performance API/config 5 tests＋build 通過 |
 
 ## 驗收紀錄
+
+### 2026-08-27 場地配置近期訓練個別人數
+
+- `/training-locations` 的近期訓練卡保留「場地總數｜總人數」，並新增依場地順序顯示的「場地編號・場地名稱：人數」摘要；空白場地名稱會回退為場地編號。
+- 個別人數直接使用管理端 session 已載入的 `venues[].member_ids` 計算，不新增 RPC、資料庫查詢或權限範圍。
+- 摘要顯示已拆成獨立元件，targeted 3 files／10 tests、通知回歸 2 files／15 tests、`vue-tsc --noEmit` 與 production build 通過；登入後 360px、390px 與桌機實際卡片高度／換行仍待 staging 驗收。
 
 ### 2026-08-20 全站手機 Select 中文輸入搜尋
 

@@ -4,6 +4,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, shallowMount } from '@vue/test-utils'
 
+import TrainingLocationSessionSummary from '@/components/training-locations/TrainingLocationSessionSummary.vue'
 import TrainingLocationsView from './TrainingLocationsView.vue'
 
 const mocks = vi.hoisted(() => ({
@@ -176,6 +177,65 @@ describe('TrainingLocationsView', () => {
     expect(sharedSettingsGridClasses).toContain('md:grid-cols-2')
     expect(sharedSettingsGridClasses).toContain('2xl:grid-cols-4')
     expect(sharedSettingsGridClasses).not.toContain('xl:grid-cols-4')
+  })
+
+  it('passes venue assignments to the recent session summary', async () => {
+    const session = {
+      session_id: 'session-1',
+      program_key: 'chunggang_school_team',
+      program_label: '中港總部',
+      title: '訓練課程',
+      training_date: '2026-08-29',
+      start_time: '09:00',
+      end_time: '12:30',
+      status: 'published',
+      note: null,
+      created_at: null,
+      updated_at: null,
+      venue_count: 2,
+      assignment_count: 3,
+      venues: [
+        {
+          id: 'venue-1',
+          venue_id: null,
+          title: '訓練課程',
+          training_date: '2026-08-29',
+          start_time: '09:00',
+          end_time: '12:30',
+          venue_name: '中港國小',
+          venue_address: null,
+          venue_maps_url: null,
+          attendance_event_id: null,
+          sort_order: 0,
+          note: null,
+          member_ids: ['member-1', 'member-2'],
+          assignments: []
+        },
+        {
+          id: 'venue-2',
+          venue_id: null,
+          title: '訓練課程',
+          training_date: '2026-08-29',
+          start_time: '09:00',
+          end_time: '12:30',
+          venue_name: '新泰國中',
+          venue_address: null,
+          venue_maps_url: null,
+          attendance_event_id: null,
+          sort_order: 1,
+          note: null,
+          member_ids: ['member-3'],
+          assignments: []
+        }
+      ]
+    }
+    mocks.listSessions.mockResolvedValue([session])
+
+    const wrapper = await mountView()
+    const summary = wrapper.findComponent(TrainingLocationSessionSummary)
+
+    expect(summary.exists()).toBe(true)
+    expect(summary.props('session')).toEqual(session)
   })
 
   it('filters the player pool across name, group, and jersey fields on touch devices', async () => {
