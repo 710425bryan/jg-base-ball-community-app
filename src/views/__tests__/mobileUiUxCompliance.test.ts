@@ -62,6 +62,17 @@ describe('mobile UI/UX audit contracts', () => {
     expect(readView('LeaveRequestsView')).toContain('AppDialogFooter')
     expect(readView('UsersView')).toContain('AppDialogFooter')
     expect(readView('CoachSchedulesView')).toContain('AppDialogFooter')
+    expect(readView('EquipmentAddonsView')).toContain('AppDialogFooter')
+  })
+
+  it('keeps the equipment add-on mobile cart above navigation and uses shared full-screen dialogs', () => {
+    const equipmentAddons = readView('EquipmentAddonsView')
+
+    expect(equipmentAddons).toContain('equipment-addon-mobile-cart-bar md:hidden')
+    expect(equipmentAddons).toContain('bottom: calc(4.5rem + env(safe-area-inset-bottom) + 0.75rem)')
+    expect(equipmentAddons).toContain('min-h-14 w-full')
+    expect(equipmentAddons).toContain('<el-dialog')
+    expect(equipmentAddons).toContain('title="確認裝備請購"')
   })
 
   it('uses the shared non-white segmented control for every grid and table switch', () => {

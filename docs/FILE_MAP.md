@@ -47,7 +47,7 @@
 | 檔案 | 用途 |
 | --- | --- |
 | `src/layouts/PublicLayout.vue` | 公開頁 header / footer / login 入口 |
-| `src/layouts/MainLayout.vue` | 登入後導覽、通知中心、手機選單、底部導覽 |
+| `src/layouts/MainLayout.vue` | 登入後導覽、通知中心、手機選單、底部導覽，以及登出前頁面草稿確認 |
 | `src/components/LoginModal.vue` | magic link / OTP 登入 UI |
 | `src/components/PushSettingsDialog.vue` | Web Push 訂閱設定 |
 | `src/components/RolePermissionsManager.vue` | 角色與 feature/action 權限管理 |
@@ -61,6 +61,7 @@
 | `src/components/common/AppDialogFooter.vue` | Dialog 取消／確認按鈕順序、loading、Danger 與手機等寬 footer |
 | `src/components/common/AppMobileFilterSheet.vue` | `<768px` 進階條件自底部展開的共用篩選面板，含 safe area footer |
 | `src/components/common/PreviewableImage.vue` | 可預覽圖片 |
+| `src/components/equipment/EquipmentAddonCartPanel.vue` | 裝備加購請購單共用品項、數量、備註、錯誤、訂製提示與總額面板 |
 | `src/components/equipment/EquipmentPhotoCarousel.vue` | 裝備多照片輪播 / 左右滑動 |
 
 ## 4. Stores
@@ -123,6 +124,7 @@
 | `src/composables/useNotificationFeed.ts` | 通知中心資料 controller |
 | `src/composables/useHolidayTheme.ts` | 節日主題公開設定、v2 config normalize |
 | `src/composables/useMyHomeNextMatch.ts` | 個人首頁 Next Up 請求競態控制與本人賽事資格驗證 |
+| `src/composables/useUnsavedChangesGuard.ts` | 頁面草稿的站內離頁／瀏覽器關閉保護、active guard 與登出一次性 bypass |
 
 ## 7. Utils
 
