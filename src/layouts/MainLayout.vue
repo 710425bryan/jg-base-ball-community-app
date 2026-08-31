@@ -371,6 +371,7 @@ import PushSettingsDialog from '@/components/PushSettingsDialog.vue';
 import HolidayThemeRibbon from '@/components/layout/HolidayThemeRibbon.vue';
 import { configureNotificationFeedFallbackFetcher, useNotificationFeed } from '@/composables/useNotificationFeed';
 import { useReadableTextMode } from '@/composables/useReadableTextMode';
+import { runWithUnsavedChangesConfirmation } from '@/composables/useUnsavedChangesGuard';
 import { useVersionCheck } from '@/composables/useVersionCheck';
 import { buildNotificationFeedItemId, type NotificationFeedItem, type NotificationFeedRow, type NotificationSource } from '@/types/dashboard';
 import { buildSiblingGroupMap, normalizeSiblingIds } from '@/utils/siblingGroups'
@@ -511,8 +512,10 @@ const translateRole = (role: string | undefined) => {
 
 const handleSignOut = async () => {
   isMobileMenuOpen.value = false;
-  await authStore.signOut();
-  router.push('/');
+  await runWithUnsavedChangesConfirmation(async () => {
+    await authStore.signOut();
+    await router.push('/');
+  });
 };
 
 const openPushSettingsFromMenu = () => {

@@ -47,4 +47,15 @@ describe('MainLayout team member notification security', () => {
     const item = "{ label: '賽事報名管理', to: '/registration-forms', visible: permissionsStore.can('registration_forms', 'VIEW') }"
     expect(source.split(item)).toHaveLength(3)
   })
+
+  it('confirms unsaved page state before signing out and bypasses the second route prompt once', () => {
+    expect(source).toContain("from '@/composables/useUnsavedChangesGuard'")
+
+    const signOutHandler = source.slice(
+      source.indexOf('const handleSignOut'),
+      source.indexOf('const openPushSettingsFromMenu')
+    )
+    expect(signOutHandler).toContain('runWithUnsavedChangesConfirmation')
+    expect(signOutHandler).toContain("await router.push('/')")
+  })
 })

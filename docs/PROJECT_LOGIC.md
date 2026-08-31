@@ -617,6 +617,8 @@ UI 約定：
 - `/equipment` 的「新增庫存」與「減少庫存」共用 `create_equipment_inventory_adjustment()`；前端以正／負 `quantity_delta` 傳入，DB 流水帳仍保存正數並以 `stock_in` / `stock_out` 表示方向。減少庫存只顯示給 `equipment:EDIT`，必填原因並二次確認；DB 鎖定裝備後重新計算交易與 `approved` / `ready_for_pickup` 未轉交易請購占用量，總量與尺寸量都不可扣低於已使用／已預留數量。
 - `/equipment-purchases` 需要 `fees:VIEW`；修改操作依 `fees:EDIT`，刪除依 `fees:DELETE`。此限制是前端路由與互動入口，DB 既有 `fees OR equipment` RPC / RLS 權限保持不變。
 - `/equipment-addons` 只要求登入，資料安全靠 `linked_team_member_ids` 與 DB RLS。
+- `/equipment-addons` 的請購草稿以 `cart.length > 0` 判斷尚未送出；桌機保留頁內請購表單，手機只在「加購裝備」分頁顯示位於底部導覽上方的品項／總額摘要，並用全螢幕 Dialog 編輯及送出共用 `EquipmentAddonCartPanel`。切換同頁「申請紀錄」不清除草稿；移除最後一項或成功送出時清除草稿與備註。
+- 有請購草稿時，`useUnsavedChangesGuard` 以 route leave guard 攔截導覽列、通知連結、程式化跳轉與瀏覽器返回／前進，並以 `beforeunload` 保護重新整理、關閉分頁與 PWA 視窗；重複導覽共用同一確認流程。`MainLayout` 登出必須先確認放棄，再在一次性 bypass 內執行 `signOut()` 與原目的地跳轉；登出失敗不可清除頁面草稿。
 - `/equipment-purchases` 上層分「付款管理／請購管理」；付款狀態為待處理、尚未付款、付款待審、已收款可退款，請購狀態為待處理、待審核、處理中、歷史紀錄。摘要與進階篩選預設收起，清單保持可見且每頁 10 筆；切換頁碼後將頁面捲動到新頁第一筆，不回到 route 頂端。
 - `/equipment-purchases` 視覺延續舊 `/fees` 裝備頁籤：sky＝尚未付款、emerald＝付款待審、orange＝退款、amber＝請購待審、blue＝請購處理中、slate＝歷史。淡色區塊使用對應 `*-100` 外框，清單選取與主要流程按鈕跟隨該筆狀態，不能全部改成品牌橘色。
 - 管理端金額只在 `/equipment-purchases` 計算：尚未付款／直接收款用交易 `total_amount`，付款單用 `amount` 並另列餘額扣抵與外部付款，請購用申請快照 `unit_price_snapshot × quantity`。只顯示各狀態筆數與金額，不提供跨生命週期總額，避免同筆請購重複計算。

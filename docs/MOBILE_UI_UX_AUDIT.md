@@ -39,7 +39,7 @@
 | P1-03 | `/profile` | 功能按鈕圓角不一；Passkey icon 小於 44px | 功能按鈕 `rounded-xl`；icon 44px 並有 ARIA/title | 待驗收 | passkey 5 tests＋source contract 通過 |
 | P1-04 | `/my-payments` | 重複主操作；Dialog footer 不一致；手機底部導覽會蓋住付款送出按鈕；手機成員搜尋原先沒有穩定過濾結果 | 每區一個 Primary；付款 Dialog 使用共用 footer 並掛到 `body`；手機與桌機共用單一可輸入選擇欄位及正規化比對 | 待驗收 | 單一欄位成員搜尋、全站 Dialog wrapper、比賽費角色分流與 myPayments targeted regression 通過；待登入後 360–767px 驗收 |
 | P1-05 | `/my-records` | 成員選擇器位於 header actions | 搜尋／選擇移到獨立 toolbar，導航操作至少 44px | 待驗收 | MyPlayerRecords 4 tests＋service 2 tests 通過 |
-| P1-06 | `/equipment-addons` | tabs、移除與歷史操作尺寸／數量不一致 | 44px、segmented ARIA；每筆最多兩個可見操作 | 待驗收 | equipment API／inventory 19 tests＋source contract 通過 |
+| P1-06 | `/equipment-addons` | 手機加入裝備後需回到頁面上方才能看到並送出請購；離頁或登出會直接遺失草稿 | 手機固定摘要列避開底部導覽並開啟全螢幕請購 Dialog；桌機保留頁內表單；所有離頁與登出均確認未送出草稿 | 待驗收 | 裝備、cart panel、離頁 guard、MainLayout、頁面與 mobile contract 26 files／187 tests、`vue-tsc`、production build 與 `git diff --check` 通過；待 360–767px／iOS 實機驗收 |
 | P1-07 | `/my-leave-requests` | 刪除、載入月份與 footer 偏小 | 44px 並使用共用 Dialog footer | 待驗收 | MyLeaveRequests 2 tests＋service 2 tests 通過 |
 | P1-08 | `/training` | 管理與點數區有 32–40px 操作；點數管理手機搜尋原先沒有穩定過濾結果 | 所有功能操作至少 44px、每區一個 Primary；手機與桌機共用單一可輸入多選欄位及正規化比對 | 待驗收 | 點數球員搜尋元件、TrainingView、training API／utils、member search 與手機規則共 6 files、71 tests 通過；待登入後 360–767px 驗收 |
 
@@ -83,6 +83,12 @@
 - 移除兩張表外層的 `overflow-x-auto` 與 table root 的固定 `min-width`，改由 Element Plus `el-table` 內建 scrollbar 作為唯一水平捲動面；`TEAM TOTALS` 透過 `#append` 放進同一 scroll view，拖動時不再出現第二個外層捲軸。
 - Playwright 以實際 Element Plus DOM 驗證 320px、390px、767px、1280px：所有尺寸 document 水平溢位皆為 0；320px／390px 的打擊與投手表各只有 1 個 scroll owner，767px 僅較寬的投手表需要 1 個，1280px 兩表皆為 0；新開瀏覽器 session 無 console error。
 - `MatchDetailDialog` 新增非空打擊／投手 fixture，以及比分卡非固定、滿寬、單一 scroll surface、總計列同層的回歸測試；賽事／手機相關 12 files／109 tests、`pnpm exec vue-tsc --noEmit`、production build 與 `git diff --check` 通過。Build 僅保留既有 chunk size warning；仍待 iOS／Android 實機確認拖曳手感與 scrollbar 顯示。
+
+### 2026-08-31 裝備加購手機請購與未送出保護
+
+- `/equipment-addons` 手機版在請購非空且停留「加購裝備」分頁時，於底部導覽上方固定顯示品項數、總額與「檢視並送出」；數量或庫存失效時改為「檢視並修正」。點擊後以全螢幕 Dialog 顯示成員、品項、數量、備註、訂製提示、錯誤及總額；桌機仍使用原位置的頁內表單，兩者共用 `EquipmentAddonCartPanel`。
+- 請購草稿在站內導覽、通知連結、程式化跳轉及瀏覽器返回／前進前顯示「請購尚未送出」；取消、右上關閉或 Esc 會保留內容，遮罩不關閉確認視窗。重新整理、關閉分頁或 PWA 視窗使用瀏覽器原生 `beforeunload` 提醒。
+- 登出先共用目前頁面的確認流程；取消不呼叫 `signOut()`，確認後以一次性 bypass 完成登出與原目的地跳轉，登出失敗時不清除頁面草稿。自動測試已涵蓋空／非空草稿、取消／確認、返回鍵、並發確認、`beforeunload`、登出取消與失敗；裝備與跨頁 targeted 共 26 files／187 tests，`vue-tsc`、production build 與 `git diff --check` 均通過，仍需 staging 登入後驗收 360px、390px、640–767px、iOS safe area、鍵盤與文字放大。
 
 ### 2026-08-27 場地配置近期訓練個別人數
 

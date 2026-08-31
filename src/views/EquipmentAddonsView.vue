@@ -4,9 +4,12 @@ import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Goods, Refresh, ShoppingCart } from '@element-plus/icons-vue'
+import AppDialogFooter from '@/components/common/AppDialogFooter.vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
+import EquipmentAddonCartPanel from '@/components/equipment/EquipmentAddonCartPanel.vue'
 import EquipmentPhotoCarousel from '@/components/equipment/EquipmentPhotoCarousel.vue'
+import { useUnsavedChangesGuard } from '@/composables/useUnsavedChangesGuard'
 import { fetchEquipmentJerseyNumberAvailability } from '@/services/equipmentApi'
 import { listMyPaymentMembers } from '@/services/myPayments'
 import { useAuthStore } from '@/stores/auth'
@@ -73,11 +76,16 @@ const searchKeyword = ref('')
 const isBootstrapping = ref(true)
 const isSubmitting = ref(false)
 const cart = ref<CartItem[]>([])
+const isMobileCartDialogOpen = ref(false)
+const isDiscardDialogOpen = ref(false)
 const selectedSizeByEquipmentId = ref<Record<string, string>>({})
 const selectedJerseyNumberByEquipmentId = ref<Record<string, number | null>>({})
 const jerseyNumberAvailabilityByEquipmentId = ref<Record<string, EquipmentJerseyNumberAvailability[]>>({})
 const quantityByEquipmentId = ref<Record<string, number>>({})
 const requestNote = ref('')
+let pendingDiscardPromise: Promise<boolean> | null = null
+let resolvePendingDiscard: ((shouldDiscard: boolean) => void) | null = null
+let reopenCartAfterDiscardCancel = false
 
 const linkedMembers = computed(() =>
   members.value.filter((member) => member.is_linked !== false)
@@ -202,6 +210,16 @@ const cartTotal = computed(() =>
     total + Number(item.equipment?.purchase_price || 0) * (isValidQuantity(item.quantity) ? item.quantity : 0)
   ), 0)
 )
+
+const hasCartValidationIssues = computed(() =>
+  hasInvalidCartQuantity.value || hasUnavailableCartItems.value
+)
+
+const cartAvailabilityMessage = computed(() => (
+  hasUnavailableCartItems.value
+    ? cartAvailabilityFailures.value[0]?.reason || '部分裝備庫存不足，請調整請購數量。'
+    : ''
+))
 
 const formatCurrency = (amount: number) => new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -330,6 +348,13 @@ const getCartItemAvailabilityFailure = (item: CartItem) =>
     failure.equipmentId === item.equipment_id
     && (failure.size || null) === (item.size || null)
   ) || null
+
+const cartPanelItems = computed(() =>
+  cartItemsWithEquipment.value.map((item) => ({
+    ...item,
+    availabilityFailure: getCartItemAvailabilityFailure(item)
+  }))
+)
 
 const getRequestTotal = (items: EquipmentRequestItem[]) =>
   items.reduce((total, item) => total + getEquipmentRequestItemTotalPrice(item), 0)
@@ -481,6 +506,7 @@ const selectHighlightedRequestMember = (requestId: string) => {
 }
 
 const addToCart = (equipment: Equipment) => {
+  const wasCartEmpty = cart.value.length === 0
   const sizes = getEquipmentSizeOptions(equipment)
   const selectedSize = sizes.length > 0
     ? selectedSizeByEquipmentId.value[equipment.id]
@@ -542,7 +568,13 @@ const addToCart = (equipment: Equipment) => {
     selectedJerseyNumberByEquipmentId.value[equipment.id] = null
   }
 
-  ElMessage.success('已加入加購清單')
+  const isMobileViewport = typeof window !== 'undefined'
+    && window.matchMedia('(max-width: 767px)').matches
+  ElMessage.success(
+    wasCartEmpty && isMobileViewport
+      ? '已加入請購單，請使用下方「檢視並送出」完成請購'
+      : '已加入加購清單'
+  )
 }
 
 const updateCartItemQuantity = (index: number, quantity: number | undefined) => {
@@ -566,7 +598,59 @@ const handleCartQuantityUpdate = (index: number, value: number | undefined) => {
 
 const removeCartItem = (index: number) => {
   cart.value.splice(index, 1)
+
+  if (cart.value.length === 0) {
+    requestNote.value = ''
+    isMobileCartDialogOpen.value = false
+  }
 }
+
+const finishDiscardConfirmation = (shouldDiscard: boolean) => {
+  const resolve = resolvePendingDiscard
+  if (!resolve) return
+
+  const shouldReopenCart = !shouldDiscard
+    && reopenCartAfterDiscardCancel
+    && cart.value.length > 0
+
+  resolvePendingDiscard = null
+  pendingDiscardPromise = null
+  reopenCartAfterDiscardCancel = false
+  isDiscardDialogOpen.value = false
+  resolve(shouldDiscard)
+
+  if (shouldReopenCart) {
+    void nextTick(() => {
+      isMobileCartDialogOpen.value = true
+    })
+  }
+}
+
+const handleDiscardDialogClosed = () => {
+  if (resolvePendingDiscard) {
+    finishDiscardConfirmation(false)
+  }
+}
+
+const confirmDiscard = () => {
+  if (pendingDiscardPromise) {
+    return pendingDiscardPromise
+  }
+
+  reopenCartAfterDiscardCancel = isMobileCartDialogOpen.value
+  isMobileCartDialogOpen.value = false
+  isDiscardDialogOpen.value = true
+  pendingDiscardPromise = new Promise<boolean>((resolve) => {
+    resolvePendingDiscard = resolve
+  })
+
+  return pendingDiscardPromise
+}
+
+useUnsavedChangesGuard({
+  isDirty: computed(() => cart.value.length > 0),
+  confirmDiscard
+})
 
 const submitRequest = async () => {
   if (!selectedMember.value) {
@@ -629,6 +713,7 @@ const submitRequest = async () => {
 
     cart.value = []
     requestNote.value = ''
+    isMobileCartDialogOpen.value = false
     activeTab.value = 'requests'
     ElMessage.success('已送出裝備加購申請')
     await Promise.all([
@@ -780,7 +865,10 @@ onMounted(() => {
       </div>
     </div>
 
-    <div class="min-h-0 flex-1 p-4 pb-5 md:p-6 md:pb-6">
+    <div
+      class="min-h-0 flex-1 p-4 pb-5 md:p-6 md:pb-6"
+      :class="{ 'equipment-addon-content--with-mobile-cart': activeTab === 'shop' && cart.length > 0 }"
+    >
       <AppLoadingState v-if="isBootstrapping" text="讀取裝備加購資料中..." min-height="50vh" />
 
       <div v-else class="max-w-6xl mx-auto">
@@ -806,113 +894,30 @@ onMounted(() => {
           </section>
 
           <div v-show="activeTab === 'shop'" class="flex flex-col gap-4 md:flex-row md:items-start">
-            <section class="w-full min-w-0 rounded-3xl border border-gray-100 bg-white p-5 shadow-sm md:flex-1">
-              <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                <div>
-                  <h3 class="text-lg font-black text-slate-800">請購表單</h3>
-                  <p class="mt-1 text-xs md:text-sm text-gray-500">
-                    一張請購單只對應一位成員，但可以加入多個裝備品項。
-                  </p>
-                </div>
-                <span class="self-start rounded-full bg-primary/10 px-3 py-1 text-xs font-black text-primary">
-                  {{ cart.length }} 項
-                </span>
-              </div>
-
-              <div v-if="cartItemsWithEquipment.length === 0" class="mt-5 rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm font-bold text-gray-400">
-                請從右側「可加購裝備」加入品項。
-              </div>
-
-              <div v-else class="mt-5 space-y-3">
-                <article
-                  v-for="(item, index) in cartItemsWithEquipment"
-                  :key="`${item.equipment_id}-${item.size || 'none'}-${item.jersey_number ?? 'no-number'}`"
-                  class="rounded-2xl border p-4"
-                  :class="getCartItemAvailabilityFailure(item) ? 'border-red-100 bg-red-50/70' : 'border-gray-100 bg-gray-50/70'"
-                >
-                  <div class="flex flex-col gap-4 md:flex-row md:items-center">
-                    <div class="min-w-0 flex-1">
-                      <div class="text-xs font-black text-gray-400">品項 {{ index + 1 }}</div>
-                      <div class="mt-1 font-black text-slate-800">{{ item.equipment?.name || '未知裝備' }}</div>
-                      <p class="mt-1 text-xs text-gray-400">{{ getVariantLabel(item) }}</p>
-                      <p v-if="item.equipment?.is_custom_order" class="mt-2 text-xs font-black text-amber-700">
-                        訂製品｜需等待備貨
-                      </p>
-                    </div>
-
-                    <div class="md:w-40">
-                      <div class="mb-1 text-xs font-bold text-gray-400">數量</div>
-                      <div
-                        v-if="requiresJerseyNumber(item.equipment)"
-                        class="rounded-xl border border-gray-100 bg-white px-3 py-3 text-sm font-black text-gray-600"
-                      >
-                        1 件
-                      </div>
-                      <el-input-number
-                        v-else
-                        :model-value="item.quantity"
-                        :min="1"
-                        :precision="0"
-                        size="large"
-                        class="!w-full"
-                        @update:model-value="(value: number | undefined) => handleCartQuantityUpdate(index, value)"
-                      />
-                    </div>
-
-                    <div class="md:w-28 md:text-right">
-                      <div class="mb-1 text-xs font-bold text-gray-400">小計</div>
-                      <div class="font-black text-primary">
-                        {{ formatCurrency(Number(item.equipment?.purchase_price || 0) * (isValidQuantity(item.quantity) ? item.quantity : 0)) }}
-                      </div>
-                    </div>
-
-                    <button type="button" class="min-h-11 self-start rounded-xl px-3 text-sm font-bold text-red-500 hover:bg-red-50 md:self-center" @click="removeCartItem(index)">
-                      移除
+            <section class="hidden w-full min-w-0 rounded-3xl border border-gray-100 bg-white p-5 shadow-sm md:block md:flex-1">
+              <EquipmentAddonCartPanel
+                v-model:note="requestNote"
+                :items="cartPanelItems"
+                :total="cartTotal"
+                :has-invalid-quantity="hasInvalidCartQuantity"
+                :availability-message="cartAvailabilityMessage"
+                :has-custom-order-items="hasCustomOrderCartItems"
+                @update-quantity="handleCartQuantityUpdate"
+                @remove="removeCartItem"
+              >
+                <template #actions>
+                  <div class="mt-4 flex justify-end">
+                    <button
+                      type="button"
+                      class="min-h-11 rounded-xl bg-primary px-5 py-3 font-bold text-white transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-70"
+                      :disabled="isSubmitting || cart.length === 0 || hasCartValidationIssues"
+                      @click="submitRequest"
+                    >
+                      {{ isSubmitting ? '送出中...' : '送出請購' }}
                     </button>
                   </div>
-                  <p v-if="getCartItemAvailabilityFailure(item)" class="mt-3 rounded-xl border border-red-100 bg-white px-3 py-2 text-sm font-bold text-red-600">
-                    {{ getCartItemAvailabilityFailure(item)?.reason }}
-                  </p>
-                </article>
-              </div>
-
-              <div class="mt-5 rounded-2xl border border-gray-100 bg-white px-4 py-4">
-                <div class="grid gap-4 md:grid-cols-[1fr_auto] md:items-start">
-                  <el-input
-                    v-model="requestNote"
-                    type="textarea"
-                    :rows="3"
-                    maxlength="120"
-                    show-word-limit
-                    placeholder="可補充尺寸需求、備註或聯絡資訊"
-                  />
-                  <div class="md:min-w-36 md:text-right">
-                    <div class="text-xs font-bold text-gray-400">預估合計</div>
-                    <div class="mt-1 text-2xl font-black text-primary">{{ formatCurrency(cartTotal) }}</div>
-                  </div>
-                </div>
-
-                <div v-if="hasInvalidCartQuantity" class="mt-3 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-sm font-bold text-red-600">
-                  請確認每個加購項目都有填寫大於 0 的數量。
-                </div>
-                <div v-else-if="hasUnavailableCartItems" class="mt-3 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-sm font-bold text-red-600">
-                  {{ cartAvailabilityFailures[0]?.reason || '部分裝備庫存不足，請調整請購數量。' }}
-                </div>
-                <div v-if="hasCustomOrderCartItems" class="mt-3 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-700">
-                  清單含訂製品，送出後需等待管理員通知備貨狀態。
-                </div>
-
-                <div class="mt-4 flex justify-end">
-                  <button
-                    type="button"
-                    class="rounded-xl bg-primary px-5 py-3 font-bold text-white transition-colors hover:bg-primary-hover disabled:opacity-70"
-                    :disabled="isSubmitting || cart.length === 0 || hasInvalidCartQuantity || hasUnavailableCartItems"
-                    @click="submitRequest"
-                  >
-                    {{ isSubmitting ? '送出中...' : '送出請購' }}
-                  </button>
-                </div>
-              </div>
+                </template>
+              </EquipmentAddonCartPanel>
             </section>
 
             <aside class="w-full rounded-3xl border border-gray-100 bg-white p-5 shadow-sm md:w-[360px] md:shrink-0 lg:sticky lg:top-4 lg:w-[420px] xl:w-[440px]">
@@ -1210,10 +1215,107 @@ onMounted(() => {
         </template>
       </div>
     </div>
+
+    <div
+      v-if="activeTab === 'shop' && cart.length > 0"
+      class="equipment-addon-mobile-cart-bar md:hidden"
+    >
+      <button
+        type="button"
+        class="flex min-h-14 w-full items-center justify-between gap-3 rounded-2xl bg-primary px-4 py-3 text-left text-white shadow-xl transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2"
+        aria-haspopup="dialog"
+        aria-controls="equipment-addon-cart-dialog"
+        @click="isMobileCartDialogOpen = true"
+      >
+        <span class="min-w-0">
+          <span class="block text-xs font-bold text-white/80" aria-live="polite">
+            {{ cart.length }} 項・{{ formatCurrency(cartTotal) }}
+          </span>
+          <span class="mt-0.5 block font-black">
+            {{ hasCartValidationIssues ? '檢視並修正' : '檢視並送出' }}
+          </span>
+        </span>
+        <el-icon class="shrink-0 text-xl"><ShoppingCart /></el-icon>
+      </button>
+    </div>
+
+    <el-dialog
+      v-model="isMobileCartDialogOpen"
+      title="確認裝備請購"
+      width="min(42rem, 92vw)"
+      :destroy-on-close="false"
+    >
+      <div id="equipment-addon-cart-dialog">
+        <div class="mb-4 rounded-2xl border border-primary/10 bg-primary/5 px-4 py-3">
+          <div class="text-xs font-bold text-gray-500">加購成員</div>
+          <div class="mt-1 font-black text-slate-800">{{ selectedMember?.name || '尚未選擇' }}</div>
+        </div>
+
+        <EquipmentAddonCartPanel
+          v-model:note="requestNote"
+          :items="cartPanelItems"
+          :total="cartTotal"
+          :has-invalid-quantity="hasInvalidCartQuantity"
+          :availability-message="cartAvailabilityMessage"
+          :has-custom-order-items="hasCustomOrderCartItems"
+          :show-header="false"
+          @update-quantity="handleCartQuantityUpdate"
+          @remove="removeCartItem"
+        />
+      </div>
+
+      <template #footer>
+        <AppDialogFooter
+          cancel-label="繼續選購"
+          confirm-label="送出請購"
+          :loading="isSubmitting"
+          :confirm-disabled="cart.length === 0 || hasCartValidationIssues"
+          @cancel="isMobileCartDialogOpen = false"
+          @confirm="submitRequest"
+        />
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="isDiscardDialogOpen"
+      title="請購尚未送出"
+      width="min(30rem, 92vw)"
+      :close-on-click-modal="false"
+      :destroy-on-close="false"
+      @closed="handleDiscardDialogClosed"
+    >
+      <p class="leading-7 text-gray-600">
+        請購表單中還有 {{ cart.length }} 項裝備尚未送出。若現在離開，已選品項與備註將不會保留。是否放棄請購？
+      </p>
+
+      <template #footer>
+        <AppDialogFooter
+          cancel-label="繼續填寫"
+          confirm-label="放棄請購並離開"
+          danger
+          @cancel="finishDiscardConfirmation(false)"
+          @confirm="finishDiscardConfirmation(true)"
+        />
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <style scoped>
+.equipment-addon-mobile-cart-bar {
+  position: fixed;
+  right: max(0.75rem, env(safe-area-inset-right));
+  bottom: calc(4.5rem + env(safe-area-inset-bottom) + 0.75rem);
+  left: max(0.75rem, env(safe-area-inset-left));
+  z-index: 40;
+}
+
+@media (max-width: 767px) {
+  .equipment-addon-content--with-mobile-cart {
+    padding-bottom: 7.5rem;
+  }
+}
+
 .custom-scrollbar::-webkit-scrollbar {
   height: 4px;
   width: 6px;
