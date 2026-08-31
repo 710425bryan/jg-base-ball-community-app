@@ -73,7 +73,11 @@ const mountDialog = async (matchRecord: MatchRecord = baseMatch) => {
           template: '<div v-if="modelValue"><slot /></div>'
         },
         ElIcon: { template: '<span><slot /></span>' },
-        ElTable: true,
+        ElTable: {
+          inheritAttrs: false,
+          props: ['data'],
+          template: '<div v-bind="$attrs" data-horizontal-scroll-owner><slot /><slot name="append" /></div>'
+        },
         ElTableColumn: true,
         ElTimeline: { template: '<div><slot /></div>' },
         ElTimelineItem: { template: '<div><slot /></div>' },
@@ -169,5 +173,83 @@ describe('MatchDetailDialog leave request absence display', () => {
     expect(mocks.deleteMatch).toHaveBeenCalledWith('match-1')
     expect(mocks.error).toHaveBeenCalledWith('此比賽仍有待確認或已付款的費用')
     expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+  })
+})
+
+describe('MatchDetailDialog team stats layout', () => {
+  const statsMatch: MatchRecord = {
+    ...baseMatch,
+    batting_stats: [
+      {
+        name: '王小明',
+        number: '10',
+        pa: 3,
+        ab: 3,
+        h1: 1,
+        h2: 1,
+        h3: 0,
+        hr: 0,
+        rbi: 1,
+        r: 1,
+        bb: 0,
+        hbp: 0,
+        so: 0,
+        sb: 1
+      }
+    ],
+    pitching_stats: [
+      {
+        name: '李小華',
+        number: '18',
+        ip: 9,
+        ab: 10,
+        h: 2,
+        h2: 1,
+        h3: 0,
+        hr: 0,
+        r: 1,
+        er: 1,
+        bb: 1,
+        so: 4,
+        np: 42,
+        go: 3,
+        ao: 2
+      }
+    ]
+  }
+
+  it('places both team stats boards in a full-width section after the desktop grid', async () => {
+    const wrapper = await mountDialog(statsMatch)
+    const mainGrid = wrapper.get('[data-testid="match-detail-main-grid"]')
+    const statsSections = wrapper.get('[data-testid="team-stats-sections"]')
+
+    expect(statsSections.classes()).toContain('w-full')
+    expect(statsSections.element.parentElement).toBe(mainGrid.element.parentElement)
+    expect(statsSections.element.previousElementSibling).toBe(mainGrid.element)
+    expect(statsSections.findAll('.team-stats-board')).toHaveLength(2)
+    statsSections.findAll('.team-stats-board').forEach((board) => {
+      expect(board.classes()).toContain('w-full')
+    })
+  })
+
+  it('keeps the score board in normal document flow while scrolling', async () => {
+    const wrapper = await mountDialog()
+    const scoreBoard = wrapper.get('[data-testid="match-score-board"]')
+
+    expect(scoreBoard.classes()).not.toContain('sticky')
+    expect(scoreBoard.classes()).not.toContain('fixed')
+    expect(scoreBoard.classes().some((className) => className.startsWith('top-') || className.includes(':top-'))).toBe(false)
+  })
+
+  it.each(['batting', 'pitching'])('uses only the Element Plus scroll surface for %s stats', async (statsType) => {
+    const wrapper = await mountDialog(statsMatch)
+    const board = wrapper.get(`[data-testid="${statsType}-stats-board"]`)
+    const table = board.get(`[data-testid="${statsType}-stats-table"]`)
+    const summary = board.get(`[data-testid="${statsType}-stats-summary"]`)
+
+    expect(board.findAll('[data-horizontal-scroll-owner]')).toHaveLength(1)
+    expect(board.findAll('.overflow-x-auto')).toHaveLength(0)
+    expect(table.classes().some((className) => className.startsWith('min-w-['))).toBe(false)
+    expect(table.element.contains(summary.element)).toBe(true)
   })
 })

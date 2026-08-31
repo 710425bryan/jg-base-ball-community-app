@@ -272,7 +272,7 @@ const pitchingTeamStats = computed(() => {
         <div class="p-4 md:p-8 space-y-6 max-w-7xl mx-auto">
           
           <!-- 2. Score Board -->
-          <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 md:p-8 flex justify-between items-center xl:w-2/3 mx-auto -mt-16 md:-mt-20 sticky top-16 md:top-20 z-30">
+          <div data-testid="match-score-board" class="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 md:p-8 flex justify-between items-center xl:w-2/3 mx-auto -mt-16 md:-mt-20">
              <!-- Home -->
              <div class="flex flex-col items-center flex-1">
                <span class="text-gray-400 font-bold tracking-widest text-xs mb-2">HOME 主隊</span>
@@ -303,10 +303,10 @@ const pitchingTeamStats = computed(() => {
              </div>
           </div>
 
-          <!-- Main Stats Grid Layout -->
-          <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          <!-- Main Detail Grid Layout -->
+          <div data-testid="match-detail-main-grid" class="grid grid-cols-1 xl:grid-cols-3 gap-6">
             
-            <!-- Left Column: Info & Lineup & Inning Logs -->
+            <!-- Left Column: Info & Inning Logs -->
             <div class="xl:col-span-1 space-y-6">
                
                <!-- 3. Descriptions -->
@@ -387,134 +387,139 @@ const pitchingTeamStats = computed(() => {
 
             </div>
 
-            <!-- Right Column: Lineup Field & Stats Table -->
-            <div class="xl:col-span-2 space-y-6">
+            <!-- Right Column: Lineup Field -->
+            <div class="xl:col-span-2">
               
               <!-- 4. Visual Field & Lineup -->
-              <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm relative w-full overflow-hidden">
+               <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm relative w-full overflow-hidden">
                 <h3 class="font-extrabold text-gray-800 mb-5 flex items-center border-b border-gray-100 pb-3">
                   <el-icon class="mr-2 text-green-600 text-xl"><Trophy /></el-icon> 攻守名單
                 </h3>
                 <div v-if="activeDetailLineup.length">
                   <VisualField :lineup="activeDetailLineup" />
                 </div>
-                <div v-else class="text-center text-gray-400 font-bold py-20 italic">尚未設定打序陣容</div>
-              </div>
+                 <div v-else class="text-center text-gray-400 font-bold py-20 italic">尚未設定打序陣容</div>
+               </div>
+             </div>
+           </div>
 
-              <!-- 6. Batting Stats Board -->
-              <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm overflow-hidden flex flex-col w-full min-w-0">
-                <h3 class="font-extrabold text-gray-800 mb-4 flex items-center border-b border-gray-100 pb-3 shrink-0">
-                  <el-icon class="mr-2 text-red-500 text-xl"><DataAnalysis /></el-icon> 團隊打擊成績
-                </h3>
-                <div v-if="matchData.batting_stats?.length" class="overflow-x-auto custom-scrollbar pb-2">
-                  <el-table 
-                    :data="matchData.batting_stats" 
-                    size="small" 
-                    class="w-full text-xs font-medium min-w-[600px]" 
-                    border
-                    :header-cell-style="{fontWeight:'black', padding:'6px 2px', textAlign:'center'}"
-                    :cell-style="{padding:'6px 2px', textAlign:'center', color: '#1f2937'}"
-                  >
-                    <!-- Fixed Player Col -->
-                    <el-table-column fixed label="打者" min-width="90" align="left">
-                      <template #default="{ row }">
-                        <div class="flex items-center space-x-1 pl-1">
-                          <span class="text-[10px] text-gray-400 w-4">{{ row.number }}</span>
-                          <span class="font-bold truncate" :class="{'text-primary': isGreatAvg(row)}">{{ row.name }}</span>
-                        </div>
-                      </template>
-                    </el-table-column>
-                    <!-- Stats Cols -->
-                    <el-table-column label="AVG" width="50"><template #default="{ row }"><span class="font-bold" :class="{'text-primary': isGreatAvg(row)}">{{ getAvg(row) }}</span></template></el-table-column>
-                    <el-table-column prop="pa" label="PA" width="45" title="打席"></el-table-column>
-                    <el-table-column prop="ab" label="AB" width="45" title="打數"></el-table-column>
-                    <el-table-column prop="r" label="R" width="45" title="得分" class-name="bg-orange-50/30 font-bold"></el-table-column>
-                    <el-table-column label="H" width="45" title="安打總數"><template #default="{ row }">{{ (row.h1||0)+(row.h2||0)+(row.h3||0)+(row.hr||0) }}</template></el-table-column>
-                    <el-table-column prop="h1" label="1B" width="40"></el-table-column>
-                    <el-table-column prop="h2" label="2B" width="40"></el-table-column>
-                    <el-table-column prop="h3" label="3B" width="40"></el-table-column>
-                    <el-table-column prop="hr" label="HR" width="40" class-name="font-black text-red-500"></el-table-column>
-                    <el-table-column prop="rbi" label="RBI" width="45" title="打點" class-name="bg-blue-50/30 font-bold"></el-table-column>
-                    <el-table-column label="BB" width="40" title="四死球"><template #default="{ row }">{{ (row.bb||0) + (row.hbp||0) }}</template></el-table-column>
-                    <el-table-column prop="so" label="SO" width="40" title="三振" class-name="text-gray-400"></el-table-column>
-                    <el-table-column prop="sb" label="SB" width="40" title="盜壘"></el-table-column>
-                  </el-table>
-                  
-                  <!-- Totals Line -->
-                  <div class="bg-primary/10 border-t border-primary/20 rounded-b-lg mt-2 xl:w-[600px] flex items-center justify-between px-4 py-2 text-xs">
-                    <span class="font-black text-primary">TEAM TOTALS</span>
-                    <div class="flex gap-4 font-bold text-gray-800">
-                      <span>AVG：<span class="text-primary">{{ teamStats?.avgStr }}</span></span>
-                      <span>PA：{{ teamStats?.totalPA }}</span>
-                      <span>AB：{{ teamStats?.totalAB }}</span>
-                      <span>H：{{ teamStats?.totalH }}</span>
-                      <span>HR：{{ teamStats?.totalHR }}</span>
-                      <span>R：{{ teamStats?.totalR }}</span>
-                      <span>RBI：{{ teamStats?.totalRBI }}</span>
-                    </div>
-                  </div>
-                </div>
-                <div v-else class="text-center text-gray-400 font-bold py-10 italic">無打擊成績紀錄</div>
-              </div>
+           <!-- Full-width Team Stats Boards -->
+           <div data-testid="team-stats-sections" class="team-stats-sections w-full space-y-6">
+             <!-- 6. Batting Stats Board -->
+             <div data-testid="batting-stats-board" class="team-stats-board bg-white rounded-2xl p-5 border border-gray-100 shadow-sm overflow-hidden flex flex-col w-full min-w-0">
+               <h3 class="font-extrabold text-gray-800 mb-4 flex items-center border-b border-gray-100 pb-3 shrink-0">
+                 <el-icon class="mr-2 text-red-500 text-xl"><DataAnalysis /></el-icon> 團隊打擊成績
+               </h3>
+               <el-table
+                 v-if="matchData.batting_stats?.length"
+                 data-testid="batting-stats-table"
+                 :data="matchData.batting_stats"
+                 size="small"
+                 class="team-stats-table w-full text-xs font-medium"
+                 border
+                 :header-cell-style="{fontWeight:'black', padding:'6px 2px', textAlign:'center'}"
+                 :cell-style="{padding:'6px 2px', textAlign:'center', color: '#1f2937'}"
+               >
+                 <!-- Fixed Player Col -->
+                 <el-table-column fixed label="打者" min-width="90" align="left">
+                   <template #default="{ row }">
+                     <div class="flex items-center space-x-1 pl-1">
+                       <span class="text-[10px] text-gray-400 w-4">{{ row.number }}</span>
+                       <span class="font-bold truncate" :class="{'text-primary': isGreatAvg(row)}">{{ row.name }}</span>
+                     </div>
+                   </template>
+                 </el-table-column>
+                 <!-- Stats Cols -->
+                 <el-table-column label="AVG" width="50"><template #default="{ row }"><span class="font-bold" :class="{'text-primary': isGreatAvg(row)}">{{ getAvg(row) }}</span></template></el-table-column>
+                 <el-table-column prop="pa" label="PA" width="45" title="打席"></el-table-column>
+                 <el-table-column prop="ab" label="AB" width="45" title="打數"></el-table-column>
+                 <el-table-column prop="r" label="R" width="45" title="得分" class-name="bg-orange-50/30 font-bold"></el-table-column>
+                 <el-table-column label="H" width="45" title="安打總數"><template #default="{ row }">{{ (row.h1||0)+(row.h2||0)+(row.h3||0)+(row.hr||0) }}</template></el-table-column>
+                 <el-table-column prop="h1" label="1B" width="40"></el-table-column>
+                 <el-table-column prop="h2" label="2B" width="40"></el-table-column>
+                 <el-table-column prop="h3" label="3B" width="40"></el-table-column>
+                 <el-table-column prop="hr" label="HR" width="40" class-name="font-black text-red-500"></el-table-column>
+                 <el-table-column prop="rbi" label="RBI" width="45" title="打點" class-name="bg-blue-50/30 font-bold"></el-table-column>
+                 <el-table-column label="BB" width="40" title="四死球"><template #default="{ row }">{{ (row.bb||0) + (row.hbp||0) }}</template></el-table-column>
+                 <el-table-column prop="so" label="SO" width="40" title="三振" class-name="text-gray-400"></el-table-column>
+                 <el-table-column prop="sb" label="SB" width="40" title="盜壘"></el-table-column>
 
-              <!-- 7. Pitching Stats Board -->
-              <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm overflow-hidden flex flex-col w-full min-w-0">
-                <h3 class="font-extrabold text-gray-800 mb-4 flex items-center border-b border-gray-100 pb-3 shrink-0">
-                  <el-icon class="mr-2 text-blue-500 text-xl"><DataAnalysis /></el-icon> 團隊投手成績
-                </h3>
-                <div v-if="pitchingStats.length" class="overflow-x-auto custom-scrollbar pb-2">
-                  <el-table
-                    :data="pitchingStats"
-                    size="small"
-                    class="w-full text-xs font-medium min-w-[760px]"
-                    border
-                    :header-cell-style="{fontWeight:'black', padding:'6px 2px', textAlign:'center'}"
-                    :cell-style="{padding:'6px 2px', textAlign:'center', color: '#1f2937'}"
-                  >
-                    <el-table-column fixed label="投手" min-width="90" align="left">
-                      <template #default="{ row }">
-                        <div class="flex items-center space-x-1 pl-1">
-                          <span class="text-[10px] text-gray-400 w-4">{{ row.number }}</span>
-                          <span class="font-bold truncate">{{ row.name }}</span>
-                        </div>
-                      </template>
-                    </el-table-column>
-                    <el-table-column label="IP" width="50"><template #default="{ row }">{{ formatIP(row.ip) }}</template></el-table-column>
-                    <el-table-column prop="ab" label="AB" width="45"></el-table-column>
-                    <el-table-column prop="h" label="H" width="45"></el-table-column>
-                    <el-table-column prop="h2" label="2B" width="45"></el-table-column>
-                    <el-table-column prop="h3" label="3B" width="45"></el-table-column>
-                    <el-table-column prop="hr" label="HR" width="45"></el-table-column>
-                    <el-table-column prop="r" label="R" width="45"></el-table-column>
-                    <el-table-column prop="er" label="ER" width="45"></el-table-column>
-                    <el-table-column prop="bb" label="BB" width="45"></el-table-column>
-                    <el-table-column prop="so" label="SO" width="45"></el-table-column>
-                    <el-table-column prop="np" label="NP" width="50"></el-table-column>
-                    <el-table-column prop="go" label="GO" width="45"></el-table-column>
-                    <el-table-column prop="ao" label="AO" width="45"></el-table-column>
-                    <el-table-column label="ERA" width="60"><template #default="{ row }">{{ getEra(row) }}</template></el-table-column>
-                  </el-table>
+                 <template #append>
+                   <div data-testid="batting-stats-summary" class="team-stats-summary bg-primary/10 border-t border-primary/20 rounded-b-lg mt-2 flex items-center justify-between gap-4 px-4 py-2 text-xs">
+                     <span class="font-black text-primary whitespace-nowrap">TEAM TOTALS</span>
+                     <div class="flex gap-4 font-bold text-gray-800 whitespace-nowrap">
+                       <span>AVG：<span class="text-primary">{{ teamStats?.avgStr }}</span></span>
+                       <span>PA：{{ teamStats?.totalPA }}</span>
+                       <span>AB：{{ teamStats?.totalAB }}</span>
+                       <span>H：{{ teamStats?.totalH }}</span>
+                       <span>HR：{{ teamStats?.totalHR }}</span>
+                       <span>R：{{ teamStats?.totalR }}</span>
+                       <span>RBI：{{ teamStats?.totalRBI }}</span>
+                     </div>
+                   </div>
+                 </template>
+               </el-table>
+               <div v-else class="text-center text-gray-400 font-bold py-10 italic">無打擊成績紀錄</div>
+             </div>
 
-                  <div class="bg-blue-50 border-t border-blue-100 rounded-b-lg mt-2 xl:w-[760px] flex items-center justify-between px-4 py-2 text-xs">
-                    <span class="font-black text-blue-600">TEAM TOTALS</span>
-                    <div class="flex gap-4 font-bold text-gray-800">
-                      <span>IP：<span class="text-blue-600">{{ formatIP(pitchingTeamStats.outs) }}</span></span>
-                      <span>H：{{ pitchingTeamStats.h }}</span>
-                      <span>R：{{ pitchingTeamStats.r }}</span>
-                      <span>ER：{{ pitchingTeamStats.er }}</span>
-                      <span>BB：{{ pitchingTeamStats.bb }}</span>
-                      <span>SO：{{ pitchingTeamStats.so }}</span>
-                      <span>NP：{{ pitchingTeamStats.np }}</span>
-                      <span>ERA：{{ pitchingTeamStats.era }}</span>
-                    </div>
-                  </div>
-                </div>
-                <div v-else class="text-center text-gray-400 font-bold py-10 italic">無投手成績紀錄</div>
-              </div>
+             <!-- 7. Pitching Stats Board -->
+             <div data-testid="pitching-stats-board" class="team-stats-board bg-white rounded-2xl p-5 border border-gray-100 shadow-sm overflow-hidden flex flex-col w-full min-w-0">
+               <h3 class="font-extrabold text-gray-800 mb-4 flex items-center border-b border-gray-100 pb-3 shrink-0">
+                 <el-icon class="mr-2 text-blue-500 text-xl"><DataAnalysis /></el-icon> 團隊投手成績
+               </h3>
+               <el-table
+                 v-if="pitchingStats.length"
+                 data-testid="pitching-stats-table"
+                 :data="pitchingStats"
+                 size="small"
+                 class="team-stats-table w-full text-xs font-medium"
+                 border
+                 :header-cell-style="{fontWeight:'black', padding:'6px 2px', textAlign:'center'}"
+                 :cell-style="{padding:'6px 2px', textAlign:'center', color: '#1f2937'}"
+               >
+                 <el-table-column fixed label="投手" min-width="90" align="left">
+                   <template #default="{ row }">
+                     <div class="flex items-center space-x-1 pl-1">
+                       <span class="text-[10px] text-gray-400 w-4">{{ row.number }}</span>
+                       <span class="font-bold truncate">{{ row.name }}</span>
+                     </div>
+                   </template>
+                 </el-table-column>
+                 <el-table-column label="IP" width="50"><template #default="{ row }">{{ formatIP(row.ip) }}</template></el-table-column>
+                 <el-table-column prop="ab" label="AB" width="45"></el-table-column>
+                 <el-table-column prop="h" label="H" width="45"></el-table-column>
+                 <el-table-column prop="h2" label="2B" width="45"></el-table-column>
+                 <el-table-column prop="h3" label="3B" width="45"></el-table-column>
+                 <el-table-column prop="hr" label="HR" width="45"></el-table-column>
+                 <el-table-column prop="r" label="R" width="45"></el-table-column>
+                 <el-table-column prop="er" label="ER" width="45"></el-table-column>
+                 <el-table-column prop="bb" label="BB" width="45"></el-table-column>
+                 <el-table-column prop="so" label="SO" width="45"></el-table-column>
+                 <el-table-column prop="np" label="NP" width="50"></el-table-column>
+                 <el-table-column prop="go" label="GO" width="45"></el-table-column>
+                 <el-table-column prop="ao" label="AO" width="45"></el-table-column>
+                 <el-table-column label="ERA" width="60"><template #default="{ row }">{{ getEra(row) }}</template></el-table-column>
 
-            </div>
-          </div>
-        </div>
+                 <template #append>
+                   <div data-testid="pitching-stats-summary" class="team-stats-summary bg-blue-50 border-t border-blue-100 rounded-b-lg mt-2 flex items-center justify-between gap-4 px-4 py-2 text-xs">
+                     <span class="font-black text-blue-600 whitespace-nowrap">TEAM TOTALS</span>
+                     <div class="flex gap-4 font-bold text-gray-800 whitespace-nowrap">
+                       <span>IP：<span class="text-blue-600">{{ formatIP(pitchingTeamStats.outs) }}</span></span>
+                       <span>H：{{ pitchingTeamStats.h }}</span>
+                       <span>R：{{ pitchingTeamStats.r }}</span>
+                       <span>ER：{{ pitchingTeamStats.er }}</span>
+                       <span>BB：{{ pitchingTeamStats.bb }}</span>
+                       <span>SO：{{ pitchingTeamStats.so }}</span>
+                       <span>NP：{{ pitchingTeamStats.np }}</span>
+                       <span>ERA：{{ pitchingTeamStats.era }}</span>
+                     </div>
+                   </div>
+                 </template>
+               </el-table>
+               <div v-else class="text-center text-gray-400 font-bold py-10 italic">無投手成績紀錄</div>
+             </div>
+           </div>
+         </div>
       </div>
     </div>
   </el-dialog>

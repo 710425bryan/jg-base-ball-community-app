@@ -72,8 +72,17 @@
 | P3-03 | `/holiday-theme-settings` | 活動卡片巢狀操作；circle actions 缺標籤 | 拆分互動；44px、ARIA、Danger 確認 | 待驗收 | HolidayTheme 2 tests＋source contract 通過 |
 | P3-04 | `/baseball-ability`、`/physical-tests` | 共用列表每筆三個操作；手機卡片／表格切換曾被 flex 拉成整行 | 每筆最多兩個可見操作，其餘 overflow；檢視切換依內容寬度靠左 | 待驗收 | performance API/config 5 tests＋mobile source contract＋build 通過 |
 | P3-05 | 能力／體測明細 | 返回及紀錄操作偏小 | 44px、`rounded-xl`、ARIA 與 Danger 確認 | 待驗收 | performance API/config 5 tests＋build 通過 |
+| P3-06 | `MatchDetailDialog` 比分與團隊成績 | 比分卡會固定在對話框上方並遮住捲動內容；桌機統計卡被限制在右側 2/3 欄；手機外層 `overflow-x-auto` 與 Element Plus 表格各自產生水平捲動 | 比分卡跟隨內容正常捲動、不固定覆蓋；桌機打擊／投手統計卡使用完整內容寬度；手機每張表最多一個內建水平捲動面，總計列與表格同步捲動且頁面本身不水平溢位 | 待驗收 | Detail Dialog 7 tests、賽事／手機回歸共 12 files／109 tests、`vue-tsc`、build 通過；320／390／767／1280px Playwright 量測通過，待 iOS／Android 實機拖曳驗收 |
 
 ## 驗收紀錄
+
+### 2026-08-31 比賽詳情比分正常捲動與團隊成績版面
+
+- 比分卡已移除 `sticky top-16 md:top-20 z-30`，保留原本的尺寸與視覺重疊；現在位於正常文件流，向下瀏覽團隊成績時會跟隨內容捲走，不再固定於上方遮住表格。
+- `MatchDetailDialog` 的「團隊打擊成績／團隊投手成績」已移出桌機三欄版面的右側 `xl:col-span-2`，改為主內容 grid 後方的完整寬度區塊；1280px 瀏覽器量測主 grid 與統計區皆為 960px，兩張表均可直接完整顯示而不需要水平捲動。
+- 移除兩張表外層的 `overflow-x-auto` 與 table root 的固定 `min-width`，改由 Element Plus `el-table` 內建 scrollbar 作為唯一水平捲動面；`TEAM TOTALS` 透過 `#append` 放進同一 scroll view，拖動時不再出現第二個外層捲軸。
+- Playwright 以實際 Element Plus DOM 驗證 320px、390px、767px、1280px：所有尺寸 document 水平溢位皆為 0；320px／390px 的打擊與投手表各只有 1 個 scroll owner，767px 僅較寬的投手表需要 1 個，1280px 兩表皆為 0；新開瀏覽器 session 無 console error。
+- `MatchDetailDialog` 新增非空打擊／投手 fixture，以及比分卡非固定、滿寬、單一 scroll surface、總計列同層的回歸測試；賽事／手機相關 12 files／109 tests、`pnpm exec vue-tsc --noEmit`、production build 與 `git diff --check` 通過。Build 僅保留既有 chunk size warning；仍待 iOS／Android 實機確認拖曳手感與 scrollbar 顯示。
 
 ### 2026-08-27 場地配置近期訓練個別人數
 
