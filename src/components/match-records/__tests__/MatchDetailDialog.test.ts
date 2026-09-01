@@ -232,13 +232,15 @@ describe('MatchDetailDialog team stats layout', () => {
     })
   })
 
-  it('keeps the score board in normal document flow while scrolling', async () => {
+  it('keeps the score board in normal document flow and above the overlapping banner', async () => {
     const wrapper = await mountDialog()
     const scoreBoard = wrapper.get('[data-testid="match-score-board"]')
 
     expect(scoreBoard.classes()).not.toContain('sticky')
     expect(scoreBoard.classes()).not.toContain('fixed')
     expect(scoreBoard.classes().some((className) => className.startsWith('top-') || className.includes(':top-'))).toBe(false)
+    expect(scoreBoard.classes()).toContain('relative')
+    expect(scoreBoard.classes()).toContain('z-10')
   })
 
   it.each(['batting', 'pitching'])('uses only the Element Plus scroll surface for %s stats', async (statsType) => {

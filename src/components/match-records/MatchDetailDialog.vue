@@ -272,7 +272,7 @@ const pitchingTeamStats = computed(() => {
         <div class="p-4 md:p-8 space-y-6 max-w-7xl mx-auto">
           
           <!-- 2. Score Board -->
-          <div data-testid="match-score-board" class="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 md:p-8 flex justify-between items-center xl:w-2/3 mx-auto -mt-16 md:-mt-20">
+          <div data-testid="match-score-board" class="relative z-10 bg-white rounded-3xl shadow-sm border border-gray-100 p-4 md:p-8 flex justify-between items-center xl:w-2/3 mx-auto -mt-16 md:-mt-20">
              <!-- Home -->
              <div class="flex flex-col items-center flex-1">
                <span class="text-gray-400 font-bold tracking-widest text-xs mb-2">HOME 主隊</span>
