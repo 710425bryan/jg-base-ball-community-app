@@ -56,11 +56,26 @@ describe('myPayments service', () => {
       data: [{
         id: 'submission-1',
         amount: '1000',
+        expected_amount: '1000',
         balance_amount: '200',
         external_amount: '800',
+        expected_external_amount: '800',
+        reported_external_amount: '900',
+        amount_difference: '100',
+        reconciliation_status: 'overpaid',
         account_last_5: undefined,
         note: undefined,
-        items: [{ member_id: 'member-1', amount: '1000', balance_amount: '200', external_amount: '800' }]
+        items: [{
+          member_id: 'member-1',
+          amount: '1000',
+          expected_amount: '1000',
+          balance_amount: '200',
+          external_amount: '900',
+          expected_external_amount: '800',
+          reported_external_amount: '900',
+          amount_difference: '100',
+          reconciliation_status: 'overpaid'
+        }]
       }],
       error: null
     })
@@ -73,6 +88,10 @@ describe('myPayments service', () => {
         amount: 1000,
         balance_amount: 200,
         external_amount: 800,
+        expected_external_amount: 800,
+        reported_external_amount: 900,
+        amount_difference: 100,
+        reconciliation_status: 'overpaid',
         account_last_5: null,
         note: null,
         items: [expect.objectContaining({ amount: 1000 })]
@@ -95,9 +114,11 @@ describe('myPayments service', () => {
       account_last_5: '',
       remittance_date: '2026-07-05',
       note: '',
-      balance_amount: undefined
+      balance_amount: undefined,
+      reported_external_amount: 1000,
+      amount_mismatch_reason: '現場通知金額不同'
     })
-    await reviewMyPaymentSubmission('submission-1', 'approved', 50)
+    await reviewMyPaymentSubmission('submission-1', 'approved', 50, null)
 
     expect(rpcMock).toHaveBeenNthCalledWith(1, 'create_my_payment_submission', {
       p_member_id: 'member-1',
@@ -107,12 +128,15 @@ describe('myPayments service', () => {
       p_account_last_5: null,
       p_remittance_date: '2026-07-05',
       p_note: null,
-      p_balance_amount: 0
+      p_balance_amount: 0,
+      p_reported_external_amount: 1000,
+      p_amount_mismatch_reason: '現場通知金額不同'
     })
     expect(rpcMock).toHaveBeenNthCalledWith(2, 'review_profile_payment_submission', {
       p_submission_id: 'submission-1',
       p_status: 'approved',
-      p_overpayment_amount: 50
+      p_overpayment_amount: 50,
+      p_rejection_reason: null
     })
   })
 })

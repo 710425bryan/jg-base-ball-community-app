@@ -156,6 +156,7 @@ serve(async (req) => {
           title: pushTitle,
           body: pushBody,
           url: payload.url || "/leave-requests",
+          target_user_id: targetUserIds.length === 1 ? targetUserIds[0] : null,
         });
 
       if (eventError) {

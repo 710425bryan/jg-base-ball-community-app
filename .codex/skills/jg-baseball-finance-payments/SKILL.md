@@ -25,6 +25,7 @@ description: "Finance, fees, payment submissions, player balances, match fees, m
 12. `src/types/payments.ts`、`src/types/playerBalances.ts`、`src/types/quarterlyFeeCompensation.ts`、`src/types/matchFees.ts`、`src/types/feeManagementReminders.ts`、`src/types/feePaymentReminders.ts`
 13. `src/utils/memberBilling.ts`、`src/utils/monthlyFeeDiscount.ts`、`src/utils/monthlyFeeSettlement.ts`、`src/utils/quarterlyFeeFamilies.ts`、`src/utils/quarterlyFeeCompensation.ts`、`src/utils/playerBalance.ts`、`src/utils/matchFeePaymentAvailability.ts`、`src/utils/matchFeePaymentNotifications.ts`、`src/utils/siblingGroups.ts`、`src/utils/feePaymentReminders.ts`
 14. 相關 migration：`supabase_fees_migration.sql`、`supabase_quarterly_fees_migration.sql`、`supabase_profile_payment_submissions_migration.sql`、`supabase_player_balance_transactions_migration.sql`、`supabase_fixed_monthly_billing_migration.sql`、`supabase_quarterly_fee_compensation_migration.sql`、`supabase_match_fees_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz_match_fee_payment_open_state_migration.sql`、`supabase_fee_management_reminders_migration.sql`、`supabase_fee_payment_reminders_migration.sql`、`supabase_member_joined_fee_period_guard_migration.sql`
+15. 付款金額核對：`src/utils/paymentReconciliation.ts`、`src/components/payments/QuarterlyPaymentAmountControls.vue`、`src/components/fees/ProfilePaymentSubmissionInbox.vue`、`supabase_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz_profile_payment_amount_reconciliation_migration.sql`
 15. 若改到匯款表單，再讀 `supabase/functions/record-fee-remittance/index.ts` 與 `scripts/google-form-remittance-apps-script.js`
 16. 若改到裝備付款，再同時讀 `jg-baseball-equipment-management` skill
 17. 若改到比賽費開放通知，再讀 `supabase/functions/send-match-fee-payment-notifications/index.ts` 與 `jg-baseball-push-notifications` skill
@@ -35,6 +36,7 @@ description: "Finance, fees, payment submissions, player balances, match fees, m
 - 家長端 `/my-payments` 可合併一般繳費、裝備付款與比賽費付款回報。
 - 球員餘額以 `player_balance_transactions` 流水帳推導，不直接覆寫權威餘額。
 - 一般付款使用 `profile_payment_submissions` RPC。
+- 一般月費／季費付款回報的 `expected_amount` 必須由 DB 估算並保存；使用者只能填 `reported_external_amount`。餘額扣抵只改變正確應付現金，不可改寫正式應收本金。
 - 季費堂數不足補償使用 `quarterly_fee_compensation_items`，只產生待審核單；核准後才寫入 `player_balance_transactions`。
 - 比賽費使用 `match_fee_items`、`match_payment_submissions`、`match_payment_submission_items`。
 - 比賽費先產生供管理端核對，預設不提供家長付款；只有 `fees:EDIT` 可透過 `set_match_fee_payment_open_state()` 開放 / 關閉，`fees:DELETE` 才可透過 `delete_cancelled_match_fee_group()` 刪除安全的全取消群組。
@@ -52,6 +54,8 @@ description: "Finance, fees, payment submissions, player balances, match fees, m
 - 家長只能查看與使用自己 `profiles.linked_team_member_ids` 綁定球員的款項與餘額。
 - `permissionsStore.can()` 只控制 UX；付款審核、餘額扣抵、可見資料必須由 RLS / RPC 檢查。
 - 球員餘額不可扣成負數；家長自助使用餘額後仍需管理端審核才正式扣款。
+- 短繳與無法核對的付款回報不可核准；多繳只能使用 DB 計算的精確差額，依球員與付款單建立冪等 `overpayment` 流水，不可再讓管理員手填溢繳金額。多球員季費任一短繳必須阻擋整張。
+- 付款退回必填原因，通知必須 target 原回報 `profile_id`，並以穩定 event key 導向 `/my-payments?highlight_submission_id=...`。
 - 社區球員固定月繳以 `team_members.fee_billing_mode = 'monthly_fixed'` 表示，角色仍是 `球員`。
 - 校隊月費依 program 分開設定：中港校隊使用 `chunggang_school_team` 並固定採訓練日期計次；國中部以 `role = 校隊` 且 raw `team_members.training_program = 'junior_high_school_team'` 判斷，不從 `team_group` fallback 猜國中部身分。國中部設定預設 `single_monthly` 2,000 元，也可切換 `training_dates`；前者以 `monthly_fees.calculation_type = monthly_fixed`／`fixed_monthly_fee` 留快照，後者以 `per_session`／`per_session_fee` 留快照。
 - 球員計次月費以 `team_members.fee_billing_mode = 'monthly_per_session'` 表示，角色仍是 `球員`，但隊費進 `monthly_fees` 並採校隊同款計次公式。

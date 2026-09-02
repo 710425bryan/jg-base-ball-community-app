@@ -146,6 +146,7 @@
 | `supabase_zzzzzzzzzzzzzzzzzzzzzzzz_school_team_training_date_per_session_migration.sql` | 中港校隊計次與國中部可切換月費 | 中港固定按訓練日扣除有效請假日；國中部預設單次月費 2,000 元，也可切換依當月訓練日期計算，兩種模式請假只記錄不扣款；國中部每月 25 日預繳下月，中港次月 1 日才開放，並同步設定 RPC、付款 trigger、家長試算與首頁摘要；既有帳款不自動回寫 |
 | `supabase_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz_junior_high_school_label_migration.sql` | 國中部顯示名稱統一 | 將 `junior_high_school_team` program label 與 `xintai_monthly_per_session_defaults` 設定描述統一為「國中部」，保留既有內部 key 與計費判斷 |
 | `supabase_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz_junior_high_single_monthly_payment_estimate_hotfix.sql` | 國中部單次月費付款估算 hotfix | 補齊單次月費設定／RPC，讓新增付款回報吃到設定金額；只修正台灣當月起、尚未繳且無待審回報的國中部舊快照，保留已繳／送審中歷史 |
+| `supabase_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz_profile_payment_amount_reconciliation_migration.sql` | 付款回報應收／實付核對安全邊界 | 新增 expected/reported/mismatch/rejection 欄位；建立 RPC 重算應收，短繳禁止核准，多繳精確差額依球員冪等入餘額；只推導待審舊單並以 migration 指紋保護已核准／已退回歷史 |
 | `supabase_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz_monthly_fee_cross_billing_sibling_discount_migration.sql` | 月費跨收費模式手足半價修正 | 校隊月費半價判斷納入所有有效球員／校隊手足，不再要求手足同為月繳；安全修正當月起未繳且未送審的折扣快照 |
 | `supabase_member_joined_fee_period_guard_migration.sql` | 月費／季費加入月份起算 | 新增加入期別 helper 與寫入 trigger，覆寫付款紀錄並補強付款估算、付款 RPC、首頁摘要及費用提醒，加入前未繳不再產生或顯示，已付款／送審歷史保留 |
 | `supabase_match_fees_migration.sql` | 比賽費 items / submissions | 比賽費與餘額整合 |

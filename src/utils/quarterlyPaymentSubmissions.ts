@@ -5,6 +5,7 @@ export type QuarterlyPaymentSubmissionItemDraft = {
   period_key: string
   amount: number
   balance_amount?: number | null
+  reported_external_amount?: number | null
 }
 
 export type QuarterlyPaymentSubmissionScope = {
@@ -77,7 +78,8 @@ export const normalizeQuarterlyPaymentSubmissionItems = (
       member_id: item.member_id,
       period_key: normalizeQuarterlyPeriodKey(item.period_key),
       amount,
-      balance_amount: Math.min(normalizeMoney(item.balance_amount), amount)
+      balance_amount: Math.min(normalizeMoney(item.balance_amount), amount),
+      reported_external_amount: normalizeMoney(item.reported_external_amount)
     }
   })
   .filter((item) => item.member_id && item.period_key && item.amount > 0)

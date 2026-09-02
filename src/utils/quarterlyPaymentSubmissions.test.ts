@@ -14,14 +14,15 @@ import {
 describe('quarterlyPaymentSubmissions', () => {
   it('summarizes multi-player quarterly line items', () => {
     const summary = summarizeQuarterlyPaymentSubmissionItems([
-      { member_id: 'member-a', period_key: '2026-q2', amount: 6000, balance_amount: 1000 },
-      { member_id: 'member-b', period_key: '2026-Q2', amount: 3000, balance_amount: 500 }
+      { member_id: 'member-a', period_key: '2026-q2', amount: 6000, balance_amount: 1000, reported_external_amount: 5500 },
+      { member_id: 'member-b', period_key: '2026-Q2', amount: 3000, balance_amount: 500, reported_external_amount: 2500 }
     ])
 
     expect(summary.totalAmount).toBe(9000)
     expect(summary.totalBalanceAmount).toBe(1500)
     expect(summary.externalAmount).toBe(7500)
     expect(summary.items.map((item) => item.period_key)).toEqual(['2026-Q2', '2026-Q2'])
+    expect(summary.items.map((item) => item.reported_external_amount)).toEqual([5500, 2500])
   })
 
   it('validates each member balance independently', () => {

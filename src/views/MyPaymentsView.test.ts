@@ -34,6 +34,23 @@ describe('MyPaymentsView joined-month fee guard', () => {
   })
 })
 
+describe('MyPaymentsView payment reconciliation guard', () => {
+  it('keeps expected membership fees read only and reports actual cash separately', () => {
+    expect(source).toContain(':expected-amount="submissionForm.amount"')
+    expect(source).toContain(':reported-external-amount="submissionForm.reported_external_amount || 0"')
+    expect(source).toContain('label="金額異常原因"')
+    expect(source).toContain("await ElMessageBox.confirm(")
+    expect(source).toContain('reported_external_amount: membershipReportedExternalAmount.value')
+    expect(source).not.toContain('v-model="submissionForm.amount"')
+  })
+
+  it('deep-links a rejected submission and renders its rejection reason', () => {
+    expect(source).toContain('route.query.highlight_submission_id')
+    expect(source).toContain('退回原因：${submission.rejection_reason}')
+    expect(source).toContain('[data-profile-submission-id="${submissionId}"]')
+  })
+})
+
 describe('MyPaymentsView Xintai monthly estimate', () => {
   it('keeps Xintai leave days informational in monthly payment estimates', () => {
     expect(source).toContain('isXintaiPerSessionBillingMember(createDialogMember.value)')

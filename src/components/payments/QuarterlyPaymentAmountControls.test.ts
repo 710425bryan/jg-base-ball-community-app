@@ -1,22 +1,12 @@
 // @vitest-environment jsdom
 
 import { mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import QuarterlyPaymentAmountControls from './QuarterlyPaymentAmountControls.vue'
-
-const { alertMock } = vi.hoisted(() => ({
-  alertMock: vi.fn().mockResolvedValue('confirm')
-}))
-
-vi.mock('element-plus', () => ({
-  ElMessageBox: {
-    alert: alertMock
-  }
-}))
 
 const ElInputNumberStub = {
   name: 'ElInputNumber',
-  props: ['modelValue', 'disabled', 'min', 'max', 'step', 'size'],
+  props: ['modelValue', 'disabled', 'min', 'max', 'step', 'size', 'ariaLabel'],
   emits: ['update:modelValue', 'change'],
   template: '<input :value="modelValue" :disabled="disabled" />'
 }
@@ -24,8 +14,9 @@ const ElInputNumberStub = {
 const mountControls = (props = {}) => mount(QuarterlyPaymentAmountControls, {
   props: {
     memberName: '小熊',
-    amount: 6000,
+    expectedAmount: 6000,
     balanceAmount: 0,
+    reportedExternalAmount: 6000,
     availableBalance: 1000,
     formatCurrency: (amount: number) => `$${amount.toLocaleString('en-US')}`,
     ...props
@@ -38,39 +29,28 @@ const mountControls = (props = {}) => mount(QuarterlyPaymentAmountControls, {
 })
 
 describe('QuarterlyPaymentAmountControls', () => {
-  beforeEach(() => {
-    alertMock.mockClear()
-  })
-
-  it('reminds the parent to use the available balance after manually changing the fee amount', async () => {
+  it('renders the server expected amount as read only and lets the user report actual payment', async () => {
     const wrapper = mountControls()
-    const amountInput = wrapper.findAllComponents(ElInputNumberStub)[0]
+    const inputs = wrapper.findAllComponents(ElInputNumberStub)
 
-    amountInput.vm.$emit('change', 6100, 6000)
+    expect(wrapper.text()).toContain('系統應收')
+    expect(wrapper.text()).toContain('$6,000')
+    expect(inputs).toHaveLength(2)
+    inputs[1].vm.$emit('update:modelValue', 5500)
     await wrapper.vm.$nextTick()
 
-    expect(alertMock).toHaveBeenCalledWith(
-      '小熊目前有可用餘額 $1,000，請使用下方「餘額扣抵」功能。',
-      '提醒使用可用餘額',
-      expect.objectContaining({
-        type: 'warning',
-        confirmButtonText: '我知道了'
-      })
-    )
-
-    amountInput.vm.$emit('change', 6200, 6100)
-    await wrapper.vm.$nextTick()
-    expect(alertMock).toHaveBeenCalledTimes(1)
+    expect(wrapper.emitted('update:reportedExternalAmount')?.[0]).toEqual([5500])
   })
 
-  it('does not show a reminder when no balance can be deducted', async () => {
-    const wrapper = mountControls({ availableBalance: 0 })
-    const amountInput = wrapper.findComponent(ElInputNumberStub)
+  it('shows correct cash due and mismatch status', () => {
+    const wrapper = mountControls({
+      balanceAmount: 1000,
+      reportedExternalAmount: 5500
+    })
 
-    amountInput.vm.$emit('change', 6100, 6000)
-    await wrapper.vm.$nextTick()
-
-    expect(alertMock).not.toHaveBeenCalled()
-    expect(wrapper.text()).not.toContain('餘額扣抵')
+    expect(wrapper.text()).toContain('正確應付')
+    expect(wrapper.text()).toContain('$5,000')
+    expect(wrapper.text()).toContain('多繳')
+    expect(wrapper.text()).toContain('+$500')
   })
 })

@@ -547,6 +547,8 @@ UI 約定：
 - 季費堂數不足補償依當月週六數與 `/training-dates` 訓練日期設定總天數計算；週五、週日或其他補課日都算一堂，設定天數達當月週六數即不補償。補償預設每日折抵為一般 500 元、半價 / 手足折扣 250 元，可在收費設定調整。系統只產生 `quarterly_fee_compensation_items` 待審核單，管理員核准後才以 `quarterly_compensation` source 寫入 `player_balance_transactions`。
 - 季繳付款回報的開放期別由 `src/utils/quarterlyPaymentSubmissions.ts` 與 DB helper `get_quarterly_payment_open_period_key()` 共同決定：以台灣日期為準，每季最後一個月 25 日起開放下一季；未開放的未來季在家長端不顯示可勾選，RPC / trigger 也會拒絕寫入，過去未繳季度仍可補繳。
 - 個人付款回報由 `myPayments` RPC 建立，可選用球員餘額；一般繳費與裝備付款都在管理端確認時才正式扣餘額。
+- 月費／季費付款回報把「系統應收」與「實際付款」分開：`expected_amount` 一律由 DB `get_my_payment_submission_estimate()` 重算並保存，餘額扣抵只降低 `expected_external_amount`，前端不得用使用者輸入覆寫正式本金。使用者可回報不同的 `reported_external_amount`，但短繳／多繳必須附 `amount_mismatch_reason` 並二次確認；裝備與比賽費金額仍由各自系統資料決定。
+- `review_profile_payment_submission()` 會在 transaction 內鎖定付款單與球員，重新驗證餘額與差額：短繳／無法核對不可核准；多繳只接受管理端確認的精確系統差額，並依球員建立具冪等鍵的 `overpayment` 流水。多球員季費逐項核對，任一短繳會回滾整張。退回必填 `rejection_reason`，並以 `fees/PAYMENT_REMINDER` targeted 通知原 `profile_id`，連結至 `/my-payments?highlight_submission_id=...`。
 - 球員餘額以 `player_balance_transactions` 流水帳計算，管理員可手動調整，付款審核時可把溢繳轉入餘額；退款 / 作廢收款必須以反向流水退回餘額扣抵或沖回溢繳轉入。
 - sibling / family grouping 與季費家庭金額計算在 utils；月費半價／主要繳費人判斷會查看所有仍有效的球員／校隊手足，即使手足採不同月繳／季繳模式也仍屬同一家庭優惠範圍。
 - 手足主要繳費人退隊、離隊或關閉 / 畢業後，剩餘有效手足的新一期月費 / 季費試算不得沿用手足半價；主要繳費人恢復有效後，若 `sibling_ids` 與 `is_primary_payer` 仍保留，另一位有效手足可恢復手足減免。既有已保存帳款金額不自動覆寫，需由管理端重算或手動調整。

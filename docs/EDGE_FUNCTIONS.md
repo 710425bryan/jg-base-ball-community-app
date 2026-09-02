@@ -45,7 +45,7 @@
 
 | 路徑 | 用途 | 主要規則 |
 | --- | --- | --- |
-| `supabase/functions/send-push-notification/index.ts` | Web Push 派送入口 | bearer user 驗證、feature/action 收件、`eventKey` 去重 |
+| `supabase/functions/send-push-notification/index.ts` | Web Push 派送入口 | bearer user 驗證、feature/action 收件、`eventKey` 去重；單一 explicit target 會同步寫入 `push_dispatch_events.target_user_id`，供付款退回等 targeted 通知進入通知中心 |
 | `supabase/functions/_shared/push.ts` | 推播共用 helper | 權限查詢、subscription 讀取、過期 subscription 清理 |
 | `supabase/functions/process-team-member-notification-outbox/index.ts` | 新球員 Outbox worker | secret + JWT；每批 25 events / 100 deliveries、逐裝置派送、6 次重試與 stale lock reclaim |
 | `supabase/functions/process-team-member-notification-outbox/logic.ts` | Outbox 重試與 concurrency 純邏輯 | 有 Vitest coverage |

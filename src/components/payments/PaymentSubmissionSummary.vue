@@ -16,6 +16,8 @@ const props = withDefaults(defineProps<{
   availableBalance: number
   balanceAmount: number
   externalAmount?: number | null
+  expectedExternalAmount?: number | null
+  amountDifference?: number | null
   lineItems?: PaymentSubmissionLineItem[]
   lineItemsCount?: number | null
   lineItemsTitle?: string
@@ -26,6 +28,8 @@ const props = withDefaults(defineProps<{
 }>(), {
   memberName: '',
   externalAmount: null,
+  expectedExternalAmount: null,
+  amountDifference: null,
   lineItems: () => [],
   lineItemsCount: null,
   lineItemsTitle: '繳費項目清單',
@@ -66,8 +70,16 @@ const normalizedExternalAmount = computed(() => {
 
   return Math.max(0, normalizedTotalAmount.value - normalizedBalanceAmount.value)
 })
-const remainingBalanceAmount = computed(() =>
-  Math.max(0, normalizedAvailableBalance.value - normalizedBalanceAmount.value)
+const normalizedExpectedExternalAmount = computed(() => {
+  if (props.expectedExternalAmount != null) {
+    return normalizeMoney(props.expectedExternalAmount)
+  }
+
+  return Math.max(0, normalizedTotalAmount.value - normalizedBalanceAmount.value)
+})
+const normalizedAmountDifference = computed(() => props.amountDifference == null
+  ? normalizedExternalAmount.value - normalizedExpectedExternalAmount.value
+  : Math.trunc(Number(props.amountDifference) || 0)
 )
 const canUseDeduction = computed(() =>
   !props.disabled && maxDeductionAmount.value > 0
@@ -93,6 +105,14 @@ const deductionHelperText = computed(() => {
   return `最多可扣抵 ${formatMoney(maxDeductionAmount.value)}，送出待確認後由管理員確認扣款。`
 })
 const paymentHintText = computed(() => {
+  if (normalizedAmountDifference.value < 0) {
+    return `實際付款短少 ${formatMoney(Math.abs(normalizedAmountDifference.value))}，送出前需填寫原因；管理端不可核准短繳。`
+  }
+
+  if (normalizedAmountDifference.value > 0) {
+    return `實際付款多出 ${formatMoney(normalizedAmountDifference.value)}，管理員確認收款後會自動轉入對應球員餘額。`
+  }
+
   if (normalizedExternalAmount.value <= 0) {
     return '本次可全額使用餘額扣抵，送出後等待管理員確認。'
   }
@@ -197,16 +217,18 @@ const displayedLineItemsCount = computed(() =>
           <div class="mt-1 font-mono text-lg font-black text-emerald-700">{{ formatMoney(normalizedBalanceAmount) }}</div>
         </div>
         <div>
-          <div class="text-sm font-black text-slate-500">本次實付</div>
+          <div class="text-sm font-black text-slate-500">正確應付</div>
+          <div class="mt-1 font-mono text-lg font-black text-sky-700">{{ formatMoney(normalizedExpectedExternalAmount) }}</div>
+        </div>
+        <div>
+          <div class="text-sm font-black text-slate-500">實際付款</div>
           <div class="mt-1 font-mono text-lg font-black text-slate-800">{{ formatMoney(normalizedExternalAmount) }}</div>
         </div>
         <div>
-          <div class="text-sm font-black text-slate-500">溢繳存入</div>
-          <div class="mt-1 font-mono text-lg font-black text-slate-500">{{ formatMoney(0) }}</div>
-        </div>
-        <div>
-          <div class="text-sm font-black text-slate-500">送出後餘額</div>
-          <div class="mt-1 font-mono text-lg font-black text-emerald-700">{{ formatMoney(remainingBalanceAmount) }}</div>
+          <div class="text-sm font-black text-slate-500">差額</div>
+          <div class="mt-1 font-mono text-lg font-black" :class="normalizedAmountDifference === 0 ? 'text-emerald-700' : 'text-red-600'">
+            {{ normalizedAmountDifference > 0 ? '+' : '' }}{{ formatMoney(normalizedAmountDifference) }}
+          </div>
         </div>
       </div>
 

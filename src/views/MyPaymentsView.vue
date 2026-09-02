@@ -328,7 +328,7 @@
               {{ membershipSelectionHint }}
             </p>
 
-            <div v-if="includeMembershipFee" class="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem] sm:items-start">
+            <div v-if="includeMembershipFee" class="mt-4 grid gap-3">
               <el-form-item label="期別" prop="period_key" class="!mb-0 font-bold">
                 <el-date-picker
                   v-if="createDialogMember?.billing_mode === 'monthly'"
@@ -362,16 +362,21 @@
                 </el-select>
               </el-form-item>
 
-              <el-form-item v-if="createDialogMember?.billing_mode !== 'quarterly'" label="金額" prop="amount" class="!mb-0 font-bold">
-                <el-input-number
-                  v-model="submissionForm.amount"
-                  class="!w-full"
-                  :min="0"
-                  :step="100"
-                  size="large"
-                />
-              </el-form-item>
             </div>
+
+            <QuarterlyPaymentAmountControls
+              v-if="includeMembershipFee && !isQuarterlyMembershipFlow"
+              class="mt-4"
+              :expected-amount="submissionForm.amount"
+              :balance-amount="singleMembershipBalanceAmount"
+              :reported-external-amount="submissionForm.reported_external_amount || 0"
+              :member-name="createDialogMember?.name"
+              :available-balance="createDialogAvailableBalance"
+              :disabled="isEstimatingAmount"
+              :format-currency="formatCurrency"
+              @update:balance-amount="handleSingleMembershipBalanceChange"
+              @update:reported-external-amount="handleSingleReportedExternalAmountChange"
+            />
 
             <div v-if="isQuarterlyMembershipFlow" class="mt-4 grid gap-3">
               <article
@@ -399,12 +404,15 @@
                   </div>
                 </div>
                 <QuarterlyPaymentAmountControls
-                  v-model:amount="quarterlyMemberAmounts[member.member_id]"
-                  v-model:balance-amount="quarterlyMemberBalanceAmounts[member.member_id]"
+                  :expected-amount="quarterlyMemberAmounts[member.member_id] || 0"
+                  :balance-amount="quarterlyMemberBalanceAmounts[member.member_id] || 0"
+                  :reported-external-amount="quarterlyMemberReportedExternalAmounts[member.member_id] || 0"
                   :member-name="member.name"
                   :available-balance="getQuarterlyCandidateAvailableBalance(member)"
                   :disabled="!selectedQuarterlyMemberIds.includes(member.member_id)"
                   :format-currency="formatCurrency"
+                  @update:balance-amount="handleQuarterlyBalanceChange(member.member_id, $event)"
+                  @update:reported-external-amount="handleQuarterlyReportedExternalAmountChange(member.member_id, $event)"
                 />
               </article>
             </div>
@@ -489,6 +497,8 @@
           :total-amount="selectedUnifiedTotalAmount"
           :available-balance="createDialogAvailableBalance"
           :external-amount="createDialogExternalPaymentAmount"
+          :expected-external-amount="createDialogExpectedExternalPaymentAmount"
+          :amount-difference="paymentAmountDifference"
           :line-items="selectedUnifiedLineItems"
           line-items-title="本次送出的項目"
           empty-items-text="請先勾選本次要回報的付款項目。"
@@ -496,6 +506,22 @@
           :disabled="isEstimatingAmount"
           :format-currency="formatCurrency"
         />
+
+        <el-form-item
+          v-if="hasPaymentAmountMismatch"
+          label="金額異常原因"
+          prop="amount_mismatch_reason"
+          class="font-bold"
+        >
+          <el-input
+            v-model="submissionForm.amount_mismatch_reason"
+            type="textarea"
+            :rows="3"
+            maxlength="200"
+            show-word-limit
+            placeholder="請說明實際付款與正確應付不同的原因"
+          />
+        </el-form-item>
 
         <el-form-item label="備註說明（選填）" prop="note" class="font-bold">
           <el-input
@@ -525,8 +551,9 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import dayjs from 'dayjs'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Wallet } from '@element-plus/icons-vue'
+import { useRoute } from 'vue-router'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
 import AppDialogFooter from '@/components/common/AppDialogFooter.vue'
@@ -617,6 +644,7 @@ import {
   isEquipmentPaymentPayableRequestStatus
 } from '@/utils/equipmentRequestStatus'
 import { buildGroupedPushEventKey, buildPushEventKey, dispatchPushNotification } from '@/utils/pushNotifications'
+import { reconcilePaymentAmounts } from '@/utils/paymentReconciliation'
 
 type PaymentPanelSummary = {
   unpaidCount: number
@@ -682,6 +710,7 @@ type QuarterlyPaymentMemberSnapshot = {
 }
 
 const authStore = useAuthStore()
+const route = useRoute()
 const equipmentPaymentsStore = useEquipmentPaymentsStore()
 const permissionsStore = usePermissionsStore()
 
@@ -706,6 +735,8 @@ const includeMembershipFee = ref(false)
 const selectedQuarterlyMemberIds = ref<string[]>([])
 const quarterlyMemberAmounts = reactive<Record<string, number>>({})
 const quarterlyMemberBalanceAmounts = reactive<Record<string, number>>({})
+const quarterlyMemberReportedExternalAmounts = reactive<Record<string, number>>({})
+const quarterlyMemberReportedAmountEdited = reactive<Record<string, boolean>>({})
 const quarterlyMemberSnapshots = ref<Record<string, QuarterlyPaymentMemberSnapshot>>({})
 const selectedEquipmentTransactionIds = ref<string[]>([])
 const selectedMatchFeeItemIds = ref<string[]>([])
@@ -713,6 +744,7 @@ const equipmentPaymentItems = ref<EquipmentPaymentItem[]>([])
 const equipmentPendingRequestItems = ref<EquipmentPendingRequestPaymentItem[]>([])
 const matchFeeItems = ref<MatchFeeItem[]>([])
 const createDialogBalanceOverride = ref<number | null>(null)
+const singleReportedAmountEdited = ref(false)
 
 const paymentMethodOptions = PAYMENT_METHOD_OPTIONS
 
@@ -754,6 +786,8 @@ const submissionForm = reactive<CreateMyPaymentSubmissionPayload>({
   period_key: '',
   amount: 0,
   balance_amount: 0,
+  reported_external_amount: 0,
+  amount_mismatch_reason: '',
   payment_method: '',
   account_last_5: '',
   remittance_date: dayjs().format('YYYY-MM-DD'),
@@ -822,15 +856,86 @@ const createDialogAvailableBalance = computed(() =>
     }, 0)
     : Number(createDialogBalanceOverride.value ?? createDialogMember.value?.balance_amount ?? 0)
 )
+const singleMembershipBalanceAmount = computed(() => Math.min(
+  Math.max(0, Number(submissionForm.balance_amount) || 0),
+  Math.max(0, Number(submissionForm.amount) || 0)
+))
+
+const syncSingleReportedExternalAmount = (nextBalanceAmount: number, previousBalanceAmount: number) => {
+  const expectedAmount = Math.max(0, Number(submissionForm.amount) || 0)
+  const previousExpectedExternalAmount = Math.max(0, expectedAmount - previousBalanceAmount)
+  const nextExpectedExternalAmount = Math.max(0, expectedAmount - nextBalanceAmount)
+
+  if (
+    !singleReportedAmountEdited.value
+    || Number(submissionForm.reported_external_amount || 0) === previousExpectedExternalAmount
+  ) {
+    submissionForm.reported_external_amount = nextExpectedExternalAmount
+    singleReportedAmountEdited.value = false
+  }
+}
+
+const handleSingleMembershipBalanceChange = (value: number) => {
+  const previousBalanceAmount = singleMembershipBalanceAmount.value
+  const nextBalanceAmount = Math.min(
+    Math.max(0, Number(value) || 0),
+    Math.max(0, Number(submissionForm.amount) || 0),
+    createDialogAvailableBalance.value
+  )
+  submissionForm.balance_amount = nextBalanceAmount
+  syncSingleReportedExternalAmount(nextBalanceAmount, previousBalanceAmount)
+}
+
+const handleSingleReportedExternalAmountChange = (value: number) => {
+  submissionForm.reported_external_amount = Math.max(0, Number(value) || 0)
+  singleReportedAmountEdited.value = true
+}
+
 const submissionBalanceAmount = computed({
   get: () => Number(submissionForm.balance_amount || 0),
   set: (value: number) => {
+    const previousBalanceAmount = singleMembershipBalanceAmount.value
     submissionForm.balance_amount = value
+    if (includeMembershipFee.value && !isQuarterlyMembershipFlow.value) {
+      syncSingleReportedExternalAmount(singleMembershipBalanceAmount.value, previousBalanceAmount)
+    }
   }
 })
-const createDialogExternalPaymentAmount = computed(() =>
+const membershipReconciliations = computed(() => {
+  if (!includeMembershipFee.value) return []
+
+  if (isQuarterlyMembershipFlow.value) {
+    return selectedQuarterlyPaymentCandidates.value.map((member) => reconcilePaymentAmounts(
+      quarterlyMemberAmounts[member.member_id],
+      quarterlyMemberBalanceAmounts[member.member_id],
+      quarterlyMemberReportedExternalAmounts[member.member_id]
+    ))
+  }
+
+  return [reconcilePaymentAmounts(
+    submissionForm.amount,
+    singleMembershipBalanceAmount.value,
+    submissionForm.reported_external_amount
+  )]
+})
+const paymentAmountDifference = computed(() => membershipReconciliations.value.reduce(
+  (total, item) => total + Number(item.amountDifference || 0),
+  0
+))
+const hasPaymentAmountMismatch = computed(() => membershipReconciliations.value.some(
+  (item) => item.status === 'underpaid' || item.status === 'overpaid'
+))
+const membershipReportedExternalAmount = computed(() => membershipReconciliations.value.reduce(
+  (total, item) => total + Number(item.reportedExternalAmount || 0),
+  0
+))
+const createDialogExpectedExternalPaymentAmount = computed(() =>
   getExternalPaymentAmount(selectedUnifiedTotalAmount.value, submissionForm.balance_amount)
 )
+const createDialogExternalPaymentAmount = computed(() => Math.max(
+  0,
+  createDialogExpectedExternalPaymentAmount.value + paymentAmountDifference.value
+))
 const isExternalPaymentRequired = computed(() => createDialogExternalPaymentAmount.value > 0)
 const submissionRequiresAccountLast5 = computed(() =>
   isExternalPaymentRequired.value && requiresAccountLast5(submissionForm.payment_method)
@@ -947,7 +1052,7 @@ const createDialogEstimateHelperText = computed(() => {
     return '計次月費會依單次收費設定、請假天數與既有月費扣減自動帶入金額。'
   }
 
-  return '球員季繳目前會先帶入該季度既有金額，若尚無資料可再手動調整。'
+  return '季費由系統依該球員與季度重新計算；只能調整餘額扣抵與實際付款金額。'
 })
 
 const memberSelectorHelperText = computed(() => {
@@ -1384,10 +1489,40 @@ const selectedQuarterlyPaymentItems = computed<CreateMyQuarterlyPaymentSubmissio
       member_id: member.member_id,
       period_key: periodKey,
       amount,
-      balance_amount: balanceAmount
+      balance_amount: balanceAmount,
+      reported_external_amount: Math.max(
+        0,
+        Number(quarterlyMemberReportedExternalAmounts[member.member_id]) || 0
+      )
     }
   })
 })
+
+const handleQuarterlyBalanceChange = (memberId: string, value: number) => {
+  const expectedAmount = Math.max(0, Number(quarterlyMemberAmounts[memberId]) || 0)
+  const member = quarterlyPaymentCandidates.value.find((candidate) => candidate.member_id === memberId)
+  const previousBalanceAmount = Math.max(0, Number(quarterlyMemberBalanceAmounts[memberId]) || 0)
+  const nextBalanceAmount = Math.min(
+    Math.max(0, Number(value) || 0),
+    expectedAmount,
+    Math.max(0, Number(member?.balance_amount) || 0)
+  )
+  const previousExpectedExternalAmount = Math.max(0, expectedAmount - previousBalanceAmount)
+
+  quarterlyMemberBalanceAmounts[memberId] = nextBalanceAmount
+  if (
+    !quarterlyMemberReportedAmountEdited[memberId]
+    || Number(quarterlyMemberReportedExternalAmounts[memberId] || 0) === previousExpectedExternalAmount
+  ) {
+    quarterlyMemberReportedExternalAmounts[memberId] = Math.max(0, expectedAmount - nextBalanceAmount)
+    quarterlyMemberReportedAmountEdited[memberId] = false
+  }
+}
+
+const handleQuarterlyReportedExternalAmountChange = (memberId: string, value: number) => {
+  quarterlyMemberReportedExternalAmounts[memberId] = Math.max(0, Number(value) || 0)
+  quarterlyMemberReportedAmountEdited[memberId] = true
+}
 
 const quarterlyPaymentSummary = computed(() =>
   summarizeQuarterlyPaymentSubmissionItems(selectedQuarterlyPaymentItems.value)
@@ -1686,7 +1821,9 @@ const unifiedPaymentRecords = computed<UnifiedPaymentRecord[]>(() => {
       selectable: false,
       periodKey: submission.period_key,
       breakdown: buildPaymentBreakdownText(submission.amount, submission.balance_amount, formatCurrency),
-      note: submission.note
+      note: submission.rejection_reason
+        ? `退回原因：${submission.rejection_reason}`
+        : submission.note
     })
   })
 
@@ -2003,6 +2140,19 @@ const submissionRules = {
       },
       trigger: 'change'
     }
+  ],
+  amount_mismatch_reason: [
+    {
+      validator: (_rule: unknown, value: string, callback: (error?: Error) => void) => {
+        if (!hasPaymentAmountMismatch.value || value?.trim()) {
+          callback()
+          return
+        }
+
+        callback(new Error('實際付款與正確應付不同時，請填寫異常原因'))
+      },
+      trigger: ['blur', 'change']
+    }
   ]
 }
 
@@ -2255,6 +2405,13 @@ const refreshQuarterlyPaymentMemberSnapshots = async () => {
     if (quarterlyMemberBalanceAmounts[member.member_id] == null) {
       quarterlyMemberBalanceAmounts[member.member_id] = 0
     }
+    if (quarterlyMemberReportedExternalAmounts[member.member_id] == null) {
+      quarterlyMemberReportedExternalAmounts[member.member_id] = Math.max(
+        0,
+        defaultAmount - Number(quarterlyMemberBalanceAmounts[member.member_id] || 0)
+      )
+      quarterlyMemberReportedAmountEdited[member.member_id] = false
+    }
   })
   selectedQuarterlyMemberIds.value = selectedQuarterlyMemberIds.value.filter((memberId) => {
     const snapshot = nextSnapshots[memberId]
@@ -2283,11 +2440,15 @@ const syncBalanceDeductionLimit = () => {
     return
   }
 
+  const previousBalanceAmount = singleMembershipBalanceAmount.value
   submissionForm.balance_amount = clampBalanceDeduction(
     submissionForm.balance_amount,
     selectedUnifiedTotalAmount.value,
     createDialogAvailableBalance.value
   )
+  if (includeMembershipFee.value) {
+    syncSingleReportedExternalAmount(singleMembershipBalanceAmount.value, previousBalanceAmount)
+  }
 }
 
 const refreshSubmissionEstimate = async () => {
@@ -2361,6 +2522,12 @@ const resetQuarterlyPaymentDrafts = () => {
   Object.keys(quarterlyMemberBalanceAmounts).forEach((memberId) => {
     delete quarterlyMemberBalanceAmounts[memberId]
   })
+  Object.keys(quarterlyMemberReportedExternalAmounts).forEach((memberId) => {
+    delete quarterlyMemberReportedExternalAmounts[memberId]
+  })
+  Object.keys(quarterlyMemberReportedAmountEdited).forEach((memberId) => {
+    delete quarterlyMemberReportedAmountEdited[memberId]
+  })
   quarterlyMemberSnapshots.value = {}
 }
 
@@ -2377,6 +2544,9 @@ const hydrateSubmissionDefaults = (periodKeyOverride?: string, shouldIncludeMemb
     ? resolveQuarterlyAmount(submissionForm.period_key)
     : 0
   submissionForm.balance_amount = 0
+  submissionForm.reported_external_amount = Math.max(0, Number(submissionForm.amount) || 0)
+  submissionForm.amount_mismatch_reason = ''
+  singleReportedAmountEdited.value = false
   selectedQuarterlyMemberIds.value = targetMember?.billing_mode === 'quarterly' && targetMember.member_id
     ? [targetMember.member_id]
     : []
@@ -2565,8 +2735,14 @@ const allocateBalanceDeduction = (
   })
 }
 
-const buildSharedSubmissionPayload = (amount: number, balanceAmount: number) => {
-  const externalAmount = getExternalPaymentAmount(amount, balanceAmount)
+const buildSharedSubmissionPayload = (
+  amount: number,
+  balanceAmount: number,
+  reportedExternalAmount?: number
+) => {
+  const externalAmount = reportedExternalAmount == null
+    ? getExternalPaymentAmount(amount, balanceAmount)
+    : Math.max(0, Number(reportedExternalAmount) || 0)
 
   return {
     payment_method: externalAmount > 0 ? submissionForm.payment_method : BALANCE_PAYMENT_METHOD,
@@ -2649,6 +2825,26 @@ const submitPaymentSubmission = async () => {
     }
   }
 
+  if (hasPaymentAmountMismatch.value) {
+    const mismatchLabel = membershipReconciliations.value.some((item) => item.status === 'underpaid')
+      ? '這筆回報包含短繳，管理員將無法核准並可能退回。'
+      : `這筆回報包含多繳 ${formatCurrency(Math.max(0, paymentAmountDifference.value))}，管理員確認後差額會轉入球員餘額。`
+
+    try {
+      await ElMessageBox.confirm(
+        `${mismatchLabel}\n\n異常原因：${submissionForm.amount_mismatch_reason?.trim() || ''}`,
+        '確認送出金額異常回報',
+        {
+          type: 'warning',
+          confirmButtonText: '仍要送出',
+          cancelButtonText: '返回修改'
+        }
+      )
+    } catch {
+      return
+    }
+  }
+
   const balanceAllocations = allocateBalanceDeduction(
     Number(submissionForm.balance_amount) || 0,
     [
@@ -2670,7 +2866,12 @@ const submitPaymentSubmission = async () => {
         const createdSubmission = shouldUseGroupedQuarterlySubmission.value
           ? await createMyQuarterlyPaymentSubmission({
             items: quarterlyItemsToSubmit,
-            ...buildSharedSubmissionPayload(membershipAmount, quarterlyPaymentSummary.value.totalBalanceAmount)
+            ...buildSharedSubmissionPayload(
+              membershipAmount,
+              quarterlyPaymentSummary.value.totalBalanceAmount,
+              membershipReportedExternalAmount.value
+            ),
+            amount_mismatch_reason: submissionForm.amount_mismatch_reason?.trim() || null
           })
           : await createMyPaymentSubmission({
             member_id: isQuarterlyMembershipFlow.value && singleQuarterlyItem
@@ -2680,7 +2881,13 @@ const submitPaymentSubmission = async () => {
               ? singleQuarterlyItem.period_key
               : submissionForm.period_key.trim().toUpperCase(),
             amount: membershipAmount,
-            ...buildSharedSubmissionPayload(membershipAmount, balanceAllocations.membership)
+            ...buildSharedSubmissionPayload(
+              membershipAmount,
+              balanceAllocations.membership,
+              membershipReportedExternalAmount.value
+            ),
+            reported_external_amount: membershipReportedExternalAmount.value,
+            amount_mismatch_reason: submissionForm.amount_mismatch_reason?.trim() || null
           })
 
         if (createdSubmission) {
@@ -2905,7 +3112,16 @@ watch(
 
 watch(
   () => submissionForm.amount,
-  () => {
+  (nextAmount, previousAmount) => {
+    const currentBalanceAmount = singleMembershipBalanceAmount.value
+    const previousExpectedExternalAmount = Math.max(0, Number(previousAmount || 0) - currentBalanceAmount)
+    if (
+      !singleReportedAmountEdited.value
+      || Number(submissionForm.reported_external_amount || 0) === previousExpectedExternalAmount
+    ) {
+      submissionForm.reported_external_amount = Math.max(0, Number(nextAmount || 0) - currentBalanceAmount)
+      singleReportedAmountEdited.value = false
+    }
     syncBalanceDeductionLimit()
   }
 )
@@ -2948,17 +3164,47 @@ watch(matchFeeUnpaidItems, (items) => {
   selectedMatchFeeItemIds.value = selectedMatchFeeItemIds.value.filter((id) => unpaidIds.has(id))
 }, { deep: true })
 
+const highlightSubmissionFromRoute = async () => {
+  const submissionId = String(route.query.highlight_submission_id || '').trim()
+  if (!submissionId) return
+
+  await nextTick()
+  const target = document.querySelector<HTMLElement>(`[data-profile-submission-id="${submissionId}"]`)
+  if (!target) return
+
+  target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  target.classList.add('ring-2', 'ring-red-400', 'ring-offset-2')
+  window.setTimeout(() => {
+    target.classList.remove('ring-2', 'ring-red-400', 'ring-offset-2')
+  }, 2600)
+}
+
 onMounted(async () => {
   try {
     await authStore.ensureInitialized()
     members.value = await listMyPaymentMembers()
-    selectedMemberId.value = linkedMembers.value[0]?.member_id || members.value[0]?.member_id || ''
+    const highlightedSubmissionId = String(route.query.highlight_submission_id || '').trim()
+    const highlightedSubmission = highlightedSubmissionId
+      ? (await listMyPaymentSubmissions(null)).find((submission) => submission.id === highlightedSubmissionId)
+      : null
+    selectedMemberId.value = highlightedSubmission?.member_id
+      || linkedMembers.value[0]?.member_id
+      || members.value[0]?.member_id
+      || ''
 
     if (selectedMemberId.value) {
       await refreshCurrentMemberData()
+      await highlightSubmissionFromRoute()
     }
   } finally {
     isBootstrapping.value = false
   }
 })
+
+watch(
+  () => route.query.highlight_submission_id,
+  () => {
+    void highlightSubmissionFromRoute()
+  }
+)
 </script>

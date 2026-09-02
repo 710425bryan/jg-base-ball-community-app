@@ -30,8 +30,17 @@ const normalizeSubmissionItem = (row: any): MyPaymentSubmissionItem => ({
   member_name: row?.member_name ?? '',
   period_key: row?.period_key ?? '',
   amount: normalizeNumber(row?.amount),
+  expected_amount: row?.expected_amount == null ? null : normalizeNumber(row.expected_amount),
   balance_amount: normalizeNumber(row?.balance_amount),
-  external_amount: normalizeNumber(row?.external_amount)
+  external_amount: normalizeNumber(row?.external_amount),
+  expected_external_amount: row?.expected_external_amount == null
+    ? null
+    : normalizeNumber(row.expected_external_amount),
+  reported_external_amount: row?.reported_external_amount == null
+    ? null
+    : normalizeNumber(row.reported_external_amount),
+  amount_difference: row?.amount_difference == null ? null : normalizeNumber(row.amount_difference),
+  reconciliation_status: row?.reconciliation_status || 'unverifiable'
 })
 
 const normalizeSubmission = (row: any): MyPaymentSubmission | null => {
@@ -40,8 +49,19 @@ const normalizeSubmission = (row: any): MyPaymentSubmission | null => {
   return {
     ...row,
     amount: normalizeNumber(row?.amount),
+    expected_amount: row?.expected_amount == null ? null : normalizeNumber(row.expected_amount),
     balance_amount: normalizeNumber(row?.balance_amount),
     external_amount: normalizeNumber(row?.external_amount),
+    expected_external_amount: row?.expected_external_amount == null
+      ? null
+      : normalizeNumber(row.expected_external_amount),
+    reported_external_amount: row?.reported_external_amount == null
+      ? null
+      : normalizeNumber(row.reported_external_amount),
+    amount_difference: row?.amount_difference == null ? null : Number(row.amount_difference),
+    reconciliation_status: row?.reconciliation_status || 'unverifiable',
+    amount_mismatch_reason: row?.amount_mismatch_reason ?? null,
+    rejection_reason: row?.rejection_reason ?? null,
     account_last_5: row?.account_last_5 ?? null,
     note: row?.note ?? null,
     items: Array.isArray(row?.items)
@@ -126,7 +146,9 @@ export const createMyPaymentSubmission = async (payload: CreateMyPaymentSubmissi
     p_account_last_5: payload.account_last_5 || null,
     p_remittance_date: payload.remittance_date,
     p_note: payload.note || null,
-    p_balance_amount: payload.balance_amount || 0
+    p_balance_amount: payload.balance_amount || 0,
+    p_reported_external_amount: payload.reported_external_amount ?? null,
+    p_amount_mismatch_reason: payload.amount_mismatch_reason || null
   })
 
   if (error) {
@@ -144,7 +166,8 @@ export const createMyQuarterlyPaymentSubmission = async (
     p_payment_method: payload.payment_method,
     p_account_last_5: payload.account_last_5 || null,
     p_remittance_date: payload.remittance_date,
-    p_note: payload.note || null
+    p_note: payload.note || null,
+    p_amount_mismatch_reason: payload.amount_mismatch_reason || null
   })
 
   if (error) {
@@ -182,12 +205,14 @@ export const getMyPaymentSubmissionEstimate = async (memberId: string, periodKey
 export const reviewMyPaymentSubmission = async (
   submissionId: string,
   status: 'approved' | 'rejected',
-  overpaymentAmount = 0
+  overpaymentAmount = 0,
+  rejectionReason?: string | null
 ) => {
   const { data, error } = await supabase.rpc('review_profile_payment_submission', {
     p_submission_id: submissionId,
     p_status: status,
-    p_overpayment_amount: overpaymentAmount
+    p_overpayment_amount: overpaymentAmount,
+    p_rejection_reason: rejectionReason || null
   })
 
   if (error) {

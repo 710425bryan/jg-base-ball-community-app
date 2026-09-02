@@ -12,6 +12,9 @@ describe('PaymentSubmissionSummary', () => {
         totalAmount: 1500.9,
         availableBalance: 500,
         balanceAmount: 200,
+        expectedExternalAmount: 1300,
+        externalAmount: 1400,
+        amountDifference: 100,
         lineItems: [
           {
             id: 'item-1',
@@ -37,7 +40,9 @@ describe('PaymentSubmissionSummary', () => {
     expect(wrapper.text()).toContain('NT$1500')
     expect(wrapper.text()).toContain('NT$200')
     expect(wrapper.text()).toContain('NT$1300')
-    expect(wrapper.text()).toContain('NT$300')
+    expect(wrapper.text()).toContain('正確應付')
+    expect(wrapper.text()).toContain('實際付款')
+    expect(wrapper.text()).toContain('+NT$100')
   })
 
   it('emits max deduction when enabling the balance switch', async () => {

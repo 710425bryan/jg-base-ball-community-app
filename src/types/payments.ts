@@ -39,17 +39,30 @@ export type MyPaymentRecord = {
 }
 
 export type MyPaymentSubmissionStatus = 'pending_review' | 'approved' | 'rejected'
+export type MyPaymentReconciliationStatus =
+  | 'matched'
+  | 'underpaid'
+  | 'overpaid'
+  | 'unverifiable'
 
 export type MyPaymentSubmission = {
   id: string
+  profile_id?: string | null
   member_id: string
   member_name: string
   billing_mode: PaymentBillingMode
   period_key: string
   period_label: string
   amount: number
+  expected_amount: number | null
   balance_amount: number
   external_amount: number
+  expected_external_amount: number | null
+  reported_external_amount: number | null
+  amount_difference: number | null
+  reconciliation_status: MyPaymentReconciliationStatus
+  amount_mismatch_reason: string | null
+  rejection_reason: string | null
   payment_method: string
   account_last_5: string | null
   remittance_date: string
@@ -65,6 +78,8 @@ export type CreateMyPaymentSubmissionPayload = {
   period_key: string
   amount: number
   balance_amount?: number
+  reported_external_amount?: number | null
+  amount_mismatch_reason?: string | null
   payment_method: string
   account_last_5?: string | null
   remittance_date: string
@@ -78,8 +93,13 @@ export type MyPaymentSubmissionItem = {
   member_name: string
   period_key: string
   amount: number
+  expected_amount: number | null
   balance_amount: number
   external_amount: number
+  expected_external_amount: number | null
+  reported_external_amount: number | null
+  amount_difference: number | null
+  reconciliation_status: MyPaymentReconciliationStatus
 }
 
 export type CreateMyQuarterlyPaymentSubmissionItemPayload = {
@@ -87,6 +107,7 @@ export type CreateMyQuarterlyPaymentSubmissionItemPayload = {
   period_key: string
   amount: number
   balance_amount?: number
+  reported_external_amount?: number | null
 }
 
 export type CreateMyQuarterlyPaymentSubmissionPayload = {
@@ -95,6 +116,7 @@ export type CreateMyQuarterlyPaymentSubmissionPayload = {
   account_last_5?: string | null
   remittance_date: string
   note?: string | null
+  amount_mismatch_reason?: string | null
 }
 
 export type MyPaymentSubmissionEstimate = {
