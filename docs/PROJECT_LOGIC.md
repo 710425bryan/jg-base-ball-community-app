@@ -433,6 +433,7 @@ UI 約定：
 
 - 教練在 `/training-locations` 建立某天訓練配置，先選 program；新增配置會套用 `training_program_settings` 的預設時間與場地。每個場地區塊可個別保存訓練標題、日期、開始 / 結束時間與備註，必要時可由前端同步共用設定。球員池列出全部有效球員 / 校隊，並可用全隊、角色或 `team_group` 快速帶入；program 只決定這份配置的訓練項目、預設場地時間與後續通知語意，不限制可編排球員。
 - `save_training_location_session()` 會重建該訓練的場地與指派；DB 以 `(session_id, member_id)` 確保同一球員只在一個場地。
+- 近期訓練卡在中港總部 program 會於各場地總人數下方依 assignment 的 `role` 顯示社區（`球員`）與校隊（`校隊`）人數；其他 program 維持總人數、上課與請假摘要。請假人數大於 0 時可查看請假球員，桌機 hover、手機點擊開啟 tooltip，內容固定以上方社區、下方校隊分組顯示安全姓名。
 - `create_training_location_venue_attendance_event()` 會為單一場地區塊建立或重用一張點名單，並由 `sync_training_location_attendance_records()` 自動同步該場地最新配置球員。
 - 場地配置 roster 仍顯示 `fee_billing_mode = 'no_fee'` 的球員 / 校隊並標註「不收費」，但前端不可勾選、拖曳、快捷加入或保存；DB 端也拒絕新的 no-fee assignment。既有配置可顯示，下次儲存會移除。
 - 個人首頁透過 `get_my_home_snapshot()` 的 `training_locations` 或 `list_my_week_training_locations()` fallback 顯示 linked member 本週場地；標題、日期與時間以場地區塊設定優先，未設定才回退 session 共用值。已請假標示必須用假單時段與場地時間重疊判斷；場地與 session 都沒有時間時，使用上午區段 `09:00 - 12:00` 判斷。若場地使用預設上午時間 `09:00 - 12:30`，假單判斷仍收斂為上午區段，所以下午假不標示上午場地已請假。

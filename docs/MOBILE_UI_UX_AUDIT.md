@@ -101,6 +101,13 @@
 - 請購草稿在站內導覽、通知連結、程式化跳轉及瀏覽器返回／前進前顯示「請購尚未送出」；取消、右上關閉或 Esc 會保留內容，遮罩不關閉確認視窗。重新整理、關閉分頁或 PWA 視窗使用瀏覽器原生 `beforeunload` 提醒。
 - 登出先共用目前頁面的確認流程；取消不呼叫 `signOut()`，確認後以一次性 bypass 完成登出與原目的地跳轉，登出失敗時不清除頁面草稿。自動測試已涵蓋空／非空草稿、取消／確認、返回鍵、並發確認、`beforeunload`、登出取消與失敗；裝備與跨頁 targeted 共 26 files／187 tests，`vue-tsc`、production build 與 `git diff --check` 均通過，仍需 staging 登入後驗收 360px、390px、640–767px、iOS safe area、鍵盤與文字放大。
 
+### 2026-09-03 場地配置近期訓練角色人數
+
+- 中港總部的各場地摘要會在總人數下方，依 assignment 角色分列「社區」與「校隊」人數；國中部及其他 program 不顯示此分類列，避免套用不相符的分類語意。
+- 分類沿用 session 已載入的 `venues[].assignments[].role`，不新增 RPC、資料庫查詢或權限範圍；`球員` 計為社區、`校隊` 計為校隊。
+- 請假人數大於 0 時提供 tooltip：桌機 hover、手機點擊請假人數開啟，內容以上方「社區」、下方「校隊」分組顯示姓名；空組顯示「無」，手機觸發區維持至少 44px。
+- 場地摘要元件與 TrainingLocations view 共 12 tests、場地通知回歸 15 tests、`vue-tsc --noEmit` 與 production build 通過；登入後 360px、390px 與桌機實際 tooltip 定位／換行仍待 staging 驗收。
+
 ### 2026-08-27 場地配置近期訓練個別人數
 
 - `/training-locations` 的近期訓練卡保留「場地總數｜總人數」，並依場地順序顯示「場地編號・場地名稱：總人數」，下方再分列上課與請假人數；空白場地名稱會回退為場地編號。

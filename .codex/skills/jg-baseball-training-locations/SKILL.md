@@ -33,6 +33,7 @@ description: "Training venue, program scope, and player assignment workflow for 
 - 球員池、全隊快捷加入與 roster RPC 列出全部有效球員 / 校隊；program 判斷優先使用 `team_members.training_program`，舊資料才以 `team_group` 對應 `training_program_settings.team_group`，找不到時校隊 / 計次月費 fallback 中港總部 program。`team_group` 是所屬群組（熊隊），不可再拿來鎖住中港校隊 / 國中部身分的群組選單；program 只用來標記球員所屬訓練項目與決定配置主檔 / 預設場地時間 / 通知語意，不限制可編排球員。
 - 多場地區塊存在 `training_location_session_venues`。
 - 球員指派存在 `training_location_assignments`，同一訓練同一球員只能被指派一次。
+- 近期訓練場地摘要的請假人數大於 0 時，桌機 hover、手機點擊可查看請假球員安全姓名；tooltip 固定以上方社區（`球員`）、下方校隊（`校隊`）分組，空組顯示「無」。
 - 個人首頁只顯示登入者 linked member 的本週已發布配置。
 - 每個場地區塊各自建立一張點名單，點名名單以該場地最新 `training_location_assignments` 為準，不帶入全隊或其他場地球員。
 
