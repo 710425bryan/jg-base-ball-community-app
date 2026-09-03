@@ -35,18 +35,36 @@
             <!-- 篩選列 -->
             <div class="p-4 border-b border-gray-100 bg-white md:bg-transparent flex flex-col gap-4">
               <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <el-date-picker
-                  v-model="selectedSearchMonth"
-                  type="month"
-                  placeholder="搜尋月份"
-                  format="YYYY 年 MM 月"
-                  value-format="YYYY-MM"
-                  :clearable="false"
-                  class="!w-full sm:!w-[220px]"
-                />
+                <div class="grid w-full grid-cols-1 gap-3 sm:max-w-[460px] sm:grid-cols-2">
+                  <el-date-picker
+                    v-model="selectedSearchMonth"
+                    type="month"
+                    placeholder="搜尋月份"
+                    format="YYYY 年 MM 月"
+                    value-format="YYYY-MM"
+                    :clearable="false"
+                    size="large"
+                    class="!w-full"
+                  />
+                  <el-select
+                    v-model="selectedPlayerId"
+                    placeholder="搜尋球員"
+                    filterable
+                    clearable
+                    size="large"
+                    class="!w-full"
+                  >
+                    <el-option
+                      v-for="player in team_members_list"
+                      :key="player.id"
+                      :label="`${player.name}（${player.role}）`"
+                      :value="player.id"
+                    />
+                  </el-select>
+                </div>
                 <div class="flex w-full items-center justify-between rounded-xl border border-orange-100 bg-orange-50 px-4 py-2 sm:w-auto sm:min-w-[180px]">
                   <span class="text-sm font-bold text-orange-700">總計請假次數</span>
-                  <span class="text-xl font-black text-primary">{{ leaveRequests.length }}</span>
+                  <span class="text-xl font-black text-primary">{{ selectedPlayerLeaveRequests.length }}</span>
                 </div>
               </div>
 
@@ -695,14 +713,20 @@ const formatLeaveDate = (row: any) => {
 
 const formatLeaveTimeSegment = (segment: unknown) => getLeaveTimeSegmentLabel(segment)
 
+// --- 日期篩選邏輯 ---
+const selectedDate = ref<string>('')
+const selectedPlayerId = ref<string>('')
+
+const selectedPlayerLeaveRequests = computed(() => {
+  if (!selectedPlayerId.value) return leaveRequests.value
+  return leaveRequests.value.filter((leave) => leave.user_id === selectedPlayerId.value)
+})
+
 const getLeavesForDate = (dateStr: string) => {
-  return leaveRequests.value.filter(leave => {
+  return selectedPlayerLeaveRequests.value.filter(leave => {
     return dateStr >= leave.start_date && dateStr <= leave.end_date
   })
 }
-
-// --- 日期篩選邏輯 ---
-const selectedDate = ref<string>('')
 
 const handleLeaveModeChange = () => {
   if (form.leave_mode !== '單日請假') {
@@ -768,8 +792,8 @@ const filterDatesInSelectedMonth = computed(() => {
 })
 
 const filteredLeaveRequests = computed(() => {
-  if (!selectedDate.value) return leaveRequests.value
-  return leaveRequests.value.filter(leave => {
+  if (!selectedDate.value) return selectedPlayerLeaveRequests.value
+  return selectedPlayerLeaveRequests.value.filter(leave => {
     return selectedDate.value >= leave.start_date && selectedDate.value <= leave.end_date
   })
 })

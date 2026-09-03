@@ -193,4 +193,51 @@ describe('LeaveRequestsView', () => {
     await wrapper.vm.$nextTick()
     expect(wrapper.vm.form.user_id).toBe('member-1')
   })
+
+  it('provides a searchable player select and filters leave records with the selected player', async () => {
+    const wrapper = await mountView()
+    wrapper.vm.team_members_list = [
+      { id: 'member-1', name: '王小明', role: '球員' },
+      { id: 'member-2', name: '陳大華', role: '校隊' }
+    ]
+    wrapper.vm.leaveRequests = [
+      {
+        id: 'leave-1',
+        user_id: 'member-1',
+        start_date: '2026-09-05',
+        end_date: '2026-09-05'
+      },
+      {
+        id: 'leave-2',
+        user_id: 'member-2',
+        start_date: '2026-09-05',
+        end_date: '2026-09-05'
+      },
+      {
+        id: 'leave-3',
+        user_id: 'member-1',
+        start_date: '2026-09-12',
+        end_date: '2026-09-12'
+      }
+    ]
+    wrapper.vm.dateRange = ['2026-09-01', '2026-09-30']
+    await wrapper.vm.$nextTick()
+
+    const searchableSelect = wrapper.findAll('el-select-stub')
+      .find((select) => select.attributes('placeholder') === '搜尋球員')
+
+    expect(searchableSelect).toBeDefined()
+    expect(searchableSelect?.attributes()).toHaveProperty('filterable')
+
+    wrapper.vm.selectedPlayerId = 'member-1'
+    wrapper.vm.selectedDate = '2026-09-05'
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.vm.selectedPlayerLeaveRequests.map((leave: any) => leave.id)).toEqual([
+      'leave-1',
+      'leave-3'
+    ])
+    expect(wrapper.vm.filteredLeaveRequests.map((leave: any) => leave.id)).toEqual(['leave-1'])
+    expect(wrapper.vm.filterDatesInSelectedMonth.find((item: any) => item.dateStr === '2026-09-05')?.count).toBe(1)
+  })
 })

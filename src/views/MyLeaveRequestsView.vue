@@ -4,7 +4,7 @@
       <div class="max-w-6xl mx-auto flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <AppPageHeader
           title="我的假單"
-          subtitle="查看關聯成員的假單紀錄，並可直接送出新的請假申請"
+          subtitle="查看可操作成員的假單紀錄，並可直接送出新的請假申請"
           :icon="Memo"
           as="h2"
         >
@@ -39,50 +39,24 @@
           v-if="members.length === 0"
           class="bg-white rounded-3xl border border-gray-100 shadow-sm p-8 md:p-10 text-center"
         >
-          <div class="text-xl font-black text-slate-800">目前沒有可操作的關聯成員</div>
+          <div class="text-xl font-black text-slate-800">目前沒有可操作的成員</div>
           <p class="mt-3 text-sm text-gray-500 leading-relaxed">
-            你的帳號尚未綁定任何成員，若需要送出假單，請先請管理員在使用者名單完成成員綁定。
+            一般帳號需先完成成員綁定；若目前沒有可送假的成員，請聯繫管理員確認名單狀態。
           </p>
         </section>
 
         <template v-else>
-          <section class="bg-white rounded-3xl border border-gray-100 shadow-sm p-5 md:p-6">
-            <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-              <div class="w-full lg:max-w-md">
-                <label class="text-xs font-bold uppercase tracking-[0.18em] text-gray-400">送假成員</label>
-                <el-select
-                  v-model="selectedMemberId"
-                  class="w-full mt-2"
-                  size="large"
-                  placeholder="請選擇成員"
-                >
-                  <el-option
-                    v-for="member in members"
-                    :key="member.member_id"
-                    :label="buildMemberOptionLabel(member)"
-                    :value="member.member_id"
-                  />
-                </el-select>
-                <p class="mt-2 text-xs text-gray-400">
-                  {{ memberSelectorHelperText }}
-                </p>
-              </div>
-
-              <div
-                v-if="selectedMember"
-                class="rounded-2xl border border-primary/15 bg-primary/5 px-4 py-3 text-sm text-primary font-bold"
-              >
-                目前送假對象：{{ selectedMember.name }} / {{ selectedMember.training_program_label || selectedMember.role }}
-              </div>
-            </div>
-          </section>
+          <MyLeaveMemberSelector
+            v-model="selectedMemberId"
+            :members="members"
+          />
 
           <section class="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
             <div class="px-5 md:px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-3">
               <div>
                 <h3 class="text-lg font-black text-slate-800">假單紀錄</h3>
                 <p class="text-xs text-gray-400 mt-1">
-                  只顯示目前所選關聯成員的假單，送出後會通知具請假查看權限的人員
+                  只顯示目前所選成員的假單，送出後會通知具請假查看權限的人員
                 </p>
               </div>
 
@@ -404,6 +378,7 @@ import { Memo } from '@element-plus/icons-vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
 import AppDialogFooter from '@/components/common/AppDialogFooter.vue'
+import MyLeaveMemberSelector from '@/components/leave/MyLeaveMemberSelector.vue'
 import {
   createMyLeaveRequests,
   deleteMyLeaveRequest,
@@ -485,14 +460,6 @@ const canCreateLeaveRequest = computed(() => {
   return Boolean(selectedMember.value)
 })
 
-const memberSelectorHelperText = computed(() => {
-  if (members.value.length <= 1) {
-    return '系統會自動使用你目前綁定的成員。'
-  }
-
-  return '切換不同關聯成員時，頁面會同步顯示對應的假單紀錄。'
-})
-
 const nonTrainingLeaveDatesSummary = computed(() => {
   const previewDates = nonTrainingLeaveDates.value.slice(0, 5).map(formatTrainingMonthDateLabel)
   const suffix = nonTrainingLeaveDates.value.length > 5
@@ -535,10 +502,6 @@ const sortLeaveRequests = (rows: MyLeaveRequest[]) => {
 
     return new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
   })
-}
-
-const buildMemberOptionLabel = (member: MyLeaveMember) => {
-  return `${member.name}｜${member.training_program_label || member.team_group || member.role}`
 }
 
 const getLeaveBadgeClass = (type: string) => {
@@ -915,7 +878,9 @@ onMounted(async () => {
       return getTrainingProgramFallbackSettings()
     })
     members.value = enrichLeaveMembersWithPrograms(await listMyLeaveMembers())
-    selectedMemberId.value = members.value[0]?.member_id || ''
+    selectedMemberId.value = members.value.find((member) => member.is_linked)?.member_id
+      || members.value[0]?.member_id
+      || ''
 
     if (selectedMemberId.value) {
       await refreshCurrentMemberData()

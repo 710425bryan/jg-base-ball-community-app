@@ -147,7 +147,7 @@ UI 約定：
   - `list_my_leave_requests(p_member_id)`
   - `create_my_leave_requests(p_member_id, p_records)`
   - `delete_my_leave_request(p_leave_request_id)`
-  - 可新增假單的成員只包含有效 linked member；退隊、離隊、關閉 / 畢業成員不回傳，也不能透過 RPC 新增假單。
+  - 一般帳號只可查看、建立與刪除有效 linked member 的假單；通過 active / access window 檢查的 `ADMIN` 可切換所有有效成員，進頁仍優先選 linked member。退隊、離隊、關閉 / 畢業成員不回傳，也不能透過 RPC 新增假單。
 - 我的繳費：
   - `list_my_payment_members()`
   - `get_my_payment_records(p_member_id)`
@@ -199,6 +199,7 @@ UI 約定：
 - 球員名單顯示使用 session 內記憶體快取；進頁先呼叫 `get_team_members_cache_meta()` 比對 `row_count` / `latest_changed_at`，有差異才重新抓完整名單。
 - `get_team_members_cache_meta()` 只回傳版本資訊，不回傳球員個資，且需通過 `players:VIEW`。
 - 使用者新增 / 更新 / 刪除走 admin RPC，例如 `admin_insert_profile()`、`admin_update_profile()`、`admin_delete_user()`。
+- `profiles.role` 與 `profiles.linked_team_member_ids` 直接決定多個個人 RPC 的可見範圍；`profiles_access_admin_guard` 會要求這兩欄的 UPDATE 呼叫者具 `users:EDIT`，避免一般帳號透過 self-update policy 自行升級成 ADMIN 或擴大 linked member。
 - 角色權限 UI 讀寫 `app_roles`、`app_role_permissions`。
 - `team_members.joined_date` 記錄球員加入時間；既有名單無歷史資料時回填 `2026-02-01`，新建資料預設為台灣當天日期。
 - `team_members.grade` 記錄球員年級；新增 / 空值時依 `birth_date` 推算，出生日期 9 月 2 日以後預設晚一屆，名單年級每年 6 月 19 日自動升級，可由名單表單下拉選單手動調整。
@@ -252,6 +253,7 @@ UI 約定：
 資料流：
 
 - 後台請假管理讀寫 `leave_requests`。
+- `/my-leave-requests` 的四支 `myLeaveRequests` RPC 共用同一授權範圍：一般帳號只能操作 linked member，只有 `public.current_profile_role() = 'ADMIN'` 的有效 ADMIN 可讀取成員清單並查看、建立、刪除所有有效成員的假單；不得只放寬前端下拉選單。
 - `leave_requests.leave_time_segment` 為結構化請假時段，值為 `full_day`、`morning`、`afternoon`；新增假單預設 `full_day`，半日只套用單日請假，連續多日與固定週期一律視為全日。
 - 後台新增假單的成員選單只列有效成員；退隊、離隊、關閉 / 畢業成員的既有假單可保留查詢，但不可再新增。
 - 點名事件使用 `attendance_events`。
@@ -266,6 +268,7 @@ UI 約定：
 重要規則：
 
 - `/attendance/:id` 點名 Detail（`RollCallView`）不可顯示或提供 `缺席` 操作；Detail UI 只保留 `出席`、`請假` 等允許操作，既有缺席資料或禁報流程需另設明確管理流程。
+- ADMIN 全成員假單權限必須由 DB 讀取實際 profile role 判斷；`leave_requests:*` feature 權限或前端 `permissionsStore` bypass 不得自動擴大 `/my-leave-requests` 的成員範圍。
 - 改請假或點名要檢查通知中心、推播、今日缺席、費用統計是否受影響。
 - 後台頁面顯示權限不能取代 DB policy。
 

@@ -20,15 +20,17 @@ describe('myLeaveRequests service', () => {
   it('filters closed or graduated leave members using safe roster metadata', async () => {
     rpcMock.mockResolvedValue({
       data: [
-        { member_id: 'member-1', name: '小明', role: '', team_group: null },
-        { member_id: 'member-2', name: '小華', role: '', team_group: null }
+        { member_id: 'member-1', name: '小明', role: '', team_group: null, is_linked: true },
+        { member_id: 'member-2', name: '小華', role: '', team_group: null, is_linked: true },
+        { member_id: 'member-3', name: '小熊', role: '教練', team_group: null, is_linked: false }
       ],
       error: null
     })
     inMock.mockResolvedValue({
       data: [
         { id: 'member-1', status: '在隊', is_inactive_or_graduated: false, role: '校隊', team_group: '中港校隊' },
-        { id: 'member-2', status: '離隊', is_inactive_or_graduated: true, role: '球員', team_group: '拉拉熊(小組)' }
+        { id: 'member-2', status: '離隊', is_inactive_or_graduated: true, role: '球員', team_group: '拉拉熊(小組)' },
+        { id: 'member-3', status: '在隊', is_inactive_or_graduated: false, role: '教練', team_group: null }
       ],
       error: null
     })
@@ -39,11 +41,17 @@ describe('myLeaveRequests service', () => {
       expect.objectContaining({
         member_id: 'member-1',
         role: '校隊',
-        team_group: '中港校隊'
+        team_group: '中港校隊',
+        is_linked: true
+      }),
+      expect.objectContaining({
+        member_id: 'member-3',
+        role: '教練',
+        is_linked: false
       })
     ])
     expect(fromMock).toHaveBeenCalledWith('team_members_safe')
-    expect(inMock).toHaveBeenCalledWith('id', ['member-1', 'member-2'])
+    expect(inMock).toHaveBeenCalledWith('id', ['member-1', 'member-2', 'member-3'])
   })
 
   it('wraps scalar RPC rows and sends create/delete payloads', async () => {

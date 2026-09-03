@@ -86,7 +86,7 @@
 | `src/services/publicLanding.ts` | 公開首頁摘要與匿名入隊申請 | `get_public_landing_snapshot()`；申請只 INSERT、不讀回私密資料 |
 | `src/services/dashboardAttendance.ts` | 後台大廳今日訓練點名狀態，含今日多筆點名單 | `get_dashboard_today_attendance_status()` |
 | `src/services/myHome.ts` | 個人化首頁摘要與 linked member 一週內 Next Up 比賽 RPC | `get_my_home_snapshot()` / `get_my_home_next_event()` |
-| `src/services/myLeaveRequests.ts` | 我的假單 RPC | `list_my_leave_members()` 等 |
+| `src/services/myLeaveRequests.ts` | 我的假單 RPC；一般帳號 linked-only、ADMIN 可操作所有有效成員 | `list_my_leave_members()` 等 |
 | `src/services/myPayments.ts` | 我的繳費 RPC、應收／實付核對欄位 normalize | `profile_payment_submissions` 相關 RPC |
 | `src/services/playerBalances.ts` | 球員餘額 RPC | `player_balance_transactions`、餘額查詢 / 調整 |
 | `src/services/quarterlyFeeCompensations.ts` | 季費堂數不足補償 RPC | `quarterly_fee_compensation_items`、`player_balance_transactions` |
@@ -195,7 +195,7 @@
 | `/my-records` | `src/views/MyPlayerRecordsView.vue` | 個人成績，登入 + linked member / `players:VIEW` RPC |
 | `/my-payments` | `src/views/MyPaymentsView.vue` | 個人繳費與裝備付款 |
 | `/equipment-addons` | `src/views/EquipmentAddonsView.vue` | 登入 + linked member / RLS |
-| `/my-leave-requests` | `src/views/MyLeaveRequestsView.vue` | 個人假單 |
+| `/my-leave-requests` | `src/views/MyLeaveRequestsView.vue` | 一般帳號 linked member 假單；ADMIN 可切換所有有效成員 |
 | `/leave-requests` | `src/views/LeaveRequestsView.vue` | `leave_requests:VIEW` |
 | `/players` | `src/views/PlayersView.vue` | `players:VIEW` |
 | `/registration-forms` | `src/views/RegistrationFormsView.vue` | `registration_forms:VIEW`；產檔另需 `registration_forms:CREATE + players:EDIT` |
@@ -287,6 +287,12 @@
 | `src/components/payments/PaymentSubmissionSummary.vue` | 付款回報金額 / 餘額扣抵摘要 |
 | `src/components/payments/QuarterlyPaymentAmountControls.vue` | 單人／多球員隊費的唯讀系統應收、餘額扣抵、實際付款與差額控制 |
 
+### Leave
+
+| 檔案 | 用途 |
+| --- | --- |
+| `src/components/leave/MyLeaveMemberSelector.vue` | `/my-leave-requests` 單一可搜尋成員選擇器；ADMIN 全有效成員提示與 linked-first 選取配合頁面資料流 |
+
 ### Training
 
 | 檔案 | 用途 |
@@ -365,9 +371,9 @@
 | 類型 | 重要檔案 |
 | --- | --- |
 | 權限 / RLS | `supabase_access_control_rls_migration.sql`、`supabase_access_control_policy_cleanup_migration.sql` |
-| Profile access | `supabase_profile_access_control_migration.sql`、`supabase_profiles_personal_settings_migration.sql` |
+| Profile access | `supabase_profile_access_control_migration.sql`、`supabase_profiles_personal_settings_migration.sql`、`supabase/migrations/20260903091633_admin_my_leave_all_members.sql` |
 | 公開首頁 / Dashboard | `supabase_dashboard_snapshot_migration.sql`、`supabase_my_home_snapshot_migration.sql`、`supabase_zz_my_home_training_points_migration.sql`、`supabase_my_home_next_match_week_window_migration.sql` |
-| 假單 | `supabase_my_leave_requests_migration.sql`、`supabase_match_leave_absences_migration.sql`、`supabase_zzzzzzzzzzzzzzzz_leave_time_segments_migration.sql`、`supabase_zzzzzzzzzzzzzzzzz_historical_match_leave_absences_migration.sql` |
+| 假單 | `supabase_my_leave_requests_migration.sql`、`supabase_match_leave_absences_migration.sql`、`supabase_zzzzzzzzzzzzzzzz_leave_time_segments_migration.sql`、`supabase_zzzzzzzzzzzzzzzzz_historical_match_leave_absences_migration.sql`、`supabase/migrations/20260903091633_admin_my_leave_all_members.sql` |
 | 個人成績 | `supabase_my_player_records_migration.sql` |
 | 收費 / 付款 | `supabase_fees_migration.sql`、`supabase_quarterly_fees_migration.sql`、`supabase_profile_payment_submissions_migration.sql`、`supabase_player_balance_transactions_migration.sql`、`supabase_fixed_monthly_billing_migration.sql`、`supabase_zzzzzzzzzzzzzzz_monthly_per_session_billing_migration.sql`、`supabase_zzzzzzzzzzzzzzzzz_monthly_fee_leave_time_segment_migration.sql`、`supabase_quarterly_fee_compensation_migration.sql`、`supabase_match_fees_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz_match_fee_payment_open_state_migration.sql`、`supabase_fee_management_reminders_migration.sql`、`supabase_fee_payment_reminders_migration.sql`、`supabase_zzzzzzzzzzzz_quarterly_payment_open_period_migration.sql`、`supabase_zzzzzzzzzzzzzz_monthly_payment_open_period_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzzzzzz_xintai_fixed_monthly_billing_migration.sql`、`supabase_member_joined_fee_period_guard_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz_profile_payment_amount_reconciliation_migration.sql` |
 | 裝備 | `supabase_equipment_management_migration.sql`、`supabase_equipment_inventory_adjustments_migration.sql`、`supabase_equipment_manual_purchase_records_migration.sql`、`supabase_equipment_multiple_photos_migration.sql`、`supabase_zzzzzz_equipment_inventory_snapshot_rpc_migration.sql`、`supabase_zzzzzzzz_equipment_ready_for_pickup_payment_scope_migration.sql`、`supabase_zzzzzzzzz_equipment_custom_order_migration.sql`、`supabase_zzzzzzzzzz_equipment_approved_payment_scope_migration.sql`、`supabase_zzzzzzzzzzz_equipment_payment_refund_migration.sql`、`supabase_zzzzzzzzzzzz_equipment_create_request_inventory_guard_transaction_fix_migration.sql`、`supabase_zzzzzzzzzzzzz_equipment_request_item_fulfillment_migration.sql`、`supabase_zzzzzzzzzzzzzz_equipment_payment_item_fulfillment_status_migration.sql`、`supabase_zzzzzzzzzzzzzzz_equipment_stock_out_adjustment_migration.sql`、`supabase_zzzzzzzzzzzzzzzz_equipment_request_ready_inventory_guard_fix_migration.sql` |

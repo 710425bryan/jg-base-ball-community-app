@@ -4,6 +4,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
+import MyLeaveMemberSelector from '@/components/leave/MyLeaveMemberSelector.vue'
 import MyLeaveRequestsView from './MyLeaveRequestsView.vue'
 
 const mocks = vi.hoisted(() => ({
@@ -247,5 +248,38 @@ describe('MyLeaveRequestsView', () => {
         }
       ]
     })
+  })
+
+  it('prefers a linked member and can load an ADMIN-only roster member', async () => {
+    mocks.listMyLeaveMembers.mockResolvedValue([
+      {
+        member_id: 'member-2',
+        name: '陳小華',
+        role: '球員',
+        team_group: '熊隊',
+        training_program: 'chunggang_school_team',
+        is_linked: false
+      },
+      {
+        member_id: 'member-1',
+        name: '王小明',
+        role: '校隊',
+        team_group: '中港校隊',
+        training_program: 'chunggang_school_team',
+        is_linked: true
+      }
+    ])
+
+    const wrapper = await mountView()
+
+    expect(mocks.listMyLeaveRequests).toHaveBeenCalledWith('member-1')
+    expect(wrapper.get('[data-test="leave-member-helper"]').text()).toContain('ADMIN 可切換所有有效成員')
+
+    mocks.listMyLeaveRequests.mockClear()
+    wrapper.findComponent(MyLeaveMemberSelector).vm.$emit('update:modelValue', 'member-2')
+    await flushPromises()
+    await nextTick()
+
+    expect(mocks.listMyLeaveRequests).toHaveBeenCalledWith('member-2')
   })
 })

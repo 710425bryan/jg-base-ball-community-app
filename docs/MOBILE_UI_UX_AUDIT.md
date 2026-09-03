@@ -4,9 +4,19 @@
 
 清單涵蓋 29 個登入後路由、27 個實作頁面；能力／體測列表與明細各自共用一套實作頁面。
 
-- 最後更新：2026-09-02
+- 最後更新：2026-09-03
 - 本輪範圍：P0 → P1 → P2 → P3 程式調整與自動檢查。
 - 本輪結論：自動檢查通過，因目前沒有可登入的一般 linked-member 與 ADMIN 裝置環境，全部維持「待驗收」。
+
+### 2026-09-03 出缺勤管理球員搜尋
+
+- `/leave-requests` 詳細列表新增單一 `el-select filterable` 球員搜尋；輸入姓名時由全站 `AppGlobalSelect` 即時篩選選項，選取後可與既有日期條件一起縮小卡片／表格紀錄，清除後恢復全部球員。
+- 搜尋與月份欄位在手機滿寬堆疊、較寬畫面並排，控制高度統一為 large；球員搜尋、全站 Select、請假與 Dashboard 共 4 files／28 tests、`vue-tsc --noEmit` 及 production build 通過，仍待登入後 360–767px 與 iPhone 中文輸入實機驗收。
+
+### 2026-09-03 我的假單 ADMIN 全成員
+
+- `/my-leave-requests` 的送假成員抽成單一 `el-select filterable` 元件；一般帳號維持 linked member，ADMIN 可搜尋並切換所有有效成員，進頁仍優先選 linked member。
+- selector／View／service／migration 共 11 tests、請假與 Dashboard 14 tests、手機規則 60 tests、收費完整回歸 106 tests、`vue-tsc --noEmit` 與 production build 通過。DB migration 已於 2026-09-03 套用，ADMIN RPC 實測回傳 87 / 87 位有效成員；ADMIN／一般帳號登入後 360–767px 與 iPhone 中文輸入仍待實機驗收。
 
 ### 2026-09-02 付款回報金額防呆
 
@@ -46,7 +56,7 @@
 | P1-04 | `/my-payments` | 重複主操作；Dialog footer 不一致；手機底部導覽會蓋住付款送出按鈕；手機成員搜尋原先沒有穩定過濾結果 | 每區一個 Primary；付款 Dialog 使用共用 footer 並掛到 `body`；手機與桌機共用單一可輸入選擇欄位及正規化比對 | 待驗收 | 單一欄位成員搜尋、全站 Dialog wrapper、比賽費角色分流與 myPayments targeted regression 通過；待登入後 360–767px 驗收 |
 | P1-05 | `/my-records` | 成員選擇器位於 header actions | 搜尋／選擇移到獨立 toolbar，導航操作至少 44px | 待驗收 | MyPlayerRecords 4 tests＋service 2 tests 通過 |
 | P1-06 | `/equipment-addons` | 手機加入裝備後需回到頁面上方才能看到並送出請購；離頁或登出會直接遺失草稿 | 手機固定摘要列避開底部導覽並開啟全螢幕請購 Dialog；桌機保留頁內表單；所有離頁與登出均確認未送出草稿 | 待驗收 | 裝備、cart panel、離頁 guard、MainLayout、頁面與 mobile contract 26 files／187 tests、`vue-tsc`、production build 與 `git diff --check` 通過；待 360–767px／iOS 實機驗收 |
-| P1-07 | `/my-leave-requests` | 刪除、載入月份與 footer 偏小 | 44px 並使用共用 Dialog footer | 待驗收 | MyLeaveRequests 2 tests＋service 2 tests 通過 |
+| P1-07 | `/my-leave-requests` | 刪除、載入月份與 footer 偏小；ADMIN 全隊名單需要可搜尋 | 44px、共用 Dialog footer 與單一可搜尋成員選單 | 待驗收 | selector／View／service／migration 11 tests、請假／Dashboard 14 tests、手機規則 60 tests、收費回歸 106 tests、typecheck＋build 通過；migration 已套用且 ADMIN RPC 87 / 87 筆通過，待登入後裝置驗收 |
 | P1-08 | `/training` | 管理與點數區有 32–40px 操作；點數管理手機搜尋原先沒有穩定過濾結果 | 所有功能操作至少 44px、每區一個 Primary；手機與桌機共用單一可輸入多選欄位及正規化比對 | 待驗收 | 點數球員搜尋元件、TrainingView、training API／utils、member search 與手機規則共 6 files、71 tests 通過；待登入後 360–767px 驗收 |
 
 ## P2：後台管理頁面
@@ -59,7 +69,7 @@
 | P2-04 | `/coach-schedules` | 篩選缺 ARIA；actions/footer 偏小 | segmented ARIA、44px、共用 footer | 待驗收 | coach schedules 10 tests＋source contract 通過 |
 | P2-05 | `/players` | 搜尋篩選與四個功能操作混排；舊 `<640px` CSS 曾覆蓋 `hidden` 造成上下兩組篩選 | toolbar 分層；手機只保留搜尋＋篩選觸發器，條件由底部展開；超過兩個操作使用 overflow | 待驗收 | PlayersView mobile filter regression test＋search/filter source contract 通過 |
 | P2-06 | `/users` | 搜尋／篩選／檢視切換放在 header actions；桌機搜尋與登入狀態篩選的寬度、間距及高度不一致；角色權限 Drawer 原本留在 route DOM，最後一個功能會被手機底部導覽遮住 | 移到獨立 toolbar；桌機 filter group 統一 8px 間距與 44px 高度；手機狀態篩選由底部展開；row icon 44px＋ARIA；權限 Drawer 掛到 body 並保留 iOS safe area 尾距 | 待驗收 | UsersView／ViewModeSwitch／mobile audit 共 58 tests；權限 Drawer、UsersView 與元件載入共 45 tests＋`vue-tsc`＋build 通過；待登入後 iPhone 實機驗收 |
-| P2-07 | `/leave-requests` | 設定、日期 chips、刪除與 footer 偏小 | 44px、`aria-pressed`、共用 footer | 待驗收 | LeaveRequests 2 tests＋source contract 通過 |
+| P2-07 | `/leave-requests` | 設定、日期 chips、刪除與 footer 偏小；詳細列表原本無法依球員快速搜尋 | 44px、`aria-pressed`、共用 footer；使用可輸入搜尋的單一球員選單篩選紀錄 | 待驗收 | 球員搜尋與複合篩選已完成；相關 4 files／28 tests、`vue-tsc` 及 production build 通過，待 360–767px 與 iPhone 中文輸入實機驗收 |
 | P2-08 | `/attendance` | 建立、刪除、開始點名與 footer 偏小 | 功能操作至少 44px，保留既有權限 | 待驗收 | AttendanceList test＋source contract 通過 |
 | P2-09 | `/join-inquiries` | 手機清單在載入失敗或零筆資料時沒有狀態內容，會呈現整頁空白 | 手機卡片；共用 loading、可重試錯誤與明確空狀態；Danger 44px＋ARIA | 待驗收 | JoinInquiriesView tests、`vue-tsc`、build＋source contract 通過 |
 | P2-10 | `/announcements` | 每筆最多四個可見操作；卡片／表格切換仍使用頁面自製白底樣式 | 保留兩個高頻操作，其餘 overflow；共用 footer 與 `ViewModeSwitch` | 待驗收 | `vue-tsc`、build＋共用檢視切換 source contract 通過 |

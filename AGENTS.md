@@ -156,7 +156,7 @@
 ### 個人首頁與個人功能
 
 - `HomeView` 同時有後台 dashboard 與個人化區塊；個人化摘要走 `src/services/myHome.ts` 的 `get_my_home_snapshot()`，RPC 未部署時顯示空狀態 fallback；Next Up 走 `get_my_home_next_event()`，只顯示目前選取 linked member 有列在 `matches.players` 的下一場非特訓比賽，日期限台灣今天至六天後共 7 個日期，今天已結束、空白名單、特訓課、無符合賽事或 RPC 錯誤時都隱藏卡片；`MyHomeTodayPanel` 會一次顯示當月份全部訓練日期，未設定月份預設為該月所有星期六；特訓點數卡只顯示目前選取 linked member 的 snapshot 點數欄位，若線上 snapshot 尚未帶點數欄位，前端會用 `list_my_training_members()` 補齊。
-- `MyLeaveRequestsView` 走 `src/services/myLeaveRequests.ts`：`list_my_leave_members()`、`list_my_leave_requests()`、`create_my_leave_requests()`、`delete_my_leave_request()`。
+- `MyLeaveRequestsView` 走 `src/services/myLeaveRequests.ts`：`list_my_leave_members()`、`list_my_leave_requests()`、`create_my_leave_requests()`、`delete_my_leave_request()`；一般帳號只可查看、建立與刪除 linked member 假單，只有通過 active / access window 檢查的 `ADMIN` 才可切換所有有效成員，且進頁仍優先選 linked member。
 - `MyPaymentsView` 走 `src/services/myPayments.ts`：`list_my_payment_members()`、`get_my_payment_records()`、`list_my_payment_submissions()`、`create_my_payment_submission()`、`get_my_payment_submission_estimate()`；一般繳費與裝備付款皆可使用 `player_balance_transactions` 計算出的球員餘額扣抵。
 - `MyPlayerRecordsView` 走 `src/services/myPlayerRecords.ts`：`list_my_player_record_members()`、`get_my_player_match_records()`；一般使用者只能看綁定球員，具 `players:VIEW` 者可切換全隊球員但預設仍優先關聯球員。
 - `ProfileSettingsView` 透過 `update_my_profile_settings()` 更新個人設定，大頭照使用 `avatars` bucket。
@@ -178,6 +178,7 @@
 - team group 設定經由 `src/stores/teamGroups.ts`、`src/services/teamGroupsApi.ts` 與 `TeamGroupSettingsDialog.vue` 管理；改名、排序、刪除轉移時要檢查 `PlayersView`、`TrainingView`、`TrainingLocationsView`、`LeaveRequestsView`、`RollCallView` 的分組選項。
 - Google 表單 / Sheet 同步不得覆蓋既有 `team_members.is_primary_payer`、`team_members.is_half_price` 與 `team_members.fee_billing_mode`；新增球員時前兩者預設 `false`，收費模式預設 `role_default`。
 - 使用者管理在 `UsersView`，profile 新增 / 更新 / 刪除優先走 `admin_insert_profile()`、`admin_update_profile()`、`admin_delete_user()`。
+- `profiles.role` 與 `profiles.linked_team_member_ids` 是授權邊界欄位；即使 self-update policy 允許個人更新其他 profile 設定，這兩欄也必須由 DB trigger 再檢查 `users:EDIT`，不可讓一般帳號自行升級角色或改綁定範圍。
 - 權限 UI 在 `RolePermissionsManager.vue`，對應 `app_roles` 與 `app_role_permissions`。
 
 ### 賽事報名管理
@@ -193,7 +194,7 @@
 
 ### 請假與點名
 
-- 家長 / 球員自己的請假走 `myLeaveRequests` RPC。
+- 家長 / 球員自己的請假走 `myLeaveRequests` RPC；一般帳號只限 linked member，只有 `public.current_profile_role() = 'ADMIN'` 的有效 ADMIN 才能在「我的假單」查看、建立與刪除所有有效成員的假單，四支 RPC 必須使用一致的授權判斷。
 - 後台請假管理在 `LeaveRequestsView`，會讀 `team_members` 與 `leave_requests`，需受 `leave_requests` feature RLS 保護。
 - 點名列表與點名頁使用 `attendance_events`、`attendance_records`，並會參照 `team_members`、`leave_requests`。
 - 場地配置建立的點名單透過 `attendance_events.training_location_session_id` / `training_location_session_venue_id` 串接；每個場地可各自建立一張點名單，`RollCallView` 名單只取該場地最新 `training_location_assignments`，不回退成全隊名單。
