@@ -36,6 +36,7 @@ description: "Finance, fees, payment submissions, player balances, match fees, m
 - 家長端 `/my-payments` 可合併一般繳費、裝備付款與比賽費付款回報。
 - 球員餘額以 `player_balance_transactions` 流水帳推導，不直接覆寫權威餘額。
 - 一般付款使用 `profile_payment_submissions` RPC。
+- 待確認回報的修改／刪除使用 `pendingPayments` service 與 `list_my_pending_payment_submissions` / `mutate_my_pending_payment_submission`，三種付款來源各自維持原資料表。只允許有效帳號的原回報者及完整 linked member 範圍；先鎖主單，再重驗待審、未入帳與版本。修改保留應收快照／品項／期別；多人季費逐人核對餘額與實付，差額仍必填原因。刪除回報只恢復裝備／比賽款項待付款，不更改庫存、履約或餘額。
 - 一般月費／季費付款回報的 `expected_amount` 必須由 DB 估算並保存；使用者只能填 `reported_external_amount`。餘額扣抵只改變正確應付現金，不可改寫正式應收本金。
 - 季費堂數不足補償使用 `quarterly_fee_compensation_items`，只產生待審核單；核准後才寫入 `player_balance_transactions`。
 - 比賽費使用 `match_fee_items`、`match_payment_submissions`、`match_payment_submission_items`。
@@ -64,6 +65,7 @@ description: "Finance, fees, payment submissions, player balances, match fees, m
 - 社區固定月繳、國中部月費（不論單次月費或訓練日期模式）與球員計次月費都排除 `quarterly_fees` 與家庭季費分組。
 - 月費與季費最早從 `team_members.joined_date` 所在月份起算；月費期別不可早於加入月份，季費從包含加入月份的季度開始。管理端試算、家長端待付款／付款估算、首頁摘要與催繳都要套用同一條件，加入前未繳不可新增或顯示，但既有已付款／送審歷史保留。
 - 球員 / 校隊不收費以 `team_members.fee_billing_mode = 'no_fee'` 表示；不產生新的月費、季費與比賽費，但既有帳款保留，裝備付款仍維持自費。
+- 不收費球員仍可參賽及保存成績；`matches.players` 與陣容不按收費模式排除。新的比賽費必須由 `sync_match_fee_items_for_match()` 的 `get_effective_payment_billing_mode() <> 'none'` 條件決定，不得以刪除參賽名單代替收費檢查。
 - 月繳付款回報開放期別要依成員身分與有效收費模式區分：國中部採預繳，每月 25 日開放下個月；中港校隊與社區計次月費在月份結束後、下個月 1 日開放；社區固定月繳每月 25 日開放下個月。前端 helper、付款估算、DB trigger 與個人首頁摘要必須同步，國中部判斷只使用 raw `training_program = 'junior_high_school_team'`。一般保留既有 `monthly_fees` 快照；國中部單次月費上線 hotfix 例外只修正台灣當月起、尚未繳且沒有待審付款回報的舊計次快照，已繳與送審中歷史不回寫。
 - 季繳付款回報的開放期別以台灣日期為準，每季最後一個月 25 日起開放下一季；前端 helper 與 DB helper / trigger 必須同步，未開放的未來季不可新增付款回報，過去未繳季度可補繳。
 - 個人首頁 `get_my_home_snapshot()` 的付款待辦摘要必須沿用相同的月費 / 季費開放期別；尚未開放的帳款可保留在正式費用紀錄，但不可顯示成一般會員現在就要處理的欠費。

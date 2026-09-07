@@ -4,9 +4,14 @@
 
 清單涵蓋 29 個登入後路由、27 個實作頁面；能力／體測列表與明細各自共用一套實作頁面。
 
-- 最後更新：2026-09-03
+- 最後更新：2026-09-07
 - 本輪範圍：P0 → P1 → P2 → P3 程式調整與自動檢查。
 - 本輪結論：自動檢查通過，因目前沒有可登入的一般 linked-member 與 ADMIN 裝置環境，全部維持「待驗收」。
+
+### 2026-09-07 待確認付款回報修改／刪除
+
+- `/my-payments` 新增 `PendingPaymentSubmissions` 與 `PendingPaymentEditDialog`，使用 Element Plus 金額、日期、文字與選單控制，以及共用 Dialog／footer；卡片只顯示修改、刪除兩個 44px 操作，刪除與付款差額皆二次確認。
+- 28 files／162 tests、117 項隔離 PostgreSQL 斷言、型別檢查與建置通過。agent-browser 模擬資料驗證 360／390／700／1280px，手機 Dialog 滿版、無橫向溢出，取消／儲存 44px；後五碼修改流程通過。仍待 staging／正式 migration、真實登入全流程與 iPhone 鍵盤／safe area 驗收，維持「待驗收」。詳見 `docs/specs/2026-09-07-pending-payment-submissions.md`。
 
 ### 2026-09-03 出缺勤管理球員搜尋
 

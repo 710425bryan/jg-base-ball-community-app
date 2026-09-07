@@ -129,6 +129,7 @@
 | `supabase_no_fee_billing_migration.sql` | 球員 / 校隊不收費模式 | `fee_billing_mode = no_fee`，覆寫付款 RPC、比賽費同步、首頁與收費提醒摘要 |
 | `supabase_zzzzzzzzzzzzzzz_monthly_per_session_billing_migration.sql` | 球員計次月費模式 | `fee_billing_mode = monthly_per_session`，覆寫繳費模式 helper、`list_my_payment_members()` 與收費提醒摘要 |
 | `supabase_profile_payment_submissions_migration.sql` | 個人付款回報 | `/my-payments` 主線 |
+| `supabase_pending_payment_submission_self_service_migration.sql` | 待確認付款回報自助修改／刪除 | 必須在付款金額核對及裝備／比賽付款 migrations 後套用；新增本人＋linked member＋有效帳號 RPC，鎖主單與版本檢查，保留應收／已審歷史，刪除只回復待付款；本次尚未部署 |
 | `supabase_profile_payment_rpc_fix_migration.sql` | 個人付款 RPC 修正 | 覆寫付款 RPC |
 | `supabase_profile_payment_review_member_id_ambiguity_fix_migration.sql` | 付款審核 member_id ambiguity 修正 | 審核流程必讀 |
 | `supabase_zzzzzzzz_profile_payment_review_conflict_target_hotfix.sql` | 付款審核 conflict target 修正 | 多球員季繳覆寫後的 `member_id` ambiguity 修正 |

@@ -285,6 +285,10 @@
 | `src/components/payments/PaymentAccountInfoCard.vue` | 付款帳戶資訊卡 |
 | `src/components/payments/PaymentMemberSelector.vue` | `/my-payments` 單一欄位成員選擇搜尋；手機與桌機共用自訂正規化比對 |
 | `src/components/payments/PaymentSubmissionSummary.vue` | 付款回報金額 / 餘額扣抵摘要 |
+| `src/components/payments/PendingPaymentSubmissions.vue` | 原回報者待確認清單、修改入口、整筆撤回及重新整理 |
+| `src/components/payments/PendingPaymentEditDialog.vue` | 更正匯款資料、逐人餘額／實付、差額原因及版本衝突處理 |
+| `src/services/pendingPayments.ts`、`src/types/pendingPayments.ts` | 三種付款來源共用的待確認回報 RPC 與型別 |
+| `tests/database/pendingPayments.integration.mjs` | 隔離 PostgreSQL 測試：本人／linked member／有效帳號、審核與版本保護、應收快照、多人季費、刪除狀態恢復 |
 | `src/components/payments/QuarterlyPaymentAmountControls.vue` | 單人／多球員隊費的唯讀系統應收、餘額扣抵、實際付款與差額控制 |
 
 ### Leave
@@ -303,7 +307,7 @@
 
 | 檔案 | 用途 |
 | --- | --- |
-| `src/components/match-records/MatchFormDialog.vue` | 比賽新增 / 編輯 |
+| `src/components/match-records/MatchFormDialog.vue` | 比賽新增 / 編輯；不收費球員仍可加入參賽名單、陣容、即時 / 語音紀錄及打擊 / 投球成績 |
 | `src/components/match-records/MatchDetailDialog.vue` | 比賽詳情 |
 | `src/components/match-records/SyncCalendarDialog.vue` | Google Calendar / iCal 同步 |
 | `src/components/match-records/MatchLineupTab.vue` | 陣容 |
