@@ -83,7 +83,7 @@
 
 | 檔案 | 用途 | 後端依賴 |
 | --- | --- | --- |
-| `src/services/publicLanding.ts` | 公開首頁摘要與匿名入隊申請 | `get_public_landing_snapshot()`；申請只 INSERT、不讀回私密資料 |
+| `src/services/publicLanding.ts` | 公開首頁摘要與保留的匿名入隊申請 service | `get_public_landing_snapshot()`；目前 LINE 聯絡視窗不呼叫申請 service |
 | `src/services/dashboardAttendance.ts` | 後台大廳今日訓練點名狀態，含今日多筆點名單 | `get_dashboard_today_attendance_status()` |
 | `src/services/myHome.ts` | 個人化首頁摘要與 linked member 一週內 Next Up 比賽 RPC | `get_my_home_snapshot()` / `get_my_home_next_event()` |
 | `src/services/myLeaveRequests.ts` | 我的假單 RPC；一般帳號 linked-only、ADMIN 可操作所有有效成員 | `list_my_leave_members()` 等 |
@@ -221,6 +221,14 @@
 | `/physical-tests/:memberId` | `src/views/PhysicalTestsDetailView.vue` | `physical_tests` + linked member exception |
 
 ## 9. Feature Components
+
+### Public Landing
+
+| 檔案 | 用途 |
+| --- | --- |
+| `src/components/home/PublicJoinInquiryDialog.vue` | LINE QR Code 聯絡視窗、截圖裁切、對應加好友連結；無聯絡表單或送出流程 |
+| `src/components/home/publicRecruitmentContent.ts` | 招募重點、LINE 體驗步驟與 FAQ；由 `src/views/LandingView.test.ts` 涵蓋 |
+| `src/assets/line-contact/*` | 使用者提供的兩張原始 LINE QR Code 圖片；第二張由視窗裁切顯示 |
 
 ### Registration Forms
 

@@ -110,13 +110,16 @@ UI 約定：
 主要檔案：
 
 - `src/views/LandingView.vue`
+- `src/components/home/PublicJoinInquiryDialog.vue`
+- `src/components/home/publicRecruitmentContent.ts`
 - `src/services/publicLanding.ts`
 - `src/types/publicLanding.ts`
 
 資料流：
 
 - 公開摘要走 `get_public_landing_snapshot(p_today)`。
-- 入隊申請寫入 `join_inquiries`，LINE ID 必填、家長聯絡電話選填；公開 insert 由 DB policy 控制，DB 也會拒絕空白 LINE ID。前端先產生 UUID 並只做 INSERT，不讀回受 `join_inquiries:VIEW` SELECT RLS 保護的申請資料。
+- 聯絡／入隊視窗只顯示兩張 LINE QR Code 與對應加好友連結，使用者需加入好友後主動傳訊息預約；不再顯示表單或送出按鈕，不呼叫 `createPublicJoinInquiry()` 或發送入隊詢問推播。第二張原始截圖以 CSS 僅顯示 QR Code 區域，兩張均保留白色掃描留白。
+- 既有 `join_inquiries` 歷史資料、後台管理、service 與 DB policy 保留。若重新啟用匿名申請，仍必須提供非空 LINE ID、以 UUID 只做 INSERT，不讀回受 `join_inquiries:VIEW` SELECT RLS 保護的申請資料。
 - 節日主題公開設定走 `get_public_holiday_theme_config()`。
 
 重要規則：

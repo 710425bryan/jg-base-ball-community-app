@@ -1,29 +1,52 @@
+// @vitest-environment jsdom
+
 import { readFileSync } from 'node:fs'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
+import { flushPromises, mount } from '@vue/test-utils'
+import AppGlobalDialog from '@/components/common/AppGlobalDialog.vue'
+import PublicJoinInquiryDialog from './PublicJoinInquiryDialog.vue'
 
-const source = readFileSync(new URL('./PublicJoinInquiryDialog.vue', import.meta.url), 'utf8')
+const source = readFileSync('src/components/home/PublicJoinInquiryDialog.vue', 'utf8')
+let wrapper: ReturnType<typeof mount> | undefined
 
-describe('PublicJoinInquiryDialog contact requirements', () => {
-  it('requires LINE ID above the optional phone field', () => {
-    const lineFieldIndex = source.indexOf('label="LINE ID" prop="line_id"')
-    const phoneFieldIndex = source.indexOf('label="聯絡電話" prop="phone"')
+const openDialog = async () => {
+  wrapper = mount(PublicJoinInquiryDialog, {
+    props: { modelValue: true },
+    global: { components: { ElDialog: AppGlobalDialog } }
+  })
+  await flushPromises()
+  return wrapper
+}
 
-    expect(lineFieldIndex).toBeGreaterThan(-1)
-    expect(phoneFieldIndex).toBeGreaterThan(lineFieldIndex)
-    expect(source).toContain("line_id: [{ required: true, whitespace: true, message: '請填寫 LINE ID'")
-    expect(source).not.toContain("phone: [{ required: true")
-    expect(source).toContain('placeholder="選填，例如：09XX-XXX-XXX"')
+afterEach(() => {
+  wrapper?.unmount()
+  document.body.innerHTML = ''
+})
+
+describe('PublicJoinInquiryDialog LINE contact flow', () => {
+  it('shows both supplied QR codes and their decoded LINE links without a contact form', async () => {
+    await openDialog()
+    const dialog = document.querySelector('[role="dialog"]')!
+    const images = Array.from(dialog.querySelectorAll('img'))
+    expect(images).toHaveLength(2)
+    expect(images.every((image) => image.alt.includes('加好友 QR Code'))).toBe(true)
+    expect(images[0]?.src).toContain('contact-1.jpg')
+    expect(images[1]?.src).toContain('contact-2.png')
+    expect(Array.from(dialog.querySelectorAll('a')).map((link) => link.href)).toEqual([
+      'https://line.me/ti/p/UaQT4myIvS',
+      'https://line.me/ti/p/xdXQGLddCW'
+    ])
+    expect(dialog.querySelector('form, input, textarea')).toBeNull()
+    expect(dialog.textContent).not.toContain('送出資料')
+    expect(dialog.textContent).not.toContain('請留下')
+    expect(source).not.toMatch(/createPublicJoinInquiry|dispatchPushNotification|submitJoinForm/)
   })
 
-  it('enlarges both direct LINE contact IDs on mobile and desktop', () => {
-    expect(source).toContain('text-lg font-black leading-none text-primary sm:text-xl">cloud019')
-    expect(source).toContain('text-lg font-black leading-none text-primary sm:text-xl">yayu0215')
-  })
-
-  it('sends a nullable phone, a trimmed required LINE ID, and no protected select', () => {
-    expect(source).toContain('phone: joinForm.phone.trim() || null')
-    expect(source).toContain('line_id: joinForm.line_id.trim()')
-    expect(source).toContain("buildPushEventKey('join_inquiry', inquiryId)")
-    expect(source).not.toContain(".from('join_inquiries')")
+  it('closes via the only footer action', async () => {
+    const mounted = await openDialog()
+    const closeButton = Array.from(document.querySelectorAll('button')).find((button) => button.textContent?.trim() === '關閉')!
+    closeButton.click()
+    await mounted.vm.$nextTick()
+    expect(mounted.emitted('update:modelValue')).toEqual([[false]])
   })
 })

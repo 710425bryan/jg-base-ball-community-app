@@ -150,7 +150,8 @@
 ### 公開首頁與入隊
 
 - `LandingView` 透過 `src/services/publicLanding.ts` 呼叫 `get_public_landing_snapshot(p_today)` 顯示公開摘要。
-- 入隊申請會寫入 `join_inquiries`；公開 insert 由 DB policy 控制。匿名送出時由前端先產生 UUID，INSERT 不可串接 `.select()` 讀回申請資料，避免觸發只允許 `join_inquiries:VIEW` 的 SELECT RLS。
+- 公開「聯絡我們 / 加入球隊」由 `PublicJoinInquiryDialog` 顯示兩張 LINE QR Code 與其解碼連結，不顯示聯絡表單或送出操作，也不寫入 `join_inquiries` 或派送入隊詢問通知；截圖型 QR Code 以 CSS 裁切顯示，保留原始碼點。招募與體驗文案集中在 `publicRecruitmentContent.ts`，由 `LandingView.test.ts` 涵蓋。
+- 既有 `join_inquiries` 歷史資料、後台管理與 service 保留；若恢復匿名申請，INSERT 不可串接 `.select()` 讀回受 `join_inquiries:VIEW` SELECT RLS 保護的申請資料。
 - 公開頁若需要新增資料，只能拿非敏感摘要，不可直接擴散 profiles / team_members / leave_requests 等 raw table。
 
 ### 個人首頁與個人功能
