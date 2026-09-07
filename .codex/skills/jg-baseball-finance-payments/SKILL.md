@@ -36,6 +36,7 @@ description: "Finance, fees, payment submissions, player balances, match fees, m
 - 家長端 `/my-payments` 可合併一般繳費、裝備付款與比賽費付款回報。
 - 球員餘額以 `player_balance_transactions` 流水帳推導，不直接覆寫權威餘額。
 - 一般付款使用 `profile_payment_submissions` RPC。
+- 待確認回報的裝備名稱查詢使用資料表 `public.equipment`（單數）；`equipments` 是 Storage bucket 名稱，不能當作表名。比賽費名稱／日期的原始欄位是 `match_fee_items.match_name_snapshot` / `match_date_snapshot`，前端回傳 alias 不可用於 raw table SQL。隔離 SQL fixture 必須對照實際 catalog 或原始建表 migration；初版 self-service migration 需接續 schema names hotfix。
 - 待確認回報的修改／刪除使用 `pendingPayments` service 與 `list_my_pending_payment_submissions` / `mutate_my_pending_payment_submission`，三種付款來源各自維持原資料表。只允許有效帳號的原回報者及完整 linked member 範圍；先鎖主單，再重驗待審、未入帳與版本。修改保留應收快照／品項／期別；多人季費逐人核對餘額與實付，差額仍必填原因。刪除回報只恢復裝備／比賽款項待付款，不更改庫存、履約或餘額。
 - 一般月費／季費付款回報的 `expected_amount` 必須由 DB 估算並保存；使用者只能填 `reported_external_amount`。餘額扣抵只改變正確應付現金，不可改寫正式應收本金。
 - 季費堂數不足補償使用 `quarterly_fee_compensation_items`，只產生待審核單；核准後才寫入 `player_balance_transactions`。

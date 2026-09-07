@@ -1,5 +1,16 @@
 # 待確認付款回報修改與刪除
 
+## 2026-09-07 查詢錯誤修補（已遠端執行）
+
+- 正式環境回報 `relation "public.equipments" does not exist`。已核對 catalog 與原始建表 migration：正確表名為 `public.equipment`；比賽費的原始欄位為 `match_name_snapshot` / `match_date_snapshot`。初版 SQL 與測試 fixture 都錯用了表名和前端 alias，先前隔離測試因此未能攔截 schema 不一致。
+- 新增 `supabase_pending_payment_submission_schema_names_hotfix.sql`，只更正 list RPC 的這三個識別名稱，保留原本函式參數、權限、付款／餘額計算及所有異動規則。2026-09-07 已以同名 migration 套用正式 `qwxzwomzoyfkorbwsscv`；不需再部署前端，頁面重新整理即可載入修正。
+- 改正 fixture 後先重現原始 `42P01` 與只修表名後的 `match_name` 欄位錯誤，再套用 hotfix。124 項 PostgreSQL 斷言及 28 files／162 項單元測試通過，包含三種付款來源的完整名稱輸出。此修補只有 SQL、測試與文件修改，未重跑不受影響的前端型別／建置。
+- 正式環境修正前已以唯讀交易重現同一錯誤；修正後對 102 個有效帳號、94 次 linked member 呼叫均成功，匿名呼叫被阻擋、authenticated EXECUTE 保留、mutation RPC 指紋不變。正式目前沒有符合條件的待確認回報，所以有資料的裝備／比賽費名稱及修改／刪除案例以隔離資料驗證，未建立或修改正式付款資料作測試。
+- 修補前後 `profile_payment_submissions`、`equipment_payment_submissions`、`match_payment_submissions`、`player_balance_transactions`、`monthly_fees`、`quarterly_fees` 全表指紋一致。
+- 已查 security advisors；兩支待確認回報 RPC 仍有預期的「authenticated 可執行 SECURITY DEFINER」提示。這是既有自助 RPC 的設計，已驗證函式內有效帳號／本人／linked member 範圍、空 search_path 與匿名 EXECUTE 撤銷；此次未新增權限範圍。[提示說明](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable)
+
+以下保留初次實作與驗證紀錄；部署狀態以上方修補結果為準。
+
 使用者回報送出繳費資訊後不能更正。新增「待確認的付款回報」，僅列目前有效帳號本人送出、所有成員仍在 linked member 範圍內、未審核的付款回報。月／季費、裝備款及比賽費維持各自資料模型。
 
 - 可改匯款日期、付款方式、帳號後五碼、備註、餘額扣抵；月／季費另可改實際付款及金額異常原因，多人季費逐項核對。
@@ -27,7 +38,7 @@ PGLITE_MODULE_PATH=/tmp/jg-payment-db-test/node_modules/@electric-sql/pglite/dis
 
 ## 部署與待驗收
 
-先套用 `supabase_pending_payment_submission_self_service_migration.sql`，再發布前端。此 migration 必須在既有付款金額核對與裝備／比賽付款 migrations 之後執行；本次未套用正式／staging migration，未推送或部署前端。
+新環境先套用 `supabase_pending_payment_submission_self_service_migration.sql`，再套用 `supabase_pending_payment_submission_schema_names_hotfix.sql`，最後發布前端。兩者依賴既有付款金額核對與裝備／比賽付款 migrations；正式環境已確認初版存在，本次也已套用 hotfix，不需重跑初版覆蓋修正。
 
 隔離測試使用相同付款欄位與 FK 的最小 fixture，不代表正式完整 schema／trigger 整合已驗收；部署前需在 staging 套用並以真實審核 RPC 驗證更新／確認的雙連線競態、一般與折扣金額、多人季費、已確認歷史不變、餘額流水不變，再於部署後確認函式／GRANT 與資料。手機軟鍵盤、IME、iPhone 瀏海安全距離及登入後全頁端到端流程仍待實機驗收。
 

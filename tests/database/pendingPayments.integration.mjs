@@ -41,14 +41,14 @@ await db.exec(`
     reviewed_at timestamptz, reviewed_by uuid, updated_at timestamptz
   );
   create table public.match_payment_submissions (like public.equipment_payment_submissions including all);
-  create table public.equipments (id uuid primary key, name text);
+  create table public.equipment (id uuid primary key, name text);
   create table public.equipment_transactions (
-    id uuid primary key, equipment_id uuid references public.equipments, size text, quantity integer,
+    id uuid primary key, equipment_id uuid references public.equipment, size text, quantity integer,
     payment_submission_id uuid references public.equipment_payment_submissions on delete set null,
     payment_status text, updated_at timestamptz, fulfillment text default 'picked_up'
   );
   create table public.match_fee_items (
-    id uuid primary key, match_name text, match_date date,
+    id uuid primary key, match_name_snapshot text, match_date_snapshot date,
     payment_submission_id uuid references public.match_payment_submissions on delete set null,
     payment_status text, updated_at timestamptz, amount integer default 500
   );
@@ -71,7 +71,7 @@ await db.exec(`
   alter table public.match_payment_submissions enable row level security;
   insert into public.profiles (id, linked_team_member_ids) values ('${user}', array['${member}','${sibling}']::uuid[]), ('${other}', array['${member}']::uuid[]);
   insert into public.team_members values ('${member}', '小明', 600), ('${sibling}', '小華', 400);
-  insert into public.equipments values ('${uuid(20)}', '球衣');
+  insert into public.equipment values ('${uuid(20)}', '球衣');
 `)
 await db.exec(readFileSync(new URL('../../supabase_pending_payment_submission_self_service_migration.sql', import.meta.url), 'utf8'))
 const login = async (value) => execute("select set_config('request.jwt.claim.sub', $1, false)", [value])
@@ -93,16 +93,31 @@ const seed = async (kind, amount = 1000, status = 'pending_review') => {
     await execute("insert into public.equipment_transactions (id,equipment_id,size,quantity,payment_submission_id,payment_status) values ($1,$2,'L',2,$3,'pending_review') on conflict (id) do update set payment_submission_id=excluded.payment_submission_id, payment_status=excluded.payment_status", [uuid(21),uuid(20),id])
     await execute('insert into public.equipment_payment_submission_items values ($1,$2)', [id,uuid(21)])
   } else {
-    await execute("insert into public.match_fee_items (id,match_name,match_date,payment_submission_id,payment_status) values ($1,'測試比賽','2026-09-01',$2,'pending_review') on conflict (id) do update set payment_submission_id=excluded.payment_submission_id, payment_status=excluded.payment_status", [uuid(31),id])
+    await execute("insert into public.match_fee_items (id,match_name_snapshot,match_date_snapshot,payment_submission_id,payment_status) values ($1,'測試比賽','2026-09-01',$2,'pending_review') on conflict (id) do update set payment_submission_id=excluded.payment_submission_id, payment_status=excluded.payment_status", [uuid(31),id])
     await execute('insert into public.match_payment_submission_items values ($1,$2)', [id,uuid(31)])
   }
   return table
 }
 
+// The deployed catalog uses equipment (singular) and match snapshot columns.
+// Installing the original migration must reproduce the production error before the hotfix.
+await login(user)
+check(await scalar("select to_regclass('public.equipments')"), null)
+await fails(() => list(), /relation \"public\.equipments\" does not exist/)
+const originalList = readFileSync(new URL('../../supabase_pending_payment_submission_self_service_migration.sql', import.meta.url), 'utf8').split('create or replace function public.mutate_my_pending_payment_submission')[0]
+await db.exec(originalList.replace('public.equipments e', 'public.equipment e') + '\ncommit;')
+await fails(() => list(), /column t\.match_name does not exist/)
+await db.exec(readFileSync(new URL('../../supabase_pending_payment_submission_schema_names_hotfix.sql', import.meta.url), 'utf8'))
+check(await list(), [])
+
 for (const kind of ['membership','equipment','match']) {
   await reset()
   const table = await seed(kind)
-  check((await list()).length, 1)
+  const listed = await list()
+  check(listed.length, 1)
+  check(listed[0].items[0].label, {
+    membership: '小明｜2026-08', equipment: '小明｜球衣 L × 2', match: '小明｜測試比賽 2026-09-01'
+  }[kind])
   // Even an account linked to the same player cannot touch another account's report.
   await login(other)
   check(await list(), [])

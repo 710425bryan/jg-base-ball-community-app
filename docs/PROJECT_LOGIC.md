@@ -155,6 +155,7 @@ UI 約定：
   - `create_my_payment_submission(...)`
   - `get_my_payment_submission_estimate(...)`
   - `list_my_pending_payment_submissions(p_member_id)` / `mutate_my_pending_payment_submission(...)`：列出與異動自己送出的待確認回報，涵蓋月／季費、裝備及比賽費；獨立 service / 元件負責修改、二次確認刪除與衝突後重新整理。
+  - 待確認回報名稱由 `public.equipment.name` 及 `match_fee_items.match_name_snapshot` / `match_date_snapshot` 組合。`supabase_pending_payment_submission_schema_names_hotfix.sql` 修正初版使用不存在的表名／前端 alias，必須在初版 migration 之後套用。
 - 我的成績：
   - `list_my_player_record_members()`
   - `get_my_player_match_records(p_member_id)`
