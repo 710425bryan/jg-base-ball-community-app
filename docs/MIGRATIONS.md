@@ -49,6 +49,7 @@
 | `supabase/migrations/20260818075514_registration_form_events.sql` | 賽事報名主檔、多範本關聯與 event-aware generation log | 明確 grants + RLS；`save_registration_form_event()` 使用 security invoker；不保存球員 ID、個資或產出檔 |
 | `supabase/migrations/20260818075618_registration_form_event_audit_indexes.sql` | 賽事報名 audit foreign key 索引 | 補齊 `created_by` / `updated_by` covering indexes，消除新表 advisor 提醒 |
 | `supabase/migrations/20260824034124_registration_form_pdf_profile.sql` | 範本 metadata 與 private Storage 開放已知 PDF profile | 加入 `cobra_cup_u9_pdf@1`、`application/pdf`；不放寬 Edge Function 的原檔指紋白名單與產檔權限 |
+| `supabase/migrations/20260909072622_registration_form_cobra_docx_profile.sql` | 加入第二屆眼鏡蛇盃 Word 範本 metadata | `cobra_cup_docx@1`、14 人容量、無照片；保留三個既有 profile，部署順序為 migration → Edge Function → 前端 |
 
 ## 公開頁、Dashboard 與個人功能
 

@@ -72,7 +72,7 @@ describe('registrationForms', () => {
     expect(result.warnings.some((message) => message.includes('未同意肖像授權'))).toBe(true)
   })
 
-  it('validates the 10 to 14 player Cobra Cup PDF without photo warnings', () => {
+  it.each(['cobra_cup_u9_pdf', 'cobra_cup_docx'] as const)('validates 10 to 14 players and required fields without photo warnings for %s', (profileKey) => {
     const fields = createRegistrationStaffFields()
     Object.assign(fields, {
       leader_name: '領隊',
@@ -91,13 +91,18 @@ describe('registrationForms', () => {
       grade: '一年級',
       portrait_auth: false
     }))
-    const valid = validateRegistrationForm('cobra_cup_u9_pdf', 14, fields, players)
+    const valid = validateRegistrationForm(profileKey, 14, fields, players)
     expect(valid.blocking).toEqual([])
     expect(valid.warnings).toEqual([])
 
-    expect(validateRegistrationForm('cobra_cup_u9_pdf', 14, fields, players.slice(0, 9)).blocking)
+    expect(validateRegistrationForm(profileKey, 14, fields, players.slice(0, 9)).blocking)
       .toContain('此版型至少需要 10 位球員')
+    expect(validateRegistrationForm(profileKey, 14, fields, Array(15).fill(players[0])).blocking)
+      .toContain('此版型最多只能選擇 14 位球員')
+    expect(validateRegistrationForm(profileKey, 14, { ...fields, address: '' }, players).blocking.join('、')).toContain('地址')
+    players[0].overrides.grade = ''
+    expect(validateRegistrationForm(profileKey, 14, fields, players).blocking.join('、')).toContain('年級')
     players[0].overrides.national_id = ''
-    expect(validateRegistrationForm('cobra_cup_u9_pdf', 14, fields, players).blocking.join('、')).toContain('身分證')
+    expect(validateRegistrationForm(profileKey, 14, fields, players).blocking.join('、')).toContain('身分證')
   })
 })

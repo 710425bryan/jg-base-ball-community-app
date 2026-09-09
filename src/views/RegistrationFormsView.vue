@@ -368,7 +368,7 @@ onMounted(loadData)
           </div>
 
           <el-empty v-if="!templates.length" description="尚未上傳報名表範本">
-            <p class="mb-4 text-sm text-slate-500">目前支援「就是棒臺北」Excel、「主委盃 U9」Word 與「眼鏡蛇盃 U9」PDF。</p>
+            <p class="mb-4 text-sm text-slate-500">目前支援「就是棒臺北」Excel、「主委盃 U9」Word、「眼鏡蛇盃 U9」PDF 與「第二屆眼鏡蛇盃」Word。</p>
           </el-empty>
           <section v-else class="grid gap-4 md:grid-cols-2" aria-label="報名表範本庫">
             <article v-for="template in templates" :key="template.id" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

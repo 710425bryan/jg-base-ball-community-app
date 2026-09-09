@@ -1,4 +1,5 @@
 import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate'
+import { fillCobraWord, isCobraWordTemplate } from './cobraWordLogic.ts'
 import {
   DOMParser,
   XMLSerializer,
@@ -19,7 +20,7 @@ const RELNS = 'http://schemas.openxmlformats.org/package/2006/relationships'
 const OFFICE_RELNS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
 const WORDNS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
 
-export type RegistrationProfileKey = 'just_baseball_taipei' | 'chairperson_cup_u9' | 'cobra_cup_u9_pdf'
+export type RegistrationProfileKey = 'just_baseball_taipei' | 'chairperson_cup_u9' | 'cobra_cup_u9_pdf' | 'cobra_cup_docx'
 export type OoxmlRegistrationProfileKey = Exclude<RegistrationProfileKey, 'cobra_cup_u9_pdf'>
 
 export interface RegistrationProfile {
@@ -33,6 +34,15 @@ export interface RegistrationProfile {
 }
 
 export const REGISTRATION_PROFILES: Record<RegistrationProfileKey, RegistrationProfile> = {
+  cobra_cup_docx: {
+    key: 'cobra_cup_docx',
+    version: 1,
+    label: '第二屆眼鏡蛇盃',
+    fileType: 'docx',
+    minPlayers: 10,
+    maxPlayers: 14,
+    hasPhotoSlots: false
+  },
   just_baseball_taipei: {
     key: 'just_baseball_taipei',
     version: 1,
@@ -224,7 +234,9 @@ export const detectRegistrationProfile = (bytes: Uint8Array): RegistrationProfil
   }
 
   if (files['word/document.xml'] && /wordprocessingml\.document\.main\+xml/.test(contentTypes)) {
-    const documentText = parseXml(files['word/document.xml']).documentElement.textContent || ''
+    const document = parseXml(files['word/document.xml'])
+    if (isCobraWordTemplate(document)) return REGISTRATION_PROFILES.cobra_cup_docx
+    const documentText = document.documentElement.textContent || ''
     if (documentText.includes('主委盃幼兒軟式棒球錦標賽報名表') && documentText.includes('出生年月日')) {
       return REGISTRATION_PROFILES.chairperson_cup_u9
     }
@@ -582,12 +594,17 @@ export const generateRegistrationDocument = (
 ) => {
   const detected = detectRegistrationProfile(templateBytes)
   if (detected.key !== profileKey) throw new Error('範本 metadata 與檔案版型不一致')
-  if (input.players.length < 1 || input.players.length > detected.maxPlayers) {
-    throw new Error(`球員人數須為 1 至 ${detected.maxPlayers} 人`)
+  if (input.players.length < detected.minPlayers || input.players.length > detected.maxPlayers) {
+    throw new Error(`球員人數須為 ${detected.minPlayers} 至 ${detected.maxPlayers} 人`)
   }
 
   const files = unzipOoxml(templateBytes)
   if (profileKey === 'just_baseball_taipei') fillExcel(files, input)
+  else if (profileKey === 'cobra_cup_docx') {
+    const document = parseXml(files['word/document.xml'])
+    fillCobraWord(document, input)
+    files['word/document.xml'] = serializeXml(document)
+  }
   else fillWord(files, input)
   return zipSync(files as Zippable, { level: 1 })
 }

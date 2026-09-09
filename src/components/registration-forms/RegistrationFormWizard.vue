@@ -87,11 +87,12 @@ const staffMemberOptions = computed(() => props.members
   ))
 const capacity = computed(() => Number(props.template?.max_players || 0))
 const isExcelProfile = computed(() => props.template?.profile_key === 'just_baseball_taipei')
-const isCobraPdfProfile = computed(() => props.template?.profile_key === 'cobra_cup_u9_pdf')
+const isCobraProfile = computed(() => props.template?.profile_key === 'cobra_cup_u9_pdf'
+  || props.template?.profile_key === 'cobra_cup_docx')
 const profileConfig = computed(() => props.template ? REGISTRATION_FORM_PROFILES[props.template.profile_key] : null)
 const hasPhotoSlots = computed(() => profileConfig.value?.hasPhotoSlots === true)
-const requiresNationalId = computed(() => isExcelProfile.value || isCobraPdfProfile.value)
-const requiresGrade = computed(() => isExcelProfile.value || isCobraPdfProfile.value)
+const requiresNationalId = computed(() => isExcelProfile.value || isCobraProfile.value)
+const requiresGrade = computed(() => isExcelProfile.value || isCobraProfile.value)
 const validation = computed(() => props.template
   ? validateRegistrationForm(props.template.profile_key, capacity.value, fields.value, playerRows.value)
   : { blocking: ['尚未選擇範本'], warnings: [] })
@@ -161,7 +162,7 @@ const staffMissing = computed(() => [
   fields.value.manager_name,
   fields.value.contact_name,
   fields.value.contact_phone,
-  isCobraPdfProfile.value ? fields.value.address : 'not-required'
+  isCobraProfile.value ? fields.value.address : 'not-required'
 ].some((value) => !String(value || '').trim()))
 
 const close = () => {
@@ -225,7 +226,7 @@ const submit = () => {
     <section v-if="step === 0" aria-label="隊職員資料">
       <el-alert
         v-if="staffMissing"
-        :title="isCobraPdfProfile
+        :title="isCobraProfile
           ? '請完成隊名、領隊、總教練、管理、聯絡人、聯絡手機與地址'
           : '請完成隊名、領隊、總教練、管理、聯絡人與聯絡手機'"
         type="warning"
@@ -240,7 +241,7 @@ const submit = () => {
           <el-form-item label="隊名" required>
             <el-input v-model="fields.team_name" />
           </el-form-item>
-          <el-form-item v-if="isCobraPdfProfile" label="地址" required class="sm:col-span-2">
+          <el-form-item v-if="isCobraProfile" label="地址" required class="sm:col-span-2">
             <el-input v-model="fields.address" maxlength="120" show-word-limit />
           </el-form-item>
           <template v-for="config in staffFieldConfigs" :key="config.key">
@@ -403,7 +404,7 @@ const submit = () => {
                   <el-input v-model="player.overrides.school_name" />
                 </el-form-item>
               </template>
-              <el-form-item v-if="isCobraPdfProfile" label="備註（非必填）" class="sm:col-span-2">
+              <el-form-item v-if="isCobraProfile" label="備註（非必填）" class="sm:col-span-2">
                 <el-input v-model="player.overrides.notes" maxlength="30" show-word-limit />
               </el-form-item>
             </div>

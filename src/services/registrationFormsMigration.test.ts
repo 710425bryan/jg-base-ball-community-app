@@ -15,6 +15,14 @@ const pdfProfileSource = readFileSync(
 )
 
 describe('registration forms migration', () => {
+  it('adds the 14-player photo-free Cobra Word profile while preserving existing profiles', () => {
+    const migration = readFileSync(new URL('../../supabase/migrations/20260909072622_registration_form_cobra_docx_profile.sql', import.meta.url), 'utf8')
+    for (const key of ['just_baseball_taipei', 'chairperson_cup_u9', 'cobra_cup_u9_pdf', 'cobra_cup_docx']) {
+      expect(migration).toContain(`profile_key = '${key}'`)
+    }
+    expect(migration).toContain("file_type = 'docx' and max_players = 14 and has_photo_slots = false")
+    expect(migration).not.toMatch(/disable row level security|create policy|grant |update storage/i)
+  })
   it('creates metadata and privacy-minimized generation log tables with RLS', () => {
     expect(source).toContain('create table if not exists public.registration_form_templates')
     expect(source).toContain('create table if not exists public.registration_form_generation_logs')

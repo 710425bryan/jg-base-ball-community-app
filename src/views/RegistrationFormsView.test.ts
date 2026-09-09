@@ -109,6 +109,17 @@ describe('RegistrationFormsView', () => {
     expect(vm.wizardOpen).toBe(true)
   })
 
+  it('opens the 14-player Cobra Word template through its event', async () => {
+    mocks.fetchTemplates.mockResolvedValue([{ ...template, name: '第二屆眼鏡蛇盃', profile_key: 'cobra_cup_docx', file_type: 'docx', max_players: 14, has_photo_slots: false }])
+    const wrapper = shallowMount(RegistrationFormsView, { global: { stubs } })
+    await flushPromises()
+    const vm = wrapper.vm as any
+    const cobra = vm.templatesForEvent(vm.events[0])[0]
+    expect(cobra).toMatchObject({ profile_key: 'cobra_cup_docx', max_players: 14, has_photo_slots: false })
+    await vm.openWizard(vm.events[0], cobra)
+    expect(vm.wizardOpen).toBe(true)
+  })
+
   it('always sends the selected event id with the generate request', async () => {
     const wrapper = shallowMount(RegistrationFormsView, { global: { stubs } })
     await flushPromises()

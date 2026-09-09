@@ -241,7 +241,7 @@ const validatePlayers = (profileKey: RegistrationProfileKey, players: DocumentPl
     if (!player.name || !player.jersey_number || !/^\d{4}-\d{2}-\d{2}/.test(player.birth_date)) {
       throw jsonResponse({ success: false, error: `${prefix}缺少姓名、背號或生日` }, 400)
     }
-    if (profileKey === 'just_baseball_taipei' || profileKey === 'cobra_cup_u9_pdf') {
+    if (profileKey === 'just_baseball_taipei' || profileKey === 'cobra_cup_u9_pdf' || profileKey === 'cobra_cup_docx') {
       if (!player.national_id || !player.grade) {
         throw jsonResponse({ success: false, error: `${prefix}缺少身分證或年級` }, 400)
       }
@@ -332,7 +332,7 @@ const handleGenerate = async (payload: any, userId: string, userClient: Supabase
     throw jsonResponse({ success: false, error: `此版型最多 ${profile.maxPlayers} 人` }, 400)
   }
   const fields = normalizeStaffFields(payload?.fields)
-  if (profileKey === 'cobra_cup_u9_pdf' && !fields.address) {
+  if ((profileKey === 'cobra_cup_u9_pdf' || profileKey === 'cobra_cup_docx') && !fields.address) {
     throw jsonResponse({ success: false, error: '地址為必填' }, 400)
   }
   const players = await buildDocumentPlayers(userClient, selections, profile.hasPhotoSlots)

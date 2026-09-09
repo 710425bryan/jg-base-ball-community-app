@@ -18,7 +18,7 @@ description: "Competition registration, reusable template, roster selection, OOX
 5. 若改權限或路由，讀 `src/router/index.ts`、`src/layouts/MainLayout.vue`、`src/components/RolePermissionsManager.vue` 與 `jg-baseball-auth-permissions` skill。
 6. 若改完整名單欄位，讀 `src/stores/playerRoster.ts`、`src/services/playerRosterApi.ts` 與 `jg-baseball-roster-users-team-groups` skill。
 7. 若改 DB / Storage，讀 `supabase_registration_forms_migration.sql`、`supabase/migrations/*registration_form_events.sql` 與 `docs/MIGRATIONS.md`。
-8. 若改產檔，讀 `supabase/functions/registration-form-documents/index.ts`、`logic.ts`、`pdfLogic.ts`、對應測試與 `docs/EDGE_FUNCTIONS.md`。
+8. 若改產檔，讀 `supabase/functions/registration-form-documents/index.ts`、`logic.ts`、`cobraWordLogic.ts`、`pdfLogic.ts`、對應測試與 `docs/EDGE_FUNCTIONS.md`。
 
 ## 固定安全邊界
 
@@ -40,6 +40,7 @@ description: "Competition registration, reusable template, roster selection, OOX
 - 只接受 `.xlsx` / `.docx` / `.pdf` 及下列 profile：
   - `just_baseball_taipei@1`：30 人、Excel 球員資料／照片工作表。
   - `chairperson_cup_u9@1`：20 人、Word 表格／照片格。
+  - `cobra_cup_docx@1`：第二屆眼鏡蛇盃、10–14 人、1 頁 Word，六欄球員表格，沒有照片格。
   - `cobra_cup_u9_pdf@1`：眼鏡蛇盃 U9、10–14 人、6 頁 A4 PDF，第 6 頁報名表，沒有照片格。
 - 未知結構要回「尚未支援」，不可只用副檔名判斷成功。
 - OOXML 原始 ZIP 上限 10 MB、中央目錄 500 entries、總解壓 50 MB；先檢查中央目錄再解壓。
@@ -48,6 +49,7 @@ description: "Competition registration, reusable template, roster selection, OOX
 - 照片只允許同一 Supabase 專案的 `avatars` bucket，單張最多 1 MB、JPEG / PNG；等比例縮放、置中、不裁切。
 - Excel 投打只輸出 `R / L`；「左右開弓」或同時含左右的值必須阻擋並由使用者人工選擇。
 - `portrait_auth` 是布林來源；未授權或缺照片只顯示警告並清空照片格，不阻擋產檔。
+- 第二屆眼鏡蛇盃 Word 由 `cobraWordLogic.ts` 辨識原檔的標題、隊職員段落、六欄表頭、14 筆球員列與人數備註；隊址、背號、姓名、生日、身分證及年級必填，備註選填，沒有照片或守位。保留原表格、頁面、標題、備註及其他 ZIP parts；完整年級（如「國小一年級」「幼稚園大班」）在窄欄內分為學制與年級兩行，使用 9–10 pt 字級並關閉該段落行格線對齊，保留完整文字與原列高；其他過長文字回報錯誤，不靜默截斷。
 - 眼鏡蛇盃 PDF 只接受 SHA-256 `a25dbfa7c561c7f320557602b29a46fd43944821f9847e70ca2ece5fe882a8c3` 的主辦單位原檔；保留第 1–5 頁，只在第 6 頁固定表格座標覆寫資料。
 - 眼鏡蛇盃 PDF 另要求隊址與每位球員的姓名、出生日期、身分證、年級，備註選填；文字必須縮小至格內，無法容納時阻擋產檔，不可靜默截斷。
 - PDF 中文字型使用 justfont 官方固定 commit 的 `jf-openhuninn-2.1.ttf`，須驗證 SHA-256 `9d5bf4932d31fe94c18cd8cfddc98bc1b14ce10f4e354c682179db290a99c825`。必須嵌入完整字型；目前 pdf-lib subset 會造成中文字形遺失，不可開啟。
@@ -73,7 +75,7 @@ description: "Competition registration, reusable template, roster selection, OOX
 - DB / Edge boundary：
   `pnpm exec vitest run src/services/registrationFormsMigration.test.ts src/services/registrationFormDocumentsEdge.test.ts`
 - OOXML / PDF：
-  `pnpm exec vitest run supabase/functions/registration-form-documents/logic.test.ts supabase/functions/registration-form-documents/pdfLogic.test.ts`
+  `pnpm exec vitest run supabase/functions/registration-form-documents/logic.test.ts supabase/functions/registration-form-documents/cobraWordLogic.test.ts supabase/functions/registration-form-documents/pdfLogic.test.ts`
 - 共用權限／導覽：跑 `src/router/index.test.ts`、`src/layouts/MainLayout.test.ts`、`src/components/RolePermissionsManager.test.ts`。
 - 型別與建置：`pnpm exec vue-tsc --noEmit`、`pnpm build`、`git diff --check`。
-- 實檔：三個已知附件各驗最少人數與滿額；Word 需 render 全頁，Excel 需 inspect 目標 range / drawings，確認缺照格空白、照片置中、不跨頁且版式／列印設定保留。PDF 必須 render 全 6 頁並驗證第 1–5 頁與原檔視覺一致、第 6 頁滿額文字不重疊或截斷。
+- 實檔：新增／變更版型的已知附件各驗最少人數與滿額；Word 需 render 全頁，Excel 需 inspect 目標 range / drawings，確認缺照格空白、照片置中、不跨頁且版式／列印設定保留。PDF 必須 render 全 6 頁並驗證第 1–5 頁與原檔視覺一致、第 6 頁滿額文字不重疊或截斷。

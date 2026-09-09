@@ -6,6 +6,14 @@ import type {
 } from '@/types/registrationForm'
 
 export const REGISTRATION_FORM_PROFILES = {
+  cobra_cup_docx: {
+    label: '第二屆眼鏡蛇盃',
+    fileType: 'docx',
+    minPlayers: 10,
+    maxPlayers: 14,
+    hasPhotoSlots: false,
+    requiredPlayerFields: ['jersey_number', 'birth_date', 'national_id', 'grade']
+  },
   just_baseball_taipei: {
     label: '就是棒臺北',
     fileType: 'xlsx',
@@ -115,7 +123,7 @@ const missingStaffFields = (profileKey: RegistrationFormProfileKey, fields: Regi
     ['contact_name', '聯絡人'],
     ['contact_phone', '聯絡手機']
   ]
-  if (profileKey === 'cobra_cup_u9_pdf') required.push(['address', '地址'])
+  if (profileKey === 'cobra_cup_u9_pdf' || profileKey === 'cobra_cup_docx') required.push(['address', '地址'])
   return required.filter(([key]) => !String(fields[key] || '').trim()).map(([, label]) => label)
 }
 
@@ -141,7 +149,7 @@ export const validateRegistrationForm = (
     if (!player.overrides.jersey_number) blocking.push(`${label}缺少背號`)
     if (!/^\d{4}-\d{2}-\d{2}$/.test(player.overrides.birth_date)) blocking.push(`${label}缺少有效生日`)
 
-    if (profileKey === 'just_baseball_taipei' || profileKey === 'cobra_cup_u9_pdf') {
+    if (profileKey === 'just_baseball_taipei' || profileKey === 'cobra_cup_u9_pdf' || profileKey === 'cobra_cup_docx') {
       if (!player.overrides.national_id) blocking.push(`${label}缺少身分證`)
       if (!player.overrides.grade) blocking.push(`${label}缺少年級`)
     }

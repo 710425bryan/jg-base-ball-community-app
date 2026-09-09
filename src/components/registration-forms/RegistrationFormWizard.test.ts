@@ -202,9 +202,9 @@ describe('RegistrationFormWizard', () => {
     expect(payload.players[0]).not.toHaveProperty('name')
   })
 
-  it('requires the Cobra Cup address and exposes PDF-specific player fields without photo slots', () => {
+  it.each(['cobra_cup_u9_pdf', 'cobra_cup_docx'] as const)('requires address and player fields without photos for %s', (profileKey) => {
     const wrapper = mount(RegistrationFormWizard, {
-      props: { modelValue: true, template: cobraPdfTemplate, members },
+      props: { modelValue: true, template: { ...cobraPdfTemplate, profile_key: profileKey, file_type: profileKey === 'cobra_cup_docx' ? 'docx' : 'pdf' }, members },
       global: { stubs }
     })
     const vm = wrapper.vm as any
@@ -215,7 +215,7 @@ describe('RegistrationFormWizard', () => {
       contact_name: '聯絡人',
       contact_phone: '0900'
     })
-    expect(vm.isCobraPdfProfile).toBe(true)
+    expect(vm.isCobraProfile).toBe(true)
     expect(vm.requiresNationalId).toBe(true)
     expect(vm.requiresGrade).toBe(true)
     expect(vm.hasPhotoSlots).toBe(false)

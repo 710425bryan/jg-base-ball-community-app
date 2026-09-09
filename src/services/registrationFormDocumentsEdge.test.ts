@@ -11,6 +11,12 @@ const denoConfig = JSON.parse(readFileSync(
 ))
 
 describe('registration-form-documents Edge Function boundary', () => {
+  it('requires address, national ID and grade for the Cobra Word profile', () => {
+    const validationSection = source.slice(source.indexOf('const validatePlayers'), source.indexOf('const avatarStoragePath'))
+    expect(validationSection).toContain("profileKey === 'cobra_cup_docx'")
+    expect(validationSection).toContain('!player.national_id || !player.grade')
+    expect(source).toContain("(profileKey === 'cobra_cup_u9_pdf' || profileKey === 'cobra_cup_docx') && !fields.address")
+  })
   it('keeps pinned document dependencies isolated to this function', () => {
     expect(denoConfig.imports).toEqual({
       '@pdf-lib/fontkit': 'npm:@pdf-lib/fontkit@1.1.1',

@@ -1,5 +1,5 @@
 export type RegistrationFormFileType = 'xlsx' | 'docx' | 'pdf'
-export type RegistrationFormProfileKey = 'just_baseball_taipei' | 'chairperson_cup_u9' | 'cobra_cup_u9_pdf'
+export type RegistrationFormProfileKey = 'just_baseball_taipei' | 'chairperson_cup_u9' | 'cobra_cup_u9_pdf' | 'cobra_cup_docx'
 export type RegistrationPosition = 'P' | 'C' | 'IF' | 'OF' | ''
 export type RegistrationFormEventStatus = 'draft' | 'in_progress' | 'submitted' | 'closed'
 

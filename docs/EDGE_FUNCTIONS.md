@@ -68,6 +68,7 @@
 | `supabase/functions/resolve-location/logic.ts` | 地點解析純邏輯 | 有 Vitest coverage |
 | `supabase/functions/registration-form-documents/index.ts` | 報名表範本上傳／刪除與賽事原格式 binary 產檔 | bearer JWT；上傳需 `registration_forms:CREATE`、刪除需 `DELETE`、產檔需 `registration_forms:CREATE + players:EDIT`；產檔另驗證 `event_id + template_id` 關聯並拒絕已截止事件；multipart / Storage key 使用 ASCII 固定檔名，中文原檔名另存 metadata，實際類型由內容與指紋驗證的已知 profile 決定；完整名單只走 user-scoped `list_team_members_for_edit()`，輸出 `no-store` 且不保存 |
 | `supabase/functions/registration-form-documents/logic.ts` | OOXML ZIP 安全、已知版型偵測、Excel／Word 映射與照片 relationships | 10 MB 原檔、50 MB 解壓、500 entries；拒絕 macro / OLE / 外部 relationship / 路徑穿越；有 Vitest 與兩份實檔 QA |
+| `supabase/functions/registration-form-documents/cobraWordLogic.ts` | 第二屆眼鏡蛇盃 Word 結構辨識與欄位填寫 | 10–14 人、無照片；標題／表頭／18 列／六欄結構檢查；只改目標段落，完整年級分兩行保留文字與原列高，其他過長文字阻擋；原附件 XML fixture 與 10／14 人 Word 全頁 QA |
 | `supabase/functions/registration-form-documents/pdfLogic.ts` | 眼鏡蛇盃 PDF 指紋驗證、原頁保留與第 6 頁報名欄位覆寫 | 只接受指定 6 頁 A4 原檔 SHA-256；10–14 人、無照片；完整中文字型以固定官方 URL / SHA-256 取得並快取；有 Vitest 與全頁實檔 render QA |
 
 ## 本地注意事項
