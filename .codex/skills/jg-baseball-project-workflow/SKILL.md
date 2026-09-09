@@ -77,5 +77,6 @@ description: "Project-specific workflow for jg-base-ball-community-app. Use when
 
 - 本專案的安全邊界以 DB policy / RLS / `security definer` RPC 為主，前端顯示控制只是輔助。
 - 變更公開首頁、登入前流程、或任何匿名可達頁面時，預設只能讀公開安全 RPC；不要直接查受保護 raw table。
+- 公開入隊聯絡視窗目前只提供 LINE QR Code 與對應連結，不收集表單或寫入申請／派送通知；調整此入口時同步檢查 `publicRecruitmentContent.ts` 與 Landing 招募說明。原始 QR Code 不可重繪，截圖以 CSS 裁切並驗證實際畫面可解碼。
 - 權限相關功能若新增 `feature/action`，要同步更新 DB helper、migration、前端 store、AI 文件。
 - `team_members_safe` 是預設展示名單來源；只有真的需要完整個資時才查 `team_members`，並確認 DB 權限與畫面權限一致。

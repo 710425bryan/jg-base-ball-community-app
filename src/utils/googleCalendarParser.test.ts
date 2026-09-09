@@ -310,25 +310,60 @@ END:VCALENDAR`)
     expect(playerCheck.items[3].message).toContain('背號 #88 命中多位隊員')
   })
 
-  it('ignores no-fee roster members when checking calendar players', () => {
+  it.each(['球員', '校隊'])('matches no-fee %s by name or unique number', (role) => {
     const playerCheck = checkCalendarPlayersAgainstRoster(
       [
-        { name: '免收費', number: '99' }
+        { name: '免收費', number: '99' },
+        { name: '舊姓名', number: '99' }
       ],
       [
-        { id: 'p-no-fee', name: '免收費', jersey_number: '99', role: '球員', status: '在隊', fee_billing_mode: 'no_fee' }
+        { id: 'p-no-fee', name: '免收費', jersey_number: '99', role, status: '在隊', fee_billing_mode: 'no_fee' }
       ]
     )
 
-    expect(playerCheck.total).toBe(1)
-    expect(playerCheck.matched).toBe(0)
+    expect(playerCheck.total).toBe(2)
+    expect(playerCheck.matched).toBe(2)
     expect(playerCheck.needsReview).toBe(0)
     expect(playerCheck.items[0]).toMatchObject({
-      status: 'unchecked',
+      status: 'matched',
       name: '免收費',
-      number: '99',
-      excludeFromPayload: true
+      number: '99'
     })
+    expect(playerCheck.items[1]).toMatchObject({ status: 'number_matched', name: '免收費', number: '99' })
+    expect(playerCheck.items.every((item) => !item.excludeFromPayload)).toBe(true)
+  })
+
+  it('keeps no-fee participants on create, restores omitted participants on update and skips an unchanged rerun', () => {
+    const parsed = parseMatchRecord({
+      id: 'no-fee-participants@google.com',
+      summary: 'U12 友誼賽 中港熊戰 vs 對手',
+      description: '參賽球員：\n18 一般球員\n99 免收費\n比賽費用：300',
+      location: '中港國小',
+      startRaw: '20260912T010000Z',
+      endRaw: '20260912T040000Z'
+    })
+    const options = {
+      minimumMatchDate: '2026-09-01',
+      rosterMembers: [
+        { id: 'normal', name: '一般球員', jersey_number: '18', role: '球員', status: '在隊', fee_billing_mode: 'role_default' },
+        { id: 'no-fee', name: '免收費', jersey_number: '99', role: '校隊', status: '在隊', fee_billing_mode: 'no_fee' }
+      ]
+    }
+    const [create] = planCalendarSync([], [parsed], options)
+    expect(create.action).toBe('create')
+    expect(create.payload).toMatchObject({
+      players: '一般球員,免收費',
+      match_fee_amount: 300,
+      lineup: [expect.objectContaining({ name: '一般球員' }), expect.objectContaining({ name: '免收費', number: '99' })]
+    })
+
+    const existing = buildExistingMatch('existing-no-fee', createMatchRecordInput(parsed, { players: [parsed.players[0]] }))
+    const [update] = planCalendarSync([existing], [parsed], options)
+    expect(update.action).toBe('update')
+    expect(update.payload.players).toBe('一般球員,免收費')
+    expect(update.payload.lineup).toEqual(expect.arrayContaining([expect.objectContaining({ name: '免收費' })]))
+    const [rerun] = planCalendarSync([{ ...existing, ...update.payload }], [parsed], options)
+    expect(rerun.action).toBe('skip')
   })
 
   it('plans create update and skip actions while backfilling legacy google ids', () => {

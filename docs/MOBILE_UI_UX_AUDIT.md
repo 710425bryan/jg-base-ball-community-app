@@ -4,9 +4,20 @@
 
 清單涵蓋 29 個登入後路由、27 個實作頁面；能力／體測列表與明細各自共用一套實作頁面。
 
-- 最後更新：2026-09-03
+- 最後更新：2026-09-07
 - 本輪範圍：P0 → P1 → P2 → P3 程式調整與自動檢查。
 - 本輪結論：自動檢查通過，因目前沒有可登入的一般 linked-member 與 ADMIN 裝置環境，全部維持「待驗收」。
+
+### 2026-09-07 公開入隊 LINE 聯絡視窗
+
+- 公開首頁的 `PublicJoinInquiryDialog` 改為兩張 LINE QR Code 與對應「開啟 LINE」連結，移除聯絡欄位與送出流程；截圖素材以 CSS 僅顯示 QR Code，保留原始碼點與掃描留白。手機單欄、桌機雙欄，沿用共用 Dialog 捲動與 footer，單一「關閉」操作維持品牌色與至少 44px。
+- 4 files／12 tests、`vue-tsc --noEmit` 與 production build 通過；agent-browser 已驗證公開入口、360／390／700／1280px、390px 大字模式、body 捲動及右上角／footer 關閉。圖片載入正常、無表單與水平溢出、手機操作至少 44px；從實際瀏覽器截圖解碼得到的兩個 LINE URL 與原始素材相同。原始圖片屬靜態資產，以畫面檢查與 QR 解碼替代 unit test；招募文案模組由 `LandingView.test.ts` 涵蓋。
+- 本次為公開頁局部調整；瀏覽器驗證完成，實體 iPhone safe area 與 LINE App 開啟仍待裝置驗收，狀態維持「待驗收」。未部署，未調整既有申請歷史或 DB policy。
+
+### 2026-09-07 待確認付款回報修改／刪除
+
+- `/my-payments` 新增 `PendingPaymentSubmissions` 與 `PendingPaymentEditDialog`，使用 Element Plus 金額、日期、文字與選單控制，以及共用 Dialog／footer；卡片只顯示修改、刪除兩個 44px 操作，刪除與付款差額皆二次確認。
+- 28 files／162 tests、117 項隔離 PostgreSQL 斷言、型別檢查與建置通過。agent-browser 模擬資料驗證 360／390／700／1280px，手機 Dialog 滿版、無橫向溢出，取消／儲存 44px；後五碼修改流程通過。仍待 staging／正式 migration、真實登入全流程與 iPhone 鍵盤／safe area 驗收，維持「待驗收」。詳見 `docs/specs/2026-09-07-pending-payment-submissions.md`。
 
 ### 2026-09-03 出缺勤管理球員搜尋
 

@@ -29,7 +29,6 @@ import {
   resolveMatchLeaveAbsenceEventTime,
   withoutLeaveRequestAbsentPlayers
 } from '@/utils/matchLeaveAbsences'
-import { isNoFeeBillingMember } from '@/utils/memberBilling'
 
 const props = defineProps<{
   modelValue: boolean
@@ -54,7 +53,6 @@ interface TeamMemberOption {
   role: string | null
   status: string | null
   jersey_number?: string | null
-  fee_billing_mode?: string | null
 }
 
 interface LiveBatterOption {
@@ -77,14 +75,15 @@ const visible = computed({
 const allMembers = ref<TeamMemberOption[]>([])
 const activeMembers = computed(() => allMembers.value.filter(m => m.status === '在隊' || !m.status))
 const coachOptions = computed(() => activeMembers.value.filter(m => m.role === '教練' || m.role === '管理群'))
+// Participation is independent of billing; the database excludes no-fee members from new fees.
 const playerOptions = computed(() =>
-  activeMembers.value.filter(m => (m.role === '球員' || m.role === '校隊') && !isNoFeeBillingMember(m))
+  activeMembers.value.filter(m => m.role === '球員' || m.role === '校隊')
 )
 
 onMounted(async () => {
   const { data } = await supabase
     .from('team_members_safe')
-    .select('id, name, role, status, jersey_number, fee_billing_mode')
+    .select('id, name, role, status, jersey_number')
     .order('role')
     .order('name')
   if (data) allMembers.value = data
@@ -159,31 +158,12 @@ const normalizePlayerSelection = (value: unknown) =>
     .map((name) => name.trim())
     .filter((name) => name && !isMatchFeePseudoPlayer(name))
 
-const noFeePlayerNames = computed(() =>
-  new Set(
-    allMembers.value
-      .filter(isNoFeeBillingMember)
-      .map((member) => member.name?.trim())
-      .filter((name): name is string => Boolean(name))
-  )
-)
-
-const isNoFeePlayerName = (name: unknown) =>
-  noFeePlayerNames.value.has(String(name ?? '').trim())
-
-const getBillablePlayerNames = (names: string[]) =>
-  names.filter((name) => !isNoFeePlayerName(name))
-
 const selectedPlayers = computed({
   get: () => normalizePlayerSelection(formData.value.players),
-  set: (val) => formData.value.players = getBillablePlayerNames(
-    val.filter((name) => !isMatchFeePseudoPlayer(name))
-  ).join(',')
+  set: (val) => formData.value.players = val.filter((name) => !isMatchFeePseudoPlayer(name)).join(',')
 })
 
 const cloneLineup = (lineup?: LineupEntry[]) => JSON.parse(JSON.stringify(Array.isArray(lineup) ? lineup : [])) as LineupEntry[]
-const filterBillableLineup = (lineup?: LineupEntry[]) =>
-  cloneLineup(lineup).filter((player) => !player.name || !isNoFeePlayerName(player.name))
 const cloneInningLogs = (logs?: InningLog[]) => JSON.parse(JSON.stringify(Array.isArray(logs) ? logs : [])) as InningLog[]
 const cloneBattingStats = (stats?: BattingStat[]) => JSON.parse(JSON.stringify(Array.isArray(stats) ? stats : [])) as BattingStat[]
 const clonePitchingStats = (stats?: PitchingStat[]) => JSON.parse(JSON.stringify(Array.isArray(stats) ? stats : [])) as PitchingStat[]
@@ -304,7 +284,7 @@ const removeAbsent = (index: number) => {
 const syncLeaveRequestAbsences = async () => {
   const runId = ++leaveAbsenceSyncRunId
   const matchDate = formData.value.match_date
-  const playerNames = getBillablePlayerNames(selectedPlayers.value)
+  const playerNames = selectedPlayers.value
 
   leaveAbsenceSyncError.value = ''
 
@@ -376,7 +356,7 @@ const handleLineupPlayerChange = (lineupEntry: LineupEntry, playerName: string) 
 
 const availablePlayerNames = computed(() => {
   const names = new Set<string>()
-  getBillablePlayerNames(selectedPlayers.value).forEach((name) => names.add(name))
+  selectedPlayers.value.forEach((name) => names.add(name))
   return Array.from(names).filter(Boolean).sort((a, b) => a.localeCompare(b, 'zh-Hant'))
 })
 
@@ -596,11 +576,11 @@ const confirmLineupOverwriteIfNeeded = async () => {
 
 const getLineupRosterCandidates = () =>
   buildRosterCandidates({
-    selectedPlayers: getBillablePlayerNames(selectedPlayers.value),
+    selectedPlayers: selectedPlayers.value,
     playerOptions: playerOptions.value,
     lineups: [
-      filterBillableLineup(formData.value.lineup),
-      filterBillableLineup(formData.value.current_lineup)
+      cloneLineup(formData.value.lineup),
+      cloneLineup(formData.value.current_lineup)
     ]
   })
 
@@ -703,19 +683,19 @@ const handleLineupPhotoImport = async (event: Event) => {
 
 const currentPitcher = computed(() =>
   activeGameLineup.value.find((player) =>
-    player.position === '1' && player.name && !isNoFeePlayerName(player.name)
+    player.position === '1' && player.name
   )?.name || ''
 )
 
 const matchAudioRoster = computed(() =>
   buildMatchAudioRoster({
-    players: getBillablePlayerNames(normalizePlayerSelection(formData.value.players)).join(','),
+    players: selectedPlayers.value.join(','),
     lineups: [
-      filterBillableLineup(formData.value.lineup),
-      filterBillableLineup(formData.value.current_lineup)
+      cloneLineup(formData.value.lineup),
+      cloneLineup(formData.value.current_lineup)
     ],
-    battingStats: formData.value.batting_stats?.filter((stat) => !isNoFeePlayerName(stat.name)),
-    pitchingStats: formData.value.pitching_stats?.filter((stat) => !isNoFeePlayerName(stat.name)),
+    battingStats: formData.value.batting_stats,
+    pitchingStats: formData.value.pitching_stats,
   })
 )
 
@@ -735,12 +715,12 @@ const liveBatterOptions = computed<LiveBatterOptionGroup[]>(() => {
 
   const pitcherOptions: LiveBatterOption[] = []
   activeGameLineup.value.forEach((player) => {
-    if (!player.name || isNoFeePlayerName(player.name) || !isPitcher(player) || seen.has(player.name)) return
+    if (!player.name || !isPitcher(player) || seen.has(player.name)) return
     seen.add(player.name)
     pitcherOptions.push(makeOption(player.name, `P ${player.name}`, player.number || ''))
   })
   formData.value.pitching_stats?.forEach((stat) => {
-    if (!stat.name || isNoFeePlayerName(stat.name) || seen.has(stat.name)) return
+    if (!stat.name || seen.has(stat.name)) return
     seen.add(stat.name)
     pitcherOptions.push(makeOption(stat.name, `P ${stat.name}`, stat.number || getStatPlayerNumber(stat.name)))
   })
@@ -748,7 +728,7 @@ const liveBatterOptions = computed<LiveBatterOptionGroup[]>(() => {
 
   const lineupOptions: LiveBatterOption[] = []
   activeGameLineup.value.forEach((player) => {
-    if (!player.name || isNoFeePlayerName(player.name) || seen.has(player.name)) return
+    if (!player.name || seen.has(player.name)) return
     seen.add(player.name)
     const order = Number(player.order)
     const orderLabel = Number.isFinite(order) && order > 0 ? `${order}棒 ` : ''
@@ -1085,9 +1065,7 @@ const handleSave = async () => {
     }
     formData.value.line_score_data = cloneLineScoreData(formData.value.line_score_data)
     formData.value.tournament_name = formData.value.tournament_name?.trim() || null
-    formData.value.players = getBillablePlayerNames(
-      normalizePlayerSelection(formData.value.players)
-    ).join(',')
+    formData.value.players = normalizePlayerSelection(formData.value.players).join(',')
     formData.value.match_fee_amount = Number(formData.value.match_fee_amount || 0) > 0
       ? Math.trunc(Number(formData.value.match_fee_amount))
       : null

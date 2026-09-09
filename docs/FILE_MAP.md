@@ -83,7 +83,7 @@
 
 | 檔案 | 用途 | 後端依賴 |
 | --- | --- | --- |
-| `src/services/publicLanding.ts` | 公開首頁摘要與匿名入隊申請 | `get_public_landing_snapshot()`；申請只 INSERT、不讀回私密資料 |
+| `src/services/publicLanding.ts` | 公開首頁摘要與保留的匿名入隊申請 service | `get_public_landing_snapshot()`；目前 LINE 聯絡視窗不呼叫申請 service |
 | `src/services/dashboardAttendance.ts` | 後台大廳今日訓練點名狀態，含今日多筆點名單 | `get_dashboard_today_attendance_status()` |
 | `src/services/myHome.ts` | 個人化首頁摘要與 linked member 一週內 Next Up 比賽 RPC | `get_my_home_snapshot()` / `get_my_home_next_event()` |
 | `src/services/myLeaveRequests.ts` | 我的假單 RPC；一般帳號 linked-only、ADMIN 可操作所有有效成員 | `list_my_leave_members()` 等 |
@@ -222,6 +222,14 @@
 
 ## 9. Feature Components
 
+### Public Landing
+
+| 檔案 | 用途 |
+| --- | --- |
+| `src/components/home/PublicJoinInquiryDialog.vue` | LINE QR Code 聯絡視窗、截圖裁切、對應加好友連結；無聯絡表單或送出流程 |
+| `src/components/home/publicRecruitmentContent.ts` | 招募重點、LINE 體驗步驟與 FAQ；由 `src/views/LandingView.test.ts` 涵蓋 |
+| `src/assets/line-contact/*` | 使用者提供的兩張原始 LINE QR Code 圖片；第二張由視窗裁切顯示 |
+
 ### Registration Forms
 
 | 檔案 | 用途 |
@@ -286,6 +294,10 @@
 | `src/components/payments/PaymentAccountInfoCard.vue` | 付款帳戶資訊卡 |
 | `src/components/payments/PaymentMemberSelector.vue` | `/my-payments` 單一欄位成員選擇搜尋；手機與桌機共用自訂正規化比對 |
 | `src/components/payments/PaymentSubmissionSummary.vue` | 付款回報金額 / 餘額扣抵摘要 |
+| `src/components/payments/PendingPaymentSubmissions.vue` | 原回報者待確認清單、修改入口、整筆撤回及重新整理 |
+| `src/components/payments/PendingPaymentEditDialog.vue` | 更正匯款資料、逐人餘額／實付、差額原因及版本衝突處理 |
+| `src/services/pendingPayments.ts`、`src/types/pendingPayments.ts` | 三種付款來源共用的待確認回報 RPC 與型別 |
+| `tests/database/pendingPayments.integration.mjs` | 隔離 PostgreSQL 測試：本人／linked member／有效帳號、審核與版本保護、應收快照、多人季費、刪除狀態恢復 |
 | `src/components/payments/QuarterlyPaymentAmountControls.vue` | 單人／多球員隊費的唯讀系統應收、餘額扣抵、實際付款與差額控制 |
 
 ### Leave
@@ -304,7 +316,7 @@
 
 | 檔案 | 用途 |
 | --- | --- |
-| `src/components/match-records/MatchFormDialog.vue` | 比賽新增 / 編輯 |
+| `src/components/match-records/MatchFormDialog.vue` | 比賽新增 / 編輯；不收費球員仍可加入參賽名單、陣容、即時 / 語音紀錄及打擊 / 投球成績 |
 | `src/components/match-records/MatchDetailDialog.vue` | 比賽詳情 |
 | `src/components/match-records/SyncCalendarDialog.vue` | Google Calendar / iCal 同步 |
 | `src/components/match-records/MatchLineupTab.vue` | 陣容 |

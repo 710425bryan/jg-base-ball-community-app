@@ -1,19 +1,21 @@
 // @vitest-environment jsdom
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import MatchFormDialog from '../MatchFormDialog.vue'
 import { previewMatchLeaveAbsences } from '@/services/matchLeaveAbsences'
 
+const matchesStore = vi.hoisted(() => ({
+  matches: [],
+  loading: false,
+  fetchMatch: vi.fn(),
+  createMatch: vi.fn(),
+  updateMatch: vi.fn(),
+  deleteMatch: vi.fn()
+}))
+
 vi.mock('@/stores/matches', () => ({
-  useMatchesStore: () => ({
-    matches: [],
-    loading: false,
-    fetchMatch: vi.fn(),
-    createMatch: vi.fn(),
-    updateMatch: vi.fn(),
-    deleteMatch: vi.fn()
-  })
+  useMatchesStore: () => matchesStore
 }))
 
 const teamMembersChain = {
@@ -22,7 +24,10 @@ const teamMembersChain = {
   then: (resolve: (value: unknown) => void) => resolve({
     data: [
       { id: 'p1', name: '王大雷', role: '球員', status: '在隊', jersey_number: '18', fee_billing_mode: 'role_default', avatar_url: 'https://example.com/wang.jpg' },
-      { id: 'p-no-fee', name: '免收費', role: '球員', status: '在隊', jersey_number: '99', fee_billing_mode: 'no_fee', avatar_url: 'https://example.com/no-fee.jpg' }
+      { id: 'p-no-fee', name: '免收費', role: '球員', status: '在隊', jersey_number: '99', fee_billing_mode: 'no_fee', avatar_url: 'https://example.com/no-fee.jpg' },
+      { id: 'school-no-fee', name: '免收費校隊', role: '校隊', status: '在隊', jersey_number: '98', fee_billing_mode: 'no_fee' },
+      { id: 'left-no-fee', name: '退隊球員', role: '球員', status: '退隊', fee_billing_mode: 'no_fee' },
+      { id: 'coach', name: '教練', role: '教練', status: '在隊', fee_billing_mode: 'no_fee' }
     ]
   })
 }
@@ -66,16 +71,17 @@ const ElButtonStub = {
 }
 
 beforeEach(() => {
+  vi.clearAllMocks()
   vi.mocked(previewMatchLeaveAbsences).mockReset()
   vi.mocked(previewMatchLeaveAbsences).mockResolvedValue([])
 })
 
-const mountDialog = async () => {
+const mountDialog = async (mode: 'add' | 'edit' = 'add') => {
   const wrapper = mount(MatchFormDialog, {
     props: {
       modelValue: true,
-      matchId: null,
-      mode: 'add'
+      matchId: mode === 'edit' ? 'existing-match' : null,
+      mode
     },
     global: {
       stubs: {
@@ -165,15 +171,15 @@ describe('MatchFormDialog sync current lineup editor', () => {
   })
 })
 
-describe('MatchFormDialog no-fee roster exclusions', () => {
-  it('excludes no-fee players from match roster candidates', async () => {
+describe('MatchFormDialog no-fee match participation', () => {
+  it('includes active no-fee players and school team members in roster candidates', async () => {
     const wrapper = await mountDialog()
     const vm = wrapper.vm as any
 
     await Promise.resolve()
     await nextTick()
 
-    expect(vm.playerOptions.map((player: any) => player.name)).toEqual(['王大雷'])
+    expect(vm.playerOptions.map((player: any) => player.name)).toEqual(['王大雷', '免收費', '免收費校隊'])
 
     vm.formData.players = '王大雷,免收費'
     vm.formData.lineup = [
@@ -193,9 +199,73 @@ describe('MatchFormDialog no-fee roster exclusions', () => {
     ]
     await nextTick()
 
-    expect(vm.availablePlayerNames).toEqual(['王大雷'])
-    expect(vm.getLineupRosterCandidates().map((player: any) => player.name)).toEqual(['王大雷'])
-    expect(vm.matchAudioRoster.map((player: any) => player.name)).toEqual(['王大雷'])
+    expect(vm.availablePlayerNames).toEqual(expect.arrayContaining(['王大雷', '免收費']))
+    expect(vm.getLineupRosterCandidates()).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: '免收費', uniform_number: '99' })
+    ]))
+    expect(vm.matchAudioRoster.map((player: any) => player.name)).toEqual(expect.arrayContaining(['王大雷', '免收費']))
+    expect(vm.currentPitcher).toBe('免收費')
+    expect(vm.liveBatterOptions.flatMap((group: any) => group.options)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: '免收費', number: '99' })
+    ]))
+  })
+
+  it('allows no-fee selection while still removing fee text from the roster', async () => {
+    const wrapper = await mountDialog()
+    const vm = wrapper.vm as any
+
+    vm.selectedPlayers = ['王大雷', '免收費', '免收費校隊', '比賽費用:300', '300元']
+    await nextTick()
+
+    expect(vm.formData.players).toBe('王大雷,免收費,免收費校隊')
+    await vm.syncLeaveRequestAbsences()
+    expect(previewMatchLeaveAbsences).toHaveBeenLastCalledWith(
+      vm.formData.match_date, ['王大雷', '免收費', '免收費校隊'], ''
+    )
+  })
+
+  it.each(['add', 'edit'] as const)('preserves no-fee players, lineups and scores when saving in %s mode', async (mode) => {
+    const wrapper = await mountDialog(mode)
+    const vm = wrapper.vm as any
+    await flushPromises()
+    Object.assign(vm.formData, {
+      match_name: '不收費球員參賽測試',
+      opponent: '對手',
+      players: '王大雷,免收費,免收費校隊,比賽費用:300,300元',
+      match_fee_amount: 300,
+      lineup: [{ order: 1, position: '1', name: '免收費', number: '99' }],
+      current_lineup: [{ order: 1, position: '1', name: '免收費校隊', number: '98' }]
+    })
+    vm.loadLineupToStats()
+    vm.loadCurrentLineupToPitchingStats()
+    vm.formData.batting_stats[0].h1 = 2
+    vm.formData.pitching_stats[0].so = 3
+
+    if (mode === 'edit') {
+      matchesStore.fetchMatch.mockResolvedValueOnce(JSON.parse(JSON.stringify({
+        ...vm.formData, id: 'existing-match'
+      })))
+      await wrapper.setProps({ modelValue: false })
+      await wrapper.setProps({ modelValue: true })
+      await flushPromises()
+      expect(matchesStore.fetchMatch).toHaveBeenCalledWith('existing-match')
+      expect(vm.selectedPlayers).toEqual(['王大雷', '免收費', '免收費校隊'])
+    }
+
+    await vm.handleSave()
+
+    const saveMock = mode === 'add' ? matchesStore.createMatch : matchesStore.updateMatch
+    expect(saveMock).toHaveBeenCalledTimes(1)
+    const payload = saveMock.mock.calls[0][mode === 'add' ? 0 : 1]
+    expect(payload).toMatchObject({
+      players: '王大雷,免收費,免收費校隊',
+      match_fee_amount: 300,
+      lineup: [expect.objectContaining({ name: '免收費' })],
+      current_lineup: [expect.objectContaining({ name: '免收費校隊' })],
+      batting_stats: [expect.objectContaining({ name: '免收費', number: '99', h1: 2 })],
+      pitching_stats: [expect.objectContaining({ name: '免收費校隊', number: '98', so: 3 })]
+    })
+    if (mode === 'edit') expect(matchesStore.updateMatch.mock.calls[0][0]).toBe('existing-match')
   })
 })
 

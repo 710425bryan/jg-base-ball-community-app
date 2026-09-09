@@ -63,6 +63,12 @@
 
           <PaymentAccountInfoCard />
 
+          <PendingPaymentSubmissions
+            :member-id="selectedMemberId"
+            :refresh-key="pendingPaymentRefreshKey"
+            @changed="refreshCurrentMemberData"
+          />
+
           <section
             v-if="paymentReminderCards.length > 0"
             id="payment-reminders-section"
@@ -560,6 +566,7 @@ import AppDialogFooter from '@/components/common/AppDialogFooter.vue'
 import PaymentMemberSelector from '@/components/payments/PaymentMemberSelector.vue'
 import PaymentAccountInfoCard from '@/components/payments/PaymentAccountInfoCard.vue'
 import PaymentSubmissionSummary from '@/components/payments/PaymentSubmissionSummary.vue'
+import PendingPaymentSubmissions from '@/components/payments/PendingPaymentSubmissions.vue'
 import QuarterlyPaymentAmountControls from '@/components/payments/QuarterlyPaymentAmountControls.vue'
 import {
   createMyQuarterlyPaymentSubmission,
@@ -724,6 +731,7 @@ const submissions = ref<MyPaymentSubmission[]>([])
 const selectedMemberId = ref('')
 const isBootstrapping = ref(true)
 const isRefreshing = ref(false)
+const pendingPaymentRefreshKey = ref(0)
 const isPreparingCreateDialog = ref(false)
 const isCreateDialogOpen = ref(false)
 const isSubmitting = ref(false)
@@ -2651,6 +2659,7 @@ const refreshCurrentMemberData = async () => {
     ElMessage.error(error?.message || '讀取繳費資訊失敗')
   } finally {
     isRefreshing.value = false
+    pendingPaymentRefreshKey.value += 1
   }
 }
 

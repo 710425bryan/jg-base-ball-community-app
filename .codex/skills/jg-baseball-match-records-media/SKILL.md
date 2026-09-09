@@ -50,6 +50,7 @@ description: "Match records, schedule detail, dashboard Next Up, lineup, media, 
 
 ## 不可破壞規則
 
+- 不收費（`no_fee`）只影響費用，不排除比賽參賽名單、陣容、照片 / 語音候選、即時紀錄與成績；選取及重新儲存不得刪除免收費參賽者。DB `sync_match_fee_items_for_match()` 以有效收費模式 `none` 排除新比賽費，既有付款歷史維持原保護。
 - 賽事提醒 URL 統一使用 `/calendar?match_id=<id>`；舊 `/match-records?match_id=...` 要由 push deep link 正規化到 `/calendar`。
 - 手動賽事通知的通知中心事件仍使用 `matches` + `REMINDER`，但 event key 要與每日排程提醒分開，避免手動通知擋掉隔天自動提醒。
 - `matches:VIEW` 只代表後台紀錄可見性；個人成績頁可見性由 linked member RPC 控制。

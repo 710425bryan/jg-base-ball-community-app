@@ -110,13 +110,16 @@ UI 約定：
 主要檔案：
 
 - `src/views/LandingView.vue`
+- `src/components/home/PublicJoinInquiryDialog.vue`
+- `src/components/home/publicRecruitmentContent.ts`
 - `src/services/publicLanding.ts`
 - `src/types/publicLanding.ts`
 
 資料流：
 
 - 公開摘要走 `get_public_landing_snapshot(p_today)`。
-- 入隊申請寫入 `join_inquiries`，LINE ID 必填、家長聯絡電話選填；公開 insert 由 DB policy 控制，DB 也會拒絕空白 LINE ID。前端先產生 UUID 並只做 INSERT，不讀回受 `join_inquiries:VIEW` SELECT RLS 保護的申請資料。
+- 聯絡／入隊視窗只顯示兩張 LINE QR Code 與對應加好友連結，使用者需加入好友後主動傳訊息預約；不再顯示表單或送出按鈕，不呼叫 `createPublicJoinInquiry()` 或發送入隊詢問推播。第二張原始截圖以 CSS 僅顯示 QR Code 區域，兩張均保留白色掃描留白。
+- 既有 `join_inquiries` 歷史資料、後台管理、service 與 DB policy 保留。若重新啟用匿名申請，仍必須提供非空 LINE ID、以 UUID 只做 INSERT，不讀回受 `join_inquiries:VIEW` SELECT RLS 保護的申請資料。
 - 節日主題公開設定走 `get_public_holiday_theme_config()`。
 
 重要規則：
@@ -154,6 +157,8 @@ UI 約定：
   - `list_my_payment_submissions(p_member_id)`
   - `create_my_payment_submission(...)`
   - `get_my_payment_submission_estimate(...)`
+  - `list_my_pending_payment_submissions(p_member_id)` / `mutate_my_pending_payment_submission(...)`：列出與異動自己送出的待確認回報，涵蓋月／季費、裝備及比賽費；獨立 service / 元件負責修改、二次確認刪除與衝突後重新整理。
+  - 待確認回報名稱由 `public.equipment.name` 及 `match_fee_items.match_name_snapshot` / `match_date_snapshot` 組合。`supabase_pending_payment_submission_schema_names_hotfix.sql` 修正初版使用不存在的表名／前端 alias，必須在初版 migration 之後套用。
 - 我的成績：
   - `list_my_player_record_members()`
   - `get_my_player_match_records(p_member_id)`
@@ -313,9 +318,10 @@ UI 約定：
 資料流：
 
 - `matchesApi` 封裝 `matches` CRUD。
-- Google Calendar / iCal parser 負責把外部日曆轉成 match payload；手動同步預覽優先走 `sync-match-calendar` Edge Function dry-run，瀏覽器第三方 CORS proxy 只作 fallback。同步 roster 會辨識 `fee_billing_mode = 'no_fee'` 並排除於新比賽名單與 lineup payload。
+- Google Calendar / iCal parser 負責把外部日曆轉成 match payload；手動同步預覽優先走 `sync-match-calendar` Edge Function dry-run，瀏覽器第三方 CORS proxy 只作 fallback。不收費（`fee_billing_mode = 'no_fee'`）球員 / 校隊同樣參與姓名與背號比對，保留於比賽名單與 lineup payload；收費模式不作為參賽排除條件。
 - 同步規劃維持 `create`、`update`、`skip` 三種結果。
 - 比賽紀錄元件處理陣容、照片、出席統計、賽事細節與 live controller。
+- `MatchFormDialog` 的球員候選仍依在隊狀態與球員 / 校隊角色篩選，不依收費模式篩選；不收費球員可加入陣容、照片 / 語音解析候選、即時紀錄與打擊 / 投球成績，重新儲存保留出賽名單。比賽費仍由 DB `sync_match_fee_items_for_match()` 依 `get_effective_payment_billing_mode() <> 'none'` 產生，無需從 `matches.players` 刪除免收費者。
 - `MatchAttendanceStatsTab` 的賽事出席率只以每場 `matches.players` 入選名單計算應到場次；同一球員同一場只計一次。若該球員同時存在於 `absent_players`，該場計為請假而非出席，公式為 `(應到場次 - 請假場次) / 應到場次`；不在該場入選名單的請假列不納入統計。表格可依球員姓名或背號搜尋，桌機 hover「應出席」數字可查看日期、時間、賽事、對手、級別與出席／請假狀態。
 - `/calendar?match_id=...` 會開啟 `MatchDetailDialog`；推播與通知的比賽詳情 URL 統一導向這條路徑。
 - `MatchFormDialog` 會用 `preview_match_leave_absences(p_match_date, p_player_names, p_match_time)` 預覽出賽名單內、假單日期與時段涵蓋比賽的球員；前端傳入的時間會先取比賽時間欄位，沒有時再取備註中的集合時間，顯示成不可手動改名的 `source = 'leave_request'` 請假列。
@@ -543,7 +549,7 @@ UI 約定：
 - `team_members.fee_billing_mode = 'monthly_fixed'` 代表社區球員固定月繳：角色仍為 `球員`，但有效繳費模式為月繳；月費表採固定金額減手動扣減，季費表與家庭季費分組排除該球員。
 - 中港校隊與國中部月費分開設定：中港使用 `chunggang_school_team` 並固定依訓練日期計次；國中部以 `team_members.role = '校隊'` 且 raw `team_members.training_program = 'junior_high_school_team'` 判斷，不從 `team_group` fallback 猜國中部身分。國中部可在收費設定用 switch 切換 `single_monthly`／`training_dates`，預設為單次月費 2,000 元；單次月費存成 `monthly_fixed`／`fixed_monthly_fee` 快照，訓練日期模式存成 `per_session`／`per_session_fee` 快照。
 - `team_members.fee_billing_mode = 'monthly_per_session'` 代表球員計次月費：角色仍為 `球員`，但有效繳費模式為月繳；月費表採訓練日期堂數、請假扣減與單次金額公式，季費表與家庭季費分組排除該球員。
-- `team_members.fee_billing_mode = 'no_fee'` 代表球員 / 校隊不收費：不產生新的月費、季費與比賽費，也不進新的場地配置、點名與比賽名單；切換前既有帳款、付款回報、點名紀錄與歷史比賽資料保留，裝備加購付款仍維持自費。
+- `team_members.fee_billing_mode = 'no_fee'` 代表球員 / 校隊不收費：不產生新的月費、季費與比賽費，也不進新的場地配置與點名，但可正常加入比賽名單、陣容與成績紀錄；切換前既有帳款、付款回報、點名紀錄與歷史比賽資料保留，裝備加購付款仍維持自費。
 - 月費與季費的最早期別依 `team_members.joined_date` 所在月份判斷：月費從加入月份開始，季費從包含加入月份的季度開始（例如 `2026-08-01` 加入者不計 `2026-07` / `2026-Q2`，但可計 `2026-08` / `2026-Q3`）。管理端試算、`/my-payments` 動態待付款／付款估算、個人首頁摘要、費用管理提醒與手動催繳都沿用相同規則；既有已付款或已送審歷史保留。
 - 中港校隊、球員計次月費與國中部的本月堂數，由 `/training-dates` 該球員 program 的訓練日期設定天數自動帶入，月費頁不可手動改堂數；`monthly_fees.training_program` 保留當期 program snapshot。中港校隊與社區計次球員公式為 `(訓練日數 - 符合條件的全日／上午請假日數) × 單次費率 - 手動扣減`。國中部 `training_dates` 模式為 `訓練日數 × 國中部單次費率 - 手動扣減`，預設 `single_monthly` 模式為 `單次月費 - 手動扣減`；兩種模式都顯示訓練日內請假天數但不扣金額。社區固定月繳仍不參與堂數與請假計算。
 - `/fees` 月費結算以「中港總部／國中部」兩個 44px、ARIA 完整的固定分頁切換，不提供跨 program 的「全部」頁；搜尋、訓練堂數說明、摘要、小計與 CSV 匯出都只使用目前分頁，深層連結球員時會自動切到所屬分頁。一鍵存檔仍保存兩個分頁全部待儲存變更。收費設定另使用分頁切換，國中部 switch 與金額欄位在手機維持可換行、44px 操作區；社區計次與固定月繳成員在手機使用卡片編輯。
@@ -552,6 +558,7 @@ UI 約定：
 - 季費堂數不足補償依當月週六數與 `/training-dates` 訓練日期設定總天數計算；週五、週日或其他補課日都算一堂，設定天數達當月週六數即不補償。補償預設每日折抵為一般 500 元、半價 / 手足折扣 250 元，可在收費設定調整。系統只產生 `quarterly_fee_compensation_items` 待審核單，管理員核准後才以 `quarterly_compensation` source 寫入 `player_balance_transactions`。
 - 季繳付款回報的開放期別由 `src/utils/quarterlyPaymentSubmissions.ts` 與 DB helper `get_quarterly_payment_open_period_key()` 共同決定：以台灣日期為準，每季最後一個月 25 日起開放下一季；未開放的未來季在家長端不顯示可勾選，RPC / trigger 也會拒絕寫入，過去未繳季度仍可補繳。
 - 個人付款回報由 `myPayments` RPC 建立，可選用球員餘額；一般繳費與裝備付款都在管理端確認時才正式扣餘額。
+- 待確認回報可由原回報者修改日期、方式、後五碼、備註、餘額扣抵及月／季費實付；多人季費逐項更正，任何差額仍需原因與二次確認。`mutate_my_pending_payment_submission` 與審核 RPC 鎖定相同主單，取得鎖後重驗 `pending_review`、未審核、版本、有效帳號、本人及所有 linked member，並拒絕已有餘額流水的異動。應收金額／球員／期別／品項不可透過修改變更，缺應收快照的舊單只能改匯款資料。刪除回報會清除回報明細關聯，裝備交易／比賽費恢復 `unpaid`；不退還實際匯款、不新增餘額、不改庫存與履約。前端異動後更新回報、紀錄、付款候選及摘要；`P0002` 衝突會清除舊編輯狀態後重新載入。
 - 月費／季費付款回報把「系統應收」與「實際付款」分開：`expected_amount` 一律由 DB `get_my_payment_submission_estimate()` 重算並保存，餘額扣抵只降低 `expected_external_amount`，前端不得用使用者輸入覆寫正式本金。使用者可回報不同的 `reported_external_amount`，但短繳／多繳必須附 `amount_mismatch_reason` 並二次確認；裝備與比賽費金額仍由各自系統資料決定。
 - `review_profile_payment_submission()` 會在 transaction 內鎖定付款單與球員，重新驗證餘額與差額：短繳／無法核對不可核准；多繳只接受管理端確認的精確系統差額，並依球員建立具冪等鍵的 `overpayment` 流水。多球員季費逐項核對，任一短繳會回滾整張。退回必填 `rejection_reason`，並以 `fees/PAYMENT_REMINDER` targeted 通知原 `profile_id`，連結至 `/my-payments?highlight_submission_id=...`。
 - 球員餘額以 `player_balance_transactions` 流水帳計算，管理員可手動調整，付款審核時可把溢繳轉入餘額；退款 / 作廢收款必須以反向流水退回餘額扣抵或沖回溢繳轉入。

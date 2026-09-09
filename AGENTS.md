@@ -150,7 +150,8 @@
 ### 公開首頁與入隊
 
 - `LandingView` 透過 `src/services/publicLanding.ts` 呼叫 `get_public_landing_snapshot(p_today)` 顯示公開摘要。
-- 入隊申請會寫入 `join_inquiries`；公開 insert 由 DB policy 控制。匿名送出時由前端先產生 UUID，INSERT 不可串接 `.select()` 讀回申請資料，避免觸發只允許 `join_inquiries:VIEW` 的 SELECT RLS。
+- 公開「聯絡我們 / 加入球隊」由 `PublicJoinInquiryDialog` 顯示兩張 LINE QR Code 與其解碼連結，不顯示聯絡表單或送出操作，也不寫入 `join_inquiries` 或派送入隊詢問通知；截圖型 QR Code 以 CSS 裁切顯示，保留原始碼點。招募與體驗文案集中在 `publicRecruitmentContent.ts`，由 `LandingView.test.ts` 涵蓋。
+- 既有 `join_inquiries` 歷史資料、後台管理與 service 保留；若恢復匿名申請，INSERT 不可串接 `.select()` 讀回受 `join_inquiries:VIEW` SELECT RLS 保護的申請資料。
 - 公開頁若需要新增資料，只能拿非敏感摘要，不可直接擴散 profiles / team_members / leave_requests 等 raw table。
 
 ### 個人首頁與個人功能
@@ -158,6 +159,7 @@
 - `HomeView` 同時有後台 dashboard 與個人化區塊；個人化摘要走 `src/services/myHome.ts` 的 `get_my_home_snapshot()`，RPC 未部署時顯示空狀態 fallback；Next Up 走 `get_my_home_next_event()`，只顯示目前選取 linked member 有列在 `matches.players` 的下一場非特訓比賽，日期限台灣今天至六天後共 7 個日期，今天已結束、空白名單、特訓課、無符合賽事或 RPC 錯誤時都隱藏卡片；`MyHomeTodayPanel` 會一次顯示當月份全部訓練日期，未設定月份預設為該月所有星期六；特訓點數卡只顯示目前選取 linked member 的 snapshot 點數欄位，若線上 snapshot 尚未帶點數欄位，前端會用 `list_my_training_members()` 補齊。
 - `MyLeaveRequestsView` 走 `src/services/myLeaveRequests.ts`：`list_my_leave_members()`、`list_my_leave_requests()`、`create_my_leave_requests()`、`delete_my_leave_request()`；一般帳號只可查看、建立與刪除 linked member 假單，只有通過 active / access window 檢查的 `ADMIN` 才可切換所有有效成員，且進頁仍優先選 linked member。
 - `MyPaymentsView` 走 `src/services/myPayments.ts`：`list_my_payment_members()`、`get_my_payment_records()`、`list_my_payment_submissions()`、`create_my_payment_submission()`、`get_my_payment_submission_estimate()`；一般繳費與裝備付款皆可使用 `player_balance_transactions` 計算出的球員餘額扣抵。
+- 「待確認的付款回報」由 `PendingPaymentSubmissions` / `PendingPaymentEditDialog` 與 `pendingPayments` service 管理；原回報者可修改或刪除仍為 `pending_review` 的月／季費、裝備與比賽費回報。RPC 鎖定付款主單後檢查有效登入、原回報者、所有關聯球員及 `updated_at`；審核後或已有餘額入帳不可異動。只更正付款資料及扣抵／實付，保留系統應收快照與品項，需更換球員／期別／品項時刪除後重填。刪除裝備／比賽費回報只恢復待付款，不更改庫存或履約狀態。
 - `MyPlayerRecordsView` 走 `src/services/myPlayerRecords.ts`：`list_my_player_record_members()`、`get_my_player_match_records()`；一般使用者只能看綁定球員，具 `players:VIEW` 者可切換全隊球員但預設仍優先關聯球員。
 - `ProfileSettingsView` 透過 `update_my_profile_settings()` 更新個人設定，大頭照使用 `avatars` bucket。
 
@@ -206,6 +208,7 @@
 ### 賽事與 Google Calendar 同步
 
 - 賽事資料表為 `matches`，主要 API 在 `src/services/matchesApi.ts`。
+- 不收費（`fee_billing_mode = 'no_fee'`）球員 / 校隊仍可選入比賽名單、日曆匯入、陣容、即時與語音紀錄、打擊 / 投球成績；編輯儲存不得因收費模式移除參賽者。新的比賽費由 DB `sync_match_fee_items_for_match()` 排除有效收費模式 `none`，參賽資格與收費資格分開判斷。
 - `/calendar` 是登入後賽程入口，`?match_id=` 會開啟 `MatchDetailDialog`；推播與通知連結應導向 `/calendar?match_id=...`。
 - 個人成績頁 `/my-records` 不直接使用後台 `matchesApi` 讀列表，而是透過 `myPlayerRecords` RPC 依球員可見範圍取回比賽紀錄；打擊 / 投球彙總邏輯在 `src/utils/matchRecordStats.ts`。
 - `matchesApi` 保留 `google_calendar_event_id` 欄位缺失 / schema cache 尚未更新時的 fallback。

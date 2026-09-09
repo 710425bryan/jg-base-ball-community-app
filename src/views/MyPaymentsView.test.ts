@@ -3,6 +3,16 @@ import { describe, expect, it } from 'vitest'
 
 const source = readFileSync(new URL('./MyPaymentsView.vue', import.meta.url), 'utf8')
 
+describe('MyPaymentsView pending report management', () => {
+  it('refreshes report actions and payment sources after an edit or withdrawal', () => {
+    expect(source).toContain('<PendingPaymentSubmissions')
+    expect(source).toContain(':member-id="selectedMemberId"')
+    expect(source).toContain(':refresh-key="pendingPaymentRefreshKey"')
+    expect(source).toContain('@changed="refreshCurrentMemberData"')
+    expect(source).toContain('pendingPaymentRefreshKey.value += 1')
+  })
+})
+
 describe('MyPaymentsView member selector', () => {
   it('delegates responsive member search to the dedicated payment selector', () => {
     expect(source).toContain("import PaymentMemberSelector from '@/components/payments/PaymentMemberSelector.vue'")

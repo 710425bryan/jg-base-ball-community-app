@@ -24,6 +24,7 @@ description: "Match calendar sync workflow for jg-base-ball-community-app. Use w
 - 同步重新建立已刪除賽事時可能取得新的 `matches.id`；`supabase_zzz_coach_schedule_match_source_integrity_migration.sql` 必須在刪除舊賽事時同步清掉舊 UUID 的教練排班，不可改用日期或標題合併新舊排班。
 - 讓同步規劃維持在 `create`、`update`、`skip` 三種結果。
 - 修改 payload 生成時，保留 lineup、缺席名單、note 與 Google Calendar 來源資訊。
+- 不收費（`no_fee`）球員 / 校隊仍參與姓名及背號比對，並保留於參賽名單與 lineup；比賽費排除由 DB 負責，不得在 parser 因收費模式移除參賽者。修改共用 parser 後，前端與匯入它的 `sync-match-calendar` Edge Function 需於發布時同步更新。
 - 需要 schema 變更時，新增 migration，不要重寫舊 migration。
 
 ## 工作流程

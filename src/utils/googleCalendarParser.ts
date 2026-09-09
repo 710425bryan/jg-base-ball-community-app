@@ -1,5 +1,4 @@
 import type { MatchRecord, MatchRecordInput } from '@/types/match'
-import { isNoFeeBillingMember } from '@/utils/memberBilling'
 
 const TAIPEI_TIME_ZONE = 'Asia/Taipei'
 const OFFICIAL_OUR_TEAM_ALIASES = ['中港熊戰']
@@ -614,21 +613,16 @@ export const checkCalendarPlayersAgainstRoster = (
       const role = String(member.role || '').trim()
       const status = String(member.status || '').trim()
       return Boolean(member.name) &&
-        !isNoFeeBillingMember(member) &&
         (!role || role === '球員' || role === '校隊') &&
         (!status || status === '在隊')
     })
-  const noFeeRoster = (rosterMembers || [])
-    .filter((member) => Boolean(member.name) && isNoFeeBillingMember(member))
 
-  if (!activeRoster.length && !noFeeRoster.length) {
+  if (!activeRoster.length) {
     return emptyPlayerCheck(players)
   }
 
   const nameBuckets = new Map<string, CalendarSyncRosterMember[]>()
   const numberBuckets = new Map<string, CalendarSyncRosterMember[]>()
-  const noFeeNameBuckets = new Map<string, CalendarSyncRosterMember[]>()
-  const noFeeNumberBuckets = new Map<string, CalendarSyncRosterMember[]>()
 
   const addRosterBucket = (
     buckets: Map<string, CalendarSyncRosterMember[]>,
@@ -644,41 +638,11 @@ export const checkCalendarPlayersAgainstRoster = (
     addRosterBucket(numberBuckets, normalizeRosterNumber(member.jersey_number), member)
   })
 
-  noFeeRoster.forEach((member) => {
-    addRosterBucket(noFeeNameBuckets, normalizeLooseNameKey(member.name), member)
-    addRosterBucket(noFeeNumberBuckets, normalizeRosterNumber(member.jersey_number), member)
-  })
-
   const items = players.map<CalendarSyncPlayerCheckItem>((player) => {
     const sourceName = collapseWhitespace(player.name || '')
     const sourceNumber = normalizeRosterNumber(player.number)
     const nameMatches = nameBuckets.get(normalizeLooseNameKey(sourceName)) || []
     const numberMatches = sourceNumber ? numberBuckets.get(sourceNumber) || [] : []
-    const noFeeNameMatches = noFeeNameBuckets.get(normalizeLooseNameKey(sourceName)) || []
-    const noFeeNumberMatches = sourceNumber ? noFeeNumberBuckets.get(sourceNumber) || [] : []
-
-    if (noFeeNameMatches.length > 0 || (noFeeNumberMatches.length > 0 && numberMatches.length === 0)) {
-      return {
-        sourceName,
-        sourceNumber,
-        name: sourceName,
-        number: sourceNumber || player.number || '',
-        status: 'unchecked',
-        message: '不收費球員不匯入',
-        excludeFromPayload: true
-      }
-    }
-
-    if (!activeRoster.length) {
-      return {
-        sourceName,
-        sourceNumber,
-        name: sourceName,
-        number: sourceNumber || player.number || '',
-        status: 'unchecked',
-        message: ''
-      }
-    }
 
     if (nameMatches.length === 1) {
       const matched = nameMatches[0]
