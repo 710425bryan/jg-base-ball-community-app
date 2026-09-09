@@ -98,6 +98,7 @@ UI 約定：
 4. 若 profile access state 不允許登入，立即 sign out。
 5. 登入前 email 檢查走 `can_request_magic_link()` RPC。
 6. `touch_profile_last_seen()` 用於更新最後上線時間。
+7. `LoginModal` 的寄碼／驗證共用 `otpLogin.ts` 正規化 email 與 8 碼數字（保留前導零、整理貼上空白／全形數字、不截斷超長輸入）；OTP 驗證必須取得 session 才繼續 profile 與權限檢查。失效／錯誤驗證碼顯示中文 inline 提示，可重新寄送，成功寄碼後有 60 秒 UI 冷卻，實際頻率與有效期仍由 Supabase Auth 決定；請求期間阻擋重複送出與切換 email。
 
 重要規則：
 

@@ -5,6 +5,7 @@ import type { User, Session } from '@supabase/supabase-js'
 import { usePermissionsStore } from './permissions'
 import { getProfileAccessState } from '@/utils/profileAccess'
 import { isSupabasePasskeyApiAvailable } from '@/utils/passkeySupport'
+import { isValidOtpCode, normalizeLoginEmail, normalizeOtpCode } from '@/utils/otpLogin'
 
 const LAST_SEEN_SYNC_INTERVAL_MS = 5 * 60 * 1000
 const PASSKEY_API_UNAVAILABLE_MESSAGE =
@@ -176,7 +177,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   const sendMagicLink = async (email: string) => {
     // 登入前安全檢查：確認該信箱是否存在於使用者名單 (profiles) 中，若無則不發送信件並接阻擋
-    const normalizedEmail = email.trim().toLowerCase()
+    const normalizedEmail = normalizeLoginEmail(email)
     const { data: canRequest, error: permissionError } = await supabase.rpc('can_request_magic_link', {
       p_email: normalizedEmail
     })
@@ -195,12 +196,17 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const verifyOtpCode = async (email: string, token: string) => {
+    if (!isValidOtpCode(token)) {
+      throw new Error('請輸入完整的 8 碼數字驗證碼。')
+    }
+
     const { data, error } = await supabase.auth.verifyOtp({
-      email,
-      token,
+      email: normalizeLoginEmail(email),
+      token: normalizeOtpCode(token),
       type: 'email'
     })
     if (error) throw error
+    if (!data.session) throw new Error('登入未完成，請重新寄送驗證碼後再試。')
     
     await syncAuthContext(data.session, { forceProfileReload: true })
     

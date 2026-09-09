@@ -29,6 +29,7 @@ description: "Role-based auth and permission workflow for jg-base-ball-community
 - 保留 `syncAuthContext()` 內的 profile hydration 與 role reload 行為。
 - 保留 magic link 僅允許 `profiles` 內既有 email 的限制。
 - 若任務改到登入流程，確認不會破壞 `src/services/supabase.ts` 的 session 恢復。
+- OTP 寄碼／驗證共用 `src/utils/otpLogin.ts` 正規化 email 與 8 碼數字；保留前導零、接受郵件空白／全形數字、不截斷超長輸入。只有取得 session 才能繼續 profile 檢查。`LoginModal` 的失效提示、60 秒 UI 冷卻、重新寄碼與忙碌期間防重複送出需一起驗證；有效期及限流仍由 Supabase Auth 決定，測試不可對真實使用者寄碼。
 
 ## 權限資料守則
 

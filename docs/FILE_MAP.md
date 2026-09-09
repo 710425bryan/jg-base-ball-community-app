@@ -48,7 +48,7 @@
 | --- | --- |
 | `src/layouts/PublicLayout.vue` | 公開頁 header / footer / login 入口 |
 | `src/layouts/MainLayout.vue` | 登入後導覽、通知中心、手機選單、底部導覽，以及登出前頁面草稿確認 |
-| `src/components/LoginModal.vue` | magic link / OTP 登入 UI |
+| `src/components/LoginModal.vue` | magic link / OTP 登入 UI、失效提示與冷卻後重新寄碼 |
 | `src/components/PushSettingsDialog.vue` | Web Push 訂閱設定 |
 | `src/components/RolePermissionsManager.vue` | 角色與 feature/action 權限管理 |
 | `src/components/ViewModeSwitch.vue` | 檢視模式切換 |
@@ -172,6 +172,7 @@
 | `src/utils/performanceConfig.ts` | 能力 / 體測欄位與圖表設定 |
 | `src/utils/holidayMotionLayout.ts` | 節日動畫版位 |
 | `src/utils/profileAccess.ts` | profile 可登入狀態判斷 |
+| `src/utils/otpLogin.ts` | OTP email／驗證碼正規化、8 碼格式檢查與中文錯誤訊息 |
 | `src/utils/supabaseRpc.ts` | RPC missing fallback helper |
 | `src/utils/csvExport.ts` | CSV 匯出 |
 | `src/utils/imageCompressor.ts` | 圖片壓縮 |

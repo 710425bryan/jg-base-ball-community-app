@@ -247,6 +247,47 @@ describe('auth store initialization', () => {
     expect(permissionsStore.currentRole).toBe('')
   })
 
+  it('verifies formatted OTP input with the same normalized email used for sending', async () => {
+    const session = { access_token: 'session-token', user: { id: 'otp-user' } }
+    verifyOtpMock.mockResolvedValue({ data: { session }, error: null })
+    profileSingleMock.mockResolvedValue({ data: { id: 'otp-user', role: 'MANAGER', is_active: true }, error: null })
+    permissionsEqMock.mockResolvedValue({ data: [{ feature: 'players', action: 'VIEW' }], error: null })
+    const { useAuthStore } = await import('@/stores/auth')
+    const authStore = useAuthStore()
+
+    await authStore.verifyOtpCode(' Test@Example.com ', ' ０１２３ ４５６７\n')
+
+    expect(verifyOtpMock).toHaveBeenCalledWith({ email: 'test@example.com', token: '01234567', type: 'email' })
+    expect(authStore.isAuthenticated).toBe(true)
+    expect(authStore.profile?.id).toBe('otp-user')
+  })
+
+  it('does not call Auth with malformed codes or accept verification without a session', async () => {
+    const { useAuthStore } = await import('@/stores/auth')
+    const authStore = useAuthStore()
+    await expect(authStore.verifyOtpCode('test@example.com', '123456789')).rejects.toThrow('8 碼')
+    expect(verifyOtpMock).not.toHaveBeenCalled()
+
+    verifyOtpMock.mockResolvedValue({ data: { session: null }, error: null })
+    await expect(authStore.verifyOtpCode('test@example.com', '12345678')).rejects.toThrow('登入未完成')
+    expect(authStore.isAuthenticated).toBe(false)
+    expect(profileSingleMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects blocked emails before sending and preserves Auth verification errors', async () => {
+    const { useAuthStore } = await import('@/stores/auth')
+    const authStore = useAuthStore()
+    rpcMock.mockResolvedValue({ data: false, error: null })
+    await expect(authStore.sendMagicLink('test@example.com')).rejects.toThrow('無法登入')
+    expect(signInWithOtpMock).not.toHaveBeenCalled()
+
+    const error = { code: 'otp_expired', message: 'Token has expired or is invalid' }
+    verifyOtpMock.mockResolvedValue({ data: { session: null }, error })
+    await expect(authStore.verifyOtpCode('test@example.com', '12345678')).rejects.toBe(error)
+    expect(authStore.isAuthenticated).toBe(false)
+    expect(profileSingleMock).not.toHaveBeenCalled()
+  })
+
   it('rejects otp verification when the hydrated profile is outside the access window', async () => {
     const session = {
       access_token: 'session-token',

@@ -137,6 +137,7 @@
 ## 6. Auth、權限與安全邊界
 
 - 登入使用 magic link / OTP；登入前 email 檢查走 `can_request_magic_link()`，不可匿名直查 `profiles`。
+- OTP 寄碼／驗證共用 `src/utils/otpLogin.ts` 正規化 email 與 8 碼數字，驗證成功需取得 session 才繼續 profile 檢查；`LoginModal` 提供中文失效提示、60 秒 UI 冷卻後重新寄碼與重複送出保護，Supabase Auth 仍決定有效期與頻率限制。
 - `src/stores/auth.ts` 負責 session、profile、last seen、role permissions hydration。
 - `src/stores/permissions.ts` 從 `app_role_permissions` 讀取 feature/action；`ADMIN` 有前端 bypass。
 - `permissionsStore.can()`、按鈕顯示、router guard 只算 UX 控制，不是資料安全邊界。
