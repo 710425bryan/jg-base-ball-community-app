@@ -31,6 +31,8 @@ description: "Player roster, users, profile binding, team groups, roster cache, 
 ## 功能邊界
 
 - 球員主檔存在 `team_members`。
+- 自訂社區球員身分存 `team_members.member_identity_label`，`role` 仍為 `球員`，收費沿用個別 `fee_billing_mode`。`PlayerIdentitySelect.vue` 使用既有全域 Element Plus Select（filterable + allow-create），由 `playerIdentity.ts` 統一驗證、呈現與 form patch；不要讓自由輸入直接變成 DB role。名稱最長 60 字並在成功儲存球員後，由私有 trigger 原子保存至 `player_identity_labels`，未送出或球員寫入失敗不留選項，刪除最後一位球員不刪名稱；選項透過 `playerIdentitiesApi.ts` 的唯讀 RLS 查詢載入。
+- 切換自訂身份保留熊隊群組與既有收費設定；開啟編輯只 hydrate 原資料，不觸發身分切換副作用。Google 同步使用 `getPlayerRoleForGoogleFormSync()`，保留人工自訂社區身分與球員角色。驗證需包含 `playerIdentity.test.ts`、`PlayerIdentitySelect.test.ts`、`playerIdentitiesApi.test.ts`、`PlayersView.test.ts` 與 `tests/database/playerIdentities.integration.mjs`，另跑完整費用回歸。DB migration 必須先於前端部署。
 - 非敏感展示名單使用 `team_members_safe`；完整編輯名單使用 `list_team_members_for_edit()`。
 - 名單 cache meta 使用 `get_team_members_cache_meta()`，只回 row count / latest changed at。
 - 使用者主檔存在 `profiles`，綁定球員使用 `profiles.linked_team_member_ids`。

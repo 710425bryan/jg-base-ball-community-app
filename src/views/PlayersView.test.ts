@@ -25,7 +25,26 @@ describe('PlayersView mobile filters', () => {
 
 describe('PlayersView school-team identity terminology', () => {
   it('shows the junior-high program as 國中部', () => {
-    expect(source).toContain("{ label: '國中部', value: XINTAI_PLAYER_IDENTITY }")
-    expect(source).not.toContain("{ label: '新泰校隊', value: XINTAI_PLAYER_IDENTITY }")
+    const identitySource = readFileSync(new URL('../utils/playerIdentity.ts', import.meta.url), 'utf8')
+    expect(identitySource).toContain("{ label: '國中部', value: XINTAI_PLAYER_IDENTITY }")
+    expect(identitySource).not.toContain("{ label: '新泰校隊', value: XINTAI_PLAYER_IDENTITY }")
+  })
+})
+
+describe('PlayersView custom identity integration', () => {
+  it('applies business mapping only on user selection and retains the persisted label in the payload', () => {
+    expect(source).toContain('@update:model-value="applyMemberIdentityToForm"')
+    expect(source).not.toContain('() => form.member_identity')
+    expect(source).toContain('form.member_identity = getMemberIdentityValue(member)')
+    expect(source).toContain('getPlayerIdentityFormPatch(identity, form, defaultCommunityTeamGroupValue.value)')
+    expect(source).toContain('delete payload.member_identity')
+    expect(source).not.toContain('delete payload.member_identity_label')
+  })
+  it('uses the saved identity label for rendering, searching, exporting and sync protection', () => {
+    expect(source).toContain('getMemberIdentityLabel(m).toLowerCase()')
+    expect(source).toContain('getValue: (member) => getMemberIdentityLabel(member)')
+    expect(source).toContain('getPlayerRoleForGoogleFormSync(rawRole,')
+    expect(source).toContain('buildPlayerIdentityOptions(savedIdentityLabels.value, members.value)')
+    expect(source).toContain('Promise.all([fetchData({ force: true }), loadIdentityLabels()])')
   })
 })

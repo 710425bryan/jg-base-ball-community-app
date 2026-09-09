@@ -93,6 +93,7 @@
 | `src/services/schoolTeamMonthlyFeeSettings.ts` | 中港校隊計次費率與國中部單次月費／訓練日期模式設定 RPC | `system_settings.chunggang_monthly_per_session_defaults`、`system_settings.xintai_monthly_per_session_defaults` |
 | `src/services/myPlayerRecords.ts` | 我的成績 RPC | `list_my_player_record_members()`、`get_my_player_match_records()` |
 | `src/services/playerRosterApi.ts` | 球員名單 safe/full 分流與 cache meta RPC | `team_members_safe` / `list_team_members_for_edit()` / `get_team_members_cache_meta()` |
+| `src/services/playerIdentitiesApi.ts` | 自訂社區身分名稱選項讀取 | `player_identity_labels` SELECT RLS；寫入隨球員儲存的私有 trigger |
 | `src/services/registrationFormsApi.ts` | 賽事報名 CRUD、範本關聯／清單、generation log、私有原檔下載與 Edge binary 呼叫 | `registration_form_events` / `registration_form_event_templates` / `registration_form_templates` / `registration-form-documents` |
 | `src/services/teamGroupsApi.ts` | team group 設定 RPC | `team_group_settings` 相關 RPC |
 | `src/services/matchesApi.ts` | 賽事 CRUD | `matches` |
@@ -355,6 +356,9 @@
 | 檔案 | 用途 |
 | --- | --- |
 | `src/components/players/TeamGroupSettingsDialog.vue` | team group 新增、改名、排序與刪除轉移 |
+| `src/components/players/PlayerIdentitySelect.vue` | 共用 Element Plus 可建立身分選項，保留中文 IME、說明與 44px 觸控區 |
+| `src/utils/playerIdentity.ts` | 身分名稱、底層角色／program 轉換、驗證、選項去重與 Google 同步保護；型別在 `src/types/playerIdentity.ts` |
+| `tests/database/playerIdentities.integration.mjs` | 隔離 PostgreSQL：選項原子保存、RLS、safe 欄位、同步、四種收費模式與刪人保留名稱 |
 
 ## 10. Types
 

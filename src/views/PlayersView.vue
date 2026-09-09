@@ -193,7 +193,7 @@
               <span v-else class="text-gray-300">-</span>
             </template>
           </el-table-column>
-          <el-table-column prop="role" label="身分" width="110">
+          <el-table-column prop="role" label="身分" min-width="190">
             <template #default="{ row }">
               <span class="players-role-table-badge" :class="getRoleClass(getMemberIdentityLabel(row))">{{ getMemberIdentityLabel(row) }}</span>
             </template>
@@ -410,7 +410,7 @@
       :show-close="false"
       class="custom-dialog"
     >
-      <el-form :model="form" :rules="rules" ref="formRef" label-position="top" class="mt-4 space-y-6 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+      <el-form :model="form" :rules="rules" ref="formRef" label-position="top" class="players-member-form mt-4 space-y-6 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
         
         <!-- 大頭貼上傳 -->
         <div class="flex justify-center mb-6">
@@ -439,9 +439,11 @@
               <el-input v-model="form.name" placeholder="隊職員姓名" />
             </el-form-item>
             <el-form-item label="身分" prop="member_identity" class="font-bold mb-0">
-              <el-select v-model="form.member_identity" class="players-identity-select w-full" popper-class="players-identity-select-popper">
-                <el-option v-for="option in memberIdentityOptions" :key="option.value" :label="option.label" :value="option.value" />
-              </el-select>
+              <PlayerIdentitySelect
+                :model-value="form.member_identity"
+                :options="memberIdentityOptions"
+                @update:model-value="applyMemberIdentityToForm"
+              />
             </el-form-item>
             <el-form-item label="所屬群組 (熊隊)" prop="team_group" class="font-bold mb-0" v-if="isTeamMemberFormRole">
               <el-select v-model="form.team_group" class="w-full" filterable>
@@ -796,6 +798,19 @@ import AppMobileFilterSheet from '@/components/common/AppMobileFilterSheet.vue'
 import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
 import PreviewableImage from '@/components/common/PreviewableImage.vue'
 import TeamGroupSettingsDialog from '@/components/players/TeamGroupSettingsDialog.vue'
+import PlayerIdentitySelect from '@/components/players/PlayerIdentitySelect.vue'
+import { fetchPlayerIdentityLabels } from '@/services/playerIdentitiesApi'
+import {
+  COMMUNITY_PLAYER_IDENTITY,
+  SCHOOL_TEAM_GROUP_VALUES,
+  buildPlayerIdentityOptions,
+  getMemberIdentityValue,
+  getMemberIdentityLabel,
+  getPlayerIdentityError,
+  getPlayerIdentityFormPatch,
+  getPlayerRoleForGoogleFormSync,
+  normalizeBillingModeForRole
+} from '@/utils/playerIdentity'
 import { downloadUtf8BomCsv } from '@/utils/csvExport'
 import {
   getTeamGroupAccentClass as resolveTeamGroupAccentClass,
@@ -806,7 +821,6 @@ import {
 } from '@/utils/teamGroups'
 import {
   CHUNGGANG_SCHOOL_TEAM_PROGRAM_KEY,
-  JUNIOR_HIGH_SCHOOL_TEAM_PROGRAM_KEY,
   normalizeTrainingProgramKey
 } from '@/utils/trainingPrograms'
 import axios from 'axios'
@@ -850,33 +864,11 @@ const GENERAL_MEMBER_ROLE_FALLBACK = 'MEMBER'
 const GENERAL_MEMBER_ROLE_CANDIDATE_KEYS = ['MEMBER', 'PARENT', 'GENERAL_MEMBER']
 const DEFAULT_U_LEVEL_OPTIONS = ['U12', 'U11', 'U10', 'U9', 'U8']
 const DEFAULT_EXISTING_MEMBER_JOINED_DATE = '2026-02-01'
-const CHUNGGANG_PLAYER_IDENTITY = 'chunggang_player'
-const XINTAI_PLAYER_IDENTITY = 'xintai_player'
-const COMMUNITY_PLAYER_IDENTITY = 'community_player'
-const CHUNGGANG_SCHOOL_TEAM_GROUP = '中港校隊'
-const XINTAI_SCHOOL_TEAM_GROUP = '國中校隊'
-const SCHOOL_TEAM_GROUP_VALUES = [CHUNGGANG_SCHOOL_TEAM_GROUP, XINTAI_SCHOOL_TEAM_GROUP]
-type MemberIdentity = typeof COMMUNITY_PLAYER_IDENTITY | typeof CHUNGGANG_PLAYER_IDENTITY | typeof XINTAI_PLAYER_IDENTITY | '教練' | '管理群' | '其他'
-
 const teamGroupOptions = computed(() => teamGroupsStore.options)
 const defaultTeamGroupValue = computed(() => teamGroupOptions.value[0]?.value || '')
 const defaultCommunityTeamGroupValue = computed(() =>
   teamGroupOptions.value.find((option) => !SCHOOL_TEAM_GROUP_VALUES.includes(option.value))?.value || defaultTeamGroupValue.value
 )
-const memberIdentityOptions: Array<{ label: string; value: MemberIdentity }> = [
-  { label: '社區球員', value: COMMUNITY_PLAYER_IDENTITY },
-  { label: '中港校隊', value: CHUNGGANG_PLAYER_IDENTITY },
-  { label: '國中部', value: XINTAI_PLAYER_IDENTITY },
-  { label: '教練', value: '教練' },
-  { label: '管理群', value: '管理群' },
-  { label: '其他', value: '其他' }
-]
-const getSchoolTeamIdentityProgramKey = (identity: MemberIdentity) => {
-  if (identity === XINTAI_PLAYER_IDENTITY) return JUNIOR_HIGH_SCHOOL_TEAM_PROGRAM_KEY
-  if (identity === CHUNGGANG_PLAYER_IDENTITY) return CHUNGGANG_SCHOOL_TEAM_PROGRAM_KEY
-  return null
-}
-
 const getTodayDateInputValue = () => {
   const today = new Date()
   const year = today.getFullYear()
@@ -903,6 +895,15 @@ const members = computed(() =>
     fee_billing_mode: normalizeMemberFeeBillingMode(m.fee_billing_mode)
   }))
 )
+const savedIdentityLabels = ref<string[]>([])
+const memberIdentityOptions = computed(() => buildPlayerIdentityOptions(savedIdentityLabels.value, members.value))
+const loadIdentityLabels = async () => {
+  try {
+    savedIdentityLabels.value = await fetchPlayerIdentityLabels()
+  } catch {
+    ElMessage.warning('無法載入已儲存的身分選項，請稍後重新整理')
+  }
+}
 const activeTab = ref('全部')
 const viewMode = ref<'grid' | 'table'>('grid')
 const searchQuery = ref('')
@@ -925,47 +926,6 @@ const isSiblingEligibleRole = isTeamGroupEligibleRole
 const isFixedMonthlyMember = (member: any) => isFixedMonthlyBillingMember(member)
 const isMonthlyPerSessionMember = (member: any) => isMonthlyPerSessionBillingMember(member)
 const isNoFeeMember = (member: any) => isNoFeeBillingMember(member)
-const getMemberIdentityValue = (member: any): MemberIdentity => {
-  if (member?.role === '校隊') {
-    const trainingProgram = normalizeTrainingProgramKey(member.training_program, '')
-    if (trainingProgram === JUNIOR_HIGH_SCHOOL_TEAM_PROGRAM_KEY) return XINTAI_PLAYER_IDENTITY
-    if (trainingProgram === CHUNGGANG_SCHOOL_TEAM_PROGRAM_KEY) return CHUNGGANG_PLAYER_IDENTITY
-
-    return normalizeTeamGroup(member.team_group) === XINTAI_SCHOOL_TEAM_GROUP
-      ? XINTAI_PLAYER_IDENTITY
-      : CHUNGGANG_PLAYER_IDENTITY
-  }
-
-  if (member?.role === '球員') {
-    return COMMUNITY_PLAYER_IDENTITY
-  }
-
-  if (member?.role === '教練' || member?.role === '管理群' || member?.role === '其他') {
-    return member.role
-  }
-
-  return '其他'
-}
-const getMemberIdentityLabelFromValue = (value: unknown) =>
-  memberIdentityOptions.find((option) => option.value === value)?.label || '社區球員'
-const getMemberIdentityLabel = (member: any) =>
-  getMemberIdentityLabelFromValue(getMemberIdentityValue(member))
-const normalizeBillingModeForRole = (role: string | null | undefined, mode: string | null | undefined) => {
-  const normalizedMode = normalizeMemberFeeBillingMode(mode)
-
-  if (role === '球員') {
-    return normalizedMode
-  }
-
-  if (role === '校隊') {
-    return normalizedMode === NO_FEE_BILLING_MODE
-      ? NO_FEE_BILLING_MODE
-      : ROLE_DEFAULT_FEE_BILLING_MODE
-  }
-
-  return ROLE_DEFAULT_FEE_BILLING_MODE
-}
-
 type MemberGroup = {
   key: string
   title: string
@@ -1443,7 +1403,8 @@ let selectedFile: File | null = null
 const createInitialForm = () => ({
   id: '',
   name: '',
-  member_identity: COMMUNITY_PLAYER_IDENTITY as MemberIdentity,
+  member_identity: COMMUNITY_PLAYER_IDENTITY,
+  member_identity_label: null as string | null,
   role: '球員',
   team_group: defaultCommunityTeamGroupValue.value,
   training_program: null as string | null,
@@ -1500,37 +1461,11 @@ const billingModeOptions = computed(() => [
   }
 ])
 
-const applyMemberIdentityToForm = (identity: MemberIdentity) => {
-  if (identity === COMMUNITY_PLAYER_IDENTITY) {
-    form.role = '球員'
-    form.training_program = null
-    if (!form.team_group || SCHOOL_TEAM_GROUP_VALUES.includes(normalizeTeamGroup(form.team_group))) {
-      form.team_group = defaultCommunityTeamGroupValue.value
-    }
-    form.fee_billing_mode = normalizeBillingModeForRole(form.role, form.fee_billing_mode)
-    return
-  }
-
-  if (identity === CHUNGGANG_PLAYER_IDENTITY || identity === XINTAI_PLAYER_IDENTITY) {
-    form.role = '校隊'
-    form.training_program = getSchoolTeamIdentityProgramKey(identity)
-    if (!form.team_group) form.team_group = defaultCommunityTeamGroupValue.value || defaultTeamGroupValue.value
-    form.fee_billing_mode = ROLE_DEFAULT_FEE_BILLING_MODE
-    return
-  }
-
-  form.role = identity
-  form.team_group = ''
-  form.training_program = null
-  form.fee_billing_mode = ROLE_DEFAULT_FEE_BILLING_MODE
+const applyMemberIdentityToForm = (identity: string) => {
+  form.member_identity = identity
+  if (getPlayerIdentityError(identity)) return
+  Object.assign(form, getPlayerIdentityFormPatch(identity, form, defaultCommunityTeamGroupValue.value))
 }
-
-watch(
-  () => form.member_identity,
-  (identity) => {
-    applyMemberIdentityToForm(identity)
-  }
-)
 
 watch(
   () => form.role,
@@ -1583,7 +1518,14 @@ const schoolNameOptions = computed(() =>
 
 const rules = computed(() => ({
   name: [{ required: true, message: '請填寫姓名', trigger: 'blur' }],
-  member_identity: [{ required: true, message: '請選擇身分', trigger: 'change' }],
+  member_identity: [{
+    required: true,
+    validator: (_rule: unknown, value: string, callback: (error?: Error) => void) => {
+      const error = getPlayerIdentityError(value)
+      callback(error ? new Error(error) : undefined)
+    },
+    trigger: 'change'
+  }],
   role: [{ required: true, message: '請選擇身分', trigger: 'change' }],
   birth_date: [{ required: true, message: '請選擇生日', trigger: 'change' }],
   joined_date: [{ required: true, message: '請選擇加入時間', trigger: 'change' }],
@@ -1954,10 +1896,8 @@ const syncFromGoogleSheet = async () => {
       const name = readCell(row, '姓名');
       if (!name) continue;
       const rawRole = readCell(row, '身分');
-      let roleMapped = ['教練', '管理群', '其他'].includes(rawRole) ? rawRole : '球員';
-      if (readCell(row, '中港校隊') === '是') {
-        roleMapped = '校隊';
-      }
+      const existingMember = existingMap.get(name);
+      const roleMapped = getPlayerRoleForGoogleFormSync(rawRole, readCell(row, '中港校隊') === '是', existingMember);
       
       const siblingNamesRaw = readCell(row, '是否有兄弟姐妹也在熊戰社區');
       const siblingNames = siblingNamesRaw ? siblingNamesRaw.split(/[,、]/).map(s => s.trim()).filter(Boolean) : [];
@@ -2029,7 +1969,6 @@ const syncFromGoogleSheet = async () => {
         })
       }
 
-      const existingMember = existingMap.get(name);
       if (existingMember) {
         // Google 表單同步不得覆蓋手動維護的主要繳費人/半價優惠設定。
         const payload = {
@@ -2293,7 +2232,7 @@ const submitForm = async () => {
     }
 
     isModalOpen.value = false
-    await fetchData({ force: true })
+    await Promise.all([fetchData({ force: true }), loadIdentityLabels()])
     ElMessage.success(successMessage)
   } catch (error: any) {
     console.error("Submit Error:", error)
@@ -2363,6 +2302,7 @@ onMounted(() => {
     console.warn('Failed to load team group settings:', error)
   })
   void fetchData()
+  void loadIdentityLabels()
 })
 </script>
 
@@ -2382,28 +2322,6 @@ onMounted(() => {
 .players-toolbar .el-input__wrapper.is-focus,
 .players-toolbar .el-select__wrapper.is-focused {
   box-shadow: inset 0 0 0 1px var(--color-primary), 0 0 0 3px rgba(216, 143, 34, 0.14) !important;
-}
-
-.players-identity-select .el-select__selected-item,
-.players-identity-select .el-select__placeholder,
-.players-identity-select .el-select__input {
-  width: 100%;
-  justify-content: flex-start;
-  text-align: left;
-}
-
-.players-identity-select-popper .el-select-dropdown__item {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  padding-left: 12px;
-  padding-right: 12px;
-  text-align: left;
-}
-
-.players-identity-select-popper .el-select-dropdown__item span {
-  width: 100%;
-  text-align: left;
 }
 
 .player-tabs-shell .el-tabs__header {
@@ -2453,17 +2371,18 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   min-width: 52px;
-  height: 26px;
-  padding: 0 0.625rem;
+  min-height: 26px;
+  padding: 0.25rem 0.625rem;
   border-width: 1px;
   border-style: solid;
   border-radius: 9999px;
   box-sizing: border-box;
   font-size: 0.8125rem;
   font-weight: 800;
-  line-height: 1;
+  line-height: 1.4;
   letter-spacing: 0;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .players-card-photo {
   transition: box-shadow 180ms ease, transform 180ms ease;
@@ -2542,6 +2461,17 @@ onMounted(() => {
 }
 .custom-dialog .el-form-item__label {
   color: #475569 !important;
+}
+
+.players-member-form {
+  --players-form-control-height: 44px;
+}
+.players-member-form .el-input {
+  --el-input-height: var(--players-form-control-height);
+}
+.players-member-form .el-input__wrapper,
+.players-member-form .el-select__wrapper {
+  min-height: var(--players-form-control-height);
 }
 
 .billing-mode-radio-group {

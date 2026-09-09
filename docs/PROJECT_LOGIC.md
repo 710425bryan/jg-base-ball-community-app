@@ -200,6 +200,8 @@ UI 約定：
 資料流：
 
 - 球員名單寫入 `team_members`；safe scope 查 `team_members_safe`，full scope 呼叫 `list_team_members_for_edit()`，不從前端 raw table 讀完整資料。
+- 身分的呈現與輸入由 `PlayerIdentitySelect.vue` / `playerIdentity.ts` 處理；自訂社區球隊名稱（預設含「新太陽社區棒球隊」）另存 `team_members.member_identity_label`，不取代 `role = 球員`、收費模式或熊隊群組。`player_identity_labels` 永久保存曾成功使用的選項，前端由 `playerIdentitiesApi.ts` 讀取；輸入當下不寫 DB，私有 trigger 在原球員 INSERT/UPDATE 交易內去空白、檢查最長 60 字並保存唯一名稱，失敗一起回滾，刪除球員不刪選項。列表、搜尋、CSV 與重新編輯使用此名稱，其他業務仍判斷原角色與收費設定。
+- `player_identity_labels` 僅向 `players:VIEW/CREATE/EDIT` 開放 SELECT，前端不得直接 INSERT；只有原球員 RLS 授權成功的儲存才會建立選項。safe view 只追加非敏感名稱欄位，full RPC 沿用原授權。Google 同步保留自訂社區身分及球員角色；既有校隊 `training_program` 邏輯不變。部署順序為 `20260909133628_player_custom_identity_labels.sql` → 前端。
 - `team_members_safe` 使用 invoker 權限與底層 RLS：linked user 只看綁定球員，`players:VIEW` / `players:EDIT` / ADMIN 看全隊安全欄位；一般使用者擁有 `training`、`matches`、`equipment` 等功能 VIEW 不會放大全隊名單範圍。raw table 對 authenticated 只授予同一組安全欄位。
 - `status in ('退隊', '離隊')` 或 `is_inactive_or_graduated = true` 的成員視為非有效名單；比賽資料下載、後台大廳統計 / 今日請假名單、個人首頁、個人假單新增、後續繳費成員選單都不可再顯示或納入新一期計算。
 - 球員名單顯示使用 session 內記憶體快取；進頁先呼叫 `get_team_members_cache_meta()` 比對 `row_count` / `latest_changed_at`，有差異才重新抓完整名單。

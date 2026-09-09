@@ -28,6 +28,7 @@
 
 | 檔案 | 用途 | 注意事項 |
 | --- | --- | --- |
+| `supabase/migrations/20260909133628_player_custom_identity_labels.sql` | 自訂社區球員身分名稱與持久化選項 | 名稱與 `role` 分開；私有 trigger 隨球員交易保存選項；保留原球員 RLS，safe view 僅追加非敏感欄位；須先於前端部署 |
 | `supabase_team_members_cache_meta_migration.sql` | 名單 cache meta 與 updated_at trigger | `playerRoster` store 依賴 |
 | `supabase_team_members_joined_date_migration.sql` | 球員加入日期 | Google sync 不覆蓋既有值 |
 | `supabase_team_members_inactive_graduated_migration.sql` | inactive / graduated 狀態 | 影響名單篩選 |

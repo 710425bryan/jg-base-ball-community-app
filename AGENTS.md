@@ -175,6 +175,7 @@
 ### 球員、使用者與權限
 
 - 球員名單主要在 `PlayersView`，資料表為 `team_members`；同步邏輯與 dedupe 在 `src/utils/playerSync.ts`。
+- 球員身分選單由 `PlayerIdentitySelect` / `playerIdentity` 管理，包含「新太陽社區棒球隊」並可自行輸入最多 60 字的社區球員身分；名稱存 `team_members.member_identity_label`，底層 `role` 固定為 `球員`，收費仍依個別 `fee_billing_mode`。`private.capture_player_identity_label` 隨球員成功儲存同步保存至 `player_identity_labels`，未送出或球員寫入失敗不保存、最後一位球員刪除後選項仍保留。既有校隊／教練／管理群身分維持原規則；Google 同步不得覆蓋手動自訂身分或將其角色改為校隊。此功能須先部署 `20260909133628_player_custom_identity_labels.sql`。
 - 球員名單讀取分流：linked user 只看綁定球員安全欄位、相關 `*:VIEW` 權限可看全隊安全欄位、`players:EDIT` / `ADMIN` 由 `list_team_members_for_edit()` 讀完整資料。
 - 球員名單顯示經由 `src/stores/playerRoster.ts` 做 session 內記憶體快取；進頁先呼叫 `get_team_members_cache_meta()` 比對 `team_members` 的 `row_count` / `latest_changed_at`，有差異才重新抓完整名單。
 - 新增球員後由 `team_members` trigger 寫入 `push_dispatch_events` Outbox，`process-team-member-notification-outbox` 每分鐘逐 subscription 派送與重試；`PlayersView` / `MainLayout` 不可再發送新球員推播或訂閱 raw `team_members` Realtime。
