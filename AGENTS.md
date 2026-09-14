@@ -203,6 +203,7 @@
 - 後台請假管理在 `LeaveRequestsView`，會讀 `team_members` 與 `leave_requests`，需受 `leave_requests` feature RLS 保護。
 - 點名列表與點名頁使用 `attendance_events`、`attendance_records`，並會參照 `team_members`、`leave_requests`。
 - 場地配置建立的點名單透過 `attendance_events.training_location_session_id` / `training_location_session_venue_id` 串接；每個場地可各自建立一張點名單，`RollCallView` 名單只取該場地最新 `training_location_assignments`，不回退成全隊名單。
+- 場地區塊的已配置名單由 `TrainingLocationVenueMembers` 依角色與完整組名分組：先校隊、再球員，各自 U 層級由大到小，組名含「不參賽」者統一置底；只調整顯示，不改指派或點名資料。
 - 外部請假 webhook 在 `supabase/functions/leave-webhook/index.ts`，改動時要檢查 secret、member match、假單 RPC 與推播 target。
 - `/attendance/:id` 點名 Detail（`RollCallView`）不可顯示或提供 `缺席` 操作；Detail UI 只保留 `出席`、`請假` 等允許操作，若需處理既有缺席資料或禁報流程，必須另設明確管理流程，不可直接把 `缺席` 按鈕放回 Detail。
 - 改到請假或點名時，要檢查通知中心、推播、今日缺席摘要與費用計算是否受影響。

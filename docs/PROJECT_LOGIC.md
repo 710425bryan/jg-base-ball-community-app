@@ -446,6 +446,7 @@ UI 約定：
 
 - 教練在 `/training-locations` 建立某天訓練配置，先選 program；新增配置會套用 `training_program_settings` 的預設時間與場地。每個場地區塊可個別保存訓練標題、日期、開始 / 結束時間與備註，必要時可由前端同步共用設定。球員池列出全部有效球員 / 校隊，並可用全隊、角色或 `team_group` 快速帶入；program 只決定這份配置的訓練項目、預設場地時間與後續通知語意，不限制可編排球員。
 - `save_training_location_session()` 會重建該訓練的場地與指派；DB 以 `(session_id, member_id)` 確保同一球員只在一個場地。
+- 場地區塊已配置名單由 `TrainingLocationVenueMembers` 按角色與完整 `team_group` 分組並顯示人數：校隊優先、球員其次，各角色內 U 層級由大到小，舊大／中／小組亦依大小排列，其他與未分組接在後方；組名含「不參賽」的所有群組統一置底。僅改顯示順序，保留組內原順序、請假／不收費標示與移除操作。
 - 近期訓練卡在中港總部 program 會於各場地總人數下方依 assignment 的 `role` 顯示社區（`球員`）與校隊（`校隊`）人數；其他 program 維持總人數、上課與請假摘要。請假人數大於 0 時可查看請假球員，桌機 hover、手機點擊開啟 tooltip，內容固定以上方社區、下方校隊分組顯示安全姓名。
 - `create_training_location_venue_attendance_event()` 會為單一場地區塊建立或重用一張點名單，並由 `sync_training_location_attendance_records()` 自動同步該場地最新配置球員。
 - 場地配置 roster 仍顯示 `fee_billing_mode = 'no_fee'` 的球員 / 校隊並標註「不收費」，但前端不可勾選、拖曳、快捷加入或保存；DB 端也拒絕新的 no-fee assignment。既有配置可顯示，下次儲存會移除。

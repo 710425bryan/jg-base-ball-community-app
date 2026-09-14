@@ -138,6 +138,8 @@
 | `src/utils/pushDeepLink.ts` | Web Push 點擊 target 正規化、IndexedDB / Cache Storage pending target、iOS PWA deep link fallback 與診斷 |
 | `src/utils/trainingRegistrationNotification.ts` | 特訓報名開始 / 截止前提醒與單筆報名 / 錄取通知文案、URL、event key |
 | `src/utils/trainingLocationNotification.ts` | 場地通知文案、URL、event key、收件分組 |
+| `src/utils/trainingLocationMemberGroups.ts` | 場地已配置名單按角色／組別分組、U 層級降冪、不參賽置底 |
+| `src/components/training-locations/TrainingLocationVenueMembers.vue` | 場地已配置名單的分組標題、人數、成員卡片與移除操作 |
 | `src/utils/coachSchedules.ts` | 教練排班來源 label、月份 normalize、候選 / 已儲存事件合併與排序 |
 | `src/utils/googleCalendarParser.ts` | Google Calendar / iCal parser 與同步規劃 |
 | `src/utils/matchCalendarCopy.ts` | Google Calendar / 賽事複製文字 |

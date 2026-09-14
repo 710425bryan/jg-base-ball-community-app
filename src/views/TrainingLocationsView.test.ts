@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, shallowMount } from '@vue/test-utils'
 
 import TrainingLocationSessionSummary from '@/components/training-locations/TrainingLocationSessionSummary.vue'
+import TrainingLocationVenueMembers from '@/components/training-locations/TrainingLocationVenueMembers.vue'
 import TrainingLocationsView from './TrainingLocationsView.vue'
 
 const mocks = vi.hoisted(() => ({
@@ -122,6 +123,28 @@ const mountView = async () => {
 }
 
 describe('TrainingLocationsView', () => {
+  it('passes each venue its own members and removes only the member from the selected venue', async () => {
+    mocks.listRoster.mockResolvedValue(['first', 'second'].map((id) => ({
+      member_id: id, name: id, role: '校隊', team_group: 'U12熊戰組',
+      jersey_number: null, fee_billing_mode: 'role_default', is_on_leave: false
+    })))
+    const wrapper = await mountView()
+    wrapper.vm.form.venues[0].member_ids = ['first']
+    wrapper.vm.addVenue()
+    wrapper.vm.form.venues[1].member_ids = ['second']
+    await wrapper.vm.$nextTick()
+
+    const lists = wrapper.findAllComponents(TrainingLocationVenueMembers)
+    expect(lists[0].props('members').map((member) => member.member_id)).toEqual(['first'])
+    expect(lists[1].props('members').map((member) => member.member_id)).toEqual(['second'])
+    lists[1].vm.$emit('remove', 'second')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.vm.form.venues[0].member_ids).toEqual(['first'])
+    expect(wrapper.vm.form.venues[1].member_ids).toEqual([])
+    expect(lists[1].props('members')).toEqual([])
+    wrapper.unmount()
+  })
+
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.permissionsCan.mockReturnValue(true)

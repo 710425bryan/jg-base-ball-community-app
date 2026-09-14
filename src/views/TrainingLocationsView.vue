@@ -17,6 +17,7 @@ import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
 import AppSearchInput from '@/components/common/AppSearchInput.vue'
 import TrainingLocationSessionSummary from '@/components/training-locations/TrainingLocationSessionSummary.vue'
+import TrainingLocationVenueMembers from '@/components/training-locations/TrainingLocationVenueMembers.vue'
 import { usePointerDragSupport } from '@/composables/usePointerDragSupport'
 import { TrainingLocationAuthError, trainingLocationsApi } from '@/services/trainingLocationsApi'
 import { trainingProgramsApi } from '@/services/trainingProgramsApi'
@@ -1192,37 +1193,10 @@ onMounted(() => {
                     </div>
                   </div>
 
-                  <div class="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                    <div
-                      v-for="member in getVenueMembers(venue)"
-                      :key="member.member_id"
-                      class="flex min-w-0 items-center justify-between gap-2 rounded-xl border px-3 py-2"
-                      :class="isNoFeeBillingMember(member)
-                        ? 'border-slate-200 bg-slate-100 text-slate-400'
-                        : member.is_on_leave
-                          ? 'border-amber-100 bg-amber-50 text-amber-800'
-                          : 'border-slate-100 bg-slate-50 text-slate-700'"
-                    >
-                      <div class="min-w-0">
-                        <div class="flex min-w-0 items-center gap-2">
-                          <span class="truncate text-sm font-black">{{ member.name }}</span>
-                          <span v-if="isNoFeeBillingMember(member)" class="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-black text-slate-500">不收費</span>
-                        </div>
-                        <div class="truncate text-xs font-bold opacity-70">{{ getMemberMeta(member) }}<span v-if="member.is_on_leave">｜已請假</span></div>
-                      </div>
-                      <button
-                        type="button"
-                        class="shrink-0 rounded-lg p-1 text-slate-300 transition-colors hover:bg-white hover:text-red-500"
-                        @click="removeMemberFromVenue(member.member_id, venueIndex)"
-                      >
-                        <el-icon><Delete /></el-icon>
-                      </button>
-                    </div>
-
-                    <div v-if="getVenueMembers(venue).length === 0" class="rounded-xl border border-dashed border-slate-200 px-3 py-5 text-center text-sm font-bold text-slate-400 sm:col-span-2 xl:col-span-3">
-                      拖曳或移入球員到這個場地。
-                    </div>
-                  </div>
+                  <TrainingLocationVenueMembers
+                    :members="getVenueMembers(venue)"
+                    @remove="removeMemberFromVenue($event, venueIndex)"
+                  />
                 </article>
               </section>
             </div>
