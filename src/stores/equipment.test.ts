@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 
 const apiMocks = vi.hoisted(() => ({
+  saveEquipmentOrder: vi.fn(),
   createEquipment: vi.fn(),
   createEquipmentInventoryAdjustment: vi.fn(),
   createEquipmentTransaction: vi.fn(),
@@ -15,11 +16,24 @@ const apiMocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/services/equipmentApi', () => apiMocks)
+vi.mock('@/services/equipmentOrderApi', () => ({ saveEquipmentOrder: apiMocks.saveEquipmentOrder }))
 
 describe('equipment store', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     setActivePinia(createPinia())
+  })
+
+  it('applies the order only after saving and preserves the list when the RPC rejects', async () => {
+    const { useEquipmentStore } = await import('./equipment')
+    const store = useEquipmentStore()
+    store.equipments = [{ id: 'a' }, { id: 'b' }] as any
+    apiMocks.saveEquipmentOrder.mockRejectedValueOnce(new Error('stale order'))
+    await expect(store.reorderEquipments(['b', 'a'], ['a', 'b'])).rejects.toThrow('stale order')
+    expect(store.equipments.map(item => item.id)).toEqual(['a', 'b'])
+    apiMocks.saveEquipmentOrder.mockResolvedValueOnce(undefined)
+    await store.reorderEquipments(['b', 'a'], ['a', 'b'])
+    expect(store.equipments.map(item => item.id)).toEqual(['b', 'a'])
   })
 
   it('loads equipments and exposes an id lookup map', async () => {

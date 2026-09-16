@@ -218,3 +218,10 @@
 | `supabase_z_disk_io_optimization_migration.sql` | cache meta / notification feed / 效能補強 | 可能覆寫 function |
 | `supabase_zzzz_disk_io_safety_cleanup_migration.sql` | disk IO 安全 cleanup | 維運類 |
 | `test_db.sql` | 臨時驗證 SQL | 不當成正式 migration |
+
+## 裝備共用排序（2026-09-16）
+
+- `supabase/migrations/20260916010833_equipment_display_order.sql`：新增 `equipment_display_order`（FK 刪除連動、RLS）；有效登入使用者可讀，僅 `equipment:EDIT` 可經 `reorder_equipment` 寫入。RPC 驗證全部裝備及原始順序，衝突時全筆拒絕，保留庫存與付款流程。
+- 先部署 migration，再部署前端。舊 DB 缺表時列表沿用新增時間排序，儲存會顯示未啟用訊息。
+- 隔離 PostgreSQL 驗證：`scripts/verify-equipment-order.mjs`（檔首含暫存 PGlite runtime 安裝與執行方式），涵蓋正常／非法 ID、ADMIN／editor／家長／失效及匿名邊界、過期快照、新增／刪除與庫存價格不變。
+- 回退先回退前端即可，排序表及 RPC 可保留；若移除 schema，先移除 `reorder_equipment(uuid[], uuid[])` 再移除排序表，不動裝備主檔。

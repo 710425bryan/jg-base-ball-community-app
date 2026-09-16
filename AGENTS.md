@@ -291,6 +291,7 @@
 ### 裝備管理與加購
 
 - 後台裝備管理路由 `/equipment`，feature key 為 `equipment`。
+- 裝備管理提供「調整排序」：`equipment:EDIT` 管理者可拖曳或上下移動全部裝備，取消不寫入，儲存後管理與家長加購列表共用 `equipment_display_order`。新裝備接在已排序品項後；篩選維持相對順序。`reorder_equipment(uuid[], uuid[])` 鎖定清單、驗證完整 ID 與原順序，過期或無權限拒絕寫入，不修改庫存／價格。需先部署 `supabase/migrations/20260916010833_equipment_display_order.sql`。
 - 管理端裝備請購／付款路由 `/equipment-purchases`，feature key 為 `fees`；`/fees?tab=equipment` 舊連結必須轉向新頁並保留請購、付款回報或尚未付款定位。
 - 家長加購路由 `/equipment-addons`，只要求登入；資料安全由 `linked_team_member_ids` 與 DB RLS 限制，不要改成需要 `equipment:VIEW`。
 - 裝備資料流集中在 `src/types/equipment.ts`、`src/services/equipmentApi.ts`、`src/stores/equipment*.ts`、`src/components/equipment/*`。

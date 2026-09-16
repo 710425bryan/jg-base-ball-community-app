@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
+import { saveEquipmentOrder } from '@/services/equipmentOrderApi'
+import { sortEquipments } from '@/utils/equipmentOrder'
 import {
   createEquipment,
   createEquipmentInventoryAdjustment,
@@ -90,6 +92,11 @@ export const useEquipmentStore = defineStore('equipment', () => {
     equipments.value = equipments.value.filter((equipment) => equipment.id !== equipmentId)
   }
 
+  const reorderEquipments = async (equipmentIds: string[], expectedIds: string[]) => {
+    await saveEquipmentOrder(equipmentIds, expectedIds)
+    equipments.value = sortEquipments(equipments.value, equipmentIds)
+  }
+
   const loadTransactions = async (equipmentId: string) => {
     const transactions = await fetchEquipmentTransactions(equipmentId)
     equipments.value = equipments.value.map((equipment) => {
@@ -160,6 +167,7 @@ export const useEquipmentStore = defineStore('equipment', () => {
     loadMembers,
     saveEquipment,
     removeEquipment,
+    reorderEquipments,
     loadTransactions,
     loadInventoryAdjustments,
     loadHistory,

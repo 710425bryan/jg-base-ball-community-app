@@ -3,6 +3,8 @@ import { resetSupabaseRpcAvailabilityCache } from '@/utils/supabaseRpc'
 
 const rpcMock = vi.fn()
 const fromMock = vi.fn()
+const orderMock = vi.hoisted(() => vi.fn())
+vi.mock('@/services/equipmentOrderApi', () => ({ fetchEquipmentOrder: orderMock }))
 
 vi.mock('@/services/supabase', () => ({
   supabase: {
@@ -21,6 +23,26 @@ describe('equipmentApi payment helpers', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     resetSupabaseRpcAvailabilityCache()
+  })
+
+  it('applies shared ordering to inventory snapshots used by both catalog pages', async () => {
+    rpcMock.mockResolvedValue({ data: [{ id: 'a' }, { id: 'b' }, { id: 'new' }], error: null })
+    orderMock.mockResolvedValue(['b', 'a'])
+    const { fetchEquipments } = await import('./equipmentApi')
+    expect((await fetchEquipments()).map(item => item.id)).toEqual(['b', 'a', 'new'])
+  })
+
+  it('also applies shared ordering when the inventory snapshot RPC is unavailable', async () => {
+    rpcMock.mockResolvedValue({ data: null, error: { code: 'PGRST202', message: 'missing function' } })
+    orderMock.mockResolvedValue(['b', 'a'])
+    fromMock.mockImplementation((table: string) => {
+      const result = { data: table === 'equipment' ? [{ id: 'a' }, { id: 'b' }] : [], error: null }
+      const query: any = { then: (resolve: any) => Promise.resolve(result).then(resolve) }
+      for (const method of ['select', 'order', 'in', 'is', 'eq']) query[method] = () => query
+      return query
+    })
+    const { fetchEquipments } = await import('./equipmentApi')
+    expect((await fetchEquipments()).map(item => item.id)).toEqual(['b', 'a'])
   })
 
   it('lists and normalizes my equipment payment items', async () => {

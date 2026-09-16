@@ -21,6 +21,7 @@ description: "Equipment management workflow for jg-base-ball-community-app. Use 
 ## 固定規則
 
 - 後台裝備管理路由 `/equipment` 使用 `meta.feature = 'equipment'`。
+- 裝備管理提供「調整排序」：`equipment:EDIT` 管理者可拖曳或上下移動全部裝備，取消不寫入，儲存後管理與家長加購列表共用 `equipment_display_order`。新裝備接在已排序品項後；篩選維持相對順序。`reorder_equipment(uuid[], uuid[])` 鎖定清單、驗證完整 ID 與原順序，過期或無權限拒絕寫入，不修改庫存／價格。需先部署 `supabase/migrations/20260916010833_equipment_display_order.sql`。
 - 後台裝備請購／付款路由 `/equipment-purchases` 使用 `meta.feature = 'fees'`；前端操作依 `fees:EDIT / DELETE`，既有 DB `fees OR equipment` 權限不因 UI 搬移而收緊。
 - 家長加購路由 `/equipment-addons` 不加 `equipment` feature；一般家長靠登入與 `linked_team_member_ids` 存取自己的資料。
 - 權限 action 使用本專案標準 `VIEW / CREATE / EDIT / DELETE`，不要使用來源專案的 `ADD`。

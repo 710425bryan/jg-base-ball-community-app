@@ -632,6 +632,7 @@ UI 約定：
 重要規則：
 
 - `/equipment` 需要 `equipment:VIEW`。
+- 裝備管理提供「調整排序」：`equipment:EDIT` 管理者可拖曳或上下移動全部裝備，取消不寫入，儲存後管理與家長加購列表共用 `equipment_display_order`。新裝備接在已排序品項後；篩選維持相對順序。`reorder_equipment(uuid[], uuid[])` 鎖定清單、驗證完整 ID 與原順序，過期或無權限拒絕寫入，不修改庫存／價格。需先部署 `supabase/migrations/20260916010833_equipment_display_order.sql`。
 - `/equipment` 的「新增庫存」與「減少庫存」共用 `create_equipment_inventory_adjustment()`；前端以正／負 `quantity_delta` 傳入，DB 流水帳仍保存正數並以 `stock_in` / `stock_out` 表示方向。減少庫存只顯示給 `equipment:EDIT`，必填原因並二次確認；DB 鎖定裝備後重新計算交易與 `approved` / `ready_for_pickup` 未轉交易請購占用量，總量與尺寸量都不可扣低於已使用／已預留數量。
 - `/equipment-purchases` 需要 `fees:VIEW`；修改操作依 `fees:EDIT`，刪除依 `fees:DELETE`。此限制是前端路由與互動入口，DB 既有 `fees OR equipment` RPC / RLS 權限保持不變。
 - `/equipment-addons` 只要求登入，資料安全靠 `linked_team_member_ids` 與 DB RLS。

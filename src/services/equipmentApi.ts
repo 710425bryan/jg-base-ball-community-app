@@ -1,4 +1,6 @@
 import { supabase } from '@/services/supabase'
+import { fetchEquipmentOrder } from '@/services/equipmentOrderApi'
+import { sortEquipments } from '@/utils/equipmentOrder'
 import { compressImage } from '@/utils/imageCompressor'
 import {
   EQUIPMENT_REQUEST_RESERVED_STATUSES,
@@ -396,9 +398,8 @@ const fetchEquipmentsWithRlsAvailability = async (equipmentIds: string[] = []) =
 
 export const fetchEquipments = async () => {
   const snapshotEquipments = await fetchEquipmentsFromInventorySnapshotRpc()
-  if (snapshotEquipments) return snapshotEquipments
-
-  return fetchEquipmentsWithRlsAvailability()
+  const equipments = snapshotEquipments ?? await fetchEquipmentsWithRlsAvailability()
+  return sortEquipments(equipments, await fetchEquipmentOrder())
 }
 
 export const fetchEquipmentJerseyNumberAvailability = async (equipmentId: string) => {
