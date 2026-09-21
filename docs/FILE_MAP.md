@@ -256,7 +256,7 @@
 | `src/components/equipment/EquipmentOrderDialog.vue` | 全清單拖曳／上下移動排序草稿、取消、儲存與衝突提示 |
 | `src/services/equipmentOrderApi.ts` | 共用順序讀取與原子排序 RPC |
 | `src/utils/equipmentOrder.ts` | 套用共用排序、新品尾端排列與草稿移動 |
-| `src/components/equipment/EquipmentFormDialog.vue` | 裝備主檔新增 / 編輯 |
+| `src/components/equipment/EquipmentFormDialog.vue` | 裝備主檔新增 / 編輯；尺寸／序號庫存可上下移動，隨主檔儲存順序 |
 | `src/components/equipment/EquipmentPhotoCarousel.vue` | 裝備照片與處理照片輪播 |
 | `src/components/equipment/EquipmentHistoryDialog.vue` | 裝備交易 / 庫存 / 申請歷史 |
 | `src/components/equipment/EquipmentInventoryAdjustmentDialog.vue` | 新增／減少庫存、可用量預覽與減量確認 |

@@ -89,7 +89,7 @@
 | P2-08 | `/attendance` | 建立、刪除、開始點名與 footer 偏小 | 功能操作至少 44px，保留既有權限 | 待驗收 | AttendanceList test＋source contract 通過 |
 | P2-09 | `/join-inquiries` | 手機清單在載入失敗或零筆資料時沒有狀態內容，會呈現整頁空白 | 手機卡片；共用 loading、可重試錯誤與明確空狀態；Danger 44px＋ARIA | 待驗收 | JoinInquiriesView tests、`vue-tsc`、build＋source contract 通過 |
 | P2-10 | `/announcements` | 每筆最多四個可見操作；卡片／表格切換仍使用頁面自製白底樣式 | 保留兩個高頻操作，其餘 overflow；共用 footer 與 `ViewModeSwitch` | 待驗收 | `vue-tsc`、build＋共用檢視切換 source contract 通過 |
-| P2-11 | `/equipment` | 卡片／表格最多六個操作；搜尋與分類在手機互相壓縮 | 每筆最多兩個可見操作，其餘 overflow；分類篩選由底部展開；管理者透過共用排序 Dialog 拖曳／上下移動 | 待驗收 | 2026-09-16：全量 228 files／1165 tests、型別與 build 通過；排序 Dialog 在 360／390／640／767px 無橫向溢出、移動按鈕 44px、footer 可見，完成測試資料上下移動與儲存；待正式登入／iOS 實機驗收 |
+| P2-11 | `/equipment` | 卡片／表格最多六個操作；搜尋與分類在手機互相壓縮 | 每筆最多兩個可見操作，其餘 overflow；分類篩選由底部展開；管理者透過共用排序 Dialog 拖曳／上下移動；編輯裝備可另行上下移動尺寸／序號庫存 | 待驗收 | 2026-09-16：全量 228 files／1165 tests、型別與 build 通過；排序 Dialog 在 360／390／640／767px 無橫向溢出、移動按鈕 44px、footer 可見，完成測試資料上下移動與儲存；2026-09-21 尺寸排序驗證見下方；待正式登入／iOS 實機驗收 |
 | P2-12 | `/fees` | tabs 與子元件 Dialog 規格不一；校隊月費搜尋與 program 篩選並排 | tabs 44px＋ARIA；月費結算以中港總部／國中部固定分頁切換；可見 Dialog footer 統一；裝備請購／付款移至獨立管理頁 | 待驗收 | 收費設定已拆成計次、固定月繳、季費補償、不收費四個 44px ARIA tabs；月費結算另以中港總部／國中部 44px ARIA tabs 分開名單、摘要與 CSV，手機不用另開篩選面板；計次頁籤內兩個 program 各有獨立手機友善費率卡，國中部的單次月費／訓練日期 switch 可換行且金額欄滿寬，社區成員費率手機改用卡片；待 360–767px 視覺驗收 |
 | P2-13 | `/vendors` | 卡片三個操作；table icons 偏小；手機分類在頁內向下展開 | 每筆最多兩個操作，其他 overflow；icons 44px＋ARIA；分類篩選由底部展開 | 待驗收 | vendors 5 tests＋search/filter source contract 通過 |
 | P2-14 | `/equipment-purchases` | 原本付款與請購六個狀態區塊同時堆疊於 `/fees`，桌機與手機資訊量過高 | 付款／請購雙頁籤；`>=1024px` 主清單＋明細，較小螢幕全螢幕 Drawer；摘要／進階篩選預設收起；進階條件統一 Element Plus 控制；請購數量依目前篩選跨分頁彙整，桌機表格／手機分組列；付款狀態沿用藍／綠／橘語意色與原說明文字；主清單依狀態顯示淡色外框／底色；分頁後捲到新頁第一筆且選取明細不重設頁碼；刪除請購使用獨立 Danger 按鈕；44px、safe area、深層連結與單一頁面捲動 | 待驗收 | 搬移後全量 154 files、754 tests；Element Plus 篩選回歸 3 files、90 tests；狀態色彩、主清單外框／底色與文案回歸測試通過；請購刪除操作 targeted tests 通過；分頁捲動回歸 3 files、73 tests；數量統計／分頁狀態 7 files、51 tests；`vue-tsc`、build 通過；管理台仍待登入後裝置驗收 |
@@ -265,6 +265,14 @@
 - `pnpm build`：通過；僅保留既有 chunk size warning，建置產物與 `public/version.json` 未納入變更。
 - `git diff --check`：通過。
 - `viewImportCoverage`／`componentImportCoverage` 額外檢查：既有 `file:///baseball-field.png` 測試 URL 解析問題造成 VisualField、Landing、Calendar、MatchRecords import case 失敗；正式 build 與對應頁面測試均通過，未將此問題誤列為本次完成項目。
+
+### 2026-09-21 裝備尺寸／序號排序
+
+- `EquipmentFormDialog` 新增「調整排序」模式，以 44px 上下箭頭移動整列尺寸／序號與數量，首尾停用越界操作；排序期間每列僅有兩個操作，新增／移除留在欄位編輯模式。
+- 使用原有 `sizes_stock` 陣列保存順序，按主表單「儲存」才生效；取消、重開、儲存失敗與儲存期間停用操作均有元件測試，並涵蓋排序後增刪／修改數量及重複尺寸合併。
+- 相關 5 files／32 tests 通過；首次全量與建置並行時出現測試逾時，改以 `pnpm exec vitest run --maxWorkers=2` 重跑後 229 files／1170 tests 全數通過。`pnpm build`（含型別檢查）通過，僅有既有 Browserslist／chunk size 提示。
+- 本機測試資料搭配實際 Vue／Element Plus 元件，以瀏覽器完成尺寸移動、儲存與重開；360／390／640／767／1280px 頁面與 Dialog 水平溢出皆為 0，排序按鈕均為 44×44px，390px 長序號可換行且 footer 可操作，無瀏覽器錯誤。
+- 本次未操作正式資料；正式登入權限與 iOS 實機驗收仍待完成，P2-11 保持待驗收。
 
 ### 待登入環境驗收
 

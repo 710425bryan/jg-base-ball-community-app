@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Plus, Delete, Loading } from '@element-plus/icons-vue'
+import { Plus, Delete, Loading, ArrowUp, ArrowDown } from '@element-plus/icons-vue'
 import EquipmentPhotoCarousel from '@/components/equipment/EquipmentPhotoCarousel.vue'
 import { useEquipmentStore } from '@/stores/equipment'
+import { moveEquipment } from '@/utils/equipmentOrder'
 import type { Equipment, EquipmentCategory, EquipmentFormPayload, EquipmentSizeStock } from '@/types/equipment'
 
 const props = defineProps<{
@@ -23,6 +24,14 @@ const imageFiles = ref<File[]>([])
 const imagePreviews = ref<string[]>([])
 const existingImageUrls = ref<string[]>([])
 const jerseyNumberOptionsText = ref('')
+const isSortingSizes = ref(false)
+const sizeStockKeys = new WeakMap<EquipmentSizeStock, number>()
+let nextSizeStockKey = 0
+
+const sizeStockKey = (item: EquipmentSizeStock) => {
+  if (!sizeStockKeys.has(item)) sizeStockKeys.set(item, nextSizeStockKey++)
+  return sizeStockKeys.get(item)!
+}
 
 const categories: EquipmentCategory[] = ['服飾類', '球具類', '消耗品', '其他']
 
@@ -112,6 +121,7 @@ const syncSelectedImageFiles = (uploadFiles: any[] = []) => {
 
 const resetForm = () => {
   revokeImagePreviews()
+  isSortingSizes.value = false
   form.name = props.equipment?.name || ''
   form.category = props.equipment?.category || '球具類'
   form.specs = props.equipment?.specs || ''
@@ -147,6 +157,11 @@ const addSizeStock = () => {
 
 const removeSizeStock = (index: number) => {
   form.sizes_stock.splice(index, 1)
+}
+
+const moveSizeStock = (index: number, offset: number) => {
+  if (equipmentStore.isSaving) return
+  form.sizes_stock = moveEquipment(form.sizes_stock, index, index + offset)
 }
 
 const handleImageChange = (_file: any, uploadFiles: any[] = []) => {
@@ -262,37 +277,84 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="rounded-2xl border border-gray-100 bg-gray-50/80 p-4">
-        <div class="flex items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div class="font-black text-slate-800">尺寸 / 序號庫存</div>
             <p class="mt-1 text-xs text-gray-400">沒有尺寸時可留空，系統會用總數量計算。</p>
           </div>
-          <button
-            type="button"
-            class="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-bold text-gray-600 hover:border-primary hover:text-primary transition-colors"
-            @click="addSizeStock"
-          >
-            <el-icon><Plus /></el-icon>
-            新增
-          </button>
+          <div class="flex flex-wrap gap-2">
+            <button
+              v-if="form.sizes_stock.length > 1"
+              type="button"
+              class="min-h-[44px] rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-bold text-gray-600 hover:border-primary hover:text-primary transition-colors disabled:opacity-40"
+              :aria-pressed="isSortingSizes"
+              :disabled="equipmentStore.isSaving"
+              @click="isSortingSizes = !isSortingSizes"
+            >
+              {{ isSortingSizes ? '完成排序' : '調整排序' }}
+            </button>
+            <button
+              v-if="!isSortingSizes"
+              type="button"
+              class="min-h-[44px] rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-bold text-gray-600 hover:border-primary hover:text-primary transition-colors disabled:opacity-40"
+              :disabled="equipmentStore.isSaving"
+              @click="addSizeStock"
+            >
+              <el-icon><Plus /></el-icon>
+              新增
+            </button>
+          </div>
         </div>
 
+        <p v-if="isSortingSizes" class="mt-3 text-sm text-slate-600">使用上下箭頭調整順序，完成後請儲存裝備。</p>
         <div v-if="form.sizes_stock.length > 0" class="mt-4 grid gap-3">
           <div
             v-for="(item, index) in form.sizes_stock"
-            :key="index"
-            class="grid gap-3 md:grid-cols-[1fr_160px_auto] items-center"
+            :key="sizeStockKey(item)"
+            data-size-stock-row
+            :class="isSortingSizes ? 'flex' : 'grid md:grid-cols-[1fr_160px_auto]'"
+            class="min-w-0 items-center gap-3"
           >
-            <el-input v-model="item.size" size="large" placeholder="尺寸或序號，例如 M / SN-001" />
-            <el-input-number v-model="item.quantity" class="!w-full" :min="0" size="large" />
-            <button
-              type="button"
-              class="rounded-xl border border-red-100 bg-red-50 px-3 py-3 text-red-500 hover:bg-red-100 transition-colors"
-              title="移除"
-              @click="removeSizeStock(index)"
-            >
-              <el-icon><Delete /></el-icon>
-            </button>
+            <template v-if="isSortingSizes">
+              <div class="min-w-0 flex-1 rounded-xl border border-gray-200 bg-white px-3 py-2">
+                <div class="break-words font-bold text-slate-800">{{ index + 1 }}. {{ item.size || '未命名項目' }}</div>
+                <div class="text-xs text-gray-500">數量：{{ item.quantity || 0 }}</div>
+              </div>
+              <div class="flex shrink-0 gap-1">
+                <button
+                  type="button"
+                  class="flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 hover:text-primary disabled:opacity-40"
+                  :aria-label="`上移${item.size || '未命名項目'}`"
+                  :disabled="index === 0 || equipmentStore.isSaving"
+                  @click="moveSizeStock(index, -1)"
+                >
+                  <el-icon><ArrowUp /></el-icon>
+                </button>
+                <button
+                  type="button"
+                  class="flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 hover:text-primary disabled:opacity-40"
+                  :aria-label="`下移${item.size || '未命名項目'}`"
+                  :disabled="index === form.sizes_stock.length - 1 || equipmentStore.isSaving"
+                  @click="moveSizeStock(index, 1)"
+                >
+                  <el-icon><ArrowDown /></el-icon>
+                </button>
+              </div>
+            </template>
+            <template v-else>
+              <el-input v-model="item.size" :disabled="equipmentStore.isSaving" size="large" placeholder="尺寸或序號，例如 M / SN-001" />
+              <el-input-number v-model="item.quantity" :disabled="equipmentStore.isSaving" class="!w-full" :min="0" size="large" />
+              <button
+                type="button"
+                class="min-h-[44px] min-w-[44px] rounded-xl border border-red-100 bg-red-50 px-3 py-3 text-red-500 hover:bg-red-100 transition-colors disabled:opacity-40"
+                :aria-label="`移除${item.size || '未命名項目'}`"
+                :disabled="equipmentStore.isSaving"
+                title="移除"
+                @click="removeSizeStock(index)"
+              >
+                <el-icon><Delete /></el-icon>
+              </button>
+            </template>
           </div>
         </div>
       </div>
