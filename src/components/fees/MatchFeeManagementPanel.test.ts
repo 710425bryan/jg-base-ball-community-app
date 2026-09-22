@@ -7,10 +7,11 @@ import type { MatchFeeItem } from '@/types/matchFees'
 
 const mocks = vi.hoisted(() => ({
   can: vi.fn(() => true),
-  confirm: vi.fn(async () => undefined),
+  confirm: vi.fn(async (..._args: unknown[]) => undefined),
   list: vi.fn(),
   setOpenState: vi.fn(),
   sendOpenedNotifications: vi.fn(),
+  dispatchPush: vi.fn(),
   deleteGroup: vi.fn(),
   rollback: vi.fn(),
   success: vi.fn(),
@@ -35,7 +36,7 @@ vi.mock('@/services/matchFeePaymentNotifications', () => ({
 
 vi.mock('@/utils/pushNotifications', () => ({
   buildPushEventKey: vi.fn(() => 'event-key'),
-  dispatchPushNotification: vi.fn()
+  dispatchPushNotification: mocks.dispatchPush
 }))
 
 vi.mock('element-plus', () => ({
@@ -202,31 +203,35 @@ describe('MatchFeeManagementPanel', () => {
       expect.objectContaining({ confirmButtonText: '確認開放' })
     )
     expect(mocks.setOpenState).toHaveBeenCalledWith('match-1', true)
-    expect(mocks.sendOpenedNotifications).toHaveBeenCalledWith('match-1')
-    expect(mocks.success).toHaveBeenCalledWith(
-      '已開放比賽費用繳費；已發送站內通知與瀏覽器通知。'
-    )
+    expect(mocks.confirm.mock.calls[0]?.[0]).not.toContain('系統也會通知')
+    expect(mocks.sendOpenedNotifications).not.toHaveBeenCalled()
+    expect(mocks.dispatchPush).not.toHaveBeenCalled()
+    expect(mocks.success).toHaveBeenCalledWith('已開放比賽費用繳費')
+    expect(mocks.warning).not.toHaveBeenCalled()
+    expect(mocks.list).toHaveBeenCalledTimes(2)
   })
 
-  it('keeps payment open and warns when notification delivery fails', async () => {
-    mocks.list.mockResolvedValue([makeItem()])
-    mocks.sendOpenedNotifications.mockRejectedValueOnce(new Error('function unavailable'))
-    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+  it('does not send notifications when closing and reopening payment', async () => {
+    const openedItem = makeItem({ payment_opened_at: '2026-07-01T00:00:00Z' })
+    mocks.list
+      .mockResolvedValueOnce([openedItem])
+      .mockResolvedValueOnce([makeItem()])
+      .mockResolvedValueOnce([openedItem])
 
     const wrapper = await mountPanel()
+    await wrapper.get('[data-testid="close-payment-button"]').trigger('click')
+    await flushPromises()
     await wrapper.get('[data-testid="open-payment-button"]').trigger('click')
     await flushPromises()
 
-    expect(consoleWarn).toHaveBeenCalledWith(
-      'Match fee payment opened notification failed',
-      expect.any(Error)
-    )
-    expect(mocks.setOpenState).toHaveBeenCalledWith('match-1', true)
-    expect(mocks.warning).toHaveBeenCalledWith(
-      '已開放比賽費用繳費，但通知發送失敗，請稍後確認通知服務。'
-    )
+    expect(mocks.setOpenState).toHaveBeenNthCalledWith(1, 'match-1', false)
+    expect(mocks.setOpenState).toHaveBeenNthCalledWith(2, 'match-1', true)
+    expect(wrapper.get('[data-testid="payment-open-state"]').text()).toBe('已開放')
+    expect(mocks.sendOpenedNotifications).not.toHaveBeenCalled()
+    expect(mocks.dispatchPush).not.toHaveBeenCalled()
+    expect(mocks.success).toHaveBeenLastCalledWith('已開放比賽費用繳費')
+    expect(mocks.warning).not.toHaveBeenCalled()
     expect(mocks.error).not.toHaveBeenCalled()
-    consoleWarn.mockRestore()
   })
 
   it('disables closing and cancelled-group deletion when any item has payment history', async () => {

@@ -31,7 +31,7 @@ description: "Push notification workflow for jg-base-ball-community-app. Use whe
 - `/match-records` 未來賽事的手動通知走 `send-match-reminders`，由 bearer user 的 `matches:EDIT` 權限控制，通知中心事件使用 `matches` + `REMINDER`。
 - 賽事提醒自動排程同樣走 `send-match-reminders`，每分鐘依 `system_settings.match_reminder_schedule_config` 判斷到期規則；event key 要包含 match、rule、scheduled date/time，避免每分鐘重複發送並支援同一場多組提醒。
 - 收費催繳通知走 `send-fee-payment-reminders`，不走自動排程；`preview/send` 由 bearer user 的 `fees:EDIT` 或 `ADMIN` 控制，`test` 只允許 `ADMIN` 且只通知目前登入者，文案使用目前管理員綁定球員的未繳帳款組成。通知中心事件使用 `fees` + `PAYMENT_REMINDER`，source 為 `fee_payment_reminder`，URL 使用 `/my-payments`。
-- 比賽費開放通知走 `send-match-fee-payment-notifications`；Edge Function 需重驗 `fees:EDIT` / `ADMIN` 與場次開放狀態，只通知未繳球員所綁定的 active profiles。通知中心事件同樣使用 `fees` + `PAYMENT_REMINDER`，event key 必須包含 `match_id`、`match_fee_payment_opened_at` 與 `user_id`，URL 使用 `/my-payments`。
+- 比賽費開放／重新開放不自動產生家長站內通知或 Web Push，`MatchFeeManagementPanel` 不呼叫通知 service。既有 `send-match-fee-payment-notifications` 保留，直接呼叫仍需重驗 `fees:EDIT` / `ADMIN`、場次開放狀態與 linked member 收件範圍；不要在開放流程重新接入自動通知。
 
 ## 工作流程
 

@@ -569,7 +569,7 @@ UI 約定：
 - sibling / family grouping 與季費家庭金額計算在 utils；月費半價／主要繳費人判斷會查看所有仍有效的球員／校隊手足，即使手足採不同月繳／季繳模式也仍屬同一家庭優惠範圍。
 - 手足主要繳費人退隊、離隊或關閉 / 畢業後，剩餘有效手足的新一期月費 / 季費試算不得沿用手足半價；主要繳費人恢復有效後，若 `sibling_ids` 與 `is_primary_payer` 仍保留，另一位有效手足可恢復手足減免。既有已保存帳款金額不自動覆寫，需由管理端重算或手動調整。
 - 比賽費由 `matches.match_fee_amount` 先產生 `match_fee_items` 供管理端核對，`matches.match_fee_payment_opened_at` 預設為空；管理者具 `fees:EDIT` 且每人費用大於 0、至少一筆非取消應繳明細時，才可透過 `set_match_fee_payment_open_state()` 開放。一般 linked member 的 `/my-payments` 只取得已開放的未繳項目，或自己已有付款歷程的待審 / 已付款 / 取消紀錄；具 `fees:VIEW` / `fees:EDIT` 者可代查未開放項目，前端會另列中性的「尚未開放繳費」，不計入待付款筆數、合計、提醒或可勾選項目。
-- 開放 RPC 成功後，管理端會呼叫 `send-match-fee-payment-notifications`。Function 再驗證呼叫者為 `fees:EDIT` / `ADMIN`、場次仍為開放，只取 `payment_status = 'unpaid'` 明細，依 active profile 的 `linked_team_member_ids` 分組；每個相關帳號會收到一筆 `fees + PAYMENT_REMINDER` targeted 站內通知與其有效裝置的 Web Push，導向 `/my-payments`。event key 以 `match_id + match_fee_payment_opened_at + user_id` 去重，同一次開放重試不重複，重新關閉再開放可建立新通知；通知失敗時保留已開放狀態並提示管理者確認通知服務。
+- 開放 RPC 成功後，管理端只顯示開放成功並重新載入清單，不呼叫 `send-match-fee-payment-notifications`；首次開放及關閉後重新開放都不建立家長站內通知或派送 Web Push。家長仍可到 `/my-payments` 查看與回報付款；既有通知 service / Edge Function 保留，但不接入開放流程。
 - 開放時會保存依 `(member_id, amount)` 排序的應收簽章；金額或應繳名單異動且沒有付款歷程時自動關閉，賽事名稱、日期時間、盃賽與組別異動只更新快照、不改開放狀態。任一明細曾送出付款後不得關閉；`create_match_payment_submission()` 會鎖定全部相關場次、重新同步並驗證仍為開放，避免關閉與付款競態。
 - `/fees` 比賽費卡依日期與開始時間由早到晚排列、未知時間在當日最後，並預設收合。全場皆取消且無任何付款歷程時，`fees:DELETE` 可用 `delete_cancelled_match_fee_group()` 原子刪除；刪除賽事時，無歷程費用直接清除，待審 / 已付款會阻擋，已駁回 / 回滾的歷史明細則解除 `match_id` 並保留取消稽核紀錄。
 - 比賽時間修改沿用 `matches.id`，Google Calendar 同步沿用 event UID，因此同步只更新既有費用；刪除後重新建立使用新 ID，舊無歷程費用已清除且新費用維持未開放，不以名稱或日期模糊合併。
@@ -787,7 +787,7 @@ UI 約定：
 6. 通知中心透過 `get_notification_feed()` 匯整顯示。
 7. 排程型通知如賽事提醒、特訓報名開始 / 截止前提醒、訓練日期異動、場地通知，使用專屬 Edge Function 建立 `push_dispatch_events` 並派送 Web Push；單筆特訓報名 / 錄取通知也使用專屬 Edge Function 寫入 targeted `push_dispatch_events`。
 8. 手動催繳通知走 `send-fee-payment-reminders`，只允許 `fees:EDIT` / `ADMIN` preview / send，`test` 只允許 `ADMIN` 且只通知本人；測試文案使用目前管理員綁定球員的未繳月費 / 季費組成；通知中心 source 為 `fee_payment_reminder`。
-9. 比賽費開放通知走 `send-match-fee-payment-notifications`，只允許 `fees:EDIT` / `ADMIN`，依未繳明細與 linked member 將 targeted 站內通知和 Web Push 發給相關帳號；同一次開放以場次、開放時間與帳號組成 event key 去重，URL 為 `/my-payments`。
+9. 比賽費開放／重新開放不自動發送站內通知與 Web Push；既有 `send-match-fee-payment-notifications` 保留，若直接呼叫仍須 `fees:EDIT` / `ADMIN` 並依未繳明細與 linked member 驗證收件範圍。
 10. 使用者點擊 Web Push 時，`public/push-sw.js` 同步啟動 client 導向，並把 target 寫入 IndexedDB `jg-baseball-push-deeplink/pendingTargets/latest` 與 Cache Storage `jg-baseball-push-deeplink-cache`；前端用 `pushDeepLink.ts` 正規化、短時間重試 consume pending target 後交給 router，推播設定可查看最後一次 click 診斷。
 11. `process-team-member-notification-outbox` 每分鐘領取最多 25 個新球員事件與 100 個到期 delivery，逐 subscription 派送；暫時失敗依 1 / 5 / 15 / 60 / 360 分鐘重試，404 / 410 清除 subscription，處理鎖超過 5 分鐘可重新領取。
 

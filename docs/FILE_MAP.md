@@ -102,7 +102,7 @@
 | `src/services/matchCalendarSync.ts` | Google Calendar 手動同步預覽 | `sync-match-calendar` Edge Function、瀏覽器 proxy fallback |
 | `src/services/matchAudioApi.ts` | 比賽語音轉紀錄 Edge Function 呼叫 | `transcribe-match-audio` |
 | `src/services/matchFees.ts` | 比賽費付款、開放 / 關閉、取消群組刪除與審核 RPC | `matches.match_fee_payment_*` / `match_fee_items` / `match_payment_submissions` |
-| `src/services/matchFeePaymentNotifications.ts` | 比賽費開放後通知相關 linked accounts | `send-match-fee-payment-notifications` Edge Function |
+| `src/services/matchFeePaymentNotifications.ts` | 保留的比賽費通知 service，開放流程不再呼叫 | `send-match-fee-payment-notifications` Edge Function |
 | `src/services/weatherApi.ts` | 賽事 / 首頁天氣預報與地點解析 | `resolve-location`、Open-Meteo |
 | `src/services/trainingApi.ts` | 特訓報名、點數、特訓點名 RPC 與單筆報名 / 錄取通知呼叫 | `training_*` / `player_point_transactions` / `attendance_events.training_session_id` |
 | `src/services/trainingProgramsApi.ts` | 訓練項目設定 RPC | `training_program_settings` |
@@ -289,7 +289,7 @@
 | `src/components/fees/QuarterlyFeeCompensationPanel.vue` | 季費堂數不足補償試算、待審核與核准 |
 | `src/components/fees/ProfilePaymentSubmissionInbox.vue` | 個人付款回報金額核對、短繳阻擋、多繳入帳確認與必填退回原因 |
 | `src/components/fees/PlayerBalanceManager.vue` | 球員餘額管理與流水帳 |
-| `src/components/fees/MatchFeeManagementPanel.vue` | 比賽費預設收合、時間排序、開放後通知、關閉、取消群組刪除與付款狀態 |
+| `src/components/fees/MatchFeeManagementPanel.vue` | 比賽費預設收合、時間排序、開放／關閉（不自動通知）、取消群組刪除與付款狀態 |
 | `src/components/fees/MatchPaymentSubmissionInbox.vue` | 比賽費付款回報審核 |
 | `src/components/fees/MyMatchFeesPanel.vue` | 個人已開放比賽費與既有付款歷程面板 |
 | `src/components/fees/FeeManagementReminderPanel.vue` | 費用管理提醒 |
@@ -430,7 +430,7 @@
 | `supabase/functions/send-training-date-notifications/index.ts` | 訓練日期異動通知 |
 | `supabase/functions/send-training-location-notifications/index.ts` | 訓練場地通知 |
 | `supabase/functions/send-fee-payment-reminders/index.ts` | 收費管理手動催繳通知 |
-| `supabase/functions/send-match-fee-payment-notifications/index.ts` | 比賽費開放付款時通知相關 linked accounts |
+| `supabase/functions/send-match-fee-payment-notifications/index.ts` | 保留的比賽費通知端點，開放流程不再呼叫 |
 | `supabase/functions/sync-match-calendar/index.ts` | 賽事日曆同步 |
 | `supabase/functions/leave-webhook/index.ts` | 請假 webhook |
 | `supabase/functions/record-fee-remittance/index.ts` | 繳費匯款紀錄 |

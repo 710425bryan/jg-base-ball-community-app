@@ -42,7 +42,7 @@ description: "Finance, fees, payment submissions, player balances, match fees, m
 - 季費堂數不足補償使用 `quarterly_fee_compensation_items`，只產生待審核單；核准後才寫入 `player_balance_transactions`。
 - 比賽費使用 `match_fee_items`、`match_payment_submissions`、`match_payment_submission_items`。
 - 比賽費先產生供管理端核對，預設不提供家長付款；只有 `fees:EDIT` 可透過 `set_match_fee_payment_open_state()` 開放 / 關閉，`fees:DELETE` 才可透過 `delete_cancelled_match_fee_group()` 刪除安全的全取消群組。
-- 比賽費開放成功後自動呼叫 `send-match-fee-payment-notifications`，只通知該場未繳球員所綁定的 active profiles；站內通知與 Web Push 導向 `/my-payments`，通知失敗不回滾已完成的開放狀態。
+- 比賽費開放成功後只刷新清單與顯示成功訊息，不自動通知家長；`send-match-fee-payment-notifications` 保留但不再接入管理端開放流程。
 - 裝備付款使用 `equipment_payment_submissions`，在 `/equipment-purchases` 與 `/my-payments` 整合顯示；舊 `/fees?tab=equipment` 只作相容轉向。
 - `/equipment-purchases` 前端入口使用 `fees:VIEW`，異動與刪除分別使用 `fees:EDIT / DELETE`；既有 DB `fees OR equipment` 權限保持不變。
 - 裝備加購申請只要到 `approved`（已核准）即可回報付款，不需要等到 `ready_for_pickup` 或 `picked_up`；調整裝備付款時要同步前端可勾選條件與 RPC 可付範圍。
@@ -77,7 +77,7 @@ description: "Finance, fees, payment submissions, player balances, match fees, m
 - 比賽費付款不得混入一般月費或裝備付款資料模型；只在 UI 與付款回報流程上整合。
 - linked member 只能看已開放比賽費，或自己既有付款歷程；不可只靠前端隱藏。付款 RPC 必須鎖定場次、同步名單並重驗開放狀態，防止管理者關閉與家長付款同時發生。
 - 開放後只以 `(member_id, amount)` 應收簽章判斷自動關閉：金額 / 名單改變且無付款歷程才關閉，賽事文字與時間修改不可關閉或建立重複費用。曾送出 / 已付款項目的金額快照不可回寫。
-- 比賽費開放通知需在 Edge Function 再驗證 `fees:EDIT` / `ADMIN` 與開放狀態；event key 使用 `match_id + match_fee_payment_opened_at + user_id`，同一次開放重試不可重複，重新開放才可再次通知。
+- 比賽費開放／重新開放不自動通知家長：管理端只更新開放狀態並刷新清單，不呼叫通知 service，不新增站內通知或派送 Web Push。既有 `send-match-fee-payment-notifications` 保留，直接呼叫仍須驗證 `fees:EDIT` / `ADMIN`、場次開放狀態與 linked member；付款回報及退回通知沿用原流程。
 - 刪除賽事時，待審 / 已付款 / 目前付款關聯必須阻擋；無歷程費用直接刪除，已駁回 / 回滾歷史則解除 `match_id` 並保留取消稽核紀錄。取消群組只要有任何歷史付款關聯就不可刪除。
 - 匯款表單 Edge Function 不硬編碼 secret，使用 `FORM_REMITTANCE_SECRET` 或環境設定。
 
