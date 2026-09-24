@@ -75,6 +75,9 @@ importers:
         specifier: 4.3.6
         version: 4.3.6
     devDependencies:
+      '@electric-sql/pglite':
+        specifier: 0.3.14
+        version: 0.3.14
       '@playwright/test':
         specifier: 1.58.2
         version: 1.58.2
@@ -983,6 +986,9 @@ packages:
   '@ctrl/tinycolor@4.2.0':
     resolution: {integrity: sha512-kzyuwOAQnXJNLS9PSyrk0CWk35nWJW/zl/6KvnTBMFK65gm7U1/Z5BqjxeapjZCIhQcM/DsrEmcbRwDyXyXK4A==}
     engines: {node: '>=14'}
+
+  '@electric-sql/pglite@0.3.14':
+    resolution: {integrity: sha512-3DB258dhqdsArOI1fIt7cb9RpUOgcDg5hXWVgVHAeqVQ/qxtFy605QKs4gx6mFq3jWsSPqDN8TgSEsqC3OfV9Q==}
 
   '@element-plus/icons-vue@2.3.2':
     resolution: {integrity: sha512-OzIuTaIfC8QXEPmJvB4Y4kw34rSXdCJzxcD1kFStBvr8bK6X1zQAYDo0CNMjojnfTqRQCJ0I7prlErcoRiET2A==}
@@ -4919,6 +4925,8 @@ snapshots:
       postcss: 8.5.8
 
   '@ctrl/tinycolor@4.2.0': {}
+
+  '@electric-sql/pglite@0.3.14': {}
 
   '@element-plus/icons-vue@2.3.2(vue@3.5.30(typescript@5.9.3))':
     dependencies:

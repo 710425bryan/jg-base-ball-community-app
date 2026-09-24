@@ -56,6 +56,8 @@ describe('coachSchedulesApi', () => {
     const { coachSchedulesApi } = await import('./coachSchedulesApi')
 
     await expect(coachSchedulesApi.saveEvent({
+      id: 'event-1',
+      updated_at: '2026-09-24T06:00:00.123456+00:00',
       source_type: 'manual',
       schedule_date: '2026-07-05',
       title: '臨時排班',
@@ -63,6 +65,8 @@ describe('coachSchedulesApi', () => {
     })).resolves.toBe('event-1')
     expect(rpcMock).toHaveBeenCalledWith('save_coach_schedule_event', {
       p_event: expect.objectContaining({
+        id: 'event-1',
+        updated_at: '2026-09-24T06:00:00.123456+00:00',
         source_type: 'manual',
         schedule_date: '2026-07-05',
         title: '臨時排班',

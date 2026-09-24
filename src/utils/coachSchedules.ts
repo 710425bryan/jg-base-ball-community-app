@@ -138,6 +138,8 @@ export const normalizeCoachScheduleEvent = (row: any): CoachScheduleEvent => {
     source_type: sourceType,
     source_id: toStringOrNull(row?.source_id),
     source_venue_id: toStringOrNull(row?.source_venue_id),
+    program_key: toStringOrNull(row?.program_key),
+    program_label: toStringOrNull(row?.program_label),
     schedule_date: String(row?.schedule_date || ''),
     start_time: toStringOrNull(row?.start_time),
     end_time: toStringOrNull(row?.end_time),

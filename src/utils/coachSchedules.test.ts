@@ -19,6 +19,8 @@ const makeEvent = (overrides: Partial<CoachScheduleEvent>): CoachScheduleEvent =
   source_type: 'training_date',
   source_id: null,
   source_venue_id: null,
+  program_key: null,
+  program_label: null,
   schedule_date: '2026-04-04',
   start_time: '09:00',
   end_time: '12:30',
@@ -36,6 +38,22 @@ const makeEvent = (overrides: Partial<CoachScheduleEvent>): CoachScheduleEvent =
 })
 
 describe('coachSchedules utilities', () => {
+  it('preserves distinct lesson identities returned by the database with their program labels', () => {
+    const payload = normalizeCoachScheduleMonthPayload({ events: [
+      { source_type: 'training_location', source_id: 'junior', source_venue_id: 'venue-a',
+        schedule_date: '2026-09-25', title: '訓練課程', location: '中港國小', start_time: '09:00',
+        program_key: 'junior_high_school_team', program_label: ' 國中部 ', id: 'saved', coach_profile_ids: ['coach-a'] },
+      { source_type: 'training_location', source_id: 'primary', source_venue_id: 'venue-b',
+        schedule_date: '2026-09-25', title: '訓練課程', location: '中港國小', start_time: '14:00',
+        program_key: 'chunggang_school_team', program_label: '中港總部' }
+    ] })
+    expect(payload.events).toHaveLength(2)
+    expect(payload.events.map(event => event.program_label)).toEqual(['國中部', '中港總部'])
+    expect(payload.events[0].coach_profile_ids).toEqual(['coach-a'])
+    expect(payload.events[1].coach_profile_ids).toEqual([])
+    expect(normalizeCoachScheduleEvent({}).program_label).toBeNull()
+    expect(normalizeCoachScheduleEvent({}).program_key).toBeNull()
+  })
   it('normalizes RPC event rows and keeps assignment coach IDs', () => {
     const event = normalizeCoachScheduleEvent({
       id: 'event-1',

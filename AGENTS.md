@@ -255,6 +255,9 @@
 - 候選活動由 `list_coach_schedule_admin_month()` 產生：場地配置區塊優先，其次 `/training-dates` 的訓練日期；同月 `matches.match_level = '特訓課'` 顯示特訓，其餘 `matches` 顯示比賽。
 - 比賽 / 特訓排班以 `matches.id` 作為來源身分，不以日期、標題或 Google Calendar 備註去重；刪除 `matches` 時必須連動刪除同 `source_id` 的 `coach_schedule_events`，`match_level` 在一般比賽與特訓課之間切換時也要同步排班 `source_type`。`supabase_zzz_coach_schedule_match_source_integrity_migration.sql` 負責來源驗證、刪除連動與既有孤兒排班修復。
 - 已儲存的場地訓練排班只保留教練指派與排班備註；日期、時間、標題、地點與地圖連結需跟著 `training_location_session_venues` / `training_location_sessions` 同步。
+- 場地訓練以「日期＋實體 `venue_id`＋標準化開始時間＋課程標題」判定同一堂課，跨 program 共用一筆排班，結束時間取最晚；不同課程／時段、缺少實體場地 ID 或 archived 來源不自動合併。RPC 的 `program_label` 保留所有參與項目資料，`program_key` 為代表來源；教練排班卡片與首頁摘要依使用者要求不顯示訓練項目標籤。
+- `20260924054852_coach_schedule_shared_training_slots.sql` 以唯一約束、交易鎖與共同 slot resolver 防重；保留所有 `training_source_venue_ids`。刪除其中一個來源會重新連結剩餘來源，只在最後來源刪除時清除排班；拆班保留原堂課的教練，不複製到新候選。合併保留教練聯集與備註，原始資料存 private audit。
+- 舊的未儲存候選若已被另一來源建立排班，僅允許完全相同的重送，否則要求重新整理；編輯時前端傳 `updated_at`，資料庫拒絕過期版本。來源日期、時間、標題及場地以資料庫為準；前端不自行按日期或文字去重。
 - `/training-dates` 只決定訓練日；教練上課日與指派在 `/coach-schedules` 設定，並可由訓練日期設定頁帶同月份跳轉。
 - Dashboard 走 `list_coach_schedule_dashboard()`；具 `coach_schedules:VIEW` 者看全體教練排班，`HEAD_COACH` / `COACH` 只看自己被指派的排班，一般使用者不顯示。
 - `matches.coaches` 只作比賽原始教練文字參考，不作個人權限或 Dashboard 可見性判斷。

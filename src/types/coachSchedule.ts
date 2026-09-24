@@ -36,6 +36,8 @@ export type CoachScheduleEvent = {
   source_type: CoachScheduleSourceType
   source_id: string | null
   source_venue_id: string | null
+  program_key: string | null
+  program_label: string | null
   schedule_date: string
   start_time: string | null
   end_time: string | null
@@ -59,6 +61,7 @@ export type CoachScheduleMonthPayload = {
 
 export type CoachScheduleSaveInput = {
   id?: string | null
+  updated_at?: string | null
   source_type: CoachScheduleSourceType
   source_id?: string | null
   source_venue_id?: string | null

@@ -41,6 +41,17 @@ Use this skill when adding or changing 教練排班表、教練上課日、`/coa
 - `save_coach_schedule_event(p_event, p_coach_profile_ids)` creates or updates the event and replaces assignments.
 - `delete_coach_schedule_event(p_event_id)` deletes a saved event and cascades assignments.
 
+## Source Integrity and Program Labels
+
+- Admin and Dashboard RPC events include nullable `program_key` / `program_label`. The metadata retains participating programs for shared lessons; the key identifies the representative source, not the entire group. Per user request, admin cards and Dashboard summaries do not display program badges (國中部／中港總部／合班).
+- `supabase/migrations/20260924054852_coach_schedule_shared_training_slots.sql` groups training locations by date, physical `venue_id`, normalized start time and trimmed course title. Use the latest end time. Different titles/times/dates/venues, unknown venue IDs and archived sources remain separate. Do not apply this rule to matches or manual schedules.
+- The private slot resolver drives candidate listing, save validation and source reconciliation. A unique constraint plus transaction advisory lock prevents duplicate writes. Track every source venue ID; deleting a representative source reanchors the shared schedule, and only deleting the final source removes it. A split keeps coaches on the original lesson and leaves the moved candidate unassigned.
+- Merge coach sets and notes, preserving original events and assignments in private audit. Keep the oldest event ID. Conflicting statuses remain scheduled if any merged event was scheduled; originals remain auditable. Do not rewrite player assignments, attendance or billing.
+- An already-saved candidate rejects stale create requests unless the payload is an identical retry. The frontend sends the saved `updated_at` on edits to reject stale revisions. Older clients without revisions retain their existing edit behavior; do not claim all stale edits are protected until the frontend is deployed.
+- The earlier `20260924043936_coach_schedule_program_source_integrity.sql` repaired invalid source links; its per-program split and per-source cleanup have been superseded by the shared-slot migration.
+- The one-time repair relinks only a unique replacement in the SAME session with identical date, time, title and location and no existing saved target. Unmatched legacy records become manual schedules, preserving event IDs, original source IDs for traceability, notes and coach assignments.
+- SQL regression: `pnpm test:coach-schedules:sql` runs both historical source repair and current shared-slot cases in isolated PGlite. It never connects to production.
+
 ## Candidate Rules
 
 - Training date candidates come from `get_training_month_dates()`, so `/training-dates` remains the source of truth for which dates are training days.

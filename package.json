@@ -1,6 +1,6 @@
 {
   "name": "web",
-  "version": "1.1.63",
+  "version": "1.1.64",
   "private": true,
   "type": "module",
   "engines": {
@@ -11,7 +11,8 @@
     "dev": "vite",
     "typecheck": "vue-tsc --noEmit",
     "test": "vitest run",
-    "check": "pnpm typecheck && pnpm test && vite build",
+    "test:coach-schedules:sql": "node scripts/verify-coach-schedule-sources.mjs && node scripts/verify-coach-schedule-shared-slots.mjs",
+    "check": "pnpm typecheck && pnpm test && pnpm test:coach-schedules:sql && vite build",
     "build": "vue-tsc && vite build",
     "preview": "vite preview"
   },
@@ -40,6 +41,7 @@
     "zod": "4.3.6"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.3.14",
     "@playwright/test": "1.58.2",
     "@types/node": "^25.5.0",
     "@vitejs/plugin-legacy": "7.2.1",

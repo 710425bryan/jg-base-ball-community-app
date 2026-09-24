@@ -66,6 +66,7 @@ export const coachSchedulesApi = {
     const { data, error } = await supabase.rpc('save_coach_schedule_event', {
       p_event: {
         id: input.id || null,
+        updated_at: input.updated_at || null,
         source_type: input.source_type,
         source_id: input.source_id || null,
         source_venue_id: input.source_venue_id || null,

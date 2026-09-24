@@ -140,6 +140,7 @@
 | `src/utils/trainingLocationNotification.ts` | 場地通知文案、URL、event key、收件分組 |
 | `src/utils/trainingLocationMemberGroups.ts` | 場地已配置名單按角色／組別分組、U 層級降冪、不參賽置底 |
 | `src/components/training-locations/TrainingLocationVenueMembers.vue` | 場地已配置名單的分組標題、人數、成員卡片與移除操作 |
+| `src/components/coach-schedules/CoachScheduleEventSummary.vue` | 教練排班卡片來源、日期／場地與教練摘要（不顯示訓練項目標籤） |
 | `src/utils/coachSchedules.ts` | 教練排班來源 label、月份 normalize、候選 / 已儲存事件合併與排序 |
 | `src/utils/googleCalendarParser.ts` | Google Calendar / iCal parser 與同步規劃 |
 | `src/utils/matchCalendarCopy.ts` | Google Calendar / 賽事複製文字 |
@@ -410,7 +411,7 @@
 | 特訓 / 點數 | `supabase_training_points_migration.sql`、`supabase_zz_training_point_transaction_delete_migration.sql`、`supabase_zz_training_registration_notifications_migration.sql`、`supabase_zzzzzzzz_training_auto_select_notifications_migration.sql` |
 | 訓練項目 / 訓練日期設定 / 換月預設排程 | `supabase_training_dates_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzz_training_program_scope_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzzzz_team_member_training_program_hotfix.sql`、`supabase_zzzzzzzzzzzzzzzzzzzzz_training_program_label_rename_migration.sql` |
 | 場地與人員配置 | `supabase_training_locations_migration.sql`、`supabase_zzzzzzzzz_training_location_attendance_migration.sql`、`supabase_zzzzzzzzzz_training_location_venue_settings_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzz_training_location_leave_time_segment_migration.sql` |
-| 教練排班表 | `supabase_coach_schedules_migration.sql`、`supabase_coach_schedules_schedulable_coaches_hotfix.sql`、`supabase_coach_schedules_training_location_sync_hotfix.sql`、`supabase_zzz_coach_schedule_match_source_integrity_migration.sql` |
+| 教練排班表 | `supabase/migrations/20260924054852_coach_schedule_shared_training_slots.sql`、`supabase/migrations/20260924043936_coach_schedule_program_source_integrity.sql`、`supabase_coach_schedules_migration.sql`、`supabase_coach_schedules_schedulable_coaches_hotfix.sql`、`supabase_coach_schedules_training_location_sync_hotfix.sql`、`supabase_zzz_coach_schedule_match_source_integrity_migration.sql` |
 | 賽事同步 | `supabase_matches_google_calendar_sync_migration.sql`、`supabase_match_calendar_daily_sync_schedule.sql`、`supabase_match_leave_absences_migration.sql` |
 | 推播 | `supabase_web_push_subscriptions_migration.sql`、`supabase_push_dispatch_events_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzzzzzzzz_team_member_notification_outbox_migration.sql`、`supabase_match_reminder_notifications_migration.sql`、`supabase_match_reminder_schedule_config_migration.sql`、`supabase_match_reminder_health_migration.sql`、`supabase_fee_payment_reminders_migration.sql` |
 | 節日主題 | `supabase_holiday_theme_migration.sql` |
