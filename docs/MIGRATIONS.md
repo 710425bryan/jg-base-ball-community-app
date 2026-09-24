@@ -1,5 +1,8 @@
 # Migrations
 
+- `supabase/migrations/20260924014519_equipment_available_stock.sql`：裝備管理可用庫存操作。新增 `save_equipment_available_stock()`（CREATE／EDIT、row lock、版本檢查、使用／預留換算），`stock_set` 流水帳可用量前後欄位，及交易／請購異動版本 trigger。2026-09-24 已部署至正式專案，檔名已對齊遠端 migration history；不要再次手動執行舊檔 `20260924011641`，否則會出現重複欄位錯誤。新環境需先部署再發布前端；schema migration 本身不改寫既有庫存。隔離驗證：`scripts/verify-equipment-available-stock.mjs`。
+- `scripts/repair-equipment-stock-20260924.sql`：已依管理者確認的各尺寸可用量修正 7 項裝備整體基準，保持尺寸與交易／付款原值，新增 7 筆 `stock_set` 紀錄。先以交易回滾試跑，再正式執行；鎖定裝備並驗證原值及交易推算，資料不同即停止，成功後重跑不會新增紀錄。完整結果見 `docs/EQUIPMENT_STOCK_RECONCILIATION_20260924.md`。
+
 本文件整理根目錄 `supabase_*.sql` 的用途與讀取順序。AI 修改 DB schema、RLS、policy、RPC、cron、storage policy 前，先讀本檔，再用 `rg` 搜同名 table / function / policy。
 
 ## 讀取規則

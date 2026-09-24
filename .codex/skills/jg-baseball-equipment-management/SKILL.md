@@ -20,6 +20,10 @@ description: "Equipment management workflow for jg-base-ball-community-app. Use 
 
 ## 固定規則
 
+- `equipment` Pinia store 必須保留 `acceptHMRUpdate` 註冊，避免開發時新增 action 後，表單已更新但沿用舊 store，出現 `saveAvailableEquipment is not a function`。已在缺少 HMR 設定時開啟的頁面需完整重新整理一次；不可將新版可用量 fallback 到舊總量寫入流程。
+
+- `/equipment` 一律以可用庫存操作，尺寸顯示件數，不顯示底層總量／分母。新增／編輯使用 `equipmentAvailableStockApi` → `save_equipment_available_stock()`，傳入可用量、原因與開啟表單時的 `updated_at`；新建檢查 `equipment:CREATE`、編輯檢查 `equipment:EDIT`。DB 鎖定裝備、重算使用與預留，將可用量換算為底層庫存，有尺寸時自動加總，留下 `stock_set` 可用量前後紀錄。交易／請購變更推進版本，過期拒絕；不覆寫付款或交易。舊資料異常要提示核對並由操作者確認，不可自行猜測庫存；純 metadata 儲存傳 `stock: null`，不得順便修復。已有使用／預留的尺寸不可刪除或任意改名。需先部署 `20260924014519_equipment_available_stock.sql`，缺 RPC 時禁止 fallback 寫舊總量欄位。SQL 回歸使用 `scripts/verify-equipment-available-stock.mjs` 的隔離 PostgreSQL fixture。
+
 - 裝備新增／編輯的「尺寸 / 序號庫存」以「調整排序」切換上下移動模式，尺寸與數量必須整列移動，僅按主表單「儲存」才更新共用 `equipment.sizes_stock` 陣列。取消或重新開啟須重置草稿；不得依尺寸名稱重新排序，重複尺寸合併保留首次出現位置。
 
 - 後台裝備管理路由 `/equipment` 使用 `meta.feature = 'equipment'`。

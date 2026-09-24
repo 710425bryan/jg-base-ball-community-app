@@ -25,6 +25,17 @@ describe('equipmentApi payment helpers', () => {
     resetSupabaseRpcAvailabilityCache()
   })
 
+  it('loads before and after availability for stock-setting history', async () => {
+    const result = {data:[{id:'audit',adjustment_type:'stock_set',quantity_delta:0,available_quantity_before:0,available_quantity_after:0}],error:null}
+    const query: any = {then:(resolve:any) => Promise.resolve(result).then(resolve)}
+    for (const method of ['select','eq','order']) query[method] = vi.fn(() => query)
+    fromMock.mockReturnValue(query)
+    const {fetchEquipmentInventoryAdjustments} = await import('./equipmentApi')
+    expect(await fetchEquipmentInventoryAdjustments('hat')).toEqual([expect.objectContaining({adjustment_type:'stock_set',available_quantity_before:0,available_quantity_after:0})])
+    expect(query.select.mock.calls[0][0]).toContain('available_quantity_before')
+    expect(query.select.mock.calls[0][0]).toContain('available_quantity_after')
+  })
+
   it('applies shared ordering to inventory snapshots used by both catalog pages', async () => {
     rpcMock.mockResolvedValue({ data: [{ id: 'a' }, { id: 'b' }, { id: 'new' }], error: null })
     orderMock.mockResolvedValue(['b', 'a'])

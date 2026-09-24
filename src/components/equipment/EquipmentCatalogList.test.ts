@@ -11,6 +11,20 @@ const equipments = [
 
 describe('EquipmentCatalogList', () => {
   for (const viewMode of ['grid', 'table'] as const) {
+    it(`shows only available stock in ${viewMode} and explains inconsistent data`, () => {
+      const hat = {...equipments[0],total_quantity:9,sizes_stock:[{size:'S',quantity:1},{size:'M',quantity:8}],inventory_snapshot:[
+        {equipment_id:'b',size:'S',used_quantity:1,reserved_quantity:0},
+        {equipment_id:'b',size:'M',used_quantity:2,reserved_quantity:2}
+      ]}
+      const wrapper = mount(EquipmentCatalogList, {props:{equipments:[hat],viewMode,canEdit:false,canCreate:false,canDelete:false}, global:{stubs:{ElIcon:true,ElDropdownItem:true}}})
+      expect(wrapper.text()).toContain('可用庫存')
+      expect(wrapper.text()).toContain('S：0 件')
+      expect(wrapper.text()).toContain('M：4 件')
+      expect(wrapper.text()).not.toContain('總量')
+      expect(wrapper.text()).not.toContain('0/1')
+      expect(wrapper.find('[role="status"]').exists()).toBe(false)
+      wrapper.unmount()
+    })
     it(`preserves order and read-only history access in ${viewMode}`, async () => {
       const wrapper = mount(EquipmentCatalogList, {
         props: { equipments, viewMode, canEdit: false, canCreate: false, canDelete: false },

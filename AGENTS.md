@@ -290,6 +290,8 @@
 
 ### 裝備管理與加購
 
+- `/equipment` 的摘要、卡片、表格、交易及庫存增減預覽只顯示「可用庫存」，尺寸顯示剩餘件數，不顯示底層總量或剩餘／總量。新增／編輯由 `save_equipment_available_stock()` 原子儲存；操作者填可再領用／加購且不含預留的數量，DB 加回現有淨使用與未轉交易的預留量，有尺寸時自行加總，保留所有交易／付款歷史。數量異動必填原因、減量需確認，`stock_set` 流水帳記錄可用量前後值與操作者。交易／請購異動推進裝備版本，過期表單拒絕覆寫；既有數量不一致時須先人工核對，單純修改名稱／圖片不調整庫存。上線須先部署 `supabase/migrations/20260924014519_equipment_available_stock.sql`，不可把可用數量直接寫入舊 `total_quantity`／`sizes_stock` 欄位。
+
 - 後台裝備管理路由 `/equipment`，feature key 為 `equipment`。
 - 裝備管理提供「調整排序」：`equipment:EDIT` 管理者可拖曳或上下移動全部裝備，取消不寫入，儲存後管理與家長加購列表共用 `equipment_display_order`。新裝備接在已排序品項後；篩選維持相對順序。`reorder_equipment(uuid[], uuid[])` 鎖定清單、驗證完整 ID 與原順序，過期或無權限拒絕寫入，不修改庫存／價格。需先部署 `supabase/migrations/20260916010833_equipment_display_order.sql`。
 - 管理端裝備請購／付款路由 `/equipment-purchases`，feature key 為 `fees`；`/fees?tab=equipment` 舊連結必須轉向新頁並保留請購、付款回報或尚未付款定位。

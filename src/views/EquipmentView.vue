@@ -65,13 +65,11 @@ const filteredEquipments = computed(() => {
 })
 
 const summary = computed(() => {
-  const totalQuantity = equipmentStore.equipments.reduce((total, equipment) => total + Number(equipment.total_quantity || 0), 0)
   const remainingQuantity = equipmentStore.equipments.reduce((total, equipment) => total + getEquipmentRemainingOverallQuantity(equipment), 0)
   const quickPurchaseCount = equipmentStore.equipments.filter((equipment) => equipment.quick_purchase_enabled).length
 
   return {
     totalItems: equipmentStore.equipments.length,
-    totalQuantity,
     remainingQuantity,
     quickPurchaseCount
   }
@@ -196,14 +194,10 @@ onMounted(() => {
           </AppPageHeader>
         </div>
 
-        <div class="grid grid-cols-4 gap-1.5 md:gap-3">
+        <div class="grid grid-cols-3 gap-1.5 md:gap-3">
           <section class="rounded-xl border border-primary/15 bg-primary/5 px-2.5 py-2 md:rounded-2xl md:px-4 md:py-3">
             <p class="text-[10px] font-bold text-primary/70 md:text-[11px] md:uppercase md:tracking-[0.16em]">品項</p>
             <p class="mt-0.5 text-lg font-black text-primary md:mt-2 md:text-2xl">{{ summary.totalItems }}</p>
-          </section>
-          <section class="rounded-xl border border-sky-100 bg-sky-50 px-2.5 py-2 md:rounded-2xl md:px-4 md:py-3">
-            <p class="text-[10px] font-bold text-sky-700 md:text-[11px] md:uppercase md:tracking-[0.16em]">總數量</p>
-            <p class="mt-0.5 text-lg font-black text-sky-800 md:mt-2 md:text-2xl">{{ summary.totalQuantity }}</p>
           </section>
           <section class="rounded-xl border border-emerald-100 bg-emerald-50 px-2.5 py-2 md:rounded-2xl md:px-4 md:py-3">
             <p class="text-[10px] font-bold text-emerald-700 md:text-[11px] md:uppercase md:tracking-[0.16em]">可用庫存</p>
@@ -215,6 +209,7 @@ onMounted(() => {
           </section>
         </div>
 
+        <p class="text-sm text-slate-500">可用庫存為目前可再領用或加購的數量，已扣除借出、領用與請購預留。</p>
         <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
           <div class="app-search-filter-bar md:grid-cols-[minmax(0,1fr)_220px] lg:min-w-[560px]">
             <el-input v-model="searchKeyword" size="large" clearable class="app-search-control" placeholder="搜尋裝備名稱、規格或備註" />

@@ -15,6 +15,7 @@ import {
   getEquipmentInventoryReductionLimit,
   getSignedEquipmentInventoryAdjustmentQuantity
 } from '@/utils/equipmentInventoryAdjustment'
+import { getEquipmentRemainingSizeQuantity } from '@/utils/equipmentInventory'
 
 const props = withDefaults(defineProps<{
   modelValue: boolean
@@ -79,9 +80,9 @@ const currentOperatorName = computed(() =>
 )
 const getSizeOptionReductionLimit = (size: string) =>
   getEquipmentInventoryReductionLimit(props.equipment, size)
-const getSizeOptionLabel = (size: string, quantity: number) => isStockOut.value
+const getSizeOptionLabel = (size: string) => isStockOut.value
   ? `${size}｜可減 ${getSizeOptionReductionLimit(size)}`
-  : `${size}｜${quantity}`
+  : `${size}｜可用 ${getEquipmentRemainingSizeQuantity(props.equipment, size)} 件`
 
 const rules = {
   adjustment_date: [{ required: true, message: '請選擇日期', trigger: 'change' }],
@@ -203,22 +204,18 @@ watch(() => [props.modelValue, props.adjustmentType] as const, ([value]) => {
       :class="isStockOut ? 'border border-rose-100 bg-rose-50/80' : 'border border-emerald-100 bg-emerald-50/80'"
     >
       <div class="text-lg font-black text-slate-800">{{ equipment.name }}</div>
-      <div class="mt-3 grid grid-cols-2 gap-2 text-center">
+      <div class="mt-3 text-center">
         <div class="rounded-xl bg-white/80 px-3 py-2">
-          <div class="text-[11px] font-bold text-gray-400">總量</div>
-          <div class="mt-1 font-black text-slate-800">{{ preview.currentTotal }} → {{ preview.nextTotal }}</div>
-        </div>
-        <div class="rounded-xl bg-white/80 px-3 py-2">
-          <div class="text-[11px] font-bold" :class="isStockOut ? 'text-rose-600' : 'text-emerald-600'">可用</div>
+          <div class="text-[11px] font-bold" :class="isStockOut ? 'text-rose-600' : 'text-emerald-600'">可用庫存</div>
           <div class="mt-1 font-black" :class="isStockOut ? 'text-rose-700' : 'text-emerald-700'">
             {{ preview.currentAvailable }} → {{ preview.nextAvailable }}
           </div>
         </div>
       </div>
       <div v-if="selectedSize" class="mt-2 rounded-xl bg-white/80 px-3 py-2 text-center">
-        <div class="text-[11px] font-bold text-gray-400">{{ selectedSize }}</div>
+        <div class="text-[11px] font-bold text-gray-400">{{ selectedSize }} 可用庫存</div>
         <div class="mt-1 font-black text-slate-800">
-          {{ preview.currentSizeStockQuantity }} → {{ preview.nextSizeStockQuantity }}
+          {{ preview.currentSizeAvailable }} → {{ preview.nextSizeAvailable }}
         </div>
       </div>
     </div>
@@ -263,7 +260,7 @@ watch(() => [props.modelValue, props.adjustmentType] as const, ([value]) => {
             <el-option
               v-for="item in sizeOptions"
               :key="item.size"
-              :label="getSizeOptionLabel(item.size, item.quantity)"
+              :label="getSizeOptionLabel(item.size)"
               :value="item.size"
               :disabled="isStockOut && getSizeOptionReductionLimit(item.size) <= 0"
             />

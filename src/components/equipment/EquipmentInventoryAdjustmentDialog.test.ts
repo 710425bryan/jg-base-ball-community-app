@@ -4,6 +4,12 @@ import { describe, expect, it } from 'vitest'
 const source = readFileSync(new URL('./EquipmentInventoryAdjustmentDialog.vue', import.meta.url), 'utf8')
 
 describe('EquipmentInventoryAdjustmentDialog', () => {
+  it('shows available quantities for overall and size previews, without raw totals', () => {
+    expect(source).toContain('preview.currentSizeAvailable')
+    expect(source).toContain('preview.nextSizeAvailable')
+    expect(source).not.toContain('>總量<')
+    expect(source).not.toContain('{{ preview.currentSizeStockQuantity }}')
+  })
   it('submits stock-out as a signed delta with a reason and confirmation', () => {
     expect(source).toContain("adjustmentType: 'stock_in'")
     expect(source).toContain("props.adjustmentType === 'stock_out'")

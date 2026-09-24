@@ -255,6 +255,10 @@
 | `src/components/equipment/EquipmentCatalogList.vue` | 裝備卡片／表格與依權限操作，共用排序 |
 | `src/components/equipment/EquipmentOrderDialog.vue` | 全清單拖曳／上下移動排序草稿、取消、儲存與衝突提示 |
 | `src/services/equipmentOrderApi.ts` | 共用順序讀取與原子排序 RPC |
+| `src/services/equipmentAvailableStockApi.ts` | 原子儲存可用庫存與主檔；版本衝突與未部署提示 |
+| `src/utils/equipmentAvailableStock.ts` | 可用量草稿、尺寸加總、輸入驗證、減量及舊資料異常提示 |
+| `supabase/migrations/20260924014519_equipment_available_stock.sql` | 可用量換算、版本鎖定、stock_set 稽核紀錄，不自動搬移舊庫存 |
+| `scripts/verify-equipment-available-stock.mjs` | 隔離 PostgreSQL 庫存／預留／歷史保留／權限／過期回歸 |
 | `src/utils/equipmentOrder.ts` | 套用共用排序、新品尾端排列與草稿移動 |
 | `src/components/equipment/EquipmentFormDialog.vue` | 裝備主檔新增 / 編輯；尺寸／序號庫存可上下移動，隨主檔儲存順序 |
 | `src/components/equipment/EquipmentPhotoCarousel.vue` | 裝備照片與處理照片輪播 |

@@ -1,6 +1,7 @@
-import { defineStore } from 'pinia'
+import { acceptHMRUpdate, defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { saveEquipmentOrder } from '@/services/equipmentOrderApi'
+import { saveEquipmentAvailableStock } from '@/services/equipmentAvailableStockApi'
 import { sortEquipments } from '@/utils/equipmentOrder'
 import {
   createEquipment,
@@ -16,6 +17,7 @@ import {
 } from '@/services/equipmentApi'
 import type {
   Equipment,
+  EquipmentAvailableFormPayload,
   EquipmentFormPayload,
   EquipmentInventoryAdjustmentPayload,
   EquipmentMemberSummary,
@@ -92,6 +94,21 @@ export const useEquipmentStore = defineStore('equipment', () => {
     equipments.value = equipments.value.filter((equipment) => equipment.id !== equipmentId)
   }
 
+  const saveAvailableEquipment = async (
+    payload: EquipmentAvailableFormPayload,
+    options: { id?: string | null; expectedUpdatedAt?: string | null; imageFiles?: File[] } = {}
+  ) => {
+    if (isSaving.value) return
+    isSaving.value = true
+    try {
+      const id = await saveEquipmentAvailableStock(payload, options)
+      await loadEquipments()
+      return equipmentById.value.get(id)
+    } finally {
+      isSaving.value = false
+    }
+  }
+
   const reorderEquipments = async (equipmentIds: string[], expectedIds: string[]) => {
     await saveEquipmentOrder(equipmentIds, expectedIds)
     equipments.value = sortEquipments(equipments.value, equipmentIds)
@@ -166,6 +183,7 @@ export const useEquipmentStore = defineStore('equipment', () => {
     loadEquipments,
     loadMembers,
     saveEquipment,
+    saveAvailableEquipment,
     removeEquipment,
     reorderEquipments,
     loadTransactions,
@@ -176,3 +194,7 @@ export const useEquipmentStore = defineStore('equipment', () => {
     removeTransaction
   }
 })
+
+if (import.meta.hot) {
+  import.meta.hot.accept(acceptHMRUpdate(useEquipmentStore, import.meta.hot))
+}

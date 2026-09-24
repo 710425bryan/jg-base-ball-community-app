@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Delete, Loading, ArrowUp, ArrowDown } from '@element-plus/icons-vue'
 import EquipmentPhotoCarousel from '@/components/equipment/EquipmentPhotoCarousel.vue'
 import { useEquipmentStore } from '@/stores/equipment'
 import { moveEquipment } from '@/utils/equipmentOrder'
-import type { Equipment, EquipmentCategory, EquipmentFormPayload, EquipmentSizeStock } from '@/types/equipment'
+import type { Equipment, EquipmentCategory, EquipmentFormPayload, EquipmentAvailableStock, EquipmentAvailableFormPayload, EquipmentSizeStock } from '@/types/equipment'
+import { getEquipmentAvailableStockDraft, getEquipmentStockIssue, normalizeAvailableStock, hasAvailableQuantityChange, hasAvailableQuantityReduction } from '@/utils/equipmentAvailableStock'
 
 const props = defineProps<{
   modelValue: boolean
@@ -35,7 +36,13 @@ const sizeStockKey = (item: EquipmentSizeStock) => {
 
 const categories: EquipmentCategory[] = ['服飾類', '球具類', '消耗品', '其他']
 
-const form = reactive<EquipmentFormPayload>({
+const initialStock = ref<EquipmentAvailableStock>({ available_quantity: 0, sizes: [] })
+const expectedUpdatedAt = ref<string | null>(null)
+const stockReason = ref('')
+const stockReviewed = ref(false)
+const isSubmitting = ref(false)
+const stockIssue = computed(() => getEquipmentStockIssue(props.equipment))
+const form = reactive<Omit<EquipmentFormPayload, 'total_quantity' | 'sizes_stock'> & EquipmentAvailableStock>({
   name: '',
   category: '球具類',
   specs: '',
@@ -49,9 +56,23 @@ const form = reactive<EquipmentFormPayload>({
   jersey_number_min: 0,
   jersey_number_max: 99,
   jersey_number_options: [],
-  total_quantity: 0,
+  available_quantity: 0,
   purchased_by: '',
-  sizes_stock: []
+  sizes: []
+})
+
+const stockEdited = computed(() => {
+  try {
+    return JSON.stringify(normalizeAvailableStock(form)) !== JSON.stringify(normalizeAvailableStock(initialStock.value))
+  } catch { return true }
+})
+const availableSizeSum = computed(() => form.sizes.reduce((sum, item) => sum + Number(item.quantity || 0), 0))
+const needsStockReason = computed(() => {
+  if (!props.equipment) return false
+  if (stockReviewed.value) return true
+  try {
+    return hasAvailableQuantityChange(normalizeAvailableStock(initialStock.value), normalizeAvailableStock(form))
+  } catch { return true }
 })
 
 const isOpen = computed({
@@ -90,11 +111,11 @@ const formatJerseyNumberOptions = (values: number[] = []) =>
 const rules = {
   name: [{ required: true, message: '請輸入裝備名稱', trigger: 'blur' }],
   category: [{ required: true, message: '請選擇分類', trigger: 'change' }],
-  total_quantity: [
+  available_quantity: [
     {
       validator: (_rule: unknown, value: number, callback: (error?: Error) => void) => {
-        if (!Number.isFinite(Number(value)) || Number(value) < 0) {
-          callback(new Error('總數量不可小於 0'))
+        if (value === null || !Number.isInteger(value) || Number(value) < 0) {
+          callback(new Error('可用庫存需為 0 或正整數'))
           return
         }
         callback()
@@ -141,27 +162,30 @@ const resetForm = () => {
     ? [...props.equipment.jersey_number_options]
     : []
   jerseyNumberOptionsText.value = formatJerseyNumberOptions(form.jersey_number_options)
-  form.total_quantity = Number(props.equipment?.total_quantity || 0)
+  const stock = getEquipmentAvailableStockDraft(props.equipment)
+  initialStock.value = { available_quantity: stock.available_quantity, sizes: stock.sizes.map(item => ({ ...item })) }
+  form.available_quantity = stock.available_quantity
+  expectedUpdatedAt.value = props.equipment?.updated_at || null
+  stockReason.value = ''
+  stockReviewed.value = false
   form.purchased_by = props.equipment?.purchased_by || ''
-  form.sizes_stock = Array.isArray(props.equipment?.sizes_stock)
-    ? props.equipment.sizes_stock.map((item) => ({ ...item }))
-    : []
+  form.sizes = stock.sizes
   imageFiles.value = []
   uploadRef.value?.clearFiles?.()
   formRef.value?.clearValidate?.()
 }
 
 const addSizeStock = () => {
-  form.sizes_stock.push({ size: '', quantity: 0 })
+  form.sizes.push({ size: '', quantity: 0 })
 }
 
 const removeSizeStock = (index: number) => {
-  form.sizes_stock.splice(index, 1)
+  form.sizes.splice(index, 1)
 }
 
 const moveSizeStock = (index: number, offset: number) => {
   if (equipmentStore.isSaving) return
-  form.sizes_stock = moveEquipment(form.sizes_stock, index, index + offset)
+  form.sizes = moveEquipment(form.sizes, index, index + offset)
 }
 
 const handleImageChange = (_file: any, uploadFiles: any[] = []) => {
@@ -172,30 +196,29 @@ const removeExistingImage = (index: number) => {
   existingImageUrls.value.splice(index, 1)
 }
 
-const normalizeSizesStock = () => {
-  const merged = new Map<string, number>()
-
-  for (const item of form.sizes_stock) {
-    const size = String(item.size || '').trim()
-    if (!size) continue
-    merged.set(size, (merged.get(size) || 0) + Math.max(Number(item.quantity || 0), 0))
-  }
-
-  return [...merged.entries()].map(([size, quantity]) => ({ size, quantity })) as EquipmentSizeStock[]
-}
-
 const submit = async () => {
-  if (!formRef.value) return
+  if (!formRef.value || isSubmitting.value || equipmentStore.isSaving) return
 
   await formRef.value.validate(async (valid: boolean) => {
     if (!valid) return
 
     try {
+      isSubmitting.value = true
+      const stock = normalizeAvailableStock(form)
+      const saveStock = !props.equipment || stockEdited.value || stockReviewed.value
+      if (props.equipment && saveStock && stockIssue.value && !stockReviewed.value) {
+        throw new Error('請先核對庫存，並勾選已核對目前可用數量。')
+      }
+      if (needsStockReason.value && !stockReason.value.trim()) throw new Error('請填寫庫存調整原因')
+      if (props.equipment && saveStock && hasAvailableQuantityReduction(initialStock.value, stock)) {
+        await ElMessageBox.confirm('部分可用庫存將減少，確定儲存並留下庫存調整紀錄？', '確認調整可用庫存', { type: 'warning', confirmButtonText: '確認儲存', cancelButtonText: '取消' })
+      }
       const jerseyNumberOptions = form.requires_jersey_number
         ? parseJerseyNumberOptions(jerseyNumberOptionsText.value)
         : []
-      const payload: EquipmentFormPayload = {
-        ...form,
+      const { available_quantity: _available, sizes: _sizes, ...details } = form
+      const payload: EquipmentAvailableFormPayload = {
+        ...details,
         name: form.name.trim(),
         specs: form.specs?.trim() || null,
         notes: form.notes?.trim() || null,
@@ -208,12 +231,13 @@ const submit = async () => {
         jersey_number_min: Math.max(Number(form.jersey_number_min ?? 0), 0),
         jersey_number_max: Math.max(Number(form.jersey_number_max ?? 99), Math.max(Number(form.jersey_number_min ?? 0), 0)),
         jersey_number_options: jerseyNumberOptions,
-        total_quantity: Math.max(Number(form.total_quantity || 0), 0),
-        sizes_stock: normalizeSizesStock()
+        stock: saveStock ? stock : null,
+        stock_reason: stockReason.value.trim() || null
       }
 
-      await equipmentStore.saveEquipment(payload, {
+      await equipmentStore.saveAvailableEquipment(payload, {
         id: props.equipment?.id,
+        expectedUpdatedAt: expectedUpdatedAt.value,
         imageFiles: imageFiles.value
       })
 
@@ -221,7 +245,10 @@ const submit = async () => {
       emit('saved')
       isOpen.value = false
     } catch (error: any) {
+      if (error === 'cancel' || error === 'close') return
       ElMessage.error(error?.message || '儲存裝備失敗')
+    } finally {
+      isSubmitting.value = false
     }
   })
 }
@@ -249,7 +276,7 @@ onBeforeUnmount(() => {
     style="max-width: 720px; border-radius: 16px;"
     destroy-on-close
   >
-    <el-form ref="formRef" :model="form" :rules="rules" label-position="top" class="space-y-4">
+    <el-form ref="formRef" :model="form" :rules="rules" :disabled="equipmentStore.isSaving || isSubmitting" label-position="top" class="space-y-4">
       <div class="grid gap-4 md:grid-cols-2">
         <el-form-item label="裝備名稱" prop="name" class="font-bold">
           <el-input v-model="form.name" size="large" placeholder="例如：打擊手套" />
@@ -267,8 +294,8 @@ onBeforeUnmount(() => {
           <el-input-number v-model="form.purchase_price" class="!w-full" :min="0" :step="100" size="large" />
         </el-form-item>
 
-        <el-form-item label="總數量" prop="total_quantity" class="font-bold">
-          <el-input-number v-model="form.total_quantity" class="!w-full" :min="0" size="large" />
+        <el-form-item v-if="form.sizes.length === 0" label="目前可用庫存" prop="available_quantity" class="font-bold">
+          <el-input-number v-model="form.available_quantity" class="!w-full" :min="0" :precision="0" size="large" />
         </el-form-item>
 
         <el-form-item label="購買人 / 經手人" prop="purchased_by" class="font-bold">
@@ -279,12 +306,12 @@ onBeforeUnmount(() => {
       <div class="rounded-2xl border border-gray-100 bg-gray-50/80 p-4">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div class="font-black text-slate-800">尺寸 / 序號庫存</div>
-            <p class="mt-1 text-xs text-gray-400">沒有尺寸時可留空，系統會用總數量計算。</p>
+            <div class="font-black text-slate-800">各尺寸 / 序號目前可用庫存</div>
+            <p class="mt-1 text-sm text-gray-500">填寫現在可再領用或加購的件數，不含已領用、已借出或已預留的商品。有尺寸時自動加總。</p>
           </div>
           <div class="flex flex-wrap gap-2">
             <button
-              v-if="form.sizes_stock.length > 1"
+              v-if="form.sizes.length > 1"
               type="button"
               class="min-h-[44px] rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-bold text-gray-600 hover:border-primary hover:text-primary transition-colors disabled:opacity-40"
               :aria-pressed="isSortingSizes"
@@ -306,10 +333,11 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
+        <p v-if="form.sizes.length" class="mt-3 text-sm font-bold text-emerald-700">目前可用合計：{{ availableSizeSum }} 件</p>
         <p v-if="isSortingSizes" class="mt-3 text-sm text-slate-600">使用上下箭頭調整順序，完成後請儲存裝備。</p>
-        <div v-if="form.sizes_stock.length > 0" class="mt-4 grid gap-3">
+        <div v-if="form.sizes.length > 0" class="mt-4 grid gap-3">
           <div
-            v-for="(item, index) in form.sizes_stock"
+            v-for="(item, index) in form.sizes"
             :key="sizeStockKey(item)"
             data-size-stock-row
             :class="isSortingSizes ? 'flex' : 'grid md:grid-cols-[1fr_160px_auto]'"
@@ -318,7 +346,7 @@ onBeforeUnmount(() => {
             <template v-if="isSortingSizes">
               <div class="min-w-0 flex-1 rounded-xl border border-gray-200 bg-white px-3 py-2">
                 <div class="break-words font-bold text-slate-800">{{ index + 1 }}. {{ item.size || '未命名項目' }}</div>
-                <div class="text-xs text-gray-500">數量：{{ item.quantity || 0 }}</div>
+                <div class="text-xs text-gray-500">可用：{{ item.quantity || 0 }} 件</div>
               </div>
               <div class="flex shrink-0 gap-1">
                 <button
@@ -334,7 +362,7 @@ onBeforeUnmount(() => {
                   type="button"
                   class="flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 hover:text-primary disabled:opacity-40"
                   :aria-label="`下移${item.size || '未命名項目'}`"
-                  :disabled="index === form.sizes_stock.length - 1 || equipmentStore.isSaving"
+                  :disabled="index === form.sizes.length - 1 || equipmentStore.isSaving"
                   @click="moveSizeStock(index, 1)"
                 >
                   <el-icon><ArrowDown /></el-icon>
@@ -343,7 +371,7 @@ onBeforeUnmount(() => {
             </template>
             <template v-else>
               <el-input v-model="item.size" :disabled="equipmentStore.isSaving" size="large" placeholder="尺寸或序號，例如 M / SN-001" />
-              <el-input-number v-model="item.quantity" :disabled="equipmentStore.isSaving" class="!w-full" :min="0" size="large" />
+              <el-input-number v-model="item.quantity" :disabled="equipmentStore.isSaving" :aria-label="`${item.size || '此尺寸'}目前可用庫存`" class="!w-full" :min="0" :precision="0" size="large" />
               <button
                 type="button"
                 class="min-h-[44px] min-w-[44px] rounded-xl border border-red-100 bg-red-50 px-3 py-3 text-red-500 hover:bg-red-100 transition-colors disabled:opacity-40"
@@ -389,6 +417,14 @@ onBeforeUnmount(() => {
           </el-form-item>
         </div>
       </div>
+
+      <div v-if="stockIssue" role="alert" class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+        <p>{{ stockIssue }}</p>
+        <el-checkbox v-model="stockReviewed">我已核對目前可用數量</el-checkbox>
+      </div>
+      <el-form-item v-if="needsStockReason" label="庫存調整原因" required class="font-bold">
+        <el-input v-model="stockReason" type="textarea" :rows="2" maxlength="160" show-word-limit placeholder="例如：完成盤點，依實際可用數量修正" />
+      </el-form-item>
 
       <div class="grid gap-4 md:grid-cols-2">
         <el-form-item label="規格" prop="specs" class="font-bold">
@@ -471,7 +507,7 @@ onBeforeUnmount(() => {
         <button
           type="button"
           class="rounded-2xl bg-primary px-6 py-3 font-bold text-white hover:bg-primary-hover transition-colors disabled:opacity-70"
-          :disabled="equipmentStore.isSaving"
+          :disabled="equipmentStore.isSaving || isSubmitting"
           @click="submit"
         >
           <span v-if="equipmentStore.isSaving" class="inline-flex items-center gap-2">

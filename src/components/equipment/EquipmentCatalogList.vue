@@ -4,11 +4,10 @@ import AppActionOverflow from '@/components/common/AppActionOverflow.vue'
 import EquipmentPhotoCarousel from '@/components/equipment/EquipmentPhotoCarousel.vue'
 import type { Equipment, EquipmentInventoryAdjustmentType, EquipmentTransactionType } from '@/types/equipment'
 import {
-  getEquipmentOverAllocatedSizeQuantity,
   getEquipmentRemainingOverallQuantity,
-  getEquipmentSizeInventoryList,
-  getEquipmentUnassignedAllocatedQuantity
+  getEquipmentSizeInventoryList
 } from '@/utils/equipmentInventory'
+import { getEquipmentStockIssue } from '@/utils/equipmentAvailableStock'
 
 defineProps<{
   equipments: Equipment[]
@@ -89,13 +88,9 @@ const getJerseyNumberSummary = (equipment: Equipment) => {
           </div>
         </div>
 
-        <div class="mt-4 grid grid-cols-3 gap-2 text-center">
-          <div class="rounded-2xl bg-gray-50 px-3 py-3">
-            <div class="text-[11px] font-bold text-gray-400">總量</div>
-            <div class="mt-1 font-black text-slate-800">{{ equipment.total_quantity }}</div>
-          </div>
+        <div class="mt-4 grid grid-cols-2 gap-2 text-center">
           <div class="rounded-2xl bg-emerald-50 px-3 py-3">
-            <div class="text-[11px] font-bold text-emerald-600">可用</div>
+            <div class="text-[11px] font-bold text-emerald-600">可用庫存</div>
             <div class="mt-1 font-black text-emerald-700">{{ getEquipmentRemainingOverallQuantity(equipment) }}</div>
           </div>
           <div class="rounded-2xl bg-primary/5 px-3 py-3">
@@ -112,25 +107,14 @@ const getJerseyNumberSummary = (equipment: Equipment) => {
             {{ getJerseyNumberSummary(equipment) }}
           </span>
           <span
-            v-for="size in getEquipmentSizeInventoryList(equipment).slice(0, 6)"
+            v-for="size in getEquipmentSizeInventoryList(equipment)"
             :key="size.size"
             class="rounded-full border border-gray-100 bg-gray-50 px-3 py-1 text-xs font-bold text-gray-500"
           >
-            {{ size.size }}：{{ size.remaining }}/{{ size.total }}
-          </span>
-          <span
-            v-if="getEquipmentUnassignedAllocatedQuantity(equipment) > 0"
-            class="rounded-full border border-amber-100 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700"
-          >
-            未指定尺寸扣除 {{ getEquipmentUnassignedAllocatedQuantity(equipment) }}
-          </span>
-          <span
-            v-if="getEquipmentOverAllocatedSizeQuantity(equipment) > 0"
-            class="rounded-full border border-amber-100 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700"
-          >
-            尺寸超量扣除 {{ getEquipmentOverAllocatedSizeQuantity(equipment) }}
+            {{ size.size }}：{{ size.remaining }} 件
           </span>
         </div>
+        <p v-if="getEquipmentStockIssue(equipment)" role="status" class="mt-3 text-sm text-amber-700">{{ getEquipmentStockIssue(equipment) }}</p>
 
         <p v-if="equipment.specs || equipment.notes" class="mt-4 line-clamp-2 text-sm leading-relaxed text-gray-500">
           {{ equipment.specs || equipment.notes }}
@@ -173,7 +157,7 @@ const getJerseyNumberSummary = (equipment: Equipment) => {
           <tr class="border-b border-gray-100 bg-gray-50 text-sm text-gray-500">
             <th class="px-5 py-3 font-bold">裝備</th>
             <th class="px-5 py-3 font-bold">分類</th>
-            <th class="px-5 py-3 font-bold">庫存</th>
+            <th class="px-5 py-3 font-bold">可用庫存</th>
             <th class="px-5 py-3 font-bold">單價</th>
             <th class="px-5 py-3 font-bold">尺寸</th>
             <th class="px-5 py-3 font-bold text-right">操作</th>
@@ -210,7 +194,7 @@ const getJerseyNumberSummary = (equipment: Equipment) => {
             </td>
             <td class="px-5 py-4 text-sm font-bold text-gray-600">{{ equipment.category }}</td>
             <td class="px-5 py-4">
-              <div class="font-black text-slate-800">{{ getEquipmentRemainingOverallQuantity(equipment) }} / {{ equipment.total_quantity }}</div>
+              <div class="font-black text-slate-800">{{ getEquipmentRemainingOverallQuantity(equipment) }} 件</div>
               <div class="mt-1 text-xs text-gray-400">{{ equipment.quick_purchase_enabled ? '開放加購' : '未開放加購' }}</div>
             </td>
             <td class="px-5 py-4 font-black text-primary">{{ formatCurrency(equipment.purchase_price) }}</td>
@@ -221,14 +205,9 @@ const getJerseyNumberSummary = (equipment: Equipment) => {
               <span v-if="equipment.requires_jersey_number && getEquipmentSizeInventoryList(equipment).length > 0">｜</span>
               <span v-if="getEquipmentSizeInventoryList(equipment).length === 0 && !equipment.requires_jersey_number">-</span>
               <span v-else>
-                {{ getEquipmentSizeInventoryList(equipment).map((size) => `${size.size}:${size.remaining}`).join('、') }}
-                <span v-if="getEquipmentUnassignedAllocatedQuantity(equipment) > 0" class="font-bold text-amber-600">
-                  ｜未指定尺寸扣除 {{ getEquipmentUnassignedAllocatedQuantity(equipment) }}
-                </span>
-                <span v-if="getEquipmentOverAllocatedSizeQuantity(equipment) > 0" class="font-bold text-amber-600">
-                  ｜尺寸超量扣除 {{ getEquipmentOverAllocatedSizeQuantity(equipment) }}
-                </span>
+                {{ getEquipmentSizeInventoryList(equipment).map((size) => `${size.size}：${size.remaining} 件`).join('、') }}
               </span>
+              <p v-if="getEquipmentStockIssue(equipment)" role="status" class="mt-2 text-amber-700">{{ getEquipmentStockIssue(equipment) }}</p>
             </td>
             <td class="px-5 py-4">
               <div class="flex justify-end gap-2">

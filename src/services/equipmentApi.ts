@@ -466,6 +466,8 @@ export const fetchEquipmentInventoryAdjustments = async (equipmentId: string) =>
       quantity_delta,
       total_quantity_after,
       sizes_stock_after,
+      available_quantity_before,
+      available_quantity_after,
       notes,
       created_by,
       created_at,

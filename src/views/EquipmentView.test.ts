@@ -6,6 +6,12 @@ const catalog = readFileSync(new URL('../components/equipment/EquipmentCatalogLi
 const source = readFileSync(new URL('./EquipmentView.vue', import.meta.url), 'utf8')
 
 describe('EquipmentView inventory adjustment actions', () => {
+  it('summarizes available quantities and defines their meaning without exposing legacy totals', () => {
+    expect(source).toContain('可用庫存為目前可再領用或加購的數量')
+    expect(source).toContain('{{ summary.remainingQuantity }}')
+    expect(source).not.toContain('summary.totalQuantity')
+    expect(source).not.toContain('equipment.total_quantity')
+  })
   it('offers stock-out only to equipment editors and passes the mode to the dialog', () => {
     expect(catalog.match(/v-if="canEdit"[^>]*emit\('inventory', equipment, 'stock_out'\)/g)).toHaveLength(2)
     expect(source).toContain(':adjustment-type="inventoryAdjustmentType"')

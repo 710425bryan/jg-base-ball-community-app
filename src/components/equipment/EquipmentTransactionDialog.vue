@@ -285,7 +285,7 @@ watch([() => form.size, availableQuantity, requiresJerseyNumber], () => {
     <div v-if="equipment" class="mb-4 rounded-2xl border border-primary/10 bg-primary/5 px-4 py-3">
       <div class="text-lg font-black text-slate-800">{{ equipment.name }}</div>
       <p class="mt-1 text-xs text-primary font-bold">
-        {{ equipment.category }}｜總數量 {{ equipment.total_quantity }}｜可用 {{ overallRemainingLabel }}
+        {{ equipment.category }}｜可用庫存 {{ overallRemainingLabel }} 件
       </p>
     </div>
 

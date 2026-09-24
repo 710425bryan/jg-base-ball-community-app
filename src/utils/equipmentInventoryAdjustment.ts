@@ -1,7 +1,8 @@
 import type { Equipment, EquipmentInventoryAdjustmentType } from '@/types/equipment'
 import {
   getEquipmentAvailablePurchaseQuantity,
-  getEquipmentRemainingOverallQuantity
+  getEquipmentRemainingOverallQuantity,
+  getEquipmentRemainingSizeQuantity
 } from '@/utils/equipmentInventory'
 
 const normalizeQuantity = (value: unknown) => {
@@ -55,6 +56,8 @@ export const getEquipmentInventoryAdjustmentPreview = (
   return {
     currentTotal,
     currentAvailable,
+    currentSizeAvailable: getEquipmentRemainingSizeQuantity(equipment, normalizedSize),
+    nextSizeAvailable: getEquipmentRemainingSizeQuantity(nextEquipment, normalizedSize),
     nextTotal,
     nextAvailable: getEquipmentRemainingOverallQuantity(nextEquipment),
     currentSizeStockQuantity,

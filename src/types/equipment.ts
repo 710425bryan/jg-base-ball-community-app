@@ -93,6 +93,8 @@ export type EquipmentInventoryAdjustment = {
   quantity_delta: number
   total_quantity_after: number
   sizes_stock_after: EquipmentSizeStock[]
+  available_quantity_before?: number | null
+  available_quantity_after?: number | null
   notes: string | null
   created_by: string | null
   created_at: string
@@ -146,6 +148,17 @@ export type EquipmentFormPayload = {
   total_quantity: number
   purchased_by?: string | null
   sizes_stock: EquipmentSizeStock[]
+}
+
+/** Quantities entered by an operator exclude allocations and reservations. */
+export type EquipmentAvailableStock = {
+  available_quantity: number
+  sizes: EquipmentSizeStock[]
+}
+
+export type EquipmentAvailableFormPayload = Omit<EquipmentFormPayload, 'total_quantity' | 'sizes_stock'> & {
+  stock: EquipmentAvailableStock | null
+  stock_reason: string | null
 }
 
 export type EquipmentTransactionPayload = {

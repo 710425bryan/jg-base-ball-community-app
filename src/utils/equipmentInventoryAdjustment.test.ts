@@ -38,6 +38,8 @@ describe('equipmentInventoryAdjustment', () => {
     expect(preview).toMatchObject({
       currentTotal: 10,
       currentAvailable: 7,
+      currentSizeAvailable: 2,
+      nextSizeAvailable: 0,
       nextTotal: 8,
       nextAvailable: 5,
       currentSizeStockQuantity: 4,
