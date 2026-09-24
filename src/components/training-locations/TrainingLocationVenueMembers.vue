@@ -17,8 +17,8 @@ const getMemberMeta = (member: TrainingLocationRosterMember) =>
 <template>
   <div class="mt-4 space-y-4">
     <section v-for="group in groups" :key="group.key" data-test="venue-member-group">
-      <h4 class="mb-2 flex flex-wrap items-center gap-2 border-b border-slate-100 pb-2 text-sm font-black text-slate-700">
-        <span>{{ group.role }}｜{{ group.teamGroup }}</span>
+      <h4 class="mb-2 flex flex-wrap items-center gap-2 border-b border-slate-100 pb-2 text-base font-black text-sky-700">
+        <span class="min-w-0 break-words">{{ group.role }}｜{{ group.teamGroup }}</span>
         <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">{{ group.members.length }} 人</span>
       </h4>
       <div class="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
