@@ -162,6 +162,7 @@
 | `src/utils/monthlyFeeSettlement.ts` | 月費結算 |
 | `src/utils/schoolTeamMonthlyFee.ts` | 中港校隊／國中部月費模式、預設值、正規化與單次月費／計次折扣選擇 |
 | `src/utils/quarterlyFeeFamilies.ts` | 季費家庭分組與金額 |
+| `src/composables/usePaymentSubmissionAccess.ts` | 個人付款回報成員範圍：有效 ADMIN 免綁定，一般角色 linked only；共用按鈕、預設球員及季費候選 |
 | `src/utils/quarterlyPaymentSubmissions.ts` | 季費付款回報期別開放、項目 normalize 與多球員季費驗證 |
 | `src/utils/paymentReconciliation.ts` | 系統應收、餘額扣抵、正確應付、實際付款與差額狀態純函式 |
 | `src/utils/quarterlyFeeCompensation.ts` | 季費堂數不足補償堂數與金額試算 |
@@ -311,6 +312,8 @@
 | `src/components/payments/PendingPaymentEditDialog.vue` | 更正匯款資料、逐人餘額／實付、差額原因及版本衝突處理 |
 | `src/services/pendingPayments.ts`、`src/types/pendingPayments.ts` | 三種付款來源共用的待確認回報 RPC 與型別 |
 | `tests/database/pendingPayments.integration.mjs` | 隔離 PostgreSQL 測試：本人／linked member／有效帳號、審核與版本保護、應收快照、多人季費、刪除狀態恢復 |
+| `tests/database/adminPaymentSubmission.integration.mjs`、`adminPaymentSubmission.fixture.mjs` | 隔離 PostgreSQL 管理員付款回報：免綁定、一般角色限制、停用／過期、原回報者自助修改／刪除與四種建立 RPC；`pnpm test:payments:sql` |
+| `tests/database/quarterlyPaymentOwnership.integration.mjs`、`quarterlyPaymentOwnership.fixture.mjs` | 隔離 PostgreSQL 季費歸屬回歸：本人／兄弟金額、家庭歷史、付款估算／送出／審核、首頁／提醒／補償；`pnpm test:payments:sql` |
 | `src/components/payments/QuarterlyPaymentAmountControls.vue` | 單人／多球員隊費的唯讀系統應收、餘額扣抵、實際付款與差額控制 |
 
 ### Leave

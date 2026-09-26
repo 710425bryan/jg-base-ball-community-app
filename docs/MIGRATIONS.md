@@ -129,6 +129,8 @@
 
 | 檔案 | 用途 | 注意事項 |
 | --- | --- | --- |
+| `supabase/migrations/20260926105948_quarterly_payment_member_ownership.sql` | 季費兄弟帳款歸屬修正 | 本人同季帳款優先，缺本人列才保留舊家庭讀取；紀錄／估算／首頁／提醒／補償共用 private helper，審核只更新本人。以部署中 function definition 局部替換並檢查命中數，保留後續權限／期別修正與所有已存資料；2026-09-26 唯讀查核 `qwxzwomzoyfkorbwsscv` 已有 helper 與各函式修正，兩位球員紀錄／估算為 6,700／3,700；未找到對應 migration history，本次未執行遠端寫入 |
+| `supabase/migrations/20260926111544_admin_payment_submission_members.sql` | 管理員付款回報免綁定成員 | private helper 檢查有效帳號及 ADMIN／linked member；局部更新單人月季費、多人季費、裝備、比賽四個建立 RPC 與本人待審回報列表。保留金額／餘額／期別／原回報者／審核界線；本機 SQL 與畫面驗證完成，尚未遠端套用 |
 | `supabase_fees_migration.sql` | 費用基礎表 | 月費 / 季費主線 |
 | `supabase_quarterly_fees_migration.sql` | 季費 | sibling / family grouping 相關 |
 | `supabase_quarterly_fees_rls.sql` | 季費 RLS 修正 | 權限問題先查 |

@@ -23,6 +23,8 @@ description: "Role-based auth and permission workflow for jg-base-ball-community
 - 沿用 `permissionsStore.can(feature, action)` 做頁面與按鈕控制，不要在元件中散落 `role === ...` 判斷。
 - 記得 `ADMIN` 已經有全域 bypass，不要再重複寫一套特殊分支。
 
+- `/my-payments` 新增付款回報的免綁定例外只限有效 `ADMIN`，不等同任何 `fees` feature 權限；集中於 `usePaymentSubmissionAccess` 與 DB `private.can_submit_payment_for_member()`。啟用／存取期間、原回報者、待審及金額檢查仍有效。
+
 ## Auth 守則
 
 - 保留 `ensureInitialized()` 與 direct navigation 初始化流程。

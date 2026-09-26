@@ -33,11 +33,13 @@ description: "Finance, fees, payment submissions, player balances, match fees, m
 ## 功能邊界
 
 - 後台 `/fees` 管理月費、季費、比賽費、一般付款回報與球員餘額；裝備請購／付款改由 `/equipment-purchases` 管理。
+- 有效 `ADMIN` 可在 `/my-payments` 為目前選取的球員新增月／季費、裝備及比賽費付款回報，無須綁定球員；其他角色仍限完整 linked member 範圍，即使有 `fees:VIEW/EDIT` 也不放寬。前端統一由 `usePaymentSubmissionAccess` 管理按鈕、預設成員與候選；查看未綁定球員時只載入該球員季費，原 linked family 合併流程保留。DB `private.can_submit_payment_for_member()` 透過 `current_profile_role()` 驗證啟用／存取期間；回報 `profile_id` 仍為實際操作者，管理員也只能自助更正／刪除自己送出的待審回報。須部署 `20260926111544_admin_payment_submission_members.sql`。
 - 家長端 `/my-payments` 可合併一般繳費、裝備付款與比賽費付款回報。
 - 球員餘額以 `player_balance_transactions` 流水帳推導，不直接覆寫權威餘額。
 - 一般付款使用 `profile_payment_submissions` RPC。
+- 季費個人帳款以 `quarterly_fees.member_id` 為金額歸屬，`member_ids` 是家庭／付款關聯。`20260926105948_quarterly_payment_member_ownership.sql` 的 private helper 對同季優先使用本人列，沒有本人列才保留舊家庭紀錄；紀錄、估算、首頁、管理提醒與補償須一致。審核只能更新本人列或新增本人列，不能接管兄弟列；修正不回寫既有帳款、待審／已審快照或餘額。驗證：`pnpm test:payments:sql`，已納入 `pnpm check`。
 - 待確認回報的裝備名稱查詢使用資料表 `public.equipment`（單數）；`equipments` 是 Storage bucket 名稱，不能當作表名。比賽費名稱／日期的原始欄位是 `match_fee_items.match_name_snapshot` / `match_date_snapshot`，前端回傳 alias 不可用於 raw table SQL。隔離 SQL fixture 必須對照實際 catalog 或原始建表 migration；初版 self-service migration 需接續 schema names hotfix。
-- 待確認回報的修改／刪除使用 `pendingPayments` service 與 `list_my_pending_payment_submissions` / `mutate_my_pending_payment_submission`，三種付款來源各自維持原資料表。只允許有效帳號的原回報者及完整 linked member 範圍；先鎖主單，再重驗待審、未入帳與版本。修改保留應收快照／品項／期別；多人季費逐人核對餘額與實付，差額仍必填原因。刪除回報只恢復裝備／比賽款項待付款，不更改庫存、履約或餘額。
+- 待確認回報的修改／刪除使用 `pendingPayments` service 與 `list_my_pending_payment_submissions` / `mutate_my_pending_payment_submission`，三種付款來源各自維持原資料表。只允許有效帳號的原回報者及完整 linked member 範圍（有效 ADMIN 免綁定，仍須原回報者）；先鎖主單，再重驗待審、未入帳與版本。修改保留應收快照／品項／期別；多人季費逐人核對餘額與實付，差額仍必填原因。刪除回報只恢復裝備／比賽款項待付款，不更改庫存、履約或餘額。
 - 一般月費／季費付款回報的 `expected_amount` 必須由 DB 估算並保存；使用者只能填 `reported_external_amount`。餘額扣抵只改變正確應付現金，不可改寫正式應收本金。
 - 季費堂數不足補償使用 `quarterly_fee_compensation_items`，只產生待審核單；核准後才寫入 `player_balance_transactions`。
 - 比賽費使用 `match_fee_items`、`match_payment_submissions`、`match_payment_submission_items`。

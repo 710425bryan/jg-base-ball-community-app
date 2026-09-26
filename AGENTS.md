@@ -160,7 +160,7 @@
 - `HomeView` 同時有後台 dashboard 與個人化區塊；個人化摘要走 `src/services/myHome.ts` 的 `get_my_home_snapshot()`，RPC 未部署時顯示空狀態 fallback；Next Up 走 `get_my_home_next_event()`，只顯示目前選取 linked member 有列在 `matches.players` 的下一場非特訓比賽，日期限台灣今天至六天後共 7 個日期，今天已結束、空白名單、特訓課、無符合賽事或 RPC 錯誤時都隱藏卡片；`MyHomeTodayPanel` 會一次顯示當月份全部訓練日期，未設定月份預設為該月所有星期六；特訓點數卡只顯示目前選取 linked member 的 snapshot 點數欄位，若線上 snapshot 尚未帶點數欄位，前端會用 `list_my_training_members()` 補齊。
 - `MyLeaveRequestsView` 走 `src/services/myLeaveRequests.ts`：`list_my_leave_members()`、`list_my_leave_requests()`、`create_my_leave_requests()`、`delete_my_leave_request()`；一般帳號只可查看、建立與刪除 linked member 假單，只有通過 active / access window 檢查的 `ADMIN` 才可切換所有有效成員，且進頁仍優先選 linked member。
 - `MyPaymentsView` 走 `src/services/myPayments.ts`：`list_my_payment_members()`、`get_my_payment_records()`、`list_my_payment_submissions()`、`create_my_payment_submission()`、`get_my_payment_submission_estimate()`；一般繳費與裝備付款皆可使用 `player_balance_transactions` 計算出的球員餘額扣抵。
-- 「待確認的付款回報」由 `PendingPaymentSubmissions` / `PendingPaymentEditDialog` 與 `pendingPayments` service 管理；原回報者可修改或刪除仍為 `pending_review` 的月／季費、裝備與比賽費回報。RPC 鎖定付款主單後檢查有效登入、原回報者、所有關聯球員及 `updated_at`；審核後或已有餘額入帳不可異動。只更正付款資料及扣抵／實付，保留系統應收快照與品項，需更換球員／期別／品項時刪除後重填。刪除裝備／比賽費回報只恢復待付款，不更改庫存或履約狀態。
+- 「待確認的付款回報」由 `PendingPaymentSubmissions` / `PendingPaymentEditDialog` 與 `pendingPayments` service 管理；原回報者可修改或刪除仍為 `pending_review` 的月／季費、裝備與比賽費回報。RPC 鎖定付款主單後檢查有效登入、原回報者、所有關聯球員（有效 ADMIN 可免綁定）及 `updated_at`；審核後或已有餘額入帳不可異動。只更正付款資料及扣抵／實付，保留系統應收快照與品項，需更換球員／期別／品項時刪除後重填。刪除裝備／比賽費回報只恢復待付款，不更改庫存或履約狀態。
 - `MyPlayerRecordsView` 走 `src/services/myPlayerRecords.ts`：`list_my_player_record_members()`、`get_my_player_match_records()`；一般使用者只能看綁定球員，具 `players:VIEW` 者可切換全隊球員但預設仍優先關聯球員。
 - `ProfileSettingsView` 透過 `update_my_profile_settings()` 更新個人設定，大頭照使用 `avatars` bucket。
 
@@ -269,6 +269,8 @@
 - 多品項裝備請購可逐項刪除、備貨與領取，並保留頁尾整單操作；品項狀態由 `equipment_purchase_request_items.ready_at` / `picked_up_at` 推導，父單狀態維持聚合相容。逐項領取的收款只更新目標 transaction，逐項／整單刪除都必須走付款 guard 保護的原子 RPC。
 - 主要資料表包含 `fee_settings`、`monthly_fees`、`quarterly_fees`、`profile_payment_submissions`。
 - 個人繳費回報走 `profile_payment_submissions` RPC；管理端審核在費用頁。
+- 有效 `ADMIN` 可在 `/my-payments` 為目前選取的球員新增月／季費、裝備及比賽費付款回報，無須綁定球員；其他角色仍限完整 linked member 範圍，即使有 `fees:VIEW/EDIT` 也不放寬。前端統一由 `usePaymentSubmissionAccess` 管理按鈕、預設成員與候選；查看未綁定球員時只載入該球員季費，原 linked family 合併流程保留。DB `private.can_submit_payment_for_member()` 透過 `current_profile_role()` 驗證啟用／存取期間；回報 `profile_id` 仍為實際操作者，管理員也只能自助更正／刪除自己送出的待審回報。須部署 `20260926111544_admin_payment_submission_members.sql`。
+- 季費個人金額歸屬於 `quarterly_fees.member_id`，`member_ids` 只表示家庭／付款關聯；同季已有本人帳款時，繳費紀錄、估算、首頁、提醒與補償不可取兄弟另一人的金額。沒有本人帳款時保留舊家庭紀錄可見性；審核只更新本人列，不能把兄弟帳款改成自己。修正 migration 為 `20260926105948_quarterly_payment_member_ownership.sql`，驗證用 `pnpm test:payments:sql`。
 - 球員餘額以 `player_balance_transactions` 流水帳管理，餘額屬於 `team_members`；管理員可手動調整與確認溢繳入帳，家長自助使用餘額後仍需管理端確認才正式扣款。
 - 社區球員固定月繳用 `team_members.fee_billing_mode = 'monthly_fixed'` 表示；球員身分仍是 `球員`，但併入 `monthly_fees`、排除 `quarterly_fees`，金額從 `fee_settings.monthly_fixed_fee` 帶入並在 `monthly_fees.fixed_monthly_fee` 留快照。
 - 校隊月費依 program 分開設定：中港校隊使用 `chunggang_school_team` 並固定採訓練日期計次；國中部用 `role = 校隊` 且 raw `team_members.training_program = 'junior_high_school_team'` 判斷，不改 `role`、不從 `team_group` fallback 猜身分。國中部可在收費設定切換 `single_monthly`／`training_dates`，預設 `single_monthly` 2,000 元；單次月費以 `monthly_fees.calculation_type = 'monthly_fixed'`、`fixed_monthly_fee` 留快照，訓練日期模式則以 `per_session`、`per_session_fee` 留快照。

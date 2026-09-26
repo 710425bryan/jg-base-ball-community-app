@@ -14,6 +14,14 @@ describe('MyPaymentsView pending report management', () => {
 })
 
 describe('MyPaymentsView member selector', () => {
+  it('uses the same member access rules for the button, defaults, and dialog options', () => {
+    expect(source).toContain('usePaymentSubmissionAccess(() => authStore.profile, () => members.value, () => selectedMember.value)')
+    expect(source).toContain(':disabled="!canCreateSubmissionForSelectedMember || isRefreshing || isPreparingCreateDialog"')
+    expect(source).toContain('v-for="member in submissionMembers"')
+    expect(source.match(/const targetMember = defaultSubmissionMember.value/g)).toHaveLength(2)
+    expect(source).toContain('return quarterlySubmissionMembers.value.filter')
+    expect(source).not.toContain('const preferredLinkedMember')
+  })
   it('delegates responsive member search to the dedicated payment selector', () => {
     expect(source).toContain("import PaymentMemberSelector from '@/components/payments/PaymentMemberSelector.vue'")
     expect(source).toContain('<PaymentMemberSelector')

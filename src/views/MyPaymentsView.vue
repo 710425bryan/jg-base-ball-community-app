@@ -242,7 +242,7 @@
           <el-form-item label="繳費成員" prop="member_id" class="min-w-0 font-bold">
             <el-select v-model="submissionForm.member_id" class="w-full" size="large" disabled>
               <el-option
-                v-for="member in linkedMembers"
+                v-for="member in submissionMembers"
                 :key="member.member_id"
                 :label="buildMemberOptionLabel(member)"
                 :value="member.member_id"
@@ -579,6 +579,7 @@ import {
 import { getPlayerBalance } from '@/services/playerBalances'
 import { createMatchPaymentSubmission, listMyMatchFeeItems } from '@/services/matchFees'
 import { useAuthStore } from '@/stores/auth'
+import { usePaymentSubmissionAccess } from '@/composables/usePaymentSubmissionAccess'
 import { useEquipmentPaymentsStore } from '@/stores/equipmentPayments'
 import { usePermissionsStore } from '@/stores/permissions'
 import type {
@@ -806,9 +807,10 @@ const selectedMember = computed(() => {
   return members.value.find((member) => member.member_id === selectedMemberId.value) || null
 })
 
-const linkedMembers = computed(() => {
-  return members.value.filter((member) => member.is_linked !== false)
-})
+const {
+  linkedMembers, submissionMembers, quarterlySubmissionMembers, defaultSubmissionMember,
+  canCreateSubmissionForSelectedMember, memberSelectorHelperText, createSubmissionAccessHint
+} = usePaymentSubmissionAccess(() => authStore.profile, () => members.value, () => selectedMember.value)
 
 const createDialogMember = computed(() => {
   return members.value.find((member) => member.member_id === submissionForm.member_id) || selectedMember.value
@@ -837,7 +839,7 @@ const quarterlyPaymentCandidates = computed(() => {
     ? normalizeQuarterlyPeriodKey(submissionForm.period_key)
     : getQuarterlyPaymentOpenPeriodKey()
 
-  return linkedMembers.value.filter((member) =>
+  return quarterlySubmissionMembers.value.filter((member) =>
     member.billing_mode === 'quarterly' &&
     isMemberFeePeriodOnOrAfterJoin(member, 'quarterly', periodKey)
   )
@@ -948,10 +950,6 @@ const isExternalPaymentRequired = computed(() => createDialogExternalPaymentAmou
 const submissionRequiresAccountLast5 = computed(() =>
   isExternalPaymentRequired.value && requiresAccountLast5(submissionForm.payment_method)
 )
-const isViewingUnlinkedMember = computed(() => selectedMember.value?.is_linked === false)
-const canCreateSubmissionForSelectedMember = computed(() => {
-  return Boolean(selectedMember.value) && selectedMember.value?.is_linked !== false && linkedMembers.value.length > 0
-})
 const selectedMonthlyPeriod = computed({
   get: () => (createDialogMember.value?.billing_mode === 'monthly' ? submissionForm.period_key : ''),
   set: (value: string) => {
@@ -1061,26 +1059,6 @@ const createDialogEstimateHelperText = computed(() => {
   }
 
   return '季費由系統依該球員與季度重新計算；只能調整餘額扣抵與實際付款金額。'
-})
-
-const memberSelectorHelperText = computed(() => {
-  if (authStore.profile?.role === 'ADMIN') {
-    return '預設會先顯示你的關聯成員；管理員也可以切換查看其他球員的繳費紀錄。'
-  }
-
-  return '切換不同綁定成員時，頁面會同步改成對應的月繳、季繳或不收費模式。'
-})
-
-const createSubmissionAccessHint = computed(() => {
-  if (!isViewingUnlinkedMember.value) {
-    return ''
-  }
-
-  if (linkedMembers.value.length === 0) {
-    return '你目前是以管理員身分查看其他球員，因帳號沒有綁定成員，所以只能檢視紀錄，不能從這裡新增繳費。'
-  }
-
-  return '你目前正在查看其他球員的紀錄。管理員可切換檢視，但新增繳費仍只開放自己的關聯成員。'
 })
 
 const createDialogMonthlyStatsText = computed(() => {
@@ -2540,10 +2518,7 @@ const resetQuarterlyPaymentDrafts = () => {
 }
 
 const hydrateSubmissionDefaults = (periodKeyOverride?: string, shouldIncludeMembership = canSelectMembershipFee.value) => {
-  const preferredLinkedMember = linkedMembers.value.find((member) => member.member_id === selectedMember.value?.member_id)
-    || linkedMembers.value[0]
-    || null
-  const targetMember = preferredLinkedMember
+  const targetMember = defaultSubmissionMember.value
   const defaultPeriodKey = getDefaultSubmissionPeriodKey(targetMember, periodKeyOverride)
 
   submissionForm.member_id = targetMember?.member_id || ''
@@ -3032,9 +3007,7 @@ const toggleUnifiedRecordSelection = (item: UnifiedPaymentRecord, selected: bool
     includeMembershipFee.value = selected
 
     if (selected) {
-      const targetMember = linkedMembers.value.find((member) => member.member_id === selectedMemberId.value)
-        || linkedMembers.value[0]
-        || null
+      const targetMember = defaultSubmissionMember.value
       const nextPeriodKey = targetMember?.billing_mode === 'quarterly'
         ? getDefaultQuarterlyPeriodKey(item.periodKey)
         : item.periodKey
