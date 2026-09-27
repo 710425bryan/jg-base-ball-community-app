@@ -156,6 +156,8 @@
 | `src/utils/equipmentPricing.ts` | 裝備價格計算 |
 | `src/utils/equipmentRequestStatus.ts` | 裝備申請狀態規則 |
 | `src/utils/vendors.ts` | 廠商搜尋、交易類別分組與照片 path normalize |
+| `src/components/players/PlayerBillingFields.vue` | 球員隊費與獨立比賽費設定、44px 操作與生效日期提示 |
+| `src/utils/playerMatchBilling.ts` | 比賽費開關舊資料 fallback、表單 hydrate 與名單標籤，型別在 `src/types/playerBilling.ts` |
 | `src/utils/memberBilling.ts` | 球員有效繳費模式、社區固定月繳、國中部月費、球員計次月費與月費計算 helper |
 | `src/utils/monthlyFeeDiscount.ts` | 月費半價、主要繳費人與跨月繳／季繳手足優惠判斷 |
 | `src/utils/monthlyPaymentPeriods.ts` | 月繳付款回報開放期別：國中部／社區固定月繳 25 日預繳，中港校隊／社區計次月費次月 1 日開放 |

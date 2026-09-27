@@ -31,7 +31,7 @@ export function usePaymentSubmissionAccess(
   )
   const memberSelectorHelperText = computed(() => isPaymentAdmin.value
     ? '管理員可切換球員查看紀錄與新增付款回報，不需要綁定球員。'
-    : '切換不同綁定成員時，頁面會同步改成對應的月繳、季繳或不收費模式。')
+    : '切換不同綁定成員時，頁面會同步改成對應的月繳、季繳或不收隊費模式。')
   const createSubmissionAccessHint = computed(() =>
     selectedMember() && !canCreateSubmissionForSelectedMember.value
       ? '新增付款回報僅限自己的綁定成員；系統管理員可替其他球員回報付款。'

@@ -161,7 +161,7 @@ export const calculateDiscountedPerSessionFee = (
 }
 
 export const getMemberBillingLabel = (member: BillingModeMember) => {
-  if (isNoFeeBillingMember(member)) return '不收費'
+  if (isNoFeeBillingMember(member)) return '不收隊費'
   if (isXintaiPerSessionBillingMember(member)) return '國中部月費'
   if (isFixedMonthlyBillingMember(member)) return '社區月繳'
   if (isMonthlyPerSessionBillingMember(member)) return '計次月費'

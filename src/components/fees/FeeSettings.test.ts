@@ -46,3 +46,11 @@ describe('FeeSettings tabs and school-team per-session fees', () => {
     expect(source).toContain(':members="perSessionPlayerMembers"')
   })
 })
+
+describe('FeeSettings membership-only exemption wording', () => {
+  it('does not imply that team-fee exemptions include match fees', () => {
+    expect(source).toContain("{ id: 'no_fee', name: '不收隊費' }")
+    expect(source).toContain('比賽費依球員個別設定另計')
+    expect(source).not.toContain('不會產生新的月費、季費或比賽費')
+  })
+})

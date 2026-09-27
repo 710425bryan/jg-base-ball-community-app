@@ -44,6 +44,8 @@ description: "Player roster, users, profile binding, team groups, roster cache, 
 - 球員年級存在 `team_members.grade`；新增 / 空值時依 `birth_date` 預設，出生日期 9 月 2 日以後晚一屆，名單年級每年 6 月 19 日由 DB 排程自動升級，表單可手動調整。
 - 球員名單的 U-level 標籤由 `src/utils/playerULevel.ts` 依 `birth_date` 和今年生日是否已到計算；不使用 `grade`、9 月 2 日入學切點或 `is_early_enrollment`。
 
+- 隊費與比賽費分開設定：`fee_billing_mode = 'no_fee'` 僅表示「不收隊費」，比賽費由 `team_members.match_fee_enabled` 與 DB 維護的 `match_fee_start_date` 決定。既有 no_fee 預設免收比賽費，其餘既有收費成員維持原歷史範圍；新成員或重新啟用從儲存當天（台灣日期）的場次起計，不補收較早日期。球員欄位由 `PlayerBillingFields` 管理，Google 同步不寫這兩欄。球員更新沿用 `players:CREATE/EDIT` RLS；safe view 保持 invoker 並只加入非敏感欄位，完整編輯 RPC 自動回傳新增欄位。設定切換由私有 trigger 依場次排序同步，保留單場免繳、請假規則、待審／已付款快照與原開放規則；場地／點名 no_fee 排除與裝備自費不變。需先部署 `supabase/migrations/20260927051302_independent_player_match_billing.sql`，本次僅本機完成。
+
 ## 不可破壞規則
 
 - 敏感欄位包含 `national_id`、`guardian_phone`、`contact_line_id`；除非流程需要完整個資且 DB 權限一致，否則不直接擴散。

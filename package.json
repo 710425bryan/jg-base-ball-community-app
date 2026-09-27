@@ -1,6 +1,6 @@
 {
   "name": "web",
-  "version": "1.1.67",
+  "version": "1.1.68",
   "private": true,
   "type": "module",
   "engines": {
@@ -12,7 +12,7 @@
     "typecheck": "vue-tsc --noEmit",
     "test": "vitest run",
     "test:coach-schedules:sql": "node scripts/verify-coach-schedule-sources.mjs && node scripts/verify-coach-schedule-shared-slots.mjs",
-    "test:payments:sql": "node tests/database/quarterlyPaymentOwnership.integration.mjs && node tests/database/adminPaymentSubmission.integration.mjs && node tests/database/matchFeeExemptions.integration.mjs",
+    "test:payments:sql": "node tests/database/quarterlyPaymentOwnership.integration.mjs && node tests/database/adminPaymentSubmission.integration.mjs && node tests/database/matchFeeExemptions.integration.mjs && node tests/database/playerMatchBilling.integration.mjs",
     "check": "pnpm typecheck && pnpm test && pnpm test:coach-schedules:sql && pnpm test:payments:sql && vite build",
     "build": "vue-tsc && vite build",
     "preview": "vite preview"

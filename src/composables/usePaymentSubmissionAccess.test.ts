@@ -43,6 +43,7 @@ describe('payment submission member access', () => {
     expect(access.canCreateSubmissionForSelectedMember.value).toBe(false)
     expect(access.submissionMembers.value.map(m => m.member_id)).toEqual(['older', 'younger'])
     expect(access.createSubmissionAccessHint.value).toContain('僅限自己的綁定成員')
+    expect(access.memberSelectorHelperText.value).toContain('不收隊費模式')
     access.members.value = access.members.value.map(m => ({ ...m, is_linked: false }))
     expect(access.defaultSubmissionMember.value).toBeNull()
   })

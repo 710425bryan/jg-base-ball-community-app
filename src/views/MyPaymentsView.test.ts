@@ -3,6 +3,13 @@ import { describe, expect, it } from 'vitest'
 
 const source = readFileSync(new URL('./MyPaymentsView.vue', import.meta.url), 'utf8')
 
+describe('MyPaymentsView independent match billing wording', () => {
+  it('limits the no-fee explanation to membership fees', () => {
+    expect(source).toContain('比賽費依個別設定與參賽狀態另計')
+    expect(source).not.toContain('不會產生新的隊費或比賽費')
+  })
+})
+
 describe('MyPaymentsView pending report management', () => {
   it('refreshes report actions and payment sources after an edit or withdrawal', () => {
     expect(source).toContain('<PendingPaymentSubmissions')

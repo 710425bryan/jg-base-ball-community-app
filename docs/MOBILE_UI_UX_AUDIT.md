@@ -315,3 +315,11 @@
 - 比賽費明細拆至 `MatchFeeMemberList`；`<768px` 使用球員卡片，桌機保留表格。免繳開關使用 Element Plus、球員姓名 ARIA label、44px 觸控高度、儲存中停用及錯誤提示；僅 `fees:EDIT` 可操作，待確認／已付款停用。
 - 以本機隔離測試資料掛載實際 Vue 元件及 Element Plus，瀏覽器實際展開、開啟免繳、刷新個人清單；應收從兩筆 1,000 元降至一筆 500 元，免繳者無付款候選。360／390／640／767px 及 root 20px 文字放大沒有頁面水平溢出，手機開關至少 44px；1440px 恢復表格。
 - 直接元件與費用完整回歸 24 files／124 tests、型別檢查與 production build 通過。正式登入、真實 iPhone safe area 及遠端 migration 尚未驗收；本次瀏覽器使用 mock service，資料庫規則另由隔離 SQL integration 執行真實 RPC 驗證，不能視為正式環境已上線。
+
+### 2026-09-27 隊費與比賽費獨立設定
+
+- 球員編輯的收費欄位拆至 `PlayerBillingFields`，使用 Element Plus radio／switch，分別設定「不收隊費」與「依參賽收費」。手機雙欄隊費選項、桌機四欄；選項與比賽費開關觸控高度至少 44px，保留群組名稱、說明文字關聯及儲存中停用。
+- 本機瀏覽器掛載實際 `PlayersView`、共用 Dialog／Select 與 Element Plus；使用假資料與 mock API，不連正式服務。實際開啟球員、保留不收隊費、開啟比賽費、捲至 footer 儲存、重新開啟後，獨立開關與生效日期皆保留；切換隊費模式不影響比賽費開關。
+- 360／390／640／767／1440px 與 390px 下 root 20px 放大文字均檢查頁面及收費欄位，沒有水平溢出，放大文字後仍可操作及儲存。正式登入、iPhone safe area／鍵盤與遠端 migration 尚待驗收，本機瀏覽器證據不能視為正式環境已上線。
+- 型別檢查、全量 239 files／1,229 tests、收費完整回歸加元件 22 files／111 tests、收費 SQL 225 項及 production build 通過。首次全量執行有兩項既有測試超時，以 2 workers 完整重跑全數通過。SQL 測試使用真實 migration／RPC／trigger，包含預設值與重跑、啟用日期、單場免繳、請假、付款歷程、linked scope、欄位權限及 Google 同步保留；新 migration 尚未遠端套用。
+- `PlayersView` 已抽離收費選項、說明與樣式；既有大型 `MyPaymentsView`／`FeeSettings` 僅更正文案，為避免擴大付款流程風險未在此次拆分，後續可依付款表單與設定分頁拆出子元件。純型別／文件以型別及 diff 檢查驗證，migration 以隔離 PostgreSQL integration 驗證。

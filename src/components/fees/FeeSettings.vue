@@ -56,7 +56,7 @@ const feeSettingTabs: Array<{ id: FeeSettingsTab; name: string }> = [
   { id: 'per_session', name: '計次月費' },
   { id: 'monthly_fixed', name: '固定月繳' },
   { id: 'quarterly_compensation', name: '季費補償' },
-  { id: 'no_fee', name: '不收費' }
+  { id: 'no_fee', name: '不收隊費' }
 ]
 const schoolTeamPerSessionPrograms: Array<{
   key: SchoolTeamMonthlyFeeProgramKey
@@ -597,15 +597,15 @@ onMounted(() => {
       v-loading="isLoading"
     >
       <div class="border-b border-slate-100 bg-slate-50/80 px-4 py-3">
-        <h3 class="text-base font-black text-gray-800">不收費成員</h3>
-        <p class="mt-1 text-xs font-medium text-slate-500">以下成員不會產生新的月費、季費或比賽費；既有帳款與裝備付款仍保留。</p>
+        <h3 class="text-base font-black text-gray-800">不收隊費成員</h3>
+        <p class="mt-1 text-xs font-medium text-slate-500">以下成員不會產生新的月費或季費；比賽費依球員個別設定另計，既有帳款與裝備付款仍保留。</p>
       </div>
-      <div v-if="noFeeMembers.length === 0" class="px-4 py-8 text-center text-sm font-bold text-gray-400">目前沒有不收費成員</div>
+      <div v-if="noFeeMembers.length === 0" class="px-4 py-8 text-center text-sm font-bold text-gray-400">目前沒有不收隊費成員</div>
       <div v-else class="grid gap-3 p-3 md:hidden">
         <article v-for="member in noFeeMembers" :key="member.id" class="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
           <div class="flex flex-wrap items-center gap-2">
             <span class="font-black text-gray-800">{{ member.name }}</span>
-            <span class="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-bold text-slate-600">不收費</span>
+            <span class="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-bold text-slate-600">不收隊費</span>
           </div>
           <p class="mt-2 text-sm font-bold text-slate-500">{{ member.role }}｜{{ member.status || '在隊' }}</p>
         </article>
@@ -624,7 +624,7 @@ onMounted(() => {
               <td class="px-4 py-3">
                 <div class="flex items-center gap-2">
                   <span class="font-black text-gray-800">{{ member.name }}</span>
-                  <span class="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">不收費</span>
+                  <span class="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">不收隊費</span>
                 </div>
               </td>
               <td class="px-4 py-3 text-sm font-bold text-slate-600">{{ member.role }}</td>

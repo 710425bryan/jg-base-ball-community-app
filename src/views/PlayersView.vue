@@ -167,7 +167,10 @@
                   計次月費
                 </span>
                 <span v-if="isNoFeeMember(row)" class="text-[10px] font-bold border px-1.5 py-0.5 rounded-sm mt-0.5 w-max inline-flex items-center gap-1 text-slate-600 border-slate-200 bg-slate-50">
-                  不收費
+                  不收隊費
+                </span>
+                <span v-if="row.role === '球員' || row.role === '校隊'" class="text-[10px] font-bold px-1.5 py-0.5 rounded-sm border text-slate-600 border-slate-200 bg-slate-50 w-fit max-w-full">
+                  {{ getPlayerMatchFeeLabel(row) }}
                 </span>
               </div>
             </template>
@@ -389,7 +392,10 @@
                   計次月費
                 </span>
                 <span v-if="isNoFeeMember(member)" class="text-[10px] font-bold px-2 py-1 rounded-md border bg-slate-50 text-slate-600 border-slate-200">
-                  不收費
+                  不收隊費
+                </span>
+                <span v-if="member.role === '球員' || member.role === '校隊'" class="text-[10px] font-bold px-1.5 py-0.5 rounded-sm border text-slate-600 border-slate-200 bg-slate-50 w-fit max-w-full">
+                  {{ getPlayerMatchFeeLabel(member) }}
                 </span>
                 <span v-if="member.national_id && canEditPlayers" class="text-[10px] font-mono text-gray-400 hidden sm:inline-block">
                   ID: {{ member.national_id }}
@@ -521,23 +527,13 @@
               </template>
               <el-switch v-model="form.is_half_price" active-text="是" inactive-text="否" />
             </el-form-item>
-            <el-form-item prop="fee_billing_mode" class="font-bold mb-0 sm:col-span-2" v-if="form.role === '球員' || form.role === '校隊'">
-              <template #label>
-                <div class="inline-flex items-center gap-1 leading-none mr-3">收費模式 <el-tooltip content="不收費成員不會產生新的隊費與比賽費；裝備加購仍依實際申請付款。" placement="top"><el-icon class="text-gray-400 cursor-help"><InfoFilled /></el-icon></el-tooltip></div>
-              </template>
-              <el-radio-group
-                v-model="form.fee_billing_mode"
-                class="billing-mode-radio-group"
-              >
-                <el-radio-button
-                  v-for="option in billingModeOptions"
-                  :key="option.value"
-                  :label="option.value"
-                >
-                  {{ option.label }}
-                </el-radio-button>
-              </el-radio-group>
-            </el-form-item>
+            <PlayerBillingFields
+              :role="form.role"
+              v-model:fee-billing-mode="form.fee_billing_mode"
+              v-model:match-fee-enabled="form.match_fee_enabled"
+              :match-fee-start-date="form.match_fee_start_date"
+              :disabled="isSubmitting"
+            />
             <el-form-item prop="sibling_ids" class="font-bold mb-0 flex flex-col h-[72px]" v-if="form.role === '球員' || form.role === '校隊'">
               <template #label>
                 <div class="inline-flex items-center gap-1 leading-none mr-3">相關手足 (兄弟姊妹) <el-tooltip content="請選擇有在球隊的兄弟姊妹。系統將依據「主要繳費人」設定自動給予半價優惠" placement="top"><el-icon class="text-gray-400 cursor-help"><InfoFilled /></el-icon></el-tooltip></div>
@@ -770,13 +766,10 @@ import {
   shouldApplyManualHalfPrice
 } from '@/utils/memberLifecycle'
 import {
-  FIXED_MONTHLY_FEE_BILLING_MODE,
   getMemberBillingLabel,
   isFixedMonthlyBillingMember,
   isMonthlyPerSessionBillingMember,
   isNoFeeBillingMember,
-  MONTHLY_PER_SESSION_FEE_BILLING_MODE,
-  NO_FEE_BILLING_MODE,
   normalizeMemberFeeBillingMode,
   ROLE_DEFAULT_FEE_BILLING_MODE
 } from '@/utils/memberBilling'
@@ -799,6 +792,8 @@ import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
 import PreviewableImage from '@/components/common/PreviewableImage.vue'
 import TeamGroupSettingsDialog from '@/components/players/TeamGroupSettingsDialog.vue'
 import PlayerIdentitySelect from '@/components/players/PlayerIdentitySelect.vue'
+import PlayerBillingFields from '@/components/players/PlayerBillingFields.vue'
+import { getPlayerMatchBillingForm, getPlayerMatchFeeEnabled, getPlayerMatchFeeLabel } from '@/utils/playerMatchBilling'
 import { fetchPlayerIdentityLabels } from '@/services/playerIdentitiesApi'
 import {
   COMMUNITY_PLAYER_IDENTITY,
@@ -892,7 +887,8 @@ const members = computed(() =>
     is_inactive_or_graduated: !!m.is_inactive_or_graduated,
     is_primary_payer: !!m.is_primary_payer,
     is_half_price: !!m.is_half_price,
-    fee_billing_mode: normalizeMemberFeeBillingMode(m.fee_billing_mode)
+    fee_billing_mode: normalizeMemberFeeBillingMode(m.fee_billing_mode),
+    ...getPlayerMatchBillingForm(m)
   }))
 )
 const savedIdentityLabels = ref<string[]>([])
@@ -1155,7 +1151,8 @@ const playerExportColumns = computed<PlayerExportColumn[]>(() => [
   { key: 'low_income_qualification', label: '清寒低收資格', sourceKeys: ['low_income_qualification'], getValue: (member) => formatBoolean(member.low_income_qualification) },
   { key: 'is_primary_payer', label: '主要繳費人', sourceKeys: ['is_primary_payer'], getValue: (member) => formatBoolean(member.is_primary_payer) },
   { key: 'is_half_price', label: '半價優惠', sourceKeys: ['is_half_price'], getValue: (member) => formatBoolean(member.is_half_price) },
-  { key: 'fee_billing_mode', label: '收費模式', sourceKeys: ['fee_billing_mode'], getValue: (member) => getMemberBillingLabel(member) },
+  { key: 'fee_billing_mode', label: '隊費收費模式', sourceKeys: ['fee_billing_mode'], getValue: (member) => getMemberBillingLabel(member) },
+  { key: 'match_fee_enabled', label: '比賽費', sourceKeys: ['match_fee_enabled'], getValue: (member) => getPlayerMatchFeeLabel(member) },
   { key: 'sibling_ids', label: '相關手足', sourceKeys: ['sibling_ids'], getValue: (member) => getSiblingName(member.sibling_ids) },
   { key: 'portrait_auth', label: '肖像授權', sourceKeys: ['portrait_auth'], getValue: (member) => formatBoolean(member.portrait_auth) },
   { key: 'notes', label: '備註', sourceKeys: ['notes'], getValue: (member) => member.notes },
@@ -1421,6 +1418,8 @@ const createInitialForm = () => ({
   is_primary_payer: false,
   is_half_price: false,
   fee_billing_mode: ROLE_DEFAULT_FEE_BILLING_MODE,
+  match_fee_enabled: true,
+  match_fee_start_date: null as string | null,
   low_income_qualification: false,
   sibling_ids: [] as string[],
   national_id: '',
@@ -1438,29 +1437,6 @@ const createInitialForm = () => ({
 const form = reactive(createInitialForm())
 const lastAutoGrade = ref('')
 const isTeamMemberFormRole = computed(() => form.role === '球員' || form.role === '校隊')
-const billingModeOptions = computed(() => [
-  {
-    label: form.role === '校隊' ? '校隊月繳' : '球員季繳',
-    value: ROLE_DEFAULT_FEE_BILLING_MODE
-  },
-  ...(form.role === '球員'
-    ? [
-      {
-        label: '計次月費',
-        value: MONTHLY_PER_SESSION_FEE_BILLING_MODE
-      },
-      {
-        label: '固定月繳',
-        value: FIXED_MONTHLY_FEE_BILLING_MODE
-      }
-    ]
-    : []),
-  {
-    label: '不收費',
-    value: NO_FEE_BILLING_MODE
-  }
-])
-
 const applyMemberIdentityToForm = (identity: string) => {
   form.member_identity = identity
   if (getPlayerIdentityError(identity)) return
@@ -2109,6 +2085,7 @@ const openEditModal = (member: any) => {
   form.grade = normalizePlayerGrade(member.grade) || ''
   form.is_inactive_or_graduated = !!member.is_inactive_or_graduated
   form.fee_billing_mode = normalizeBillingModeForRole(member.role, member.fee_billing_mode)
+  Object.assign(form, getPlayerMatchBillingForm(member))
   if (!form.sibling_ids) form.sibling_ids = []
   lastAutoGrade.value = getInferredGrade(form.role, form.birth_date, form.is_early_enrollment)
   if (!form.grade) form.grade = lastAutoGrade.value
@@ -2193,6 +2170,9 @@ const submitForm = async () => {
       : null
 
     payload.fee_billing_mode = normalizeBillingModeForRole(payload.role, payload.fee_billing_mode)
+    payload.match_fee_enabled = getPlayerMatchFeeEnabled(payload)
+    // The database owns the effective date; clients cannot backdate new charges.
+    delete payload.match_fee_start_date
     
     console.log("Submitting payload to team_members:", payload)
 
@@ -2472,38 +2452,6 @@ onMounted(() => {
 .players-member-form .el-input__wrapper,
 .players-member-form .el-select__wrapper {
   min-height: var(--players-form-control-height);
-}
-
-.billing-mode-radio-group {
-  display: grid;
-  width: 100%;
-  max-width: 100%;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.5rem;
-  align-items: stretch;
-}
-.billing-mode-radio-group .el-radio-button {
-  display: block;
-  margin: 0;
-  min-width: 0;
-}
-.billing-mode-radio-group .el-radio-button__inner {
-  display: inline-flex;
-  width: 100%;
-  min-height: 32px;
-  align-items: center;
-  justify-content: center;
-  border-left: var(--el-border);
-  border-radius: 8px !important;
-  font-weight: 800;
-  line-height: 1;
-  white-space: nowrap;
-}
-
-@media (min-width: 640px) {
-  .billing-mode-radio-group {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
 }
 
 .players-photo,

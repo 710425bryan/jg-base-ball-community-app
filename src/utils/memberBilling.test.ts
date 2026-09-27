@@ -108,9 +108,9 @@ describe('memberBilling', () => {
     expect(getEffectivePaymentBillingMode(noFeeSchoolMember)).toBe('none')
     expect(isFixedMonthlyBillingMember(noFeeXintaiSchoolMember)).toBe(false)
     expect(getMonthlyFeeCalculationType(noFeeXintaiSchoolMember)).toBe('per_session')
-    expect(getMemberBillingLabel(noFeePlayer)).toBe('不收費')
-    expect(getMemberBillingLabel(noFeeSchoolMember)).toBe('不收費')
-    expect(getMemberBillingLabel(noFeeXintaiSchoolMember)).toBe('不收費')
+    expect(getMemberBillingLabel(noFeePlayer)).toBe('不收隊費')
+    expect(getMemberBillingLabel(noFeeSchoolMember)).toBe('不收隊費')
+    expect(getMemberBillingLabel(noFeeXintaiSchoolMember)).toBe('不收隊費')
   })
 
   it('uses 2000 as the fixed monthly default and allows explicit overrides', () => {

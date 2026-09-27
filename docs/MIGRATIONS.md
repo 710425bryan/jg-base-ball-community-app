@@ -162,7 +162,8 @@
 | `supabase_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz_monthly_fee_cross_billing_sibling_discount_migration.sql` | 月費跨收費模式手足半價修正 | 校隊月費半價判斷納入所有有效球員／校隊手足，不再要求手足同為月繳；安全修正當月起未繳且未送審的折扣快照 |
 | `supabase_member_joined_fee_period_guard_migration.sql` | 月費／季費加入月份起算 | 新增加入期別 helper 與寫入 trigger，覆寫付款紀錄並補強付款估算、付款 RPC、首頁摘要及費用提醒，加入前未繳不再產生或顯示，已付款／送審歷史保留 |
 | `supabase_match_fees_migration.sql` | 比賽費 items / submissions | 比賽費與餘額整合 |
-| `supabase/migrations/20260927040433_match_fee_single_match_exemptions.sql` | 比賽費球員單場免繳 | 新增免繳旗標、異動者／時間與狀態 constraint；受保護 RPC 鎖場次與明細並核對版本；同步保留免繳、個人清單排除、群組刪除保護。只更新本機，尚未遠端套用；部署於比賽費開放 migration 之後 |
+| `supabase/migrations/20260927051302_independent_player_match_billing.sql` | 隊費與比賽費獨立設定 | 須在單場免繳 migration 後部署；保留既有不收費預設與歷史帳款，新啟用從台灣儲存當日起計。既有 RLS、safe view、完整編輯 RPC 邊界保留；本次未套用遠端。驗證：`pnpm test:payments:sql` |
+| `supabase/migrations/20260927040433_match_fee_single_match_exemptions.sql` | 比賽費球員單場免繳 | 新增免繳旗標、異動者／時間與狀態 constraint；受保護 RPC 鎖場次與明細並核對版本；同步保留免繳、個人清單排除、群組刪除保護。2026-09-27 唯讀確認遠端已有免繳欄位及同步／個人清單規則；本次未執行遠端寫入。部署於比賽費開放 migration 之後 |
 | `supabase_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz_match_fee_payment_open_state_migration.sql` | 比賽費手動開放與防重複保護 | 新增 `matches.match_fee_payment_*`、應收簽章、開放 / 關閉與取消群組刪除 RPC；linked member 只讀已開放或已有付款歷程的項目，付款鎖定場次重驗，賽事刪除依付款歷程清除 / 阻擋 / 保留稽核紀錄 |
 | `supabase_fee_management_reminders_migration.sql` | 費用提醒與通知中心 | 覆寫 `get_notification_feed()` |
 | `supabase_fee_payment_reminders_migration.sql` | 手動催繳通知與通知中心 | 新增 `fee_payment_reminder` targeted feed source，覆寫 `get_notification_feed()` |

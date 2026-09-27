@@ -1005,7 +1005,7 @@ const membershipSelectionHint = computed(() => {
   }
 
   if (isNoFeePaymentMember(member)) {
-    return '這位成員已設定為不收費，不會產生新的隊費或比賽費；若有切換前既有未繳隊費，請從繳費紀錄勾選。'
+    return '這位成員已設定為不收隊費；比賽費依個別設定與參賽狀態另計。若有切換前既有未繳隊費，請從繳費紀錄勾選。'
   }
 
   if (member.billing_mode === 'quarterly') {
@@ -1043,7 +1043,7 @@ const createDialogEstimateHelperText = computed(() => {
   }
 
   if (isNoFeePaymentMember(createDialogMember.value)) {
-    return '不收費成員不會自動產生新隊費；這裡只會處理切換前已存在的未繳隊費。'
+    return '不收隊費成員不會自動產生新隊費；這裡只會處理切換前已存在的未繳隊費。'
   }
 
   if (createDialogMember.value.billing_mode === 'monthly') {
@@ -2783,7 +2783,7 @@ const submitPaymentSubmission = async () => {
     isNoFeePaymentMember(createDialogMember.value) &&
     !createDialogHasPayableLegacyMembership.value
   ) {
-    ElMessage.warning('不收費成員只能回報切換前已存在的未繳隊費')
+    ElMessage.warning('不收隊費成員只能回報切換前已存在的未繳隊費')
     return
   }
 

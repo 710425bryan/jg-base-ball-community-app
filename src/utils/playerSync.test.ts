@@ -15,6 +15,12 @@ describe('playerSync', () => {
     expect(getProtectedFeeFlagsPayloadForGoogleFormSync(true)).toEqual({})
   })
 
+  it('does not include independent match billing settings in existing-member upserts', () => {
+    const existing = { match_fee_enabled: true, match_fee_start_date: '2026-09-27', fee_billing_mode: 'no_fee' }
+    expect({ ...existing, ...getProtectedFeeFlagsPayloadForGoogleFormSync(true) }).toEqual(existing)
+    expect(getProtectedFeeFlagsPayloadForGoogleFormSync(false)).not.toHaveProperty('match_fee_start_date')
+  })
+
   it('defaults new members protected fee flags during Google Form sync', () => {
     expect(getProtectedFeeFlagsPayloadForGoogleFormSync(false)).toEqual({
       is_primary_payer: false,

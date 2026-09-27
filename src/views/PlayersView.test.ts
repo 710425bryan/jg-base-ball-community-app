@@ -3,6 +3,19 @@ import { describe, expect, it } from 'vitest'
 
 const source = readFileSync(new URL('./PlayersView.vue', import.meta.url), 'utf8')
 
+describe('PlayersView independent match billing integration', () => {
+  it('hydrates and saves match billing separately while leaving the date to the database', () => {
+    expect(source).toContain('<PlayerBillingFields')
+    expect(source).toContain('v-model:match-fee-enabled="form.match_fee_enabled"')
+    expect(source).toContain('Object.assign(form, getPlayerMatchBillingForm(member))')
+    expect(source).toContain('payload.match_fee_enabled = getPlayerMatchFeeEnabled(payload)')
+    expect(source).toContain('delete payload.match_fee_start_date')
+    expect(source).toContain('getPlayerMatchFeeLabel(row)')
+    expect(source).toContain('getPlayerMatchFeeLabel(member)')
+    expect(source).not.toContain('不收費成員不會產生新的隊費與比賽費')
+  })
+})
+
 describe('PlayersView new member notification ownership', () => {
   it('leaves new member notification delivery to the database outbox', () => {
     expect(source).not.toContain('notifyInsertedMembers')

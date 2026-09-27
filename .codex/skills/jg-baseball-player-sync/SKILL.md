@@ -18,6 +18,8 @@ description: "Player roster sync workflow for jg-base-ball-community-app. Use wh
 
 ## 不可破壞規則
 
+- `match_fee_enabled` 與 `match_fee_start_date` 不可由 Google 同步覆蓋；payload 省略這兩欄，新增時由 DB trigger 初始化，既有成員保留人工開關與生效日期。
+
 - Google 同步不得覆蓋既有成員的 `team_members.is_primary_payer`、`team_members.is_half_price` 與 `team_members.fee_billing_mode`。
 - 只有在新增全新成員時，才把前兩個欄位預設為 `false`，並把 `fee_billing_mode` 預設為 `role_default`。
 - Google 同步未提供年級欄位時，不覆蓋既有成員的 `team_members.grade`；新增成員或既有空值才依 `birth_date` 帶入預設年級，出生日期 9 月 2 日以後預設晚一屆，名單年級每年 6 月 19 日由 DB 排程自動升級。

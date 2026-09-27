@@ -211,7 +211,7 @@
 ### 賽事與 Google Calendar 同步
 
 - 賽事資料表為 `matches`，主要 API 在 `src/services/matchesApi.ts`。
-- 不收費（`fee_billing_mode = 'no_fee'`）球員 / 校隊仍可選入比賽名單、日曆匯入、陣容、即時與語音紀錄、打擊 / 投球成績；編輯儲存不得因收費模式移除參賽者。新的比賽費由 DB `sync_match_fee_items_for_match()` 排除有效收費模式 `none`，參賽資格與收費資格分開判斷。
+- 不收隊費（`fee_billing_mode = 'no_fee'`）球員 / 校隊仍可正常參賽並記錄成績；比賽費依獨立開關、生效日期、參賽、請假與單場免繳由 DB `sync_match_fee_items_for_match()` 判斷，參賽資格與收費資格分開。
 - `/calendar` 是登入後賽程入口，`?match_id=` 會開啟 `MatchDetailDialog`；推播與通知連結應導向 `/calendar?match_id=...`。
 - 個人成績頁 `/my-records` 不直接使用後台 `matchesApi` 讀列表，而是透過 `myPlayerRecords` RPC 依球員可見範圍取回比賽紀錄；打擊 / 投球彙總邏輯在 `src/utils/matchRecordStats.ts`。
 - `matchesApi` 保留 `google_calendar_event_id` 欄位缺失 / schema cache 尚未更新時的 fallback。
@@ -276,7 +276,7 @@
 - 校隊月費依 program 分開設定：中港校隊使用 `chunggang_school_team` 並固定採訓練日期計次；國中部用 `role = 校隊` 且 raw `team_members.training_program = 'junior_high_school_team'` 判斷，不改 `role`、不從 `team_group` fallback 猜身分。國中部可在收費設定切換 `single_monthly`／`training_dates`，預設 `single_monthly` 2,000 元；單次月費以 `monthly_fees.calculation_type = 'monthly_fixed'`、`fixed_monthly_fee` 留快照，訓練日期模式則以 `per_session`、`per_session_fee` 留快照。
 - 球員計次月費用 `team_members.fee_billing_mode = 'monthly_per_session'` 表示；球員身分仍是 `球員`，但隊費併入 `monthly_fees`、排除 `quarterly_fees`，堂數 / 請假 / 單次金額公式與校隊計次月費相同。
 - 中港校隊、國中部與球員計次月費各自使用所屬 `/training-dates` 訓練日期。中港校隊與社區計次球員只把訓練日內全日 / 上午假單扣除堂數，公式為 `(訓練日數 - 符合條件的請假日數) × 單次費率 - 手動扣減`；國中部在 `training_dates` 模式的公式為 `訓練日數 × 國中部單次費率 - 手動扣減`，在預設 `single_monthly` 模式則為 `單次月費 - 手動扣減`。國中部兩種模式的請假天數都只作紀錄、不扣月費；單次月費一般預設 2,000 元，半價 / 有效手足折扣為 1,000 元，訓練日期模式的一般／折扣單次費率預設 500／250 元。社區計次球員仍逐人設定費率，社區固定月繳不參與堂數與請假計算。
-- 球員 / 校隊不收費用 `team_members.fee_billing_mode = 'no_fee'` 表示；不產生新的月費、季費與比賽費，切換前既有帳款保留，裝備加購付款仍維持自費。
+- 隊費與比賽費分開設定：`fee_billing_mode = 'no_fee'` 僅表示「不收隊費」，比賽費由 `team_members.match_fee_enabled` 與 DB 維護的 `match_fee_start_date` 決定。既有 no_fee 預設免收比賽費，其餘既有收費成員維持原歷史範圍；新成員或重新啟用從儲存當天（台灣日期）的場次起計，不補收較早日期。球員欄位由 `PlayerBillingFields` 管理，Google 同步不寫這兩欄。球員更新沿用 `players:CREATE/EDIT` RLS；safe view 保持 invoker 並只加入非敏感欄位，完整編輯 RPC 自動回傳新增欄位。設定切換由私有 trigger 依場次排序同步，保留單場免繳、請假規則、待審／已付款快照與原開放規則；場地／點名 no_fee 排除與裝備自費不變。需先部署 `supabase/migrations/20260927051302_independent_player_match_billing.sql`，本次僅本機完成。
 - 月費與季費都必須以 `team_members.joined_date` 的月份作為最早收費期別：月費不可早於加入月份，季費不可早於包含加入月份的季度；加入前的未繳費不可出現在管理端試算、家長待付款、首頁摘要或催繳通知，已付款／送審歷史則保留稽核。
 - 月繳付款回報開放期別依成員身分與有效收費模式判斷：國中部採預繳，每月 25 日起開放下個月；中港校隊與社區計次月費需等月份結束、下個月 1 日才開放；社區固定月繳同樣每月 25 日起開放下個月。前端 helper、付款估算、DB trigger 與個人首頁摘要必須同步，且國中部身分只依 raw `training_program = 'junior_high_school_team'` 判斷。一般保留既有 `monthly_fees` 快照；國中部單次月費上線 hotfix 例外只修正台灣當月起、尚未繳且沒有待審付款回報的舊計次快照；已繳與送審中歷史不回寫。
 - 季繳球員付款回報以台灣日期判斷開放期別：每季最後一個月 25 日起開放下一季，開放前不可新增未來季付款回報；過去未繳季度仍可補繳。
