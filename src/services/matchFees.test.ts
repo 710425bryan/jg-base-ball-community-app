@@ -134,4 +134,17 @@ describe('matchFees service', () => {
       p_overpayment_amount: 20
     })
   })
+
+  it('normalizes exemption flags and sends the version to the protected RPC', async () => {
+    const { listMatchFeeItemsByMonth, setMatchFeeItemExemption } = await import('./matchFees')
+    rpcMock.mockResolvedValue({ data: [{ is_exempt: true }, {}], error: null })
+    expect((await listMatchFeeItemsByMonth('2026-09')).map(i => i.is_exempt)).toEqual([true, false])
+    rpcMock.mockResolvedValue({ data: null, error: null })
+    await setMatchFeeItemExemption('fee-1', true, '2026-09-27T00:00:00Z')
+    expect(rpcMock).toHaveBeenLastCalledWith('set_match_fee_item_exemption', {
+      p_match_fee_item_id: 'fee-1', p_is_exempt: true, p_expected_updated_at: '2026-09-27T00:00:00Z'
+    })
+    rpcMock.mockResolvedValue({ data: null, error: { message: '已更新', code: 'P0002' } })
+    await expect(setMatchFeeItemExemption('fee-1', false, 'old')).rejects.toMatchObject({ code: 'P0002' })
+  })
 })

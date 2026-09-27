@@ -4,6 +4,7 @@ import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Lock, Unlock } from '@element-plus/icons-vue'
 import AppCollapseButton from '@/components/common/AppCollapseButton.vue'
+import MatchFeeMemberList from '@/components/fees/MatchFeeMemberList.vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import {
   deleteCancelledMatchFeeGroup,
@@ -77,7 +78,7 @@ const unpaidAmount = computed(() =>
 
 const cancelledAmount = computed(() =>
   items.value
-    .filter((item) => item.payment_status === 'cancelled')
+    .filter((item) => item.payment_status === 'cancelled' && !item.is_exempt)
     .reduce((total, item) => total + Number(item.amount || 0), 0)
 )
 
@@ -135,7 +136,7 @@ const groupedMatches = computed<MatchFeeGroup[]>(() => {
         matchFeeAmount,
         isPaymentOpen: groupItems.some((item) => Boolean(item.payment_opened_at)),
         hasPaymentHistory: groupItems.some((item) => item.has_payment_history === true),
-        allCancelled: groupItems.every((item) => item.payment_status === 'cancelled')
+        allCancelled: groupItems.every((item) => item.payment_status === 'cancelled' && !item.is_exempt)
       }
     })
     .sort((left, right) => {
@@ -162,20 +163,6 @@ const formatCurrency = (amount: number) => new Intl.NumberFormat('en-US', {
 const formatDate = (value?: string | null) => {
   const parsed = dayjs(value)
   return parsed.isValid() ? parsed.format('YYYY-MM-DD') : '尚無資料'
-}
-
-const getPaymentStatusLabel = (status?: string | null) => {
-  if (status === 'paid') return '已確認'
-  if (status === 'pending_review') return '待確認'
-  if (status === 'cancelled') return '已取消'
-  return '未繳'
-}
-
-const getPaymentStatusClass = (status?: string | null) => {
-  if (status === 'paid') return 'bg-emerald-50 border-emerald-200 text-emerald-700'
-  if (status === 'pending_review') return 'bg-amber-50 border-amber-200 text-amber-700'
-  if (status === 'cancelled') return 'bg-gray-100 border-gray-200 text-gray-500'
-  return 'bg-red-50 border-red-100 text-red-600'
 }
 
 const getMatchSubtitle = (item: MatchFeeItem) => [
@@ -381,7 +368,7 @@ defineExpose({
       <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h3 class="text-xl font-black text-slate-800">比賽費用月份檢視</h3>
-          <p class="mt-1 text-sm text-gray-500">先核對費用與球員名單，再逐場開放家長繳費。</p>
+          <p class="mt-1 text-sm text-gray-500">展開明細可設定球員單場免繳，核對後再開放家長繳費。</p>
         </div>
         <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
           <el-date-picker
@@ -539,53 +526,13 @@ defineExpose({
             class="mt-4 overflow-x-auto"
             data-testid="match-fee-group-details"
           >
-            <table class="w-full min-w-[900px]">
-              <thead>
-                <tr class="border-b border-gray-100 bg-gray-50/70">
-                  <th class="px-4 py-3 text-left text-sm font-bold text-gray-500">球員</th>
-                  <th class="px-4 py-3 text-left text-sm font-bold text-gray-500">金額</th>
-                  <th class="px-4 py-3 text-left text-sm font-bold text-gray-500">狀態</th>
-                  <th class="px-4 py-3 text-left text-sm font-bold text-gray-500">匯款資訊</th>
-                  <th class="px-4 py-3 text-left text-sm font-bold text-gray-500">備註</th>
-                  <th class="px-4 py-3 text-left text-sm font-bold text-gray-500">操作</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-gray-100">
-                <tr v-for="item in group.items" :key="item.id" class="transition-colors hover:bg-gray-50/60">
-                  <td class="px-4 py-3">
-                    <div class="font-black text-slate-800">{{ item.member_name }}</div>
-                    <div class="mt-1 text-xs text-gray-400">{{ item.member_role || '球員' }}</div>
-                  </td>
-                  <td class="px-4 py-3 font-black text-primary">{{ formatCurrency(item.amount) }}</td>
-                  <td class="px-4 py-3">
-                    <span :class="getPaymentStatusClass(item.payment_status)" class="inline-flex rounded-full border px-2.5 py-1 text-xs font-bold">
-                      {{ getPaymentStatusLabel(item.payment_status) }}
-                    </span>
-                  </td>
-                  <td class="px-4 py-3 text-sm text-gray-600">
-                    <span v-if="item.payment_method">
-                      {{ item.payment_method }}<span v-if="item.account_last_5"> / #{{ item.account_last_5 }}</span><span v-if="item.remittance_date"> / {{ item.remittance_date }}</span>
-                    </span>
-                    <span v-else class="text-gray-400">尚未提供</span>
-                  </td>
-                  <td class="px-4 py-3 text-sm text-gray-500">
-                    {{ item.cancelled_reason || ' ' }}
-                  </td>
-                  <td class="px-4 py-3">
-                    <button
-                      v-if="item.payment_status === 'paid' && item.payment_submission_id"
-                      type="button"
-                      class="min-h-11 rounded-xl border border-red-100 bg-red-50 px-3 text-xs font-bold text-red-600 transition-colors hover:border-red-200 hover:bg-red-100 disabled:opacity-70"
-                      :disabled="processingIds.has(item.payment_submission_id)"
-                      @click="rollbackPaidSubmission(item)"
-                    >
-                      {{ processingIds.has(item.payment_submission_id) ? '退回中...' : '退回確認' }}
-                    </button>
-                    <span v-else class="text-sm text-gray-300">-</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+            <MatchFeeMemberList
+              :items="group.items"
+              :can-edit="canEdit"
+              :processing-ids="processingIds"
+              @exemption-updated="refresh"
+              @rollback="rollbackPaidSubmission"
+            />
           </div>
         </el-collapse-transition>
       </article>

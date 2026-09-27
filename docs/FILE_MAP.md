@@ -101,7 +101,7 @@
 | `src/services/matchReminderNotifications.ts` | 未來賽事手動通知、提醒排程設定與排程健康狀態 RPC | `send-match-reminders` Edge Function、`system_settings.match_reminder_schedule_config`、`get_match_reminder_health_status()` |
 | `src/services/matchCalendarSync.ts` | Google Calendar 手動同步預覽 | `sync-match-calendar` Edge Function、瀏覽器 proxy fallback |
 | `src/services/matchAudioApi.ts` | 比賽語音轉紀錄 Edge Function 呼叫 | `transcribe-match-audio` |
-| `src/services/matchFees.ts` | 比賽費付款、開放 / 關閉、取消群組刪除與審核 RPC | `matches.match_fee_payment_*` / `match_fee_items` / `match_payment_submissions` |
+| `src/services/matchFees.ts` | 比賽費付款、單場免繳、開放 / 關閉、取消群組刪除與審核 RPC | `matches.match_fee_payment_*` / `match_fee_items` / `match_payment_submissions` |
 | `src/services/matchFeePaymentNotifications.ts` | 保留的比賽費通知 service，開放流程不再呼叫 | `send-match-fee-payment-notifications` Edge Function |
 | `src/services/weatherApi.ts` | 賽事 / 首頁天氣預報與地點解析 | `resolve-location`、Open-Meteo |
 | `src/services/trainingApi.ts` | 特訓報名、點數、特訓點名 RPC 與單筆報名 / 錄取通知呼叫 | `training_*` / `player_point_transactions` / `attendance_events.training_session_id` |
@@ -296,6 +296,7 @@
 | `src/components/fees/ProfilePaymentSubmissionInbox.vue` | 個人付款回報金額核對、短繳阻擋、多繳入帳確認與必填退回原因 |
 | `src/components/fees/PlayerBalanceManager.vue` | 球員餘額管理與流水帳 |
 | `src/components/fees/MatchFeeManagementPanel.vue` | 比賽費預設收合、時間排序、開放／關閉（不自動通知）、取消群組刪除與付款狀態 |
+| `src/components/fees/MatchFeeMemberList.vue` | 比賽費球員明細、單場免繳開關、版本衝突刷新；手機卡片／桌機表格 |
 | `src/components/fees/MatchPaymentSubmissionInbox.vue` | 比賽費付款回報審核 |
 | `src/components/fees/MyMatchFeesPanel.vue` | 個人已開放比賽費與既有付款歷程面板 |
 | `src/components/fees/FeeManagementReminderPanel.vue` | 費用管理提醒 |
@@ -513,3 +514,5 @@
 - 改推播：看 `src/utils/pushNotifications.ts`、`send-push-notification`、`_shared/push.ts`。
 - 改排程通知：看對應 Edge Function、`push_dispatch_events` event key、`get_notification_feed()` 是否同步顯示。
 - 改公開頁資料：優先找 public RPC，不要直接查 raw table。
+
+- `tests/database/matchFeeExemptions.integration.mjs`：隔離 Postgres 執行正式比賽費 RPC，驗證免繳、恢復、請假／不收費、權限、版本及付款歷史保護；由 `pnpm test:payments:sql` 與 `pnpm check` 執行。

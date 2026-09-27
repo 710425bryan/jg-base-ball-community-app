@@ -19,6 +19,7 @@ export type MatchFeeItem = {
   payment_opened_at?: string | null
   payment_opened_by_name?: string | null
   has_payment_history?: boolean
+  is_exempt?: boolean
   payment_status: MatchFeePaymentStatus | string
   payment_submission_id: string | null
   payment_submission_status?: MatchPaymentSubmissionStatus | string | null

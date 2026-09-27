@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   dispatchPush: vi.fn(),
   deleteGroup: vi.fn(),
   rollback: vi.fn(),
+  exemption: vi.fn(),
   success: vi.fn(),
   error: vi.fn(),
   warning: vi.fn()
@@ -27,7 +28,8 @@ vi.mock('@/services/matchFees', () => ({
   listMatchFeeItemsByMonth: mocks.list,
   setMatchFeePaymentOpenState: mocks.setOpenState,
   deleteCancelledMatchFeeGroup: mocks.deleteGroup,
-  rollbackMatchPaymentSubmission: mocks.rollback
+  rollbackMatchPaymentSubmission: mocks.rollback,
+  setMatchFeeItemExemption: mocks.exemption
 }))
 
 vi.mock('@/services/matchFeePaymentNotifications', () => ({
@@ -82,6 +84,7 @@ const mountPanel = async () => {
       stubs: {
         AppLoadingState: true,
         'el-date-picker': true,
+        'el-switch': true,
         'el-icon': { template: '<span><slot /></span>' },
         'el-collapse-transition': { template: '<div><slot /></div>' }
       }
@@ -298,5 +301,15 @@ describe('MatchFeeManagementPanel', () => {
 
     expect(mocks.deleteGroup).toHaveBeenCalledWith('cancelled-safe')
     expect(mocks.success).toHaveBeenCalledWith('已刪除 1 筆已取消比賽費用')
+  })
+
+  it('excludes exempt fees from receivables and prevents deleting their settings', async () => {
+    mocks.list.mockResolvedValue([makeItem({ is_exempt: true, payment_status: 'cancelled' })])
+    const wrapper = await mountPanel()
+    const summaries = wrapper.emitted('summary-change')!
+    expect(summaries.at(-1)![0]).toMatchObject({ total: 0, unpaid: 0 })
+    expect(wrapper.find('[data-testid="open-payment-button"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="delete-cancelled-group-button"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('單場免繳')
   })
 })

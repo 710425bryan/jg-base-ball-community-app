@@ -1,0 +1,150 @@
+// Execute the real match fee RPCs and constraints in an isolated Postgres engine.
+import assert from 'node:assert/strict'
+import { PGlite } from '@electric-sql/pglite'
+import { read, id, extractFunction } from './quarterlyPaymentOwnership.fixture.mjs'
+import { setupAdminPayments } from './adminPaymentSubmission.fixture.mjs'
+
+const db = new PGlite()
+const base = 'supabase_match_fees_migration.sql'
+const opening = 'supabase_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz_match_fee_payment_open_state_migration.sql'
+const migration = 'supabase/migrations/20260927040433_match_fee_single_match_exemptions.sql'
+const query = async (sql, args = []) => (await db.query(sql, args)).rows
+const scalar = async (sql, args = []) => Object.values((await query(sql, args))[0])[0]
+let checks = 0
+const check = (actual, expected, label) => { assert.deepEqual(actual, expected, label); checks++ }
+const fails = async (fn, message) => { await assert.rejects(fn, message); checks++ }
+const login = n => query("select set_config('request.jwt.claim.sub',$1,false)", [n ? id(n) : ''])
+const fee = async (member = 11, match = 41) => (await query('select *, updated_at::text as version from match_fee_items where match_id=$1 and member_id=$2', [id(match), id(member)]))[0]
+const toggle = async (value, row) => {
+  row ||= await fee()
+  return query('select set_match_fee_item_exemption($1,$2,$3)', [row.id, value, row.version])
+}
+const sync = () => query('select sync_match_fee_items_for_match($1)', [id(41)])
+const open = () => query('select * from set_match_fee_payment_open_state($1,true)', [id(41)])
+const personal = () => query('select * from list_my_match_fee_items($1)', [id(11)])
+const create = async (row = null) => query("select * from create_match_payment_submission($1,'現金')", [[(row || await fee()).id]])
+try {
+  await setupAdminPayments(db)
+  await db.exec(`
+    drop table match_payment_submission_items, match_fee_items, match_payment_submissions, matches cascade;
+    create table matches(id uuid primary key, players text, absent_players jsonb default '[]',
+      match_name text, tournament_name text, match_date date, match_time text, category_group text, note text,
+      match_fee_payment_opened_at timestamptz, match_fee_payment_opened_by uuid references profiles,
+      match_fee_payment_signature text);
+    alter table profiles add column nickname text, add column name text, add column email text;
+  `)
+  const original = read(base)
+  await db.exec(original.slice(original.indexOf('alter table public.matches'), original.indexOf('alter table public.player_balance_transactions')))
+  await db.exec(original.slice(original.indexOf('create unique index if not exists match_fee_items_match_member_uidx'), original.indexOf('create index if not exists match_fee_items_member_month_idx')))
+  for (const name of ['normalize_match_fee_player_name', 'split_match_fee_player_names', 'sync_match_fee_items_for_month', 'sync_match_fee_items_after_match_change']) await db.exec(extractFunction(base, name))
+  const leave = 'supabase_zzzzzzzzzzzzzzzz_leave_time_segments_migration.sql'
+  for (const match of read(leave).matchAll(/create or replace function public\.([a-z_]+)\(/g)) {
+    if (['normalize_leave_time_segment', 'extract_time_minutes', 'leave_time_segment_overlaps_event_time', 'leave_request_overlaps_event', 'get_match_leave_event_time'].includes(match[1])) await db.exec(extractFunction(leave, match[1]))
+  }
+  await db.exec(extractFunction('supabase_no_fee_billing_migration.sql', 'get_effective_payment_billing_mode'))
+  for (const name of ['get_match_fee_payment_signature', 'sync_match_fee_items_for_match', 'set_match_fee_payment_open_state', 'list_my_match_fee_items', 'list_match_fee_items_by_month', 'delete_cancelled_match_fee_group', 'create_match_payment_submission']) await db.exec(extractFunction(opening, name))
+  await db.exec(`
+    create trigger sync_match_fee_items_after_match_change
+    after insert or update of match_name, tournament_name, match_date, match_time, category_group, players, absent_players, match_fee_amount
+    on matches for each row execute function sync_match_fee_items_after_match_change();
+    alter table match_fee_items enable row level security;
+    grant select on match_fee_items to authenticated;
+    insert into matches(id,players,match_name,match_date,match_time,match_fee_amount)
+      values ('${id(41)}','兄,弟','測試盃','2026-09-27','09:00 - 12:00',500),
+      ('${id(42)}','兄','另一場','2026-09-28','09:00 - 12:00',300);
+  `)
+  await login(3)
+  await open()
+  const before = await query('select * from match_fee_items order by id')
+  // Red phase: the baseline has no exemption operation.
+  await fails(() => toggle(true), /does not exist/)
+  await db.exec(read(migration))
+  await db.exec(read(migration))
+  check(await query('select id, amount, payment_status from match_fee_items order by id'), before.map(({id,amount,payment_status})=>({id,amount,payment_status})), 'migration preserves existing money and statuses')
+  check(await scalar("select has_function_privilege('anon','set_match_fee_item_exemption(uuid,boolean,timestamptz)','execute')"), false, 'anonymous cannot invoke exemption')
+  check(await scalar("select has_function_privilege('service_role','list_match_fee_items_by_month(text)','execute')"),true,'admin listing service grant preserved')
+  check(await scalar("select has_function_privilege('authenticated','sync_match_fee_items_for_match(uuid)','execute')"),false,'internal sync remains inaccessible to callers')
+  const grantedItem = await fee()
+  await db.exec('set role authenticated')
+  await toggle(true, grantedItem)
+  await db.exec('reset role')
+  await toggle(false)
+  await open()
+  const stale = await fee()
+  await toggle(true)
+  check([(await fee()).is_exempt,(await fee()).payment_status,(await fee()).amount], [true,'cancelled',500], 'exempt preserves original snapshot and becomes non-payable')
+  check((await fee()).exemption_updated_by,id(3),'operator recorded')
+  check(await scalar('select match_fee_payment_opened_at from matches where id=$1',[id(41)]),null,'changed receivables require reopening when no payment history')
+  await sync()
+  check((await fee()).is_exempt,true,'sync preserves exemption')
+  check((await fee(11,42)).amount,300,'other match unaffected')
+  check((await open())[0].payable_amount,500,'only other player included in open total')
+  await login(1)
+  check((await personal()).some(r=>r.match_id===id(41)),false,'exempt fee omitted from personal records')
+  await fails(()=>create(),/not payable/)
+  await fails(()=>toggle(false),/編輯權限/)
+  await login(4)
+  await fails(personal,/not viewable/)
+  await login(3)
+  await fails(()=>toggle(false,stale),/已更新/)
+  const adminRows = await query("select * from list_match_fee_items_by_month('2026-09')")
+  check(adminRows.find(r=>r.member_id===id(11)&&r.match_id===id(41)).is_exempt,true,'admin sees exemption')
+  await toggle(false)
+  check((await fee()).payment_status,'unpaid','turning off restores eligible fee')
+  await open()
+  await login(1)
+  const [submission] = await create()
+  await login(3)
+  await fails(()=>toggle(true),/待確認或已確認/)
+  const pendingBefore = await query('select * from match_payment_submissions order by id')
+  await db.exec(read(migration))
+  check(await query('select * from match_payment_submissions order by id'),pendingBefore,'reapplying migration preserves pending history')
+  await db.exec(`update match_payment_submissions set status='approved'; update match_fee_items set payment_status='paid' where payment_submission_id is not null;`)
+  await fails(()=>toggle(true),/待確認或已確認/)
+  const paidBefore = await query("select * from match_fee_items where payment_status='paid'")
+  await db.exec(read(migration))
+  check(await query("select * from match_fee_items where payment_status='paid'"),paidBefore,'reapplying migration preserves paid snapshots')
+  await db.exec(`update match_payment_submissions set status='rejected'; update match_fee_items set payment_status='unpaid',payment_submission_id=null where payment_submission_id is not null;`)
+  await toggle(true)
+  await db.exec(`update matches set match_fee_amount=700,match_name='更名賽事' where id='${id(41)}'`)
+  check((await fee()).amount,500,'historical snapshot retained through exemption and price change')
+  check((await fee()).match_name_snapshot,'更名賽事','metadata follows the match')
+  check(await scalar('select amount from match_payment_submissions where id=$1',[submission.id]),500,'submission history untouched')
+  await toggle(false)
+  check((await fee()).amount,500,'restored historical item keeps snapshot')
+  check((await fee(12)).amount,700,'new unpaid other member fee can recalculate')
+  await toggle(true)
+  await db.exec(`update matches set absent_players='[{"name":"兄"}]' where id='${id(41)}'`)
+  await toggle(false)
+  check((await fee()).payment_status,'cancelled','absent player does not regain charge')
+  await toggle(true)
+  await db.exec(`update matches set absent_players='[]' where id='${id(41)}'`)
+  check((await fee()).is_exempt,true,'attendance changes do not remove exemption')
+  await toggle(false)
+  await db.exec(`update team_members set fee_billing_mode='no_fee' where id='${id(11)}'`)
+  await sync()
+  check((await fee()).payment_status,'cancelled','permanent no-fee rule preserved')
+  await db.exec(`update team_members set fee_billing_mode='role_default' where id='${id(11)}'`)
+  for (const segment of ['full_day','morning','afternoon']) {
+    await toggle(true)
+    await query('insert into leave_requests values ($1,$2,$2,$3)',[id(11),'2026-09-27',segment])
+    await toggle(false)
+    check((await fee()).payment_status,segment==='afternoon'?'unpaid':'cancelled',`${segment} leave respected on restore`)
+    await db.exec('delete from leave_requests')
+  }
+  check(await scalar('select players from matches where id=$1',[id(41)]),'兄,弟','exemption never changes participation')
+  await toggle(true)
+  await toggle(true, await fee(12))
+  await fails(async()=>query('select delete_cancelled_match_fee_group($1)',[(await fee()).id]),/免繳設定/)
+  await fails(()=>db.exec(`update match_fee_items set payment_status='unpaid' where is_exempt`),/exemption_state_check/)
+  await db.exec('set role authenticated')
+  await fails(()=>db.exec('update match_fee_items set is_exempt=false'),/permission denied/)
+  await db.exec('reset role')
+  await db.exec(`update profiles set is_active=false where id='${id(3)}'`)
+  await fails(()=>toggle(false),/有效帳號/)
+  await login(null)
+  await fails(()=>toggle(false),/有效帳號/)
+  check(await scalar('select count(*) from player_balance_transactions'),0,'no balance entries created')
+  check(await scalar('select count(*) from equipment_transactions'),1,'equipment unchanged')
+  console.log(`PASS: ${checks} match exemption SQL checks.`)
+} catch (error) { console.error(error.message); console.error(error.stack?.split('\n').filter(line=>line.includes('tests/database')).join('\n')); process.exitCode = 1 } finally { await db.close() }

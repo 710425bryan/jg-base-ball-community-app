@@ -19,6 +19,7 @@ const normalizeNumber = (value: unknown, fallback = 0) => {
 
 const normalizeMatchFeeItem = (row: any): MatchFeeItem => ({
   ...row,
+  is_exempt: row?.is_exempt === true,
   amount: normalizeNumber(row?.amount),
   match_fee_amount: row?.match_fee_amount == null
     ? null
@@ -147,4 +148,17 @@ export const rollbackMatchPaymentSubmission = async (submissionId: string) => {
 
   if (error) throw error
   return normalizeMatchPaymentSubmission(unwrapRows<any>(data)[0])
+}
+
+export const setMatchFeeItemExemption = async (
+  itemId: string,
+  isExempt: boolean,
+  expectedUpdatedAt: string
+) => {
+  const { error } = await supabase.rpc('set_match_fee_item_exemption', {
+    p_match_fee_item_id: itemId,
+    p_is_exempt: isExempt,
+    p_expected_updated_at: expectedUpdatedAt
+  })
+  if (error) throw error
 }

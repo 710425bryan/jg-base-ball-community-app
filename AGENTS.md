@@ -286,6 +286,7 @@
 - sibling / quarter fee / monthly settlement 等邏輯已拆在 `src/utils/*fee*` 與相關測試。
 - 手足主要繳費人退隊、離隊或關閉 / 畢業後，剩餘有效手足的新一期月費 / 季費試算不得沿用手足半價；主要繳費人恢復有效後，若 `sibling_ids` 與 `is_primary_payer` 仍保留，另一位有效手足可恢復手足減免。既有已保存帳款金額不自動覆寫，需由管理端重算或手動調整。
 - 比賽費走 `src/services/matchFees.ts`、`match_fee_items`、`match_payment_submissions`、`match_payment_submission_items`，可在 `/my-payments` 合併回報，在 `/fees` 審核。費用先在管理端產生並預設未開放；只有具 `fees:EDIT` 的管理者呼叫 `set_match_fee_payment_open_state()` 開放後，linked member 才可看見未繳項目並送出付款。
+- 單場免繳在 `/fees` 比賽費明細由 `MatchFeeMemberList` 的開關設定，只影響該球員該場；`set_match_fee_item_exemption(uuid, boolean, timestamptz)` 需有效帳號及 `fees:EDIT`，先鎖場次再鎖費用、核對版本。待審／已付款或仍有付款關聯不可設定，須先退回；已駁回歷史保留金額快照。`match_fee_items.is_exempt` 保留原金額並搭配 `cancelled` 非應繳狀態，管理端顯示「單場免繳」，家長 `list_my_match_fee_items()` 不回傳該筆；同步不得復活免繳，關閉後依最新參賽／請假／收費資格恢復。修改應收仍沿用既有重新開放規則，含免繳的取消群組不得直接刪除。須先部署 `supabase/migrations/20260927040433_match_fee_single_match_exemptions.sql`。
 - 比賽費開放／重新開放成功後，`MatchFeeManagementPanel` 只更新付款開放狀態並重新載入清單，不呼叫 `send-match-fee-payment-notifications`，不新增家長站內通知或派送瀏覽器 Web Push；家長仍可至 `/my-payments` 查看並回報付款。既有通知 service / Edge Function 保留，但不接入開放流程。
 - 比賽費開放後若金額或非取消應繳球員集合改變，且整場沒有付款歷程，應收簽章會自動清除並改回未開放；名稱、日期、時間、盃賽或組別更新不改開放狀態。任一明細曾送出付款後不得關閉，付款 RPC 必須鎖定場次並重新驗證仍為開放。
 - 全場明細皆為 `cancelled` 時，只有 `fees:DELETE` 可呼叫 `delete_cancelled_match_fee_group()` 整場刪除；任何目前或歷史付款關聯都必須保留。比賽費不可直接由 authenticated 寫入 / 刪除，開關與群組刪除都走固定 `search_path` 的 security-definer RPC。

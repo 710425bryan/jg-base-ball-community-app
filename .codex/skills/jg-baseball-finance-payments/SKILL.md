@@ -43,6 +43,7 @@ description: "Finance, fees, payment submissions, player balances, match fees, m
 - 一般月費／季費付款回報的 `expected_amount` 必須由 DB 估算並保存；使用者只能填 `reported_external_amount`。餘額扣抵只改變正確應付現金，不可改寫正式應收本金。
 - 季費堂數不足補償使用 `quarterly_fee_compensation_items`，只產生待審核單；核准後才寫入 `player_balance_transactions`。
 - 比賽費使用 `match_fee_items`、`match_payment_submissions`、`match_payment_submission_items`。
+- 單場免繳在 `/fees` 比賽費明細由 `MatchFeeMemberList` 的開關設定，只影響該球員該場；`set_match_fee_item_exemption(uuid, boolean, timestamptz)` 需有效帳號及 `fees:EDIT`，先鎖場次再鎖費用、核對版本。待審／已付款或仍有付款關聯不可設定，須先退回；已駁回歷史保留金額快照。`match_fee_items.is_exempt` 保留原金額並搭配 `cancelled` 非應繳狀態，管理端顯示「單場免繳」，家長 `list_my_match_fee_items()` 不回傳該筆；同步不得復活免繳，關閉後依最新參賽／請假／收費資格恢復。修改應收仍沿用既有重新開放規則，含免繳的取消群組不得直接刪除。須先部署 `supabase/migrations/20260927040433_match_fee_single_match_exemptions.sql`。
 - 比賽費先產生供管理端核對，預設不提供家長付款；只有 `fees:EDIT` 可透過 `set_match_fee_payment_open_state()` 開放 / 關閉，`fees:DELETE` 才可透過 `delete_cancelled_match_fee_group()` 刪除安全的全取消群組。
 - 比賽費開放成功後只刷新清單與顯示成功訊息，不自動通知家長；`send-match-fee-payment-notifications` 保留但不再接入管理端開放流程。
 - 裝備付款使用 `equipment_payment_submissions`，在 `/equipment-purchases` 與 `/my-payments` 整合顯示；舊 `/fees?tab=equipment` 只作相容轉向。
