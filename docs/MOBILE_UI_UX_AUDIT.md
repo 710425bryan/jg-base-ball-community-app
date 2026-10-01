@@ -4,6 +4,12 @@
 
 清單涵蓋 29 個登入後路由、27 個實作頁面；能力／體測列表與明細各自共用一套實作頁面。
 
+### 2026-10-01 查看成員收費時間與規則（待實機驗收）
+
+- `/my-payments` 的 `PaymentMemberSelector` 下方新增預設收合的 `PaymentFeeRulesPanel`，有效 ADMIN 才可見；以單一原生 button 提供至少 44px、ARIA 展開狀態及 Enter／Space 鍵盤操作，手機單欄、桌機雙欄，不改動既有共用 Element Plus 成員選單。
+- 完整費用計算與直接影響測試共 25 files／140 tests、型別檢查及 production build 通過。agent-browser 以合成資料掛載實際 selector、面板與權限 composable，驗證 360／390／700／1280px 無水平溢出、一般字級按鈕 44px；390px 根字級 20px 時仍無溢出，按鈕可換行。Enter 展開與 Space 收合正常，九種收費卡片完整顯示，無瀏覽器執行錯誤。
+- 角色模擬驗證有效 ADMIN 可見，PARENT／MANAGER／COACH／PLAYER、停用／未開始／過期 ADMIN 與匿名均無說明 DOM。真實帳號登入及 iPhone 文字放大／safe area 仍待裝置驗收；UI 未發布，國中部開放時點 DB 修正已在後續 SQL 錯誤修復中部署。規格見 `docs/specs/2026-10-01-payment-fee-rules.md`。
+
 ### 2026-09-09 公開登入 OTP 恢復流程（補充，待實機驗收）
 
 - `LoginModal` 新增中文錯誤／短視窗自動捲到錯誤、冷卻後重新寄碼、44px 操作、OTP 自動填入與數字鍵盤提示；品牌卡片保留原生公開登入控制，限制高度並提供內部捲動。

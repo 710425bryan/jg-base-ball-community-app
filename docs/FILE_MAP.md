@@ -164,7 +164,7 @@
 | `src/utils/monthlyFeeSettlement.ts` | 月費結算 |
 | `src/utils/schoolTeamMonthlyFee.ts` | 中港校隊／國中部月費模式、預設值、正規化與單次月費／計次折扣選擇 |
 | `src/utils/quarterlyFeeFamilies.ts` | 季費家庭分組與金額 |
-| `src/composables/usePaymentSubmissionAccess.ts` | 個人付款回報成員範圍：有效 ADMIN 免綁定，一般角色 linked only；共用按鈕、預設球員及季費候選 |
+| `src/composables/usePaymentSubmissionAccess.ts` | 個人付款回報成員範圍：有效 ADMIN 免綁定，一般角色 linked only；共用按鈕、預設球員、季費候選及 ADMIN 收費規則可見性 |
 | `src/utils/quarterlyPaymentSubmissions.ts` | 季費付款回報期別開放、項目 normalize 與多球員季費驗證 |
 | `src/utils/paymentReconciliation.ts` | 系統應收、餘額扣抵、正確應付、實際付款與差額狀態純函式 |
 | `src/utils/quarterlyFeeCompensation.ts` | 季費堂數不足補償堂數與金額試算 |
@@ -310,6 +310,7 @@
 | --- | --- |
 | `src/components/payments/PaymentAccountInfoCard.vue` | 付款帳戶資訊卡 |
 | `src/components/payments/PaymentMemberSelector.vue` | `/my-payments` 單一欄位成員選擇搜尋；手機與桌機共用自訂正規化比對 |
+| `src/components/payments/PaymentFeeRulesPanel.vue` | 「查看成員」下方可收合的九種收費時間／規則與共通說明；由有效 ADMIN gate 顯示，無額外資料存取 |
 | `src/components/payments/PaymentSubmissionSummary.vue` | 付款回報金額 / 餘額扣抵摘要 |
 | `src/components/payments/PendingPaymentSubmissions.vue` | 原回報者待確認清單、修改入口、整筆撤回及重新整理 |
 | `src/components/payments/PendingPaymentEditDialog.vue` | 更正匯款資料、逐人餘額／實付、差額原因及版本衝突處理 |
@@ -518,3 +519,4 @@
 - 改公開頁資料：優先找 public RPC，不要直接查 raw table。
 
 - `tests/database/matchFeeExemptions.integration.mjs`：隔離 Postgres 執行正式比賽費 RPC，驗證免繳、恢復、請假／不收費、權限、版本及付款歷史保護；由 `pnpm test:payments:sql` 與 `pnpm check` 執行。
+- `tests/database/monthlyPaymentOpenPeriod.fixture.mjs` / `monthlyPaymentOpenPeriod.integration.mjs`：隔離 Postgres 執行國中部月費開放 migration、實際付款估算／回報與首頁付款摘要；驗證每月 25 日、跨年、兩種月費模式、缺帳款／舊快照、權限及歷史金額不變；`--newline-matrix` 測四種 LF／CRLF 組合與未知版型回滾。migration 為已部署的 `supabase/migrations/20261001032108_junior_high_payment_open_period.sql`，已納入 `pnpm test:payments:sql`。

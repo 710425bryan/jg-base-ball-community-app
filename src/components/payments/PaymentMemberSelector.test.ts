@@ -69,6 +69,21 @@ describe('PaymentMemberSelector', () => {
     document.body.innerHTML = ''
   })
 
+  it('hides the fee rules by default and unmounts them when admin access is removed', async () => {
+    const wrapper = mountSelector()
+    expect(wrapper.find('[data-test="payment-fee-rules"]').exists()).toBe(false)
+
+    await wrapper.setProps({ showFeeRules: true })
+    await wrapper.get('[data-test="payment-fee-rules-toggle"]').trigger('click')
+    expect(wrapper.text()).toContain('國中部單次月費')
+    expect(wrapper.text()).toContain('比賽費')
+
+    await wrapper.setProps({ showFeeRules: false })
+    expect(wrapper.find('[data-test="payment-fee-rules"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('國中部單次月費')
+    wrapper.unmount()
+  })
+
   it('uses one searchable select and filters normalized Chinese name spacing', async () => {
     const wrapper = mountSelector()
     const select = wrapper.getComponent(ElSelectStub)

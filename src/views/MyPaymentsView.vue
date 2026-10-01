@@ -59,6 +59,7 @@
             :access-hint="createSubmissionAccessHint"
             :get-option-label="buildMemberOptionLabel"
             :get-billing-label="getPaymentMemberBillingLabel"
+            :show-fee-rules="isPaymentAdmin"
           />
 
           <PaymentAccountInfoCard />
@@ -808,6 +809,7 @@ const selectedMember = computed(() => {
 })
 
 const {
+  isPaymentAdmin,
   linkedMembers, submissionMembers, quarterlySubmissionMembers, defaultSubmissionMember,
   canCreateSubmissionForSelectedMember, memberSelectorHelperText, createSubmissionAccessHint
 } = usePaymentSubmissionAccess(() => authStore.profile, () => members.value, () => selectedMember.value)

@@ -38,6 +38,7 @@ export function usePaymentSubmissionAccess(
       : '')
 
   return {
+    isPaymentAdmin,
     linkedMembers, submissionMembers, quarterlySubmissionMembers, defaultSubmissionMember,
     canCreateSubmissionForSelectedMember, memberSelectorHelperText, createSubmissionAccessHint
   }

@@ -56,6 +56,7 @@ description: "Finance, fees, payment submissions, player balances, match fees, m
 
 ## 不可破壞規則
 
+- `/my-payments`「查看成員」內的 `PaymentFeeRulesPanel` 預設收合，只有 `usePaymentSubmissionAccess.isPaymentAdmin` 判定的有效 `ADMIN` 可見；不可把 `fees:VIEW/EDIT` 視為可看管理員說明。面板只解釋既有月費、季費、比賽費、裝備款、不收隊費及共通規則，沒有管理資料查詢或新的 DB 權限；收費規則異動必須同步文案與測試。
 - 家長只能查看與使用自己 `profiles.linked_team_member_ids` 綁定球員的款項與餘額。
 - `permissionsStore.can()` 只控制 UX；付款審核、餘額扣抵、可見資料必須由 RLS / RPC 檢查。
 - 球員餘額不可扣成負數；家長自助使用餘額後仍需管理端審核才正式扣款。
@@ -85,6 +86,8 @@ description: "Finance, fees, payment submissions, player balances, match fees, m
 - 匯款表單 Edge Function 不硬編碼 secret，使用 `FORM_REMITTANCE_SECRET` 或環境設定。
 
 ## 工作流程
+
+- 國中部開放時點與金額計費快照分開：已部署的 `20261001032108_junior_high_payment_open_period.sql` 補齊身分優先 helper，同步月費 trigger、付款估算與首頁摘要。不要因沒有正式月費帳款而批次新增帳款，既有估算能提供國中部月費；不要重跑舊整份校隊 migration 覆蓋後續權限／季費金額歸屬修正。驗證跑 `node tests/database/monthlyPaymentOpenPeriod.integration.mjs --newline-matrix`，可傳入僅含 `pg_get_functiondef` 的 JSON 再測正式庫版本，不能傳個資。精確字串 patch 必須正規化 catalog 與 dollar-quoted 比對／替換文字；migration 測試須保留原始檔位元組並測 LF／CRLF，不可只用已正規化的共用 `read()`。
 
 1. 先判斷修改的是月費、季費、比賽費、餘額、付款回報、提醒或匯款匯入。
 2. 對照 `docs/MIGRATIONS.md` 找是否有後續 hotfix 覆寫同名 RPC / policy。

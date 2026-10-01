@@ -269,6 +269,7 @@
 - 多品項裝備請購可逐項刪除、備貨與領取，並保留頁尾整單操作；品項狀態由 `equipment_purchase_request_items.ready_at` / `picked_up_at` 推導，父單狀態維持聚合相容。逐項領取的收款只更新目標 transaction，逐項／整單刪除都必須走付款 guard 保護的原子 RPC。
 - 主要資料表包含 `fee_settings`、`monthly_fees`、`quarterly_fees`、`profile_payment_submissions`。
 - 個人繳費回報走 `profile_payment_submissions` RPC；管理端審核在費用頁。
+- `/my-payments` 的「查看成員」下方由 `PaymentFeeRulesPanel` 提供預設收合的收費時間與規則，涵蓋各種月費、季費、比賽費、裝備款、不收隊費及共通規則；只有 `usePaymentSubmissionAccess.isPaymentAdmin` 判定的有效 `ADMIN` 可見，不能以 `fees:VIEW/EDIT` 取代角色限制。說明不讀取管理資料、不新增 DB 權限，規則異動時須同步更新文案與測試。
 - 有效 `ADMIN` 可在 `/my-payments` 為目前選取的球員新增月／季費、裝備及比賽費付款回報，無須綁定球員；其他角色仍限完整 linked member 範圍，即使有 `fees:VIEW/EDIT` 也不放寬。前端統一由 `usePaymentSubmissionAccess` 管理按鈕、預設成員與候選；查看未綁定球員時只載入該球員季費，原 linked family 合併流程保留。DB `private.can_submit_payment_for_member()` 透過 `current_profile_role()` 驗證啟用／存取期間；回報 `profile_id` 仍為實際操作者，管理員也只能自助更正／刪除自己送出的待審回報。須部署 `20260926111544_admin_payment_submission_members.sql`。
 - 季費個人金額歸屬於 `quarterly_fees.member_id`，`member_ids` 只表示家庭／付款關聯；同季已有本人帳款時，繳費紀錄、估算、首頁、提醒與補償不可取兄弟另一人的金額。沒有本人帳款時保留舊家庭紀錄可見性；審核只更新本人列，不能把兄弟帳款改成自己。修正 migration 為 `20260926105948_quarterly_payment_member_ownership.sql`，驗證用 `pnpm test:payments:sql`。
 - 球員餘額以 `player_balance_transactions` 流水帳管理，餘額屬於 `team_members`；管理員可手動調整與確認溢繳入帳，家長自助使用餘額後仍需管理端確認才正式扣款。
@@ -280,6 +281,7 @@
 - 月費與季費都必須以 `team_members.joined_date` 的月份作為最早收費期別：月費不可早於加入月份，季費不可早於包含加入月份的季度；加入前的未繳費不可出現在管理端試算、家長待付款、首頁摘要或催繳通知，已付款／送審歷史則保留稽核。
 - 月繳付款回報開放期別依成員身分與有效收費模式判斷：國中部採預繳，每月 25 日起開放下個月；中港校隊與社區計次月費需等月份結束、下個月 1 日才開放；社區固定月繳同樣每月 25 日起開放下個月。前端 helper、付款估算、DB trigger 與個人首頁摘要必須同步，且國中部身分只依 raw `training_program = 'junior_high_school_team'` 判斷。一般保留既有 `monthly_fees` 快照；國中部單次月費上線 hotfix 例外只修正台灣當月起、尚未繳且沒有待審付款回報的舊計次快照；已繳與送審中歷史不回寫。
 - 季繳球員付款回報以台灣日期判斷開放期別：每季最後一個月 25 日起開放下一季，開放前不可新增未來季付款回報；過去未繳季度仍可補繳。
+- 國中部月費開放修正由已部署的 `supabase/migrations/20261001032108_junior_high_payment_open_period.sql` 同步付款 trigger、付款估算與首頁摘要；開放時點依 raw program 身分判斷，不依已有帳款的計費快照。未建立月費帳款仍可依既有估算回報，不批次新增帳款或覆寫歷史金額。SQL／catalog 的 LF／CRLF 一併正規化，未知版型仍完整回滾；隔離驗證為 `tests/database/monthlyPaymentOpenPeriod.integration.mjs --newline-matrix`，已納入 `pnpm test:payments:sql`。
 - 裝備付款在加購申請 `approved` 後即可回報，費用端確認收款只代表款項已完成，不代表商品已備貨或已領取；若要刪除已收款測試請購，必須先走退款 / 作廢收款，並反向處理球員餘額。
 - 多品項裝備在 `/my-payments` 與管理端付款清單顯示履約狀態時，必須依交易所屬請購品項的 `ready_at` / `picked_up_at` 判斷；父請購單聚合狀態不可覆蓋單一品項已備貨或已領取的狀態。
 - 季費堂數不足補償以當月週六數對比 `/training-dates` 訓練日期設定總天數；任何設定日期都算一堂，達當月週六數就不補償。補償先產生 `quarterly_fee_compensation_items` 待審核單，核准後才用 `quarterly_compensation` source 寫入 `player_balance_transactions`。

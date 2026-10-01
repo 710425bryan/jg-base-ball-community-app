@@ -16,6 +16,7 @@ function setup(role = 'ADMIN', linked = false) {
 describe('payment submission member access', () => {
   it('lets an unlinked admin report the selected player without loading all roster fees', () => {
     const access = setup()
+    expect(access.isPaymentAdmin.value).toBe(true)
     expect(access.linkedMembers.value).toEqual([])
     expect(access.canCreateSubmissionForSelectedMember.value).toBe(true)
     expect(access.defaultSubmissionMember.value?.member_id).toBe('younger')
@@ -37,6 +38,7 @@ describe('payment submission member access', () => {
 
   it.each(['PARENT', 'MANAGER', 'COACH'])('does not grant %s admin submission privileges', (role) => {
     const access = setup(role, true)
+    expect(access.isPaymentAdmin.value).toBe(false)
     expect(access.canCreateSubmissionForSelectedMember.value).toBe(true)
     expect(access.quarterlySubmissionMembers.value).toHaveLength(2)
     access.selected.value = access.members.value[2]!
@@ -51,16 +53,21 @@ describe('payment submission member access', () => {
   it('reacts to role changes and requires an active account within its access window', () => {
     const access = setup()
     access.profile.value.is_active = false
+    expect(access.isPaymentAdmin.value).toBe(false)
     expect(access.canCreateSubmissionForSelectedMember.value).toBe(false)
     access.profile.value.is_active = true
     access.profile.value.access_start = '2999-01-01'
+    expect(access.isPaymentAdmin.value).toBe(false)
     expect(access.canCreateSubmissionForSelectedMember.value).toBe(false)
     access.profile.value.access_start = null
     access.profile.value.access_end = '2000-01-01'
+    expect(access.isPaymentAdmin.value).toBe(false)
     expect(access.canCreateSubmissionForSelectedMember.value).toBe(false)
     access.profile.value.access_end = null
+    expect(access.isPaymentAdmin.value).toBe(true)
     expect(access.canCreateSubmissionForSelectedMember.value).toBe(true)
     access.profile.value.role = 'PARENT'
+    expect(access.isPaymentAdmin.value).toBe(false)
     expect(access.canCreateSubmissionForSelectedMember.value).toBe(false)
   })
 
@@ -71,6 +78,7 @@ describe('payment submission member access', () => {
     access.selected.value = null
     expect(access.canCreateSubmissionForSelectedMember.value).toBe(false)
     const anonymous = usePaymentSubmissionAccess(() => null, () => [member('older', true)], () => member('older', true))
+    expect(anonymous.isPaymentAdmin.value).toBe(false)
     expect(anonymous.canCreateSubmissionForSelectedMember.value).toBe(false)
   })
 })

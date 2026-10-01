@@ -36,6 +36,7 @@ describe('MyPaymentsView member selector', () => {
     expect(source).toContain(':access-hint="createSubmissionAccessHint"')
     expect(source).toContain(':get-option-label="buildMemberOptionLabel"')
     expect(source).toContain(':get-billing-label="getPaymentMemberBillingLabel"')
+    expect(source).toContain(':show-fee-rules="isPaymentAdmin"')
   })
 })
 

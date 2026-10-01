@@ -7,6 +7,8 @@
 
 ## 讀取規則
 
+- `supabase/migrations/20261001032108_junior_high_payment_open_period.sql`：國中部每月 25 日預繳下月的獨立修正；2026-10-01 已套用正式專案 `qwxzwomzoyfkorbwsscv`，檔名對齊 history version。依 raw training program 判斷開放，覆寫月費 trigger，僅替換付款估算與首頁摘要的 availability 條件，保留後續權限／季費歸屬與金額計算。SQL 與比對文字同步正規化 LF／CRLF，未知版型仍原子回滾；沒有資料回填，不應重跑較早的整份校隊 migration。隔離 SQL 測試為 `tests/database/monthlyPaymentOpenPeriod.integration.mjs --newline-matrix`（亦支援正式函式定義 JSON），付款全回歸 529 checks；正式 7 組 linked 估算、8 項開放日與資料 fingerprint／RPC ACL post-check 通過。
+
 1. 先找功能主 migration，再找後續 hotfix / repair / `zz*` migration。
 2. 同名 `create or replace function` 以最後的 hotfix 或 repair 檔為準，不要只看最早的主 migration。
 3. 修改核心表前先查：`rg "function_or_policy_name" -g "*.sql"`。

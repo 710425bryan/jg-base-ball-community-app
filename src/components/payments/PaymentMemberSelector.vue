@@ -51,11 +51,14 @@
     >
       {{ accessHint }}
     </p>
+
+    <PaymentFeeRulesPanel v-if="showFeeRules" />
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import PaymentFeeRulesPanel from './PaymentFeeRulesPanel.vue'
 import type { MyPaymentMember } from '@/types/payments'
 import { matchesMemberSearch } from '@/utils/memberSearch'
 
@@ -64,6 +67,7 @@ const props = defineProps<{
   members: MyPaymentMember[]
   helperText: string
   accessHint?: string
+  showFeeRules?: boolean
   getOptionLabel: (member: MyPaymentMember) => string
   getBillingLabel: (member: MyPaymentMember) => string
 }>()
