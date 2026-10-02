@@ -7,6 +7,11 @@
 
 ## 讀取規則
 
+- `supabase/migrations/20261002180340_coach_schedule_scheduling_coach_eligibility.sql`：補入正式已存在的精確 SCHEDULINGCOACH（排班教練）資格，通知排班 VIEW audience 也改共用 helper；不更動角色權限、public RPC、worker 或資料。2026-10-03 已延續本對話 SQL 授權套用正式 `qwxzwomzoyfkorbwsscv`，本機更名對齊 history（原 CLI `20261002175454` 不再使用）。3 位有效教練及 authenticated listing 唯讀 probe 通過、private ACL／固定 search_path／raw DML 限制保留，其餘 14 支函式 hash 及 security advisor findings 不變。隔離 73 checks 已接入 `pnpm test:coach-schedules:sql`，完整 508 checks；部署證據 `/tmp/jg-coach-scheduling-eligibility-production-evidence.json`，詳見 [月份總覽規格](specs/2026-10-03-coach-schedule-month-overview.md)。
+- `supabase/migrations/20261002171951_coach_schedule_venue_templates.sql`：範本改為場地＋教練，覆蓋 list／save／enrich／preview／confirm，新增 coach_schedules:VIEW 的安全常用場地清單。切換前非空舊範本會整筆拒絕；不自動選擇或合併教練。每場地一啟用範本，新名稱同交易保存，拒絕舊 mode／fingerprint；training_venues BEFORE statement 共用鎖避免反序鎖與確認競爭。2026-10-03 已套用 qwxzwomzoyfkorbwsscv、完成 schema／ACL／唯讀 RPC post-check，本地檔名與 remote history 對齊；前端待發布，通知 worker 不變。完整驗證見 [場地範本規格](specs/2026-10-03-coach-schedule-venue-templates.md)。
+- 教練請假與通知兩份 migration 已於 2026-10-02 按使用者授權套用正式專案 `qwxzwomzoyfkorbwsscv`：`20261002150832_coach_leave_and_schedule_templates.sql` → `20261002150855_coach_leave_notification_outbox.sql`。檔名對齊遠端 history，已確認 schema／RPC ACL／原通知 feed 保留及 cron；不要重跑原未部署檔名 `20261002135941`／`20261002140149`。worker／Vault 尚未完成，詳細驗證及相依見 `docs/specs/2026-10-02-coach-leave-and-schedule-templates.md`。
+- 日期快選需求沿用前述 SQL 授權，已追加套用 `20261002155846_coach_leave_batch_create_and_training_dates.sql` 至同一正式專案；本機檔名與測試／文件對齊 history。新 RPC ACL／private receipt RLS及raw grant、原核心與feed hash保留、安全月份日期讀取確認通過；不要重跑原 CLI 生成但已更名的 `20261002154308`。
+
 - `supabase/migrations/20261001032108_junior_high_payment_open_period.sql`：國中部每月 25 日預繳下月的獨立修正；2026-10-01 已套用正式專案 `qwxzwomzoyfkorbwsscv`，檔名對齊 history version。依 raw training program 判斷開放，覆寫月費 trigger，僅替換付款估算與首頁摘要的 availability 條件，保留後續權限／季費歸屬與金額計算。SQL 與比對文字同步正規化 LF／CRLF，未知版型仍原子回滾；沒有資料回填，不應重跑較早的整份校隊 migration。隔離 SQL 測試為 `tests/database/monthlyPaymentOpenPeriod.integration.mjs --newline-matrix`（亦支援正式函式定義 JSON），付款全回歸 529 checks；正式 7 組 linked 估算、8 項開放日與資料 fingerprint／RPC ACL post-check 通過。
 
 1. 先找功能主 migration，再找後續 hotfix / repair / `zz*` migration。
@@ -19,6 +24,8 @@
 
 | 檔案 | 用途 | 注意事項 |
 | --- | --- | --- |
+| `supabase/migrations/20261002151942_create_app_role_with_permission_copy.sql` | 新增角色時可複製既有角色權限 | `create_app_role()` 以 SECURITY INVOKER 沿用原 ADMIN-only RLS，另驗證有效 ADMIN；角色與完整已儲存 feature/action 快照原子建立，不複製則為空權限。拒絕 ADMIN 來源，失敗回滾；新角色採自訂角色／預設排序，不複製來源系統屬性。2026-10-03 的 1.1.70 發布前唯讀確認正式 RPC body 與本機相同（MD5 `519d14330ecd49ae8956c27d7e9ceb76`），ACL／空 search_path 正確；history 未記錄此版本／名稱，需另行盤點 ledger，不能僅因缺記錄重跑。隔離回歸 `tests/database/appRoleCreation.integration.mjs` |
+| `supabase/migrations/20261002170401_app_role_display_weights.sql` | 初始角色顯示數字與逐角色排序保存 | 僅依八個精確角色 key 設定初始 weight（對照見 `docs/PROJECT_LOGIC.md`），不改其他角色或授權；`update_app_role_weight()` 限有效 ADMIN，以 SECURITY INVOKER 沿用 RLS，僅 authenticated 可執行。接受 1–2147483647 正整數、允許同數及 ADMIN／系統角色調整；只更新 weight，新角色仍預設 99。2026-10-03 的 1.1.70 發布前唯讀確認正式 RPC body 與本機相同（MD5 `517266041fc52a17a3f75f2c041ab5ac`），ACL／空 search_path 正確；history 未記錄此版本／名稱，初始權重是否曾整檔執行不據此推定。需另行盤點 ledger，管理者手動調整後不要重跑初始設定。隔離回歸 `tests/database/appRoleWeights.integration.mjs` |
 | `supabase_access_control_rls_migration.sql` | `has_app_permission()`、`has_any_app_permission()`、`team_members_safe`、主要 RLS 初版 | 新增 feature/action 時先看這裡 |
 | `supabase_access_control_policy_cleanup_migration.sql` | 重新整理多個核心表 policy | 若 policy 名稱重複，以後續檔案為準 |
 | `supabase_zzzzzzzzzzzzzzzzzzzzzzzz_team_member_notification_outbox_migration.sql` | 完整名單 RPC 與新球員通知 Outbox | 先於前端部署；新增 trigger、delivery、claim/finalize RPC 與每分鐘 cron |
@@ -102,6 +109,9 @@
 | `supabase_zzzzzzzzzzz_no_fee_roster_exclusions_migration.sql` | 不收費球員 roster 排除 | 覆寫場地 roster / 儲存 / 連動點名 RPC；新場地配置與新點名排除 `fee_billing_mode = no_fee`，舊點名紀錄保留 |
 | `supabase_zzzzzzzzzzzzzzzzzz_training_location_leave_time_segment_migration.sql` | 場地請假時段判斷修正 | 覆寫場地 roster、管理列表、個人首頁本週場地與場地通知 target；場地時間缺失或使用預設上午時間時以上午區段判斷，下午假不標示 / 排除上午場地 |
 | `supabase_zzzzzzzzzzzzzzzzzzz_training_location_roster_all_players_hotfix.sql` | 場地配置球員池全員可選 hotfix | 覆寫 program-aware roster RPC，保留 program 標籤與半日請假判斷，但不再用目前 program 限制可編排球員 |
+| `supabase/migrations/20261002150832_coach_leave_and_schedule_templates.sql` | 教練請假、排班範本與原子帶入 | 分離本人 / 管理權限、私人假單 RPC、13:00 半日區段、實際移除重疊指派及 private audit；取消不還原、單筆全來源版本 / 請假 / 占用 guard、撤銷 raw DML、範本精確唯一與預覽 fingerprint / receipt。依賴既有 shared-slot migration；隔離回歸 `scripts/verify-coach-leave-and-schedule-templates.mjs` |
+| `supabase/migrations/20261002150855_coach_leave_notification_outbox.sql` | 教練請假持久化通知 | 前一 migration 必須完整 COMMIT；開頭檢查 core 表／RPC／`coach_leave_payload`，缺少時 55000 提示先安裝 core，保留原 feed。派送與 feed 共用 active / 權限 audience，逐裝置重試、更新權限檢查、無訂閱仍保留 feed、依資格導向假單或排班。搭配 `process-coach-leave-notification-outbox` 與每分鐘 cron；隔離回歸 `tests/database/coachLeaveNotifications.integration.mjs`，完整 core→notification 串接回歸亦在 `scripts/verify-coach-leave-and-schedule-templates.mjs`。成功 migration 不整份重跑 |
+| `supabase/migrations/20261002155846_coach_leave_batch_create_and_training_dates.sql` | 教練假單多日期快選與原子批次新增 | 依賴已部署教練請假核心及訓練 program 月份日期 RPC；private batch receipt、防重試重建、最多 365 筆同一教練，全交易移除指派與通知。VIEW 授權的上課日 RPC 只回有效項目與日期，排除私人備註。已套用正式資料庫；history 與本機檔名對齊，RPC ACL、private RLS／raw grants、原核心／feed 保留及上課日唯讀 probe 通過 |
 | `supabase/migrations/20260924054852_coach_schedule_shared_training_slots.sql` | 合班共用教練排班 | 同日／實體場地／開始時間／課程名稱共用 slot；唯一約束與交易鎖、來源異動／刪除重連、教練與備註聯集及 private audit；回歸 `scripts/verify-coach-schedule-shared-slots.mjs`。覆蓋前一版「按 program 獨立」規則 |
 | `supabase/migrations/20260924043936_coach_schedule_program_source_integrity.sql` | 教練排班訓練項目與場地來源完整性 | 管理／Dashboard RPC 回傳項目名稱；驗證與同步來源、刪除連動；唯一舊來源重連，其餘歷史轉手動並保留教練指派。驗證：`scripts/verify-coach-schedule-sources.mjs`；結果見 `docs/COACH_SCHEDULE_SOURCE_REPAIR_20260924.md` |
 | `supabase_coach_schedules_migration.sql` | 教練排班表 | 新增 `coach_schedule_events` / `coach_schedule_assignments`、`coach_schedules` 權限與 Dashboard / 管理頁 RPC；候選日需搭配 `/training-dates` 與場地配置 |

@@ -50,7 +50,8 @@
 | 特訓報名、球員點數、特訓點名 | `jg-baseball-training` | `src/views/TrainingView.vue`、`src/services/trainingApi.ts`、`src/utils/training.ts`、`supabase_training_points_migration.sql` |
 | 訓練項目、每月訓練日期、日期異動通知 | `jg-baseball-training-dates` | `src/views/TrainingProgramSettingsView.vue`、`src/views/TrainingDatesView.vue`、`src/services/trainingProgramsApi.ts`、`src/services/trainingDatesApi.ts`、`src/utils/trainingMonthDates.ts`、`supabase_training_dates_migration.sql` |
 | 場地與人員配置 | `jg-baseball-training-locations` | `src/views/TrainingLocationsView.vue`、`src/services/trainingLocationsApi.ts`、`src/utils/trainingLocationNotification.ts`、`supabase_training_locations_migration.sql` |
-| 教練排班表、教練上課日 | `jg-baseball-coach-schedules` | `src/views/CoachSchedulesView.vue`、`src/services/coachSchedulesApi.ts`、`src/utils/coachSchedules.ts`、`supabase_coach_schedules_migration.sql` |
+| 教練本人 / 管理請假、請假異動通知 | `jg-baseball-coach-leave` | `CoachLeaveRequestsView.vue`、`src/services/coachLeaveRequestsApi.ts`、`src/utils/coachLeaveRequests.ts`、教練請假與 outbox migrations |
+| 教練排班表、教練上課日、固定範本與自動帶入 | `jg-baseball-coach-schedules` | `src/views/CoachSchedulesView.vue`、`src/services/coachSchedulesApi.ts`、`src/utils/coachSchedules.ts`、`supabase_coach_schedules_migration.sql` |
 | 收費、付款、球員餘額、比賽費、匯款匯入 | `jg-baseball-finance-payments` | `FeesView.vue`、`MyPaymentsView.vue`、`src/services/myPayments.ts`、`src/services/matchFees.ts`、`src/services/playerBalances.ts` |
 | 裝備管理、加購、庫存、裝備付款 | `jg-baseball-equipment-management` | `src/types/equipment.ts`、`src/services/equipmentApi.ts`、`src/stores/equipment*.ts`、`src/components/equipment/*` |
 | 廠商名單、交易類別、廠商照片 | `jg-baseball-vendors` | `src/views/VendorsView.vue`、`src/services/vendorsApi.ts`、`src/stores/vendors.ts`、`src/components/vendors/*` |
@@ -130,7 +131,7 @@
 登入後頁面掛在 `MainLayout`，父層 `meta.requiresAuth = true`。
 
 - 不需額外 feature 的登入頁：`/dashboard`、`/calendar`、`/profile`、`/my-records`、`/my-payments`、`/equipment-addons`、`/my-leave-requests`。
-- 需要 `meta.feature` 的後台頁：`leave_requests`、`players`、`registration_forms`、`users`、`join_inquiries`、`announcements`、`holiday_theme_settings`、`attendance`、`training`、`training_dates`（含 `/training-dates`、`/training-program-settings`）、`training_locations`、`coach_schedules`、`matches`、`fees`（含 `/fees`、`/equipment-purchases`）、`baseball_ability`、`physical_tests`、`equipment`、`vendors`。
+- 需要 `meta.feature` 的後台頁：`leave_requests`、`players`、`registration_forms`、`users`、`join_inquiries`、`announcements`、`holiday_theme_settings`、`attendance`、`training`、`training_dates`（含 `/training-dates`、`/training-program-settings`）、`training_locations`、`coach_schedules`、`my_coach_leave_requests`、`coach_leave_requests`、`matches`、`fees`（含 `/fees`、`/equipment-purchases`）、`baseball_ability`、`physical_tests`、`equipment`、`vendors`。
 - `baseball_ability` 與 `physical_tests` 有 `allowLinkedMemberView` 例外：有綁定球員者可唯讀自己的資料；管理權限者可看全隊。
 - 無權限時導回 `/dashboard`。
 
@@ -182,8 +183,10 @@
 - team group 設定經由 `src/stores/teamGroups.ts`、`src/services/teamGroupsApi.ts` 與 `TeamGroupSettingsDialog.vue` 管理；改名、排序、刪除轉移時要檢查 `PlayersView`、`TrainingView`、`TrainingLocationsView`、`LeaveRequestsView`、`RollCallView` 的分組選項。
 - Google 表單 / Sheet 同步不得覆蓋既有 `team_members.is_primary_payer`、`team_members.is_half_price` 與 `team_members.fee_billing_mode`；新增球員時前兩者預設 `false`，收費模式預設 `role_default`。
 - 使用者管理在 `UsersView`，profile 新增 / 更新 / 刪除優先走 `admin_insert_profile()`、`admin_update_profile()`、`admin_delete_user()`。
+- 使用者名單的表格與卡片共用 `userRoleOrder` 依 `app_roles.weight` 由小到大排序，相同數字依 `role_key` 穩定排序；未知角色或缺少數字時使用 99，不再依角色名稱插隊。「角色與權限設定」的 `RoleSortEditor` 可逐角色調整正整數，包含 ADMIN／系統角色；保存由 `rolesApi.updateAppRoleWeight()` 呼叫 `update_app_role_weight()`，只允許有效 ADMIN 並沿用既有 RLS。只更改顯示排序，不更動授權、角色身分或其他欄位；保存成功先以 RPC 結果同步元件與 permission store 角色清單，再重新查詢，後續載入失敗仍保留新排序。
 - `profiles.role` 與 `profiles.linked_team_member_ids` 是授權邊界欄位；即使 self-update policy 允許個人更新其他 profile 設定，這兩欄也必須由 DB trigger 再檢查 `users:EDIT`，不可讓一般帳號自行升級角色或改綁定範圍。
 - 權限 UI 在 `RolePermissionsManager.vue`，對應 `app_roles` 與 `app_role_permissions`。
+- 「新增角色」可用 Element Plus 選單選擇複製既有角色權限，預設不複製；`ADMIN` 為最高權限，列為不可選來源。建立由 `src/services/rolesApi.ts` 的 `createAppRole()` 呼叫 `create_app_role()` RPC，只允許有效 `ADMIN`；角色與來源全部已儲存 feature/action 在同一交易建立，失敗一起回滾。複製是建立時快照，後續可獨立調整，不連動或修改來源角色；成功後刷新角色清單與 permission store 的角色選項。
 
 ### 賽事報名管理
 
@@ -251,7 +254,7 @@
 ### 教練排班表
 
 - 後台路由 `/coach-schedules`，feature key 為 `coach_schedules`，actions：`VIEW / CREATE / EDIT / DELETE`。
-- 資料表為 `coach_schedule_events`、`coach_schedule_assignments`；排班對象綁定 `profiles.id`，候選教練只列 active 且可登入期間內的 `HEAD_COACH`、`COACH`。
+- 資料表為 `coach_schedule_events`、`coach_schedule_assignments`、`coach_schedule_templates`；排班對象綁定 `profiles.id`，候選、保存與本人 Dashboard 共用 active / access window 教練資格，包含精確角色代碼 `SCHEDULINGCOACH`（排班教練），並兼容 `HEAD_COACH`、`COACH` 的空白及歷史中文角色。不依顯示名稱、排序數字或任意 VIEW 權限推導資格。
 - 候選活動由 `list_coach_schedule_admin_month()` 產生：場地配置區塊優先，其次 `/training-dates` 的訓練日期；同月 `matches.match_level = '特訓課'` 顯示特訓，其餘 `matches` 顯示比賽。
 - 比賽 / 特訓排班以 `matches.id` 作為來源身分，不以日期、標題或 Google Calendar 備註去重；刪除 `matches` 時必須連動刪除同 `source_id` 的 `coach_schedule_events`，`match_level` 在一般比賽與特訓課之間切換時也要同步排班 `source_type`。`supabase_zzz_coach_schedule_match_source_integrity_migration.sql` 負責來源驗證、刪除連動與既有孤兒排班修復。
 - 已儲存的場地訓練排班只保留教練指派與排班備註；日期、時間、標題、地點與地圖連結需跟著 `training_location_session_venues` / `training_location_sessions` 同步。
@@ -261,6 +264,23 @@
 - `/training-dates` 只決定訓練日；教練上課日與指派在 `/coach-schedules` 設定，並可由訓練日期設定頁帶同月份跳轉。
 - Dashboard 走 `list_coach_schedule_dashboard()`；具 `coach_schedules:VIEW` 者看全體教練排班，`HEAD_COACH` / `COACH` 只看自己被指派的排班，一般使用者不顯示。
 - `matches.coaches` 只作比賽原始教練文字參考，不作個人權限或 Dashboard 可見性判斷。
+- 固定範本只用於 `training_date` / `training_location`，只按實體場地配對，不比對星期、時間、來源類型或課程標題；每個場地最多一個啟用範本。場地訓練由權威來源解析 venue ID，一般訓練日只以活動地點首尾去空白後精確對應啟用場地名稱，未確定場地則跳過；不輪值、不猜姓名、不覆蓋既有教練或取消活動。
+- 範本管理有 CREATE 控制的「新增範本」，表單僅場地（可搜尋／自訂）、固定教練、選填範本名稱及啟用。場地選項走 `list_coach_schedule_template_venues()`（coach_schedules:VIEW，只回 ID／名稱），不讀 raw venue、不要求額外 training_locations 權限。儲存範本時原子建立新場地，空白名稱使用場地名稱；取消不新增、刪除範本不刪常用場地。保留活動卡片「存成範本」，僅預填場地與教練，新草稿不帶活動 ID／版本；範本保存不寫排班指派。
+- 範本「固定教練」、排班卡片及手動排班的「指派教練」維持共用可搜尋多選，依角色設定 `app_roles.weight`／`role_key` 分組排序、`role_name` 顯示群組名，組內依暱稱／姓名穩定排序；父頁載入及範本開啟／重載時沿用 permission store 更新角色 metadata，不在各卡片重複查詢。`coachScheduleCoachOptions.ts` 兼容 canonical／歷史中文教練角色，不增加候選或變更保存的 profile IDs，角色數字只用於顯示；卡片請假停用與註記保留。
+- 排班卡片提供獨立「未指派教練」切換，與來源篩選取交集，數字顯示當前來源的未指派筆數；依 RPC 事件的 `coach_profile_ids` 為空判定，包含仍有取消標示的空指派活動。未儲存選取不讓卡片消失，保存成功更新事件後才移出；篩選不清草稿、不額外查詢。已移除候選活動／已儲存／已指派教練三個純統計區塊。
+- 月份選擇區提供「月份總覽」Dialog；全月依日期／時間列出所有來源、場地、活動與已儲存教練，不受卡片來源篩選影響。場地訓練藍色、比賽琥珀橘色，保留文字標籤；正常 footer 只有關閉，讀取失敗才提供重試。開啟／回到前景走 `list_coach_schedule_admin_month()` 的獨立唯讀快照，不修改卡片未儲存草稿；失敗清空快照，關閉或換月的過期請求不得覆寫新內容。Dialog 沿用既有手機內部捲動及 44px 操作規則。
+- 自動帶入只處理台灣今天起的當月候選空班；時間不完整依全日保守檢查衝突並標示。`preview_coach_schedule_auto_fill()` / `confirm_coach_schedule_auto_fill()` 使用包含場地狀態的 `venue-v2:` fingerprint、單一交易與既有 shared-slot 鎖，拒絕過期整批及舊模式（先驗模式再讀 receipt）；相同確認重試不重建排班。範本保存要求 `match_mode: 'venue'`，舊格式提示重新整理；單筆所有來源編輯仍帶 `updated_at`，DB 重查請假、同時段排班及帳號資格。
+- `20261002150832_coach_leave_and_schedule_templates.sql` 撤銷 authenticated 對排班主單 / 指派的直接寫入，只走 RPC；場地來源改動後也重查教練請假。`assignment_changes` 只回傳移除教練與時間，不包含私人請假原因。
+
+### 教練請假
+
+- `/my-coach-leave-requests`（`my_coach_leave_requests`）只處理本人 profile 的假單；`/coach-leave-requests`（`coach_leave_requests`）依管理權限處理全隊。兩 feature 均為 `VIEW / CREATE / EDIT / DELETE`，本人 CRUD 預設給 `COACH` / `HEAD_COACH`，管理 CRUD 預設只給 `ADMIN`；不能由排班或球員請假權限推導教練假單管理權限。
+- 教練假單獨立表 `coach_leave_requests`，不寫入球員 `leave_requests`，不影響點名或收費。前端 service 呼叫 `list_coach_leave_requests()`、`create_coach_leave_requests()`、`save_coach_leave_request()`、`cancel_coach_leave_request()`；RPC 同時檢查有效登入、本人 / 管理 feature/action 與教練身分。
+- 新增沿用我的假單四種模式：上課日期快選（預設，可多選與載入未來月份）、單日、連續多日、固定週期。教練仍一次選一人；快選上課日走 `list_coach_leave_training_dates()`，只回有效訓練項目的名稱與月份日期，不使用 linked player 推導項目或讀取私人備註。多個單日可半日，連續跨日只可全日；每批最多 365 筆，由批次 RPC 同交易完成，任一失敗全部回滾。相同 client batch UUID 與相同內容重試回原 IDs，修改內容用新的 UUID，不能重建已取消的假單。
+- 只新增台灣今天起日期；多日限全日，單日可全日 / 上午 / 下午，上午與下午以 13:00 半開區間分界，未知活動時間按全日檢查。原因選填最多 500 字，僅本人或具假單管理 `VIEW` 可讀；已結束（end_date 早於今天）與已取消假單唯讀；跨日仍進行中的假單可取消，修改只保留今天起範圍並保存原範圍稽核，有效假單修改 / 取消需 `updated_at`，新增可帶固定 client UUID 防止重試重複。
+- 新增 / 修改立即實際移除該教練與假單重疊的今日起有效排班指派，保留活動和其他教練，寫入 private audit 並更新排班版本。取消 / 縮小請假範圍不恢復原指派，需管理者重新指派；請假、排班與來源重連共用同一交易鎖，matches 異動於 BEFORE statement 先取鎖，避免刪除賽事與保存排班鎖次序相反。
+- 每次成功異動在同一交易寫入 `push_dispatch_events` Outbox，event key 為 `coach_leave:<UUID>:<revision>:created|updated|cancelled`。通知不含原因；收件人為 active `ADMIN`、具 `coach_leave_requests:VIEW` 者，以及同時具 `coach_schedules:VIEW` 的教練，逐次派送與通知中心共用最新權限判斷。管理者導向假單 `highlight_leave_id`，排班教練導向所屬月份 `/coach-schedules`；無推播訂閱仍有通知中心事件。
+
 
 ### 收費與付款
 
@@ -423,8 +443,10 @@
 - 收費 / 付款（強制完整計算回歸）：`pnpm exec vitest run src/utils/memberBilling.test.ts src/utils/schoolTeamMonthlyFee.test.ts src/utils/monthlyPaymentPeriods.test.ts src/utils/monthlyFeeDiscount.test.ts src/utils/monthlyFeeSettlement.test.ts src/utils/quarterlyFeeFamilies.test.ts src/utils/quarterlyFeeCompensation.test.ts src/utils/quarterlyPaymentSubmissions.test.ts src/utils/playerBalance.test.ts src/utils/matchFeePaymentAvailability.test.ts src/utils/feeManagementReminders.test.ts src/utils/feePaymentReminders.test.ts src/services/myPayments.test.ts src/services/playerBalances.test.ts src/services/matchFees.test.ts src/services/feeManagementReminders.test.ts src/services/feePaymentReminders.test.ts src/services/schoolTeamMonthlyFeeSettings.test.ts src/components/fees/FeeSettings.test.ts src/components/fees/SchoolTeamFees.test.ts src/components/fees/QuarterlyFees.test.ts`
 - 請假 / 點名：`pnpm exec vitest run src/utils/leaveRequests.test.ts src/utils/dashboardHome.test.ts`
 - 訓練日期設定：`pnpm exec vitest run src/utils/trainingMonthDates.test.ts src/components/home/MyHomeTodayPanel.test.ts src/composables/useNotificationFeed.test.ts`
-- 教練排班表：`pnpm exec vitest run src/utils/coachSchedules.test.ts src/views/HomeView.test.ts`
+- 教練排班 / 請假：`pnpm exec vitest run src/utils/coachSchedules.test.ts src/views/HomeView.test.ts src/utils/coachLeaveRequests.test.ts src/services/coachLeaveRequestsApi.test.ts src/views/CoachLeaveRequestsView.test.ts src/services/coachScheduleTemplatesApi.test.ts src/utils/coachScheduleTemplates.test.ts`，並跑 `pnpm test:coach-schedules:sql`（來源、合班、教練假單 / 帶入與 Outbox 隔離 SQL 回歸）。
 - 名單 / 使用者 / 組別：`pnpm exec vitest run src/utils/playerSync.test.ts src/stores/playerRoster.test.ts src/stores/teamGroups.test.ts src/utils/profileAccess.test.ts`
+- 新增角色／權限複製：`pnpm exec vitest run src/components/RolePermissionsManager.test.ts src/services/rolesApi.test.ts` 與 `pnpm test:roles:sql`；涵蓋來源選取、完整快照、不複製、來源獨立性、有效 ADMIN／無權限、ADMIN 來源拒絕、RLS 阻擋與整筆回滾；SQL 回歸亦納入 `pnpm check`。
+- 角色數字排序：`pnpm exec vitest run src/components/RoleSortEditor.test.ts src/components/RolePermissionsManager.test.ts src/services/rolesApi.test.ts src/utils/userRoleOrder.test.ts src/views/UsersView.test.ts src/stores/permissions.test.ts` 與 `pnpm test:roles:sql`；涵蓋正整數、系統／自訂角色、相同數字／未知角色排序、保存結果同步／重新查詢失敗、有效 ADMIN／RLS、保存失敗及權限資料保留。
 - 球員同步：`pnpm exec vitest run src/utils/playerSync.test.ts`
 - 廠商名單：`pnpm exec vitest run src/utils/vendors.test.ts`
 - 推播工具：`pnpm exec vitest run src/utils/pushNotifications.test.ts`

@@ -36,6 +36,9 @@ export type CoachScheduleEvent = {
   source_type: CoachScheduleSourceType
   source_id: string | null
   source_venue_id: string | null
+  venue_id?: string | null
+  unavailable_coach_profile_ids?: string[]
+  assignment_changes?: CoachScheduleAssignmentChange[]
   program_key: string | null
   program_label: string | null
   schedule_date: string
@@ -51,6 +54,14 @@ export type CoachScheduleEvent = {
   assignments: CoachScheduleAssignment[]
   created_at: string | null
   updated_at: string | null
+}
+
+export type CoachScheduleAssignmentChange = {
+  event_id: string
+  coach_profile_id: string
+  coach_name: string
+  leave_id: string
+  changed_at: string
 }
 
 export type CoachScheduleMonthPayload = {

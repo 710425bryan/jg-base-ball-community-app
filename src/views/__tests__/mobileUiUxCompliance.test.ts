@@ -63,7 +63,10 @@ describe('mobile UI/UX audit contracts', () => {
     expect(readView('AttendanceListView')).toContain('AppDialogFooter')
     expect(readView('LeaveRequestsView')).toContain('AppDialogFooter')
     expect(readView('UsersView')).toContain('AppDialogFooter')
-    expect(readView('CoachSchedulesView')).toContain('AppDialogFooter')
+    for (const dialog of ['CoachScheduleManualDialog', 'CoachScheduleTemplateManager', 'CoachScheduleAutoFillPreview']) {
+      expect(readView('CoachSchedulesView')).toContain(dialog)
+      expect(readComponent(`coach-schedules/${dialog}`)).toContain('AppDialogFooter')
+    }
     expect(readView('EquipmentAddonsView')).toContain('AppDialogFooter')
   })
 

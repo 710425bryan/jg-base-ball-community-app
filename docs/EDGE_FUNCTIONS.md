@@ -34,6 +34,8 @@
 | `TRAINING_SELECTION_NOTIFICATION_SECRET` | 特訓錄取通知驗證 | `send-training-selection-notifications` |
 | `TRAINING_LOCATION_NOTIFICATION_SECRET` | 場地通知排程驗證 | `send-training-location-notifications` |
 | `TEAM_MEMBER_OUTBOX_SECRET` | 新球員通知 Outbox worker 驗證 | `process-team-member-notification-outbox` |
+| `COACH_LEAVE_OUTBOX_SECRET` | 教練請假 Outbox worker 驗證，需與 Vault 同名用途設定一致 | `process-coach-leave-notification-outbox` |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | 教練請假 Web Push 金鑰與聯絡識別；只從 Edge secrets 讀取 | `process-coach-leave-notification-outbox` |
 | `GEMINI_API_KEY` | 陣容照片解析 | `parse-lineup` |
 | `GEMINI_LINEUP_MODEL` | 陣容照片解析模型，預設 `gemini-2.5-pro` | `parse-lineup` |
 | `OPENAI_API_KEY` | 語音轉文字與結構化紀錄 | `transcribe-match-audio` |
@@ -49,6 +51,8 @@
 | `supabase/functions/_shared/push.ts` | 推播共用 helper | 權限查詢、subscription 讀取、過期 subscription 清理 |
 | `supabase/functions/process-team-member-notification-outbox/index.ts` | 新球員 Outbox worker | secret + JWT；每批 25 events / 100 deliveries、逐裝置派送、6 次重試與 stale lock reclaim |
 | `supabase/functions/process-team-member-notification-outbox/logic.ts` | Outbox 重試與 concurrency 純邏輯 | 有 Vitest coverage |
+| `supabase/functions/process-coach-leave-notification-outbox/index.ts` | 教練請假新增／修改／取消 Outbox worker | `verify_jwt=true`＋`x-sync-secret`；service-only claim RPC，每批 25 events / 100 deliveries、6 次重試；派送前重查有效帳號、權限、裝置所有權與 enabled；404/410 只清除該使用者過期裝置 |
+| `supabase/functions/process-coach-leave-notification-outbox/logic.ts` | 教練請假 worker HTTP handler、派送與重試流程 | `logic.test.ts` 涵蓋拒絕未授權、configuration、失敗重試、取消權限與過期訂閱；SQL 回歸驗證 queue recovery、站內 feed 及 per-user URL |
 | `supabase/functions/notify-holiday-theme/index.ts` | 節日主題通知 | 手動需使用者權限，自動需 secret |
 | `supabase/functions/notify-holiday-theme/logic.ts` | 節日通知純邏輯 | 有 Vitest coverage |
 | `supabase/functions/send-match-reminders/index.ts` | 賽事提醒 | 排程走 `MATCH_REMINDER_SECRET`，每分鐘讀 `match_reminder_schedule_config` 判斷 Asia/Taipei 到期規則；手動單場發送需 bearer user 具 `matches:EDIT`；URL 使用 `/calendar?match_id=...`；自動模式會用 `HEALTH_ALERT` targeted event 通知 active `ADMIN` 排程漏發或派送異常 |
@@ -74,6 +78,8 @@
 ## 本地注意事項
 
 - 新球員 Outbox cron 需要 Vault entries：`team_member_outbox_function_url`、`team_member_outbox_authorization`、`team_member_outbox_secret`；最後一項需與 Edge secret `TEAM_MEMBER_OUTBOX_SECRET` 相同。
+- 教練請假 cron `coach-leave-notification-outbox-worker` 每分鐘執行；Vault 需 `coach_leave_outbox_function_url`、`coach_leave_outbox_authorization`、`coach_leave_outbox_secret`（對應 Edge `COACH_LEAVE_OUTBOX_SECRET`）。缺設定時保留 pending，不影響假單交易或站內通知。JWT authorization 必須符合目標環境 gateway，不可複製另一專案的 token。
+- 教練請假 worker 不引入既有 `_shared/push.ts`，新金鑰不寫 source／SQL。實際發送前仍需完成文件開頭的既有憑證處置與 Secret scan gate；release 順序與測試帳號 smoke 見 `docs/specs/2026-10-02-coach-leave-and-schedule-templates.md`。
 - `supabase/functions/send-training-location-reminders/` 目前是空目錄，沒有 `index.ts`，不要當成已部署 function。
 - `supabase/functions/deno.json` 與 `supabase/functions/import_map.json` 是 Edge Function runtime 設定，改 import 或 Deno test 時要檢查。
 - `registration-form-documents` 使用函式目錄內的 `deno.json` 固定 `fflate`、`@xmldom/xmldom`、`pdf-lib` 與 `@pdf-lib/fontkit` 版本，部署時不可改用未固定版本或共用設定取代。眼鏡蛇盃 PDF 首次產檔會從固定 commit 的 justfont 官方 GitHub URL 下載字型，須通過 SHA-256 驗證後才會在該 cold start 內快取使用。

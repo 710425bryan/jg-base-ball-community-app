@@ -130,6 +130,7 @@ export const normalizeCoachScheduleEvent = (row: any): CoachScheduleEvent => {
   )
   const coachProfileIds = normalizeStringArray(row?.coach_profile_ids)
   const assignmentCoachIds = assignments.map((assignment) => assignment.coach_profile_id)
+  const unavailableCoachIds = normalizeStringArray(row?.unavailable_coach_profile_ids)
 
   return {
     id: toStringOrNull(row?.id),
@@ -138,6 +139,17 @@ export const normalizeCoachScheduleEvent = (row: any): CoachScheduleEvent => {
     source_type: sourceType,
     source_id: toStringOrNull(row?.source_id),
     source_venue_id: toStringOrNull(row?.source_venue_id),
+    venue_id: toStringOrNull(row?.venue_id),
+    unavailable_coach_profile_ids: unavailableCoachIds,
+    assignment_changes: normalizeJsonArrayPayload(row?.assignment_changes)
+      .filter((change: any) => change?.coach_profile_id && change?.leave_id)
+      .map((change: any) => ({
+        event_id: String(change.event_id || row?.id || ''),
+        coach_profile_id: String(change.coach_profile_id),
+        coach_name: String(change.coach_name || ''),
+        leave_id: String(change.leave_id),
+        changed_at: String(change.changed_at || '')
+      })),
     program_key: toStringOrNull(row?.program_key),
     program_label: toStringOrNull(row?.program_label),
     schedule_date: String(row?.schedule_date || ''),
@@ -149,8 +161,9 @@ export const normalizeCoachScheduleEvent = (row: any): CoachScheduleEvent => {
     legacy_coaches: toStringOrNull(row?.legacy_coaches),
     status: normalizeCoachScheduleStatus(row?.status),
     note: toStringOrNull(row?.note),
-    coach_profile_ids: [...new Set([...coachProfileIds, ...assignmentCoachIds])],
-    assignments,
+    coach_profile_ids: [...new Set([...coachProfileIds, ...assignmentCoachIds])]
+      .filter((id) => !unavailableCoachIds.includes(id)),
+    assignments: assignments.filter((assignment) => !unavailableCoachIds.includes(assignment.coach_profile_id)),
     created_at: toStringOrNull(row?.created_at),
     updated_at: toStringOrNull(row?.updated_at)
   }

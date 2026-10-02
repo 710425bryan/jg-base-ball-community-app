@@ -658,6 +658,17 @@ describe('HomeView dashboard redesign', () => {
     expect(panel.text()).toContain('all 1 manage')
   })
 
+  it('reloads coach assignments after returning to the app or a leave mutation', async () => {
+    await mountHomeView({ role: 'COACH', permissions: [] })
+    const before = listCoachScheduleDashboardMonthMock.mock.calls.length
+    window.dispatchEvent(new Event('coach-leave-changed'))
+    await flushPromises()
+    expect(listCoachScheduleDashboardMonthMock).toHaveBeenCalledTimes(before + 1)
+    window.dispatchEvent(new Event('focus'))
+    await flushPromises()
+    expect(listCoachScheduleDashboardMonthMock).toHaveBeenCalledTimes(before + 2)
+  })
+
   it('hides coach schedule dashboard for users without coach role or permission', async () => {
     const { wrapper } = await mountHomeView({
       role: 'MANAGER',

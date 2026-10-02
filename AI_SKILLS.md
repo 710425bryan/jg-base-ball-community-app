@@ -98,8 +98,14 @@
 ### `jg-baseball-coach-schedules`
 
 - 路徑：`.codex/skills/jg-baseball-coach-schedules/SKILL.md`
-- 用途：教練排班表、教練上課日、Dashboard 教練排班摘要，以及訓練日期 / 場地 / 比賽 / 特訓候選活動。
+- 用途：教練排班表、月份總覽、排班教練資格、場地＋固定教練範本、固定教練依角色分組排序、常用場地／自訂名稱原子保存、自動帶入預覽 / 批次確認、請假排除、Dashboard 摘要，以及訓練日期 / 場地 / 比賽 / 特訓候選活動。
 - 典型情境：修改 `/coach-schedules`、`coach_schedule_events`、`coach_schedule_assignments`、`list_coach_schedule_admin_month()`、`list_coach_schedule_dashboard()`、`list_schedulable_coaches()`、或 `coach_schedules` 權限。
+
+### `jg-baseball-coach-leave`
+
+- 路徑：`.codex/skills/jg-baseball-coach-leave/SKILL.md`
+- 用途：教練本人 / 管理假單、四模式日期快選與原子批次建立、排班移除與稽核、教練假單權限，以及持久化 Outbox 通知。
+- 典型情境：修改 `/my-coach-leave-requests`、`/coach-leave-requests`、`coach_leave_requests`、`my_coach_leave_requests`、`coachLeaveRequestsApi`、教練請假與排班連動、或 `process-coach-leave-notification-outbox`；球員請假仍使用 leave-attendance skill。
 
 ### `jg-baseball-finance-payments`
 

@@ -18,3 +18,14 @@ describe('UsersView desktop toolbar', () => {
     expect(source).toContain('<ViewModeSwitch v-model="viewMode" class="shrink-0" />')
   })
 })
+
+describe('UsersView role group order', () => {
+  it('uses the shared role ordering for both the table and card user groups', () => {
+    expect(source).toContain("import { compareUserRoleKeys, getUserRoleOrder } from '@/utils/userRoleOrder'")
+    expect(source).toContain('const roleOrderMap = computed(() => getUserRoleOrder(permissionsStore.roles))')
+    expect(source).toContain('section v-for="group in groupedUsers"')
+    expect(source).toContain('compareUserRoleKeys(roleA, roleB, roleOrderMap.value)')
+    expect(source).toContain('<el-table :data="group.users"')
+    expect(source).toContain('v-for="row in group.users"')
+  })
+})

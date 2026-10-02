@@ -478,6 +478,7 @@ import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import AppMobileFilterSheet from '@/components/common/AppMobileFilterSheet.vue'
 import PreviewableImage from '@/components/common/PreviewableImage.vue'
 import RolePermissionsManager from '@/components/RolePermissionsManager.vue'
+import { compareUserRoleKeys, getUserRoleOrder } from '@/utils/userRoleOrder'
 import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
 import { supabase } from '@/services/supabase'
 import { usePermissionsStore } from '@/stores/permissions'
@@ -544,7 +545,6 @@ const fallbackRoleNames: Record<string, string> = {
   HEAD_COACH: '總教練',
   COACH: '教練'
 }
-const fallbackRolePriority = ['ADMIN', 'MANAGER', 'HEAD_COACH', 'COACH']
 const accessStatusOrder: ProfileAccessStatus[] = ['active', 'suspended', 'not_started', 'expired']
 
 const users = ref<UserRow[]>([])
@@ -669,13 +669,7 @@ const accessStatusFilterOptions = computed(() => {
   ]
 })
 
-const roleOrderMap = computed(() => {
-  const orderedRoleKeys = permissionsStore.roles.length > 0
-    ? permissionsStore.roles.map((role) => role.role_key)
-    : fallbackRolePriority
-
-  return new Map(orderedRoleKeys.map((roleKey, index) => [roleKey, index]))
-})
+const roleOrderMap = computed(() => getUserRoleOrder(permissionsStore.roles))
 
 const bindingOptionGroups = computed(() => {
   return ['球員', '校隊']
@@ -797,16 +791,7 @@ const groupedUsers = computed<UserGroup[]>(() => {
   }
 
   return Array.from(groupedMap.entries())
-    .sort(([roleA], [roleB]) => {
-      const indexA = roleOrderMap.value.get(roleA) ?? Number.MAX_SAFE_INTEGER
-      const indexB = roleOrderMap.value.get(roleB) ?? Number.MAX_SAFE_INTEGER
-
-      if (indexA !== indexB) {
-        return indexA - indexB
-      }
-
-      return getRoleName(roleA).localeCompare(getRoleName(roleB), 'zh-TW')
-    })
+    .sort(([roleA], [roleB]) => compareUserRoleKeys(roleA, roleB, roleOrderMap.value))
     .map(([roleKey, roleUsers]) => ({
       roleKey,
       roleName: getRoleName(roleKey),

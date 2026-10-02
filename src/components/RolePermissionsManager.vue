@@ -11,7 +11,7 @@
             <span class="font-bold text-gray-700">自定義角色</span>
             <span class="text-xs text-gray-400 font-medium lg:hidden block mt-0.5">點選角色設定權限</span>
           </div>
-          <button @click="openCreateRoleModal" class="bg-primary hover:bg-primary-hover active:scale-95 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 shrink-0">
+          <button @click="openCreateRoleModal" class="bg-primary hover:bg-primary-hover active:scale-95 text-white min-h-11 px-3 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-1 shrink-0">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
             新增角色
           </button>
@@ -27,6 +27,7 @@
               <div class="flex flex-col">
                 <span class="font-extrabold text-gray-800" :class="{ 'text-primary': selectedRole?.role_key === role.role_key }">{{ role.role_name }}</span>
                 <span class="text-xs font-bold text-gray-400 mt-0.5">{{ role.role_key }}</span>
+                <span class="text-xs text-gray-500 mt-1">排序 {{ getRoleWeight(role) }}</span>
               </div>
               <div class="flex items-center gap-2">
                 <!-- 手機版：箭頭提示 -->
@@ -60,6 +61,7 @@
             <div v-if="selectedRole.is_system" class="px-3 py-1 bg-gray-100 text-gray-500 rounded-lg text-xs font-bold border border-gray-200">
               系統預設 (無法刪除)
             </div>
+            <RoleSortEditor :role="selectedRole" :can-edit="permissionsStore.currentRole === 'ADMIN'" @saved="handleRoleWeightSaved" />
           </div>
           
           <div class="flex-1 overflow-y-auto p-5 bg-white" v-loading="isLoadingPermissions">
@@ -175,6 +177,7 @@
 
         <!-- Drawer Body -->
         <div class="permissions-drawer__scroll flex-1 overflow-y-auto p-4" v-loading="isLoadingPermissions">
+          <RoleSortEditor v-if="selectedRole" :role="selectedRole" :can-edit="permissionsStore.currentRole === 'ADMIN'" class="mb-4" @saved="handleRoleWeightSaved" />
           <div v-if="selectedRole?.role_key === 'ADMIN'" class="p-3 bg-orange-50 text-orange-700 text-xs font-bold text-center border border-orange-200 rounded-xl mb-4">
             ADMIN 為最高權限，自動擁有所有操作權，無法單獨調整。
           </div>
@@ -223,12 +226,13 @@
     <el-dialog
       v-model="isModalOpen"
       title="新增客製化角色"
-      width="90%"
-      style="max-width: 400px; border-radius: 16px;"
+      width="400px"
       :show-close="false"
-      class="custom-dialog"
+      :close-on-click-modal="!isSubmitting"
+      :close-on-press-escape="!isSubmitting"
+      class="custom-dialog create-role-dialog"
     >
-      <el-form :model="form" :rules="rules" ref="formRef" label-position="top" class="mt-2 space-y-4">
+      <el-form :model="form" :rules="rules" :disabled="isSubmitting" ref="formRef" label-position="top" class="mt-2 space-y-4">
         <el-form-item label="角色識別碼 (英文/大寫)" prop="role_key" class="font-bold">
           <el-input v-model="form.role_key" placeholder="例如: ASST_COACH" size="large" @input="form.role_key = form.role_key.toUpperCase().replace(/[^A-Z_]/g, '')" />
           <p class="text-[12px] font-normal text-gray-400 mt-1">僅限大寫英文字母與底線，創建後不可更改。</p>
@@ -236,16 +240,29 @@
         <el-form-item label="顯示名稱 (中文)" prop="role_name" class="font-bold">
           <el-input v-model="form.role_name" placeholder="例如: 助理教練" size="large" />
         </el-form-item>
+        <el-form-item label="複製角色權限" prop="copy_from_role_key" class="font-bold">
+          <el-select v-model="form.copy_from_role_key" :empty-values="[null, undefined]" size="large" class="w-full" aria-label="複製角色權限">
+            <el-option label="不複製，從空白權限開始" value="" />
+            <el-option
+              v-for="role in roles"
+              :key="role.role_key"
+              :value="role.role_key"
+              :label="role.role_key === 'ADMIN' ? `${role.role_name}（最高權限無法複製）` : `${role.role_name} (${role.role_key})`"
+              :disabled="role.role_key === 'ADMIN'"
+            />
+          </el-select>
+          <p class="text-[12px] font-normal text-gray-500 mt-1 leading-relaxed">複製所選角色目前的權限，新增後可再調整，不會影響來源角色。ADMIN 的特殊最高權限無法複製。</p>
+        </el-form-item>
       </el-form>
 
       <template #footer>
-        <div class="flex justify-end gap-3 mt-4 pt-4 border-t border-gray-100">
-          <button @click="isModalOpen = false" class="px-5 py-2.5 text-gray-500 font-bold hover:bg-gray-100 rounded-xl transition-all">取消</button>
-          <button @click="submitRole" :disabled="isSubmitting" class="px-6 py-2.5 bg-gray-800 hover:bg-gray-900 active:scale-95 disabled:opacity-70 text-white font-bold rounded-xl shadow-lg shadow-gray-200 transition-all flex items-center justify-center">
-            <span v-if="isSubmitting" class="flex gap-2 items-center"><el-icon class="is-loading"><Loading /></el-icon> 儲存中</span>
-            <span v-else>確認新增</span>
-          </button>
-        </div>
+        <AppDialogFooter
+          confirm-label="確認新增"
+          :loading="isSubmitting"
+          :confirm-disabled="isSubmitting"
+          @cancel="closeCreateRoleModal"
+          @confirm="submitRole"
+        />
       </template>
     </el-dialog>
 
@@ -255,166 +272,19 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { supabase } from '@/services/supabase'
+import { createAppRole } from '@/services/rolesApi'
+import { usePermissionsStore } from '@/stores/permissions'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Loading } from '@element-plus/icons-vue'
+import AppDialogFooter from '@/components/common/AppDialogFooter.vue'
+import RoleSortEditor from '@/components/RoleSortEditor.vue'
+import { getRoleWeight, sortUserRoles } from '@/utils/userRoleOrder'
+import type { AppRole } from '@/types/appRole'
 
-// ── 常數定義 ────────────────────────────────────────────────
-const ACTIONS = [
-  {
-    key: 'VIEW',
-    label: '檢視',
-    desc: '可瀏覽頁面與資料列表',
-    headerClass: 'text-blue-500',
-    dotClass: 'bg-blue-400',
-    legendClass: 'text-blue-500',
-    checkedClass: 'border-blue-400 bg-blue-50 text-blue-600',
-    checkedMobileClass: 'border-blue-400 bg-blue-50 text-blue-600'
-  },
-  {
-    key: 'CREATE',
-    label: '新增',
-    desc: '可建立新資料',
-    headerClass: 'text-emerald-500',
-    dotClass: 'bg-emerald-400',
-    legendClass: 'text-emerald-600',
-    checkedClass: 'border-emerald-400 bg-emerald-50 text-emerald-600',
-    checkedMobileClass: 'border-emerald-400 bg-emerald-50 text-emerald-600'
-  },
-  {
-    key: 'EDIT',
-    label: '修改',
-    desc: '可編輯或審核資料',
-    headerClass: 'text-amber-600',
-    dotClass: 'bg-amber-400',
-    legendClass: 'text-amber-600',
-    checkedClass: 'border-amber-400 bg-amber-50 text-amber-600',
-    checkedMobileClass: 'border-amber-400 bg-amber-50 text-amber-600'
-  },
-  {
-    key: 'DELETE',
-    label: '刪除',
-    desc: '可刪除或作廢資料',
-    headerClass: 'text-red-500',
-    dotClass: 'bg-red-400',
-    legendClass: 'text-red-500',
-    checkedClass: 'border-red-400 bg-red-50 text-red-600',
-    checkedMobileClass: 'border-red-400 bg-red-50 text-red-600'
-  }
-]
-
-const systemFeatures = [
-  {
-    key: 'leave_requests',
-    name: '請假系統',
-    desc: '新增、檢核請假單',
-    actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
-  },
-  {
-    key: 'players',
-    name: '球員名單',
-    desc: '檢視、編輯所有球員基本資料',
-    actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
-  },
-  {
-    key: 'registration_forms',
-    name: '賽事報名管理',
-    desc: '管理賽事、可重用範本，並從完整球員名單產生含個資的報名表',
-    actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
-  },
-  {
-    key: 'baseball_ability',
-    name: '棒球能力數據',
-    desc: '檢視與維護跑壘、球速、擊球與傳接球測驗',
-    actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
-  },
-  {
-    key: 'physical_tests',
-    name: '體能測驗數據',
-    desc: '檢視與維護身體數值、速度、柔軟度與爆發力測驗',
-    actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
-  },
-  {
-    key: 'users',
-    name: '人員與權限設定',
-    desc: '管理使用者登入帳號、指定角色與權限',
-    actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
-  },
-  {
-    key: 'join_inquiries',
-    name: '入隊申請',
-    desc: '表單申請查閱、審核與回覆管理',
-    actions: ['VIEW', 'EDIT', 'DELETE']
-  },
-  {
-    key: 'announcements',
-    name: '系統公告',
-    desc: '發布首頁跑馬燈與系統公告',
-    actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
-  },
-  {
-    key: 'holiday_theme_settings',
-    name: '節日主題設定',
-    desc: '管理首頁節日活動、全站動畫與主題通知',
-    actions: ['VIEW', 'EDIT']
-  },
-  {
-    key: 'attendance',
-    name: '點名系統',
-    desc: '建立活動並進行出缺席點名',
-    actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
-  },
-  {
-    key: 'training',
-    name: '特訓報名',
-    desc: '管理球員點數、特訓報名與錄取名單',
-    actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
-  },
-  {
-    key: 'training_dates',
-    name: '訓練項目與日期設定',
-    desc: '設定訓練項目、每月訓練日期並發送日期異動通知',
-    actions: ['VIEW', 'EDIT']
-  },
-  {
-    key: 'training_locations',
-    name: '場地與人員配置',
-    desc: '設定訓練場地、人員分組與場地通知',
-    actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
-  },
-  {
-    key: 'coach_schedules',
-    name: '教練排班表',
-    desc: '依訓練日期、場地、比賽與特訓課指定教練',
-    actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
-  },
-  {
-    key: 'matches',
-    name: '比賽紀錄',
-    desc: '新增編輯賽事成績、先發名單',
-    actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
-  },
-  {
-    key: 'fees',
-    name: '收費管理',
-    desc: '月費計算、季費/儲值管理',
-    actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
-  },
-  {
-    key: 'equipment',
-    name: '裝備管理',
-    desc: '管理裝備庫存、加購申請與付款審核',
-    actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
-  },
-  {
-    key: 'vendors',
-    name: '廠商名單',
-    desc: '管理採購廠商、交易類別與聯絡資訊',
-    actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
-  }
-]
+import { ACTIONS, systemFeatures } from '@/utils/permissionFeatures'
 
 // ── 狀態 ────────────────────────────────────────────────────
 const roles = ref<any[]>([])
+const permissionsStore = usePermissionsStore()
 const selectedRole = ref<any | null>(null)
 // permissionFlags: { 'players:VIEW': true, 'players:CREATE': false, ... }
 const permissionFlags = ref<Record<string, boolean>>({})
@@ -425,7 +295,7 @@ const isModalOpen = ref(false)
 const isSubmitting = ref(false)
 const formRef = ref()
 
-const form = reactive({ role_key: '', role_name: '' })
+const form = reactive({ role_key: '', role_name: '', copy_from_role_key: '' })
 const rules = {
   role_key: [{ required: true, message: '請輸入角色識別碼', trigger: 'blur' }],
   role_name: [{ required: true, message: '請輸入顯示名稱', trigger: 'blur' }]
@@ -444,8 +314,16 @@ const fetchRoles = async () => {
   if (error) {
     ElMessage.error('無法載入角色名單')
   } else {
-    roles.value = data || []
+    roles.value = sortUserRoles(data || [])
   }
+}
+
+const handleRoleWeightSaved = async (updated: AppRole) => {
+  roles.value = sortUserRoles(roles.value.map(role => role.role_key === updated.role_key ? updated : role))
+  permissionsStore.roles = [...roles.value]
+  if (selectedRole.value?.role_key === updated.role_key) selectedRole.value = updated
+  await fetchRoles()
+  await permissionsStore.fetchRoles()
 }
 
 const loadPermissions = async (role: any) => {
@@ -546,34 +424,35 @@ const togglePermission = async (featureKey: string, action: string) => {
 
 // ── 角色新增 ──────────────────────────────────────────────
 const openCreateRoleModal = () => {
+  if (isSubmitting.value) return
   form.role_key = ''
   form.role_name = ''
+  form.copy_from_role_key = ''
   if (formRef.value) formRef.value.clearValidate()
   isModalOpen.value = true
 }
 
+const closeCreateRoleModal = () => {
+  if (!isSubmitting.value) isModalOpen.value = false
+}
+
 const submitRole = async () => {
-  if (!formRef.value) return
-  await formRef.value.validate(async (valid: boolean) => {
+  if (!formRef.value || isSubmitting.value) return
+  isSubmitting.value = true
+  try {
+    const valid = await formRef.value.validate().catch(() => false)
     if (!valid) return
-    isSubmitting.value = true
-
-    const { error } = await supabase.from('app_roles').insert([
-      { role_key: form.role_key, role_name: form.role_name, is_system: false }
-    ])
-
+    const created = await createAppRole({ ...form })
+    ElMessage.success(form.copy_from_role_key ? '角色已建立，並複製來源角色權限！' : '建立成功！')
+    isModalOpen.value = false
+    await fetchRoles()
+    await permissionsStore.fetchRoles()
+    await selectRole(created)
+  } catch (error: any) {
+    ElMessage.error(error.code === '23505' ? '該識別碼已存在，請更換一個' : '建立角色失敗：' + (error.message || '請稍後再試'))
+  } finally {
     isSubmitting.value = false
-
-    if (error) {
-      ElMessage.error(error.code === '23505' ? '該識別碼已存在，請更換一個' : '建立角色失敗：' + error.message)
-    } else {
-      ElMessage.success('建立成功！')
-      isModalOpen.value = false
-      await fetchRoles()
-      const created = roles.value.find(r => r.role_key === form.role_key)
-      if (created) selectRole(created)
-    }
-  })
+  }
 }
 
 // ── 角色刪除 ──────────────────────────────────────────────
@@ -615,6 +494,23 @@ onMounted(() => {
 </script>
 
 <style>
+.create-role-dialog {
+  --el-color-primary: var(--color-primary);
+  --el-color-primary-light-3: var(--color-primary-hover);
+  --el-color-primary-dark-2: var(--color-primary-hover);
+  border-radius: 16px;
+}
+
+@media (max-width: 767px) {
+  .create-role-dialog :is(.el-input__wrapper, .el-select__wrapper) {
+    min-height: 44px;
+  }
+
+  .create-role-dialog :is(.el-input__inner, .el-select__selected-item) {
+    font-size: 16px;
+  }
+}
+
 .permissions-drawer .el-drawer__body {
   padding: 0;
   overflow: hidden;

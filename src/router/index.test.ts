@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const authStoreMock = vi.hoisted(() => ({
   isInitializing: false,
   isAuthenticated: false,
-  profile: null as null | { linked_team_member_ids?: string[] | null },
+  profile: null as null | { linked_team_member_ids?: string[] | null; role?: string; is_active?: boolean; access_start?: string; access_end?: string },
   ensureInitialized: vi.fn()
 }))
 const permissionsStoreMock = vi.hoisted(() => ({
@@ -40,6 +40,10 @@ vi.mock('../views/HomeView.vue', () => ({
   default: { template: '<div />' }
 }))
 
+vi.mock('../views/CoachLeaveRequestsView.vue', () => ({
+  default: { template: '<div />' }
+}))
+
 describe('router route and guard coverage', () => {
   beforeEach(() => {
     authStoreMock.isInitializing = false
@@ -69,6 +73,8 @@ describe('router route and guard coverage', () => {
     expect(routes.find((route) => route.path === '/training-dates')?.meta.feature).toBe('training_dates')
     expect(routes.find((route) => route.path === '/training-locations')?.meta.feature).toBe('training_locations')
     expect(routes.find((route) => route.path === '/coach-schedules')?.meta.feature).toBe('coach_schedules')
+    expect(routes.find((route) => route.path === '/my-coach-leave-requests')?.meta.feature).toBe('my_coach_leave_requests')
+    expect(routes.find((route) => route.path === '/coach-leave-requests')?.meta.feature).toBe('coach_leave_requests')
     expect(routes.find((route) => route.path === '/equipment')?.meta.feature).toBe('equipment')
     expect(routes.find((route) => route.path === '/equipment-purchases')?.meta.feature).toBe('fees')
     expect(routes.find((route) => route.path === '/vendors')?.meta.feature).toBe('vendors')
@@ -123,5 +129,43 @@ describe('router route and guard coverage', () => {
     await router.isReady()
 
     expect(router.currentRoute.value.path).toBe('/baseball-ability/member-1')
+  })
+
+  it('allows an active coach with own leave VIEW and blocks non-coach ADMIN despite bypass permissions', async () => {
+    authStoreMock.isAuthenticated = true
+    authStoreMock.profile = { role: ' COACH ', is_active: true }
+    permissionsStoreMock.can.mockImplementation((feature) => feature === 'my_coach_leave_requests')
+    const router = (await import('./index')).default
+    await router.push('/my-coach-leave-requests')
+    expect(router.currentRoute.value.path).toBe('/my-coach-leave-requests')
+
+    authStoreMock.profile = { role: 'ADMIN', is_active: true }
+    permissionsStoreMock.can.mockReturnValue(true)
+    await router.push('/dashboard')
+    await router.push('/my-coach-leave-requests')
+    expect(router.currentRoute.value.path).toBe('/dashboard')
+  })
+
+  it('blocks expired coaches and does not let own leave permissions grant management access', async () => {
+    authStoreMock.isAuthenticated = true
+    authStoreMock.profile = { role: 'COACH', access_end: '2000-01-01T00:00:00Z' }
+    permissionsStoreMock.can.mockReturnValue(true)
+    const router = (await import('./index')).default
+    await router.push('/my-coach-leave-requests')
+    expect(router.currentRoute.value.path).toBe('/dashboard')
+
+    authStoreMock.profile = { role: 'COACH', is_active: true }
+    permissionsStoreMock.can.mockImplementation((feature) => feature === 'my_coach_leave_requests')
+    await router.push('/coach-leave-requests')
+    expect(router.currentRoute.value.path).toBe('/dashboard')
+  })
+
+  it('allows delegated management VIEW without requiring the actor to be a coach', async () => {
+    authStoreMock.isAuthenticated = true
+    authStoreMock.profile = { role: 'MANAGER', is_active: true }
+    permissionsStoreMock.can.mockImplementation((feature) => feature === 'coach_leave_requests')
+    const router = (await import('./index')).default
+    await router.push('/coach-leave-requests?highlight_leave_id=leave-1')
+    expect(router.currentRoute.value.path).toBe('/coach-leave-requests')
   })
 })

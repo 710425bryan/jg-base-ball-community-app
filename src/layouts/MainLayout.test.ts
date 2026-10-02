@@ -4,6 +4,14 @@ import { describe, expect, it } from 'vitest'
 const source = readFileSync(new URL('./MainLayout.vue', import.meta.url), 'utf8')
 
 describe('MainLayout team member notification security', () => {
+  it('gates own coach leave by coach identity and keeps notifications in the backend', () => {
+    expect(source).toContain("isActiveCoachProfile(authStore.profile) && permissionsStore.can('my_coach_leave_requests', 'VIEW')")
+    expect(source).toContain("permissionsStore.can('coach_leave_requests', 'VIEW')")
+    expect(source).toContain("coach_leave: '教練請假'")
+    expect(source).toContain("['coach-leave-changed']")
+    expect(source).not.toContain("table: 'coach_leave_requests'")
+    expect(source).not.toContain("buildPushEventKey('coach_leave'")
+  })
   it('does not subscribe to raw team member changes or dispatch member pushes in the browser', () => {
     expect(source).not.toContain("channel('team-members-channel')")
     expect(source).not.toContain("table: 'team_members' },\n          (payload)")

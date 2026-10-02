@@ -142,6 +142,7 @@
                   <el-dropdown-item v-if="canOpenEquipmentAddons" @click="router.push('/equipment-addons')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">裝備加購</el-dropdown-item>
                   <el-dropdown-item v-if="canOpenTraining" @click="router.push('/training')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">特訓報名</el-dropdown-item>
                   <el-dropdown-item @click="router.push('/my-leave-requests')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">我的假單</el-dropdown-item>
+                  <el-dropdown-item v-if="canOpenMyCoachLeave" @click="router.push('/my-coach-leave-requests')" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">我的教練假單</el-dropdown-item>
                   <el-dropdown-item @click="openPushSettingsFromMenu" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">通知設定</el-dropdown-item>
                   <el-dropdown-item @click="toggleReadableTextMode" class="!rounded-lg !font-bold !text-gray-600 hover:!text-primary !py-2.5">
                     大字模式：{{ isReadableTextMode ? '開' : '關' }}
@@ -372,6 +373,8 @@ import HolidayThemeRibbon from '@/components/layout/HolidayThemeRibbon.vue';
 import { configureNotificationFeedFallbackFetcher, useNotificationFeed } from '@/composables/useNotificationFeed';
 import { useReadableTextMode } from '@/composables/useReadableTextMode';
 import { runWithUnsavedChangesConfirmation } from '@/composables/useUnsavedChangesGuard';
+import { useForegroundRefresh } from '@/composables/useForegroundRefresh';
+import { isActiveCoachProfile } from '@/utils/coachLeaveRequests';
 import { useVersionCheck } from '@/composables/useVersionCheck';
 import { buildNotificationFeedItemId, type NotificationFeedItem, type NotificationFeedRow, type NotificationSource } from '@/types/dashboard';
 import { buildSiblingGroupMap, normalizeSiblingIds } from '@/utils/siblingGroups'
@@ -414,6 +417,7 @@ type NotificationFilterSource = NotificationSource | 'all';
 const activeNotificationSource = ref<NotificationFilterSource>('all');
 const notificationSourceLabels: Record<NotificationSource, string> = {
   leave: '請假通知',
+  coach_leave: '教練請假',
   member: '球員通知',
   join: '入隊詢問',
   fee: '繳費提醒',
@@ -435,6 +439,7 @@ const hasLinkedTeamMembers = computed(() => {
   const linkedIds = authStore.profile?.linked_team_member_ids
   return Array.isArray(linkedIds) && linkedIds.length > 0
 });
+const canOpenMyCoachLeave = computed(() => isActiveCoachProfile(authStore.profile) && permissionsStore.can('my_coach_leave_requests', 'VIEW'));
 const canOpenEquipmentAddons = computed(() => permissionsStore.currentRole === 'ADMIN' || hasLinkedTeamMembers.value);
 const trainingManageActions = ['VIEW', 'CREATE', 'EDIT', 'DELETE'] as const;
 const canManageTraining = computed(() =>
@@ -673,6 +678,8 @@ const adminDesktopNavItems = computed<DesktopNavItem[]>(() => [
   { label: '訓練日期', to: '/training-dates', visible: permissionsStore.can('training_dates', 'VIEW') },
   { label: '場地配置', to: '/training-locations', visible: permissionsStore.can('training_locations', 'VIEW') },
   { label: '教練排班', to: '/coach-schedules', visible: permissionsStore.can('coach_schedules', 'VIEW') },
+  { label: '我的教練假單', to: '/my-coach-leave-requests', visible: canOpenMyCoachLeave.value },
+  { label: '教練請假管理', to: '/coach-leave-requests', visible: permissionsStore.can('coach_leave_requests', 'VIEW') },
   { label: '收費管理', to: '/fees', visible: permissionsStore.can('fees', 'VIEW') },
   { label: '裝備請購／付款', to: '/equipment-purchases', visible: permissionsStore.can('fees', 'VIEW') },
   { label: '裝備管理', to: '/equipment', visible: permissionsStore.can('equipment', 'VIEW') },
@@ -699,6 +706,7 @@ const mobileMenuGroups = computed<MobileMenuGroup[]>(() => [
       { label: '裝備加購', to: '/equipment-addons', visible: canOpenEquipmentAddons.value },
       { label: '特訓報名', to: '/training', visible: canOpenTraining.value },
       { label: '我的假單', to: '/my-leave-requests' },
+      { label: '我的教練假單', to: '/my-coach-leave-requests', visible: canOpenMyCoachLeave.value },
       { label: '通知設定', action: openPushSettingsFromMenu }
     ].filter(isVisibleMobileMenuItem)
   },
@@ -736,6 +744,7 @@ const mobileMenuGroups = computed<MobileMenuGroup[]>(() => [
       { label: '訓練項目設定', to: '/training-program-settings', visible: permissionsStore.can('training_dates', 'VIEW') },
       { label: '訓練日期', to: '/training-dates', visible: permissionsStore.can('training_dates', 'VIEW') },
       { label: '教練排班', to: '/coach-schedules', visible: permissionsStore.can('coach_schedules', 'VIEW') },
+      { label: '教練請假管理', to: '/coach-leave-requests', visible: permissionsStore.can('coach_leave_requests', 'VIEW') },
       { label: '收費管理', to: '/fees', visible: permissionsStore.can('fees', 'VIEW') },
       { label: '裝備請購／付款', to: '/equipment-purchases', visible: permissionsStore.can('fees', 'VIEW') },
       { label: '裝備管理', to: '/equipment', visible: permissionsStore.can('equipment', 'VIEW') },
@@ -826,6 +835,10 @@ const loadNotificationFeedSafely = async (
     console.error('Error fetching notification feed:', error);
   }
 };
+
+useForegroundRefresh(() => {
+  if (authStore.profile?.role && !permissionsStore.isLoading) return loadNotificationFeedSafely(true);
+}, ['coach-leave-changed']);
 
 const scheduleNotificationFeedLoad = () => {
   if (!authStore.profile?.role || typeof window === 'undefined') return;
@@ -1391,6 +1404,7 @@ watch(
       return;
     }
 
+    resetNotificationFeed();
     syncRealtimeSubscriptions();
     clearScheduledNotificationFeedLoad();
     scheduleNotificationFeedLoad();

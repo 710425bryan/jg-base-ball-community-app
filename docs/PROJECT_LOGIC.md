@@ -69,6 +69,8 @@ UI 約定：
 - `/training-dates`：`training_dates`
 - `/training-locations`：`training_locations`
 - `/coach-schedules`：`coach_schedules`
+- `/my-coach-leave-requests`：`my_coach_leave_requests`（本人教練）
+- `/coach-leave-requests`：`coach_leave_requests`（管理）
 - `/match-records`：`matches`
 - `/fees`：`fees`
 - `/equipment`：`equipment`
@@ -179,6 +181,7 @@ UI 約定：
 - `src/views/PlayersView.vue`
 - `src/views/UsersView.vue`
 - `src/components/RolePermissionsManager.vue`
+- `src/components/RoleSortEditor.vue`
 - `src/stores/playerRoster.ts`
 - `src/stores/teamGroups.ts`
 - `src/services/playerRosterApi.ts`
@@ -207,8 +210,30 @@ UI 約定：
 - 球員名單顯示使用 session 內記憶體快取；進頁先呼叫 `get_team_members_cache_meta()` 比對 `row_count` / `latest_changed_at`，有差異才重新抓完整名單。
 - `get_team_members_cache_meta()` 只回傳版本資訊，不回傳球員個資，且需通過 `players:VIEW`。
 - 使用者新增 / 更新 / 刪除走 admin RPC，例如 `admin_insert_profile()`、`admin_update_profile()`、`admin_delete_user()`。
+- 使用者名單表格與卡片的角色群組排序共用 `src/utils/userRoleOrder.ts`，以 `app_roles.weight` 由小到大排序，相同數字依 `role_key` 決定穩定順序；未知角色或缺少數字時使用 99。角色名稱不參與排序；角色清單、使用者角色選項及使用者名單使用同一數字口徑。角色清單尚未取得時，名單顯示暫用下方八個預設角色順序。
+- 「角色與權限設定」由 `RoleSortEditor` 在桌面選取角色區塊及手機權限 Drawer 提供 Element Plus 數字欄位與保存按鈕。`src/services/rolesApi.ts` 的 `updateAppRoleWeight(roleKey, weight)` 呼叫 `update_app_role_weight(p_role_key, p_weight)`，只允許有效 ADMIN 保存正整數；SECURITY INVOKER 沿用原 RLS，ADMIN 與其他系統角色的顯示數字同樣可調整。保存成功先以 RPC 結果同步元件及 permission store 角色清單，再重新查詢；後續載入失敗仍保留已保存數字與名單新順序。RPC 保存失敗則保留輸入，未部署時顯示錯誤。
+- 排序數字只改 `app_roles.weight`，不改角色名稱、`is_system`、profile 綁定或 `app_role_permissions`。新增自訂角色仍使用 99，可建立後再調整，不新增 `create_app_role()` 的排序參數，也不複製來源排序值。初始數字由 migration 針對精確角色識別碼設定，需先部署再發布前端；尚未遠端套用，不應在管理者手動調整後重跑初始設定。
+
+初始角色排序：
+
+| 角色識別碼 | 排序數字 |
+| --- | --- |
+| `ADMIN` | 1 |
+| `MANAGER` | 9 |
+| `HEAD_COACH` | 10 |
+| `SCHEDULINGCOACH` | 15 |
+| `COACH` | 16 |
+| `FINANCE` | 20 |
+| `COMMITTEE` | 21 |
+| `MEMBER` | 99 |
+
+其餘資料流：
+
 - `profiles.role` 與 `profiles.linked_team_member_ids` 直接決定多個個人 RPC 的可見範圍；`profiles_access_admin_guard` 會要求這兩欄的 UPDATE 呼叫者具 `users:EDIT`，避免一般帳號透過 self-update policy 自行升級成 ADMIN 或擴大 linked member。
 - 角色權限 UI 讀寫 `app_roles`、`app_role_permissions`。
+- `RolePermissionsManager` 的「新增角色」提供「複製角色權限」單一 Element Plus 選單，預設為「不複製，從空白權限開始」。其他系統及自訂角色都可作來源；`ADMIN` 具有 bypass，選項顯示但停用並提示最高權限無法複製，RPC 也拒絕此來源。
+- 建立角色經 `src/services/rolesApi.ts` 的 `createAppRole()` 呼叫 `create_app_role(p_role_key, p_role_name, p_copy_from_role_key)`，回傳新 `app_roles` 列。RPC 限已登入且通過 active / access window 的 `ADMIN`，沿用角色管理原有限制；角色與來源 `app_role_permissions` 全部已儲存 feature/action 一起建立，包含目前矩陣未列出的權限。未指定來源時建立空白權限；來源不存在、重複識別碼或複製失敗時整筆交易回滾。
+- 新角色權限為建立時快照，後續可獨立調整，不跟隨來源變更，也不改來源角色。成功後刷新元件角色列表與 permission store 的角色選項，供使用者管理選取新角色；前端不以逐筆 INSERT 補複製，避免留下角色已建立但權限不完整的狀態。此 RPC migration 需先於前端部署。
 - `team_members.joined_date` 記錄球員加入時間；既有名單無歷史資料時回填 `2026-02-01`，新建資料預設為台灣當天日期。
 - `team_members.grade` 記錄球員年級；新增 / 空值時依 `birth_date` 推算，出生日期 9 月 2 日以後預設晚一屆，名單年級每年 6 月 19 日自動升級，可由名單表單下拉選單手動調整。
 - 球員名單的 U-level 標籤依 `birth_date` 即時計算：今年生日已到或已過時顯示 `今年 - 出生年 + 1`，生日未到則顯示 `今年 - 出生年`；`U8` 以下統一顯示 `U8`，不使用年級或 9 月 2 日入學切點。
@@ -476,7 +501,8 @@ UI 約定：
 
 - `coach_schedule_events`
 - `coach_schedule_assignments`
-- `profiles`，排班教練限定 active 的 `HEAD_COACH` / `COACH`
+- `coach_schedule_templates`，固定教練範本
+- `profiles`，排班教練以共用 active / access-window helper 判斷，兼容空白及歷史中文角色
 
 資料流：
 
@@ -497,9 +523,35 @@ UI 約定：
 
 - `coach_schedules` feature/actions 為 `VIEW / CREATE / EDIT / DELETE`，預設只建立 `ADMIN` 權限。
 - 管理頁使用 `list_coach_schedule_admin_month()`、`list_schedulable_coaches()`、`save_coach_schedule_event()`、`delete_coach_schedule_event()`；資料安全邊界在 RLS 與 security definer RPC，不只靠前端按鈕。
-- `coach_schedule_assignments.coach_profile_id` 必須是 active 且可登入期間內的 `HEAD_COACH` 或 `COACH` profile。
+- `coach_schedule_assignments.coach_profile_id` 必須是 active 且可登入期間內的 `HEAD_COACH`、`COACH` 或精確 `SCHEDULINGCOACH`（排班教練）profile。前兩者兼容原歷史中文／空白格式；排班教練依穩定角色代碼，不依可變 role_name／weight 或任意排班 VIEW 判斷，與假單及範本共用資格 helper。
 - 自己的 Dashboard 排班只由 `coach_schedule_assignments.coach_profile_id = auth.uid()` 判斷，不從姓名或 `matches.coaches` 字串反推。
 - `supabase_zzz_coach_schedule_match_source_integrity_migration.sql` 會一次移除無對應 `matches` 的既有孤兒比賽 / 特訓排班；不可用畫面 title 相同作為資料清理條件。
+- 固定範本只按啟用的實體 `venue_id` 配對 `training_date` / `training_location`，不再比對星期、來源類型、開始時間或課程標題；partial unique index 限每個場地一個啟用範本。不輪值、不覆蓋已有教練、不處理取消活動。共用 enrich 令場地活動從來源 venue ID 解析，一般訓練日從活動地點精確對應啟用場地名稱，不做模糊搜尋、不改候選身分／合班規則。
+- 範本管理走 `list/save/delete_coach_schedule_template`，新增 / 更新 / 刪除分別使用既有排班 `CREATE / EDIT / DELETE`。範本更新和刪除需 `updated_at`；教練以 profile ID 保存，不將 Calendar 教練文字自動配對。
+- 「固定排班範本」的 CREATE-only 新增表單僅場地、固定教練、選填範本名稱、啟用；場地使用共用 Element Plus 可搜尋／自訂選單，`list_coach_schedule_template_venues()` 以 coach_schedules:VIEW 回啟用場地 ID／名稱，不受當月活動限制、不要求 training_locations 權限。儲存 RPC 同交易建立新名稱及範本，相同名稱去首尾空白後沿用，空白範本名稱用場地名；不改地址／地圖／啟用，取消或失敗不留下新場地，刪除範本保留常用場地。活動卡片「存成範本」只帶場地與教練，草稿清除 ID／updated_at，範本保存不直接修改排班。
+- 範本「固定教練」、排班卡片及手動排班的「指派教練」以 `el-option-group` 依教練角色分類；`coachScheduleCoachOptions.ts` 沿用 `getUserRoleOrder()`／`compareUserRoleKeys()`，取 permission store 的 `app_roles.weight` 升冪、同分 `role_key` 穩定順序與 `role_name` 群組標題。父排班頁載入時及開啟／重新載入範本時呼叫原 `fetchRoles()` 更新 metadata，卡片不逐筆重複查詢；同頁已保存的排序亦由 computed 即時反映。未載入 metadata 使用既有共用 fallback、未知／缺值 weight 99；legacy「總教練／教練」與 trim／大小寫 key 合併到 canonical 群組，同組依 `nickname || name`、姓名、ID 排序，只使用原 RPC 傳回候選、不改跨組多選 profile IDs、權限或請假／撞班規則，卡片原請假停用及註記保留。
+- 活動卡片提供「未指派教練」切換，與所選來源取交集，按 RPC 事件 `coach_profile_ids.length === 0` 判斷；計數跟隨來源，未儲存／已儲存空指派及已取消空指派都能顯示，取消標示保留。選草稿教練不使卡片消失，保存成功重載後才移出；切換不清草稿、不送 RPC。原候選活動／已儲存／已指派教練三個純統計已移除，零結果使用篩選條件文案。
+- 月份選擇區的「月份總覽」開啟 Dialog，按日期從月初到月底、同日按開始時間列出全月所有來源、課程／比賽、場地、已儲存教練與未指派／取消狀態。場地訓練採藍色、比賽採既有琥珀橘色，列表淡底、左邊條與來源徽章一致且保留文字；其他來源沿用卡片色。正常 footer 僅「關閉」，不提供重新整理按鈕，讀取失敗才有「重試」。來源及未指派篩選只改活動卡片，不限制總覽；不按名稱合併不同來源或同日場地。使用 `list_coach_schedule_admin_month()` 的獨立唯讀快照，避免 page events 為保留 dirty 草稿而留下舊保存資料；開啟／回前景／錯誤重試重新讀取、不改卡片 eventForms。loading／錯誤清楚顯示，關閉／換月後忽略舊請求。名稱只取保存的 coach_profile_ids 與 assignments，不從草稿、matches.coaches 或全隊 profile 查詢推測。
+- `save_coach_schedule_template()` 要求 `match_mode: 'venue'`，拒絕舊條件格式，EDIT／DELETE 保留精確 updated_at。預覽 fingerprint 使用 `venue-v2:` 與場地 id／name／is_active／updated_at 狀態，確認在 receipt 查詢前先驗新版模式；場地、假單、教練或排班異動使整批失效，成功重試仍不恢復已移除的指派。training_venues 的 BEFORE statement trigger 在 row lock 前取得共同交易鎖，避免場地異動與排班確認競爭或倒序鎖。
+- `preview_coach_schedule_auto_fill(p_month)` 回傳來源事件、建議名單、排除原因、缺額與 `time_incomplete`；只處理今天起的候選空班，同一批內也預留教練避免雙重指派。未知 / 無效結束時間以全日檢查請假與排班，畫面提示此保守判斷。
+- `confirm_coach_schedule_auto_fill(p_month,p_fingerprint,p_event_keys)` 鎖定後重新預覽比對 fingerprint，資料改動則整批拒絕；只儲存選定且有可用教練的事件，現有空班需 `EDIT`、新班需 `CREATE`，私有 receipt 防止相同確認重送。
+- 最新請假 migration 包装既有 source resolver，而非複製候選邏輯；所有單筆來源保存均檢查版本、請假與同時段占用，authenticated 排班 raw DML 已撤銷。source reconciliation 保留合班規則，來源延長 / 改期後重查假單並移除不適任指派。
+
+## 12B. 教練請假與排班連動
+
+- 路由為 `/my-coach-leave-requests` 及 `/coach-leave-requests`，共用 `CoachLeaveRequestsView`，依 route meta 分為本人和管理模式。本人 `my_coach_leave_requests` 預設給兩種教練角色 CRUD；全隊 `coach_leave_requests` 預設只給 `ADMIN` CRUD，角色設定可再配置。`profiles.id` 是請假和排班的共同身分。
+- 私人假單表 `coach_leave_requests` 的前端資料只走 `list_coach_leave_requests(p_month,p_status,p_coach_profile_id,p_manage)`、`create_coach_leave_requests(p_leaves,p_manage,p_batch_id)`、`save_coach_leave_request(p_leave,p_manage,p_request_id)`、`cancel_coach_leave_request(p_leave_id,p_updated_at,p_manage)`；`p_month=null` 不限制月份，供通知定位使用，列表一般送選定月份。
+- 新增表單提供上課日期快選、單日、連續多日與固定週期；快選預載本月及次月，可追加月份且保留多選，依有效訓練項目顯示上課日期。`list_coach_leave_training_dates(p_month,p_manage)` 檢查本人 / 管理 VIEW，只回項目名稱與月份日期，不回訓練備註，也不由教練 linked member 推導項目。固定週期與快選展開單日，可全日 / 上午 / 下午；連續跨日保留一筆全日範圍。
+- 批次新增最多 365 筆、同一教練，重用單筆保存的權限及衝突檢查。全部假單、指派移除、版本、audit 與通知同交易完成；失敗保留表單且不刷新通知。私有 receipt 以 actor / client batch UUID 去重，相同正規化內容重試回原 IDs，內容改變拒絕；前端內容變更改用新 UUID，成功後已取消的假單不會被重試還原。
+- 日期限台灣今天起；多日全日，單日全日 / 上午 / 下午，13:00 分界採半開區間。原因選填 500 字，僅本人或有管理 `VIEW` 的人可讀，教練排班及推播不含原因。已結束（end_date 早於今天）與取消唯讀；跨日仍進行中的假單可取消，修改只保留今天起範圍並保存原範圍稽核，修改不改教練身分，過期版本拒絕，新增 client request UUID 重試去重。
+- 新增 / 修改與排班共用 `pg_advisory_xact_lock(20360924,1)`，在同一交易刪除重疊的今日起正常排班指派，保留活動及其他教練，保存 `private.coach_leave_audit` 與 `private.coach_schedule_assignment_changes` 並推進事件版本。取消或縮小範圍不還原原教練，管理者需重新指派。
+- 排班 RPC 增加實體 `venue_id`、請假 `unavailable_coach_profile_ids` 及不含原因的 `assignment_changes`。首頁和排班使用既有讀取權限，普通教練仍只看本人指派；頁面聚焦 / 回到前景會刷新以避免留著過期排班。
+- 異動提交同時產生 Outbox `coach_leave:<UUID>:<revision>:<operation>`，`coach_leave_payload` 只含 ID、日期、時段、操作和 revision。revision 新增為 1，修改 / 取消 +1，相同重試不重複通知。
+- `process-coach-leave-notification-outbox` 將通知送給有效 `ADMIN`、`coach_leave_requests:VIEW` 使用者，以及具 `coach_schedules:VIEW` 且通過共用教練資格的使用者（含 SCHEDULINGCOACH）。共用 audience helper 在初始化、派送重試及 feed 重新驗權，無訂閱者仍可看通知中心；管理者連結 `/coach-leave-requests?highlight_leave_id=...`，排班教練連結 `/coach-schedules?month=YYYY-MM`。新增資格不授予假單私人原因讀取權或任何 feature/action。
+- Migration 順序：`20261002150832_coach_leave_and_schedule_templates.sql` → `20261002150855_coach_leave_notification_outbox.sql` → `20261002155846_coach_leave_batch_create_and_training_dates.sql` → `20261002171951_coach_schedule_venue_templates.sql`，新版前端需在最後一筆之後發布；場地範本不修改通知 worker。本地 isolated PGlite `pnpm test:coach-schedules:sql` 覆蓋來源、假單連動、權限、範本、批次和 Outbox。remote migration / function / cron 部署須另驗證，不由本地測試推導上線；PGlite 不驗證真正多連線競爭，staging PostgreSQL 必須補驗鎖競爭。
+- 日期快選／原子批次新增另追加 `20261002155846_coach_leave_batch_create_and_training_dates.sql`，由 `tests/database/coachLeaveBatchCreate.integration.mjs` 驗證真實 program 日期來源、同批 rollback、權限與 receipt；不可修改已成功部署的前兩份 migration。
+- `20261002180340_coach_schedule_scheduling_coach_eligibility.sql` 追加精確 SCHEDULINGCOACH 與共用通知資格，2026-10-03 已套用正式專案；只替換兩 private helper，不新增 feature/action、不修改 worker 或 public RPC。隔離回歸 `tests/database/coachSchedulingCoachEligibility.integration.mjs` 已接入完整 coach SQL suite，詳細正式 post-check 與月份總覽驗證見 [規格](specs/2026-10-03-coach-schedule-month-overview.md)。
+
 
 ## 13. 收費與付款
 

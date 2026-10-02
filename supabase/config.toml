@@ -1,1 +1,4 @@
 project_id = "qwxzwomzoyfkorbwsscv"
+
+[functions.process-coach-leave-notification-outbox]
+verify_jwt = true

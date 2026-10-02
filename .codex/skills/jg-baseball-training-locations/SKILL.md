@@ -28,6 +28,7 @@ description: "Training venue, program scope, and player assignment workflow for 
 ## 功能邊界
 
 - 常用場地存在 `training_venues`。
+- 教練排班範本共用此場地字典，以 `coach_schedules` 權限的安全 RPC 讀 ID／名稱並原子建立新名稱，不授予地址／地圖／啟用狀態修改權限。字典異動在 row lock 前先取得教練排班共用交易鎖；場地配置流程與原 training_locations RLS 不變，修改此表時須回歸教練範本的預覽失效及確認並行邊界。
 - 訓練主檔存在 `training_location_sessions`，以 `program_key` 區分中港 / 國中等 program；若建立連動點名，會透過 `attendance_events.training_location_session_id` / `training_location_session_venue_id` 串到現有點名系統。
 - 新增配置時從 `training_program_settings` 套用預設開始 / 結束時間與場地；不可在頁面邏輯寫死週六、週日、時間或場地。
 - 球員池、全隊快捷加入與 roster RPC 列出全部有效球員 / 校隊；program 判斷優先使用 `team_members.training_program`，舊資料才以 `team_group` 對應 `training_program_settings.team_group`，找不到時校隊 / 計次月費 fallback 中港總部 program。`team_group` 是所屬群組（熊隊），不可再拿來鎖住中港校隊 / 國中部身分的群組選單；program 只用來標記球員所屬訓練項目與決定配置主檔 / 預設場地時間 / 通知語意，不限制可編排球員。

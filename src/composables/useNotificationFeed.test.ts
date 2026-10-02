@@ -11,6 +11,18 @@ const createDeferred = <T,>() => {
 }
 
 describe('notification feed controller', () => {
+  it('removes coach leave notifications after the server revokes visibility on a forced reload', async () => {
+    const fetcher = vi.fn().mockResolvedValueOnce([{
+      id: 'coach_leave:leave-1:1:created', source: 'coach_leave', title: '教練請假',
+      body: '10/03 上午', created_at: '2026-10-02T14:00:00Z',
+      link: '/coach-schedules?month=2026-10', highlight_member_id: null
+    }]).mockResolvedValueOnce([])
+    const controller = createNotificationFeedController(fetcher)
+    await controller.loadNotificationFeed()
+    expect(controller.notifications.value[0]?.link).toBe('/coach-schedules?month=2026-10')
+    await controller.loadNotificationFeed(10, { force: true })
+    expect(controller.notifications.value).toEqual([])
+  })
   it('reuses the same in-flight request for delayed and manual loads', async () => {
     const deferredRows = createDeferred<any[]>()
 

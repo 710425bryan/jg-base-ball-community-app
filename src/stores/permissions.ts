@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { supabase } from '@/services/supabase'
+import { sortUserRoles } from '@/utils/userRoleOrder'
 
 export const usePermissionsStore = defineStore('permissions', () => {
   const permissions = ref<any[]>([])
@@ -41,7 +42,7 @@ export const usePermissionsStore = defineStore('permissions', () => {
         .order('weight', { ascending: true })
       
       if (error) throw error
-      roles.value = data || []
+      roles.value = sortUserRoles(data || [])
     } catch (err) {
       console.error('Failed to fetch roles', err)
     }

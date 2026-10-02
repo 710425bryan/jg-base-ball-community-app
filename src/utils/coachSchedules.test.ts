@@ -38,6 +38,18 @@ const makeEvent = (overrides: Partial<CoachScheduleEvent>): CoachScheduleEvent =
 })
 
 describe('coachSchedules utilities', () => {
+  it('keeps leave removal history and excludes unavailable coaches from assignments and IDs', () => {
+    const event = normalizeCoachScheduleEvent({
+      id: 'event-1', venue_id: 'venue-1', coach_profile_ids: ['absent', 'available'],
+      unavailable_coach_profile_ids: ['absent'],
+      assignments: [{ coach_profile_id: 'absent', coach_name: '請假教練' }],
+      assignment_changes: [{ coach_profile_id: 'absent', coach_name: '請假教練', leave_id: 'leave-1', changed_at: 'now' }]
+    })
+    expect(event.venue_id).toBe('venue-1')
+    expect(event.coach_profile_ids).toEqual(['available'])
+    expect(event.assignments).toEqual([])
+    expect(event.assignment_changes).toEqual([{ event_id: 'event-1', coach_profile_id: 'absent', coach_name: '請假教練', leave_id: 'leave-1', changed_at: 'now' }])
+  })
   it('preserves distinct lesson identities returned by the database with their program labels', () => {
     const payload = normalizeCoachScheduleMonthPayload({ events: [
       { source_type: 'training_location', source_id: 'junior', source_venue_id: 'venue-a',

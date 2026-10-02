@@ -2,7 +2,62 @@
 
 本文件依 `docs/MOBILE_UI_UX_RULES.md` 追蹤登入後 `MainLayout` 頁面的實際調整進度。規則文件是目標規格，本文件是執行帳本；未完成程式修改與視覺驗收前，不得將項目標示為「完成」。
 
-清單涵蓋 29 個登入後路由、27 個實作頁面；能力／體測列表與明細各自共用一套實作頁面。
+清單新增 `/my-coach-leave-requests` 與 `/coach-leave-requests`，兩路由共用 `CoachLeaveRequestsView`；能力／體測列表與明細各自共用一套實作頁面。
+
+### 2026-10-03 月份總覽、排班教練與未指派篩選（待實機驗收）
+
+- 排班選項補入既有精確角色 `SCHEDULINGCOACH`（排班教練），沿用角色 weight／role_key 分組與有效期間；追加 migration 已套用正式 SQL，安全候選 RPC 確認 3 位有效教練。未更改角色權限或通知 worker，兩 private helper ACL／search_path 保留，其餘 14 支函式 hash 不變；正式驗證未寫排班／假單／範本測試資料。
+- 月份選擇區有直接可見的「月份總覽」，依日期／時間顯示完整月份的課程／比賽／場地與已保存教練；不受卡片來源或未指派篩選影響。獨立 RPC 快照在開啟／回到前景更新，保留卡片草稿與失敗重試，舊月份回應不覆寫新資料。
+- 場地訓練採藍色、比賽採既有琥珀橘色，淡底、4px 左邊條及來源文字徽章一致；已修正列表分隔線蓋掉第二筆以後左邊條的樣式衝突。正常 footer 僅「關閉」，錯誤區才提供單一 44px「重試」。
+- 新增「未指派教練」切換，與來源篩選取交集、顯示當前來源未指派活動筆數；判定使用已保存的教練 IDs，草稿選取後仍保留卡片，成功保存才移出。取消而空指派的活動保留狀態標記；移除候選活動／已儲存／已指派教練三個純統計。
+- 最終 targeted 4 files／29 tests；完整 `pnpm check` 通過 262 files／1427 tests、教練 SQL 508 checks、角色 SQL 155 checks、完整付款 SQL、型別與 production build，紀錄 `/tmp/jg-coach-unassigned-filter-check.log`。migration 更名對齊正式 history 後的 73 項資格 SQL 亦通過；正式證據 `/tmp/jg-coach-scheduling-eligibility-production-evidence.json`。
+- 真實 Vue／Element Plus／AppGlobalSelect 的 Chromium 在 360／390／767px 通過 330 checks（各 110 項，保留原 162 項），61 張截圖；涵蓋來源／未指派交集、角色群組、一次觸控保存與重試、全月與草稿隔離、前景更新／換月、同日多場地及來源色彩。入口／關閉／重試至少 44px，手機選單輸入 16px，無水平溢出、console/browser error 或外部請求；錯誤態 header／footer 關閉控制皆通過可見性與 elementFromPoint 觸及，Dialog top 0／height 844、overlay scrollTop 0。
+- 最終證據 `/tmp/jg-coach-unassigned-month-overview-ui/evidence.json`，已目視 360／767px 來源顏色、360px 錯誤重試與 390px 月初畫面。另只重跑新情境補頁首圖，360／767px 的 112 checks 通過，已目視未指派與來源切換、總覽入口及統計移除後佈局；補充證據 `/tmp/jg-coach-unassigned-overview-final-shots/evidence.json`。重跑見 `tests/browser/README.md`，詳見 [月份總覽規格](specs/2026-10-03-coach-schedule-month-overview.md)。SQL 已部署，前端未 commit／push／發布，版本維持 1.1.69；實體 iPhone／Android IME、鍵盤與硬體 safe area、staging 多連線鎖競爭、CI／Vercel Preview 仍待驗收。
+
+### 2026-10-03 固定教練與指派教練角色分類（待實機驗收）
+
+- 固定範本、排班卡片及手動排班的教練選單沿用單一可搜尋多選，新增角色群組標題；順序依角色權限設定的 weight／role_key、標題依 role_name，組內依暱稱／姓名排序。卡片原請假註記／停用、已選 profile IDs 與保存權限保留。
+- metadata 由父頁載入及範本開啟／重載時沿用原 permission store 查詢，卡片不各自查詢；只整理既有教練候選，不新增角色資格或 DB 權限。相關 7 files／53 unit tests 通過，涵蓋 legacy／缺 metadata／同分排序、反應式分組、跨組選取、請假禁選及 metadata 查詢次數。
+- 完整 `pnpm check` 通過 260 files／1409 tests、角色 SQL 155 checks、教練 SQL 435 checks、完整付款 SQL、型別與 production build。瀏覽器發現手動 Dialog 的教練控制原為 40px／14px，補上該 Dialog 的局部手機樣式；修補後重跑 4 files／32 tests 及 `pnpm build`（含型別檢查）通過。
+- 真實 Vue／Element Plus／AppGlobalSelect 的 Chromium 在 360／390／767px 通過 162 checks（各 54 項）：三種教練選單的群組、weight 反轉、role_name 改名、組內姓名排序、中文搜尋隱藏空組、跨組第一次保存與請假禁選皆通過，並保留原請假／場地範本／自動帶入回歸。卡片及手動選單／選項實測至少 44px、輸入 16px，無水平溢出、console error 或外部請求；已目視 360px 卡片及 767px 範本分組。
+- 最新證據 `/tmp/jg-coach-template-role-groups-ui/evidence.json`、修補前量測 `/tmp/jg-coach-template-role-groups-ui/manual-control-metrics.json`；重跑方法見 `tests/browser/README.md`。完整 gate 紀錄 `/tmp/jg-coach-template-role-groups-check.log`。本次不新增 migration，前端尚未發布、版本維持 1.1.69；實體 iPhone／Android 中文 IME、鍵盤與硬體 safe area 仍待驗收。
+
+### 2026-10-03 角色排序數字設定（待實機驗收）
+
+- 「角色與權限設定」的 `RoleSortEditor` 在桌面選取角色區塊及手機權限 Drawer 提供 Element Plus 數字欄位與保存；數字小在前，包含 ADMIN／系統角色可調整，角色名稱不再用於特殊插隊。
+- 保存只改顯示排序，成功先以 RPC 結果同步元件及 permission store 角色清單，再重新查詢；後續載入失敗仍保留新排序。使用者名單表格／卡片依 weight／role_key 共用順序，RPC 保存失敗保留數字。此項只稽核新排序控制與相關名單順序，不代表整個權限頁已符合全頁 UI 規則。
+- 本次 targeted Vitest 9 files／88 tests、`pnpm typecheck`、production build 及角色 SQL 155 checks（建立 84＋排序 71）通過；unit 含保存成功後重新查詢失敗仍保留新排序。未執行完整 `pnpm check`。SQL 使用本地隔離 PGlite，不操作正式資料。
+- 真實 `RolePermissionsManager`／`RoleSortEditor`／`UsersView`、Element Plus、store／service 搭配本機 Supabase mock，在 Chromium 360／390／700／1280×844px 通過排序 63 checks：八個初始數字、財務 20→5 後角色清單／store／使用者網格與表格重排、同分 `role_key` 順序、反覆保存、loading 一次 RPC／欄位與按鈕禁用、失敗保留草稿及易讀文字長名稱。數字欄位直接輸入，實測 176×44px，保存按鈕至少 44×44px，無水平溢出。新增角色複製舊流程另重跑 56 checks，兩組均無 console error／外部請求；已目視手機與桌面保存後畫面。
+- 最後的 store 同步補正已重跑上述兩組瀏覽器回歸並通過；排序證據 `/tmp/jg-role-order-final-store-patch/evidence.json`，複製回歸證據 `/tmp/jg-role-copy-final-store-patch/evidence.json`。重跑指令見 `tests/browser/role-permissions/README.md`。本機驗證已完成，實體 iPhone／Android、硬體 safe area／鍵盤、正式帳號與排序 RPC／初始數字 migration 正式部署仍待驗收，尚未發布。
+
+### 2026-10-03 固定排班範本：場地＋教練（待實機驗收）
+
+- 表單簡化為場地、固定教練、選填名稱與啟用四欄；場地沿用共用單一可搜尋／自訂 Element Plus 選單，多選教練、44×44px 控制及 16px 手機輸入文字。活動卡片「存成範本」只預填場地與教練。
+- 場地選項由僅需 `coach_schedules:VIEW` 的安全 RPC 取得共用常用場地，不依本月活動縮小。輸入新名稱先留在草稿，只有範本成功保存時同一交易建立；取消及失敗不新增場地。保留權限撤回、忙碌操作、未儲存確認及失敗草稿；儲存成功但重載失敗時禁止重複保存，需先取得新版資料。
+- 本輪四欄位與操作 targeted suite 6 files／37 tests 通過；完整 `pnpm check` 通過型別、259 files／1393 tests、435 項教練 SQL、角色／完整付款 SQL 與 production build。正式 migration 已套用並驗證新版 schema／RPC 權限／唯讀預覽；前端尚未發布，版本維持 1.1.69。
+- 真實 Vue／Element Plus 的 Chromium 在 360／390／767px 通過 117 checks（各 39 項）：四欄位、中文搜尋／自訂場地、多選、取消不保存、失敗保留、重開 ID 再選與同場地不同課程／同批撞班皆通過，保留請假四模式／自動帶入／手動排班回歸；控制至少 44×44px、輸入字級 16px，無 console error／外部請求／水平溢出。證據 `/tmp/jg-coach-venue-template-ui/evidence.json`，已目視 360px 場地與失敗草稿、390px 預覽及 767px 四欄位，重跑方法見 `tests/browser/README.md`。實體 iPhone／Android 鍵盤／中文 IME／硬體 safe area、staging 多連線競爭及正式帳號操作仍待驗收，詳見 [場地範本規格](specs/2026-10-03-coach-schedule-venue-templates.md)。
+
+### 2026-10-03 固定排班範本直接新增（歷史驗證，已由場地＋教練取代）
+
+- 範本管理視窗新增「新增範本」，僅 `coach_schedules:CREATE` 顯示；可直接填寫訓練日配對條件，或帶入本月訓練日／場地訓練活動。場地選項只來自排班頁已載入的實體場地，未新增 raw table 讀取；保留活動卡片「存成範本」入口。
+- 新草稿不帶活動 ID／版本；切換範本或帶入活動前提示未儲存內容，失敗保留表單。沿用既有 RPC、Element Plus 與金橘樣式；手機文字／時間／選單及啟用開關提供至少 44×44px 觸控範圍與 16px 輸入文字。
+- `pnpm check` 通過 258 files／1349 tests、332 項教練 SQL、角色及完整付款 SQL 與 production build；版本維持 1.1.69，保留原有其他工作區變更。此次無新增 SQL，前端尚未發布；正式登入與實體 iPhone／Android 鍵盤、safe area 仍待驗收。
+- 真實 Vue／Element Plus 搭配隔離 API 的 Chromium 在 360／390／767px 通過 105 checks；保留原請假、範本複製及自動帶入流程，新增直接建立空白範本、帶入場地活動並各儲存一次。六份表單實測最小控制尺寸 44×44px、輸入字級 16px，開關有無障礙名稱；無 console error、外部請求及水平溢出。證據 `/tmp/jg-coach-direct-template-touch-ui/evidence.json`，已目視 360px 新增與 767px 場地帶入截圖，重跑方法見 `tests/browser/README.md`。
+
+### 2026-10-02 新增角色複製權限（待實機驗收）
+
+- 本次只調整「角色與權限設定」的新增角色視窗：「複製角色權限」沿用單一 Element Plus 選單，預設不複製；來源顯示角色名稱與識別碼，ADMIN 停用並說明最高權限無法複製。成功後可獨立調整新角色權限；取消重開清除來源，建立失敗保留表單。
+- 此視窗使用共用 Dialog／footer、44px 操作與 Element Plus 表單控制；本項不代表角色列表、權限矩陣或 Drawer 已完成全頁 UI 稽核。
+- 本次 targeted suite 5 files／34 tests、角色 SQL 84 checks、`pnpm typecheck`、production build 與 `git diff --check` 通過；未執行全量 `pnpm check`。
+- agent-browser 啟動並以真實 `RolePermissionsManager`、Element Plus、共用 Dialog／Select／footer、permission store 及 roles service 搭配本機 Supabase mock，Chromium 於 360／390／700／1280×844px 及各尺寸易讀文字模式通過 56 checks。涵蓋不複製、來源選取／ADMIN 禁選、複製後矩陣與可指派角色刷新、取消重開、loading 欄位禁用／重複提交與取消 guard、失敗保留來源；手機視窗滿版、footer 固定、主要控制 44px、金橘品牌色且無水平溢出，無 console error 或外部請求。重跑指令見 `tests/browser/role-permissions/README.md`，證據 `/tmp/jg-role-permissions-final/evidence.json`。
+- 瀏覽器使用模擬資料；實體 iPhone／Android、正式帳號、硬體 safe area／鍵盤與遠端 RPC 部署仍待驗收，尚未發布。
+
+### 2026-10-02 教練請假與固定範本排班（待實機驗收）
+
+- 教練假單使用 Element Plus 日期、時段及單一中文可搜尋教練選單；管理手機教練篩選放入共用 `AppMobileFilterSheet`，有效／取消狀態 chips 保留頁面。本人表單固定登入教練；手機 Dialog 滿版、body 單獨捲動、safe area footer／44px 關閉與保存。
+- 後續新增四種請假模式：上課日快選多日期／單日／連續多日／固定週期；窄手機模式按鈕分兩欄，日期按鈕 44px，跨月載入及切換訓練項目保留選取。`pnpm check` 通過，新增 89 項批次 SQL 檢查，全教練 SQL 共 332 checks；360／390／767px 真實 Vue／Element Plus 回歸通過 84 checks，含三月多選、來源載入失敗重試、批次送出失敗保留 UUID、半日及原排班流程，無 console error／外部請求／橫向溢出。證據 `/tmp/jg-coach-quick-leave-ui/evidence.json`；新增批次 migration 已套用正式資料庫並確認 ACL／日期讀取，前端尚未發布，實機驗收邊界不變。
+- 排班頁拆出活動 editor、手動 Dialog、範本管理及自動帶入預覽；每卡保留更多與保存，刪除／存範本在更多。請假移除提示與缺額可換行；有未儲存內容時保留表單，保存前比對最新版本。新功能以局部 `coachFeatureTheme.css` 沿用既有金橘品牌色，包含 teleport Dialog。
+- 最終 `pnpm check` 通過 254 files／1296 tests、教練 SQL 220 checks、全部付款 SQL 及 production build；worker Deno check 通過。真實 Vue／Element Plus 搭配隔離資料的 Chromium 回歸在 360／390／767 px 通過 60 checks：四種 Dialog、44 px 控制、捲動與 footer、中文搜尋、多日全日、本人身分、固定範本與帶入，完成選取後第一次觸控儲存成功；無橫向溢出、browser error 或外部請求。可重跑指令見 `tests/browser/README.md`，本輪證據 `/tmp/jg-coach-ui-verification/evidence.json`。實體 iPhone／Android 鍵盤、中文 IME 事件、硬體 safe area、正式帳號與瀏覽器推播仍待驗收。尚未部署。
 
 ### 2026-10-01 查看成員收費時間與規則（待實機驗收）
 
@@ -88,7 +143,7 @@
 | P2-01 | `/training-locations` | 巢狀按鈕、小型 actions、多重捲動；近期訓練卡原本只顯示全部配置人數且依距離現在最近排序 | 拆分互動、44px、單一主要捲動區；近期訓練依時間降冪排序，卡片同時顯示各場地總人數、上課與請假人數 | 待驗收 | View 5 tests＋場地摘要 3 tests＋API／通知 9 tests、`vue-tsc`、build 通過 |
 | P2-02 | `/training-dates` | 頁首四個可見操作且高度不足 | 保留 Primary＋最高頻 Secondary，其餘 overflow | 待驗收 | dates API／utils 12 tests＋source contract 通過 |
 | P2-03 | `/training-program-settings` | 手機欄位標籤與輸入框互相擠壓，星期選項觸控區偏小，狀態與儲存操作層級不清 | 欄位改為手機上下排列、星期等寬 44px 網格，狀態與儲存分區 | 待驗收 | View／mobile audit／API／utils 共 66 tests＋`vue-tsc` 通過；待 360／390px 實機驗收 |
-| P2-04 | `/coach-schedules` | 篩選缺 ARIA；actions/footer 偏小 | segmented ARIA、44px、共用 footer | 待驗收 | coach schedules 10 tests＋source contract 通過 |
+| P2-04 | `/coach-schedules` | 新增固定範本、預覽及請假移除提示，需在窄手機操作 | segmented ARIA、44px、共用 footer、全螢幕 Dialog 與 gold-orange theme | 待驗收 | 2026-10-02：排班拆分元件、dirty editor、範本／預覽與全量 gate 通過；瀏覽器紀錄見上方，待實機驗收 |
 | P2-05 | `/players` | 搜尋篩選與四個功能操作混排；舊 `<640px` CSS 曾覆蓋 `hidden` 造成上下兩組篩選 | toolbar 分層；手機只保留搜尋＋篩選觸發器，條件由底部展開；超過兩個操作使用 overflow | 待驗收 | PlayersView mobile filter regression test＋search/filter source contract 通過 |
 | P2-06 | `/users` | 搜尋／篩選／檢視切換放在 header actions；桌機搜尋與登入狀態篩選的寬度、間距及高度不一致；角色權限 Drawer 原本留在 route DOM，最後一個功能會被手機底部導覽遮住 | 移到獨立 toolbar；桌機 filter group 統一 8px 間距與 44px 高度；手機狀態篩選由底部展開；row icon 44px＋ARIA；權限 Drawer 掛到 body 並保留 iOS safe area 尾距 | 待驗收 | UsersView／ViewModeSwitch／mobile audit 共 58 tests；權限 Drawer、UsersView 與元件載入共 45 tests＋`vue-tsc`＋build 通過；待登入後 iPhone 實機驗收 |
 | P2-07 | `/leave-requests` | 設定、日期 chips、刪除與 footer 偏小；詳細列表原本無法依球員快速搜尋 | 44px、`aria-pressed`、共用 footer；使用可輸入搜尋的單一球員選單篩選紀錄 | 待驗收 | 球員搜尋與複合篩選已完成；相關 4 files／28 tests、`vue-tsc` 及 production build 通過，待 360–767px 與 iPhone 中文輸入實機驗收 |

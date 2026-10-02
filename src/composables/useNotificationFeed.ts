@@ -142,7 +142,9 @@ export const createNotificationFeedController = (
         }
 
         notifications.value = mergeNotificationFeedItems(
-          notifications.value,
+          loadOptions.force
+            ? notifications.value.filter(note => note.source !== 'coach_leave')
+            : notifications.value,
           rows.map(mapNotificationFeedRow),
           feedLimit
         )

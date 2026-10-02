@@ -4,6 +4,7 @@ import MainLayout from '../layouts/MainLayout.vue'
 import PushEntryView from '../views/PushEntryView.vue'
 import { useAuthStore } from '../stores/auth'
 import { usePermissionsStore } from '../stores/permissions'
+import { isActiveCoachProfile } from '@/utils/coachLeaveRequests'
 import { getCurrentRouteFullPathFromLocation, refreshAppShell } from '../utils/appUpdate'
 import { getLegacyEquipmentAdminRedirect } from '../utils/equipmentPurchaseAdmin'
 
@@ -140,6 +141,20 @@ const router = createRouter({
           meta: { feature: 'coach_schedules' }
         },
         {
+          path: 'my-coach-leave-requests',
+          name: 'MyCoachLeaveRequests',
+          component: () => import('../views/CoachLeaveRequestsView.vue'),
+          props: { manage: false },
+          meta: { feature: 'my_coach_leave_requests', requiresCoachProfile: true }
+        },
+        {
+          path: 'coach-leave-requests',
+          name: 'CoachLeaveRequests',
+          component: () => import('../views/CoachLeaveRequestsView.vue'),
+          props: { manage: true },
+          meta: { feature: 'coach_leave_requests' }
+        },
+        {
           path: 'leave-requests',
           name: 'LeaveRequests',
           component: () => import('../views/LeaveRequestsView.vue'),
@@ -274,6 +289,8 @@ router.beforeEach(async (to, from, next) => {
     next({ path: DEFAULT_AUTHENTICATED_ROUTE, replace: true })
   } else if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     next('/')
+  } else if (to.meta.requiresCoachProfile && !isActiveCoachProfile(authStore.profile)) {
+    next('/dashboard')
   } else if (to.meta.requiresAuth && to.meta.feature) {
     const permissionsStore = usePermissionsStore()
     const feature = to.meta.feature as string

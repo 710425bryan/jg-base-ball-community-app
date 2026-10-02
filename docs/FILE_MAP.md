@@ -50,7 +50,8 @@
 | `src/layouts/MainLayout.vue` | 登入後導覽、通知中心、手機選單、底部導覽，以及登出前頁面草稿確認 |
 | `src/components/LoginModal.vue` | magic link / OTP 登入 UI、失效提示與冷卻後重新寄碼 |
 | `src/components/PushSettingsDialog.vue` | Web Push 訂閱設定 |
-| `src/components/RolePermissionsManager.vue` | 角色與 feature/action 權限管理 |
+| `src/components/RolePermissionsManager.vue` | 角色與 feature/action 權限管理；新增角色可選複製來源，ADMIN 不可複製 |
+| `src/components/RoleSortEditor.vue` | 桌面選取角色與手機 Drawer 共用的排序數字欄位／保存操作，包含系統角色 |
 | `src/components/ViewModeSwitch.vue` | 檢視模式切換 |
 | `src/components/common/AppPageHeader.vue` | 登入後功能頁 page title 標準元件 |
 | `src/components/common/AppLoadingState.vue` | 頁面級 / 大區塊 loading 標準元件，文字用 `text` 傳入 |
@@ -83,6 +84,7 @@
 
 | 檔案 | 用途 | 後端依賴 |
 | --- | --- | --- |
+| `src/services/rolesApi.ts` | 新增角色與可選來源權限快照的原子建立、角色排序數字保存 | `create_app_role()`／`update_app_role_weight()`；只允許有效 ADMIN |
 | `src/services/publicLanding.ts` | 公開首頁摘要與保留的匿名入隊申請 service | `get_public_landing_snapshot()`；目前 LINE 聯絡視窗不呼叫申請 service |
 | `src/services/dashboardAttendance.ts` | 後台大廳今日訓練點名狀態，含今日多筆點名單 | `get_dashboard_today_attendance_status()` |
 | `src/services/myHome.ts` | 個人化首頁摘要與 linked member 一週內 Next Up 比賽 RPC | `get_my_home_snapshot()` / `get_my_home_next_event()` |
@@ -108,6 +110,8 @@
 | `src/services/trainingProgramsApi.ts` | 訓練項目設定 RPC | `training_program_settings` |
 | `src/services/trainingDatesApi.ts` | 每月訓練日期設定與日期異動通知呼叫 | `training_month_date_settings` / `get_training_month_dates()` / `save_training_month_dates()` / `send-training-date-notifications` |
 | `src/services/trainingLocationsApi.ts` | 場地與人員配置、連動點名 RPC | `training_location_*` / `training_venues` / `attendance_events.training_location_session_id` / `training_location_session_venue_id` |
+| `src/services/coachLeaveRequestsApi.ts` | 教練本人 / 管理請假列表、上課日、原子批次新增、單筆修改及取消 RPC | `coach_leave_requests`、`list/create/save/cancel_coach_leave_request*` |
+| `src/services/coachScheduleTemplatesApi.ts` | 場地範本 CRUD、安全常用場地、帶入預覽與批次確認 | `coach_schedule_templates`、`list_coach_schedule_template_venues`、`preview/confirm_coach_schedule_auto_fill` |
 | `src/services/coachSchedulesApi.ts` | 教練排班候選、Dashboard 摘要與指派儲存 RPC | `coach_schedule_events` / `coach_schedule_assignments` / `list_coach_schedule_*` |
 | `src/services/equipmentApi.ts` | 裝備、加購、付款、庫存 API | 裝備 tables / RPC / `equipments` bucket |
 | `src/services/equipmentRequestItemsApi.ts` | 裝備請購逐品項備貨、領取與刪除 API | item fulfillment RPC / `equipments` bucket |
@@ -140,6 +144,20 @@
 | `src/utils/trainingLocationNotification.ts` | 場地通知文案、URL、event key、收件分組 |
 | `src/utils/trainingLocationMemberGroups.ts` | 場地已配置名單按角色／組別分組、U 層級降冪、不參賽置底 |
 | `src/components/training-locations/TrainingLocationVenueMembers.vue` | 場地已配置名單的分組標題、人數、成員卡片與移除操作 |
+| `src/components/coach-leave/CoachLeaveRequestDialog.vue` | 教練假單四模式新增、單筆修改、原因與 batch retry key；本人 / 管理模式共用 |
+| `src/components/coach-leave/CoachLeaveDateSelection.vue` | 上課日多選、月份載入與訓練項目切換、單日 / 連續 / 固定週期日期控制 |
+| `src/components/coach-schedules/CoachScheduleEventEditor.vue` | 排班卡片編輯、請假移除提示與來源摘要；指派教練依角色分組排序，保留請假停用 |
+| `src/components/coach-schedules/CoachScheduleManualDialog.vue` | 手動排班表單與保存，指派教練沿用角色分組排序 |
+| `src/components/coach-schedules/CoachScheduleMonthOverview.vue` | 全月日期／場地／比賽與已儲存教練的唯讀 Dialog，獨立快照、草稿提示、載入／重試 |
+| `src/components/coach-schedules/CoachScheduleTemplateManager.vue` | 場地／固定教練／選填名稱／啟用四欄位範本管理；可自訂常用場地，CREATE 控制新增，固定教練依角色設定分組排序 |
+| `src/components/coach-schedules/CoachScheduleAutoFillPreview.vue` | 建議教練、排除 / 缺額、選取與批次確認 |
+| `src/composables/useCoachScheduleEditor.ts` | 月份、排班名單 / 表單與保存狀態 |
+| `src/composables/useForegroundRefresh.ts` | 聚焦 / 回前景刷新，避免保留舊排班 |
+| `src/utils/coachLeaveRequests.ts` | 教練假單 normalize、日期與時段表單驗證 |
+| `src/utils/coachLeaveDateSelection.ts` | 教練四模式日期展開、單日 / 連續紀錄與 365 筆上限驗證 |
+| `src/utils/coachScheduleTemplates.ts` | 場地範本草稿、僅場地／教練的活動複製、安全場地及新版範本／預覽 normalize |
+| `src/utils/coachScheduleCoachOptions.ts` | 固定教練依角色 weight／role_key 分組排序、role_name 群組標題、組內暱稱／姓名穩定排序；僅處理既有候選 |
+| `src/utils/coachScheduleMonthOverview.ts` | 全月日期／時間排序、不合併同日來源，只由保存的 profile IDs／assignments 顯示教練 |
 | `src/components/coach-schedules/CoachScheduleEventSummary.vue` | 教練排班卡片來源、日期／場地與教練摘要（不顯示訓練項目標籤） |
 | `src/utils/coachSchedules.ts` | 教練排班來源 label、月份 normalize、候選 / 已儲存事件合併與排序 |
 | `src/utils/googleCalendarParser.ts` | Google Calendar / iCal parser 與同步規劃 |
@@ -179,6 +197,7 @@
 | `src/utils/performanceConfig.ts` | 能力 / 體測欄位與圖表設定 |
 | `src/utils/holidayMotionLayout.ts` | 節日動畫版位 |
 | `src/utils/profileAccess.ts` | profile 可登入狀態判斷 |
+| `src/utils/userRoleOrder.ts` | 角色清單與使用者名單共用 weight 升冪排序，相同數字以 role_key 排序，缺值／未知角色使用 99 |
 | `src/utils/otpLogin.ts` | OTP email／驗證碼正規化、8 碼格式檢查與中文錯誤訊息 |
 | `src/utils/supabaseRpc.ts` | RPC missing fallback helper |
 | `src/utils/csvExport.ts` | CSV 匯出 |
@@ -217,6 +236,8 @@
 | `/training-program-settings` | `src/views/TrainingProgramSettingsView.vue` | `training_dates:VIEW` |
 | `/training-dates` | `src/views/TrainingDatesView.vue` | `training_dates:VIEW` |
 | `/training-locations` | `src/views/TrainingLocationsView.vue` | `training_locations:VIEW` |
+| `/my-coach-leave-requests` | `src/views/CoachLeaveRequestsView.vue`（本人模式） | `my_coach_leave_requests:VIEW` + 本人教練資格 |
+| `/coach-leave-requests` | `src/views/CoachLeaveRequestsView.vue`（管理模式） | `coach_leave_requests:VIEW` |
 | `/coach-schedules` | `src/views/CoachSchedulesView.vue` | `coach_schedules:VIEW` |
 | `/match-records` | `src/views/MatchRecordsView.vue` | `matches:VIEW` |
 | `/fees` | `src/views/FeesView.vue` | `fees:VIEW` |
@@ -382,6 +403,7 @@
 
 | 檔案 | 用途 |
 | --- | --- |
+| `src/types/appRole.ts` | 角色資料及新增角色／可選權限來源 payload 型別 |
 | `src/types/dashboard.ts` | Dashboard / notification feed 型別 |
 | `src/types/equipment.ts` | 裝備管理型別 |
 | `src/types/vendor.ts` | 廠商名單與交易類別型別 |
@@ -398,6 +420,9 @@
 | `src/types/teamGroup.ts` | team group 設定型別 |
 | `src/types/training.ts` | 特訓報名、點數、管理審核型別 |
 | `src/types/trainingLocation.ts` | 場地與人員配置型別 |
+| `src/types/coachLeaveRequest.ts` | 本人 / 管理教練假單、篩選與保存型別 |
+| `src/types/coachLeaveDateSelection.ts` | 教練四模式日期選取、原子批次新增與安全上課日型別 |
+| `src/types/coachScheduleTemplate.ts` | 固定範本、排除原因與帶入預覽型別 |
 | `src/types/coachSchedule.ts` | 教練排班、教練指派與 Dashboard 排班型別 |
 | `src/types/feeManagementReminders.ts` | 費用提醒型別 |
 | `src/types/feePaymentReminders.ts` | 手動催繳通知型別 |
@@ -418,6 +443,10 @@
 | 特訓 / 點數 | `supabase_training_points_migration.sql`、`supabase_zz_training_point_transaction_delete_migration.sql`、`supabase_zz_training_registration_notifications_migration.sql`、`supabase_zzzzzzzz_training_auto_select_notifications_migration.sql` |
 | 訓練項目 / 訓練日期設定 / 換月預設排程 | `supabase_training_dates_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzz_training_program_scope_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzzzz_team_member_training_program_hotfix.sql`、`supabase_zzzzzzzzzzzzzzzzzzzzz_training_program_label_rename_migration.sql` |
 | 場地與人員配置 | `supabase_training_locations_migration.sql`、`supabase_zzzzzzzzz_training_location_attendance_migration.sql`、`supabase_zzzzzzzzzz_training_location_venue_settings_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzz_training_location_leave_time_segment_migration.sql` |
+| 教練請假 / 原子排班範本 | `supabase/migrations/20261002150832_coach_leave_and_schedule_templates.sql`、`supabase/migrations/20261002150855_coach_leave_notification_outbox.sql` |
+| 教練請假四模式批次建立 / 安全上課日 | `supabase/migrations/20261002155846_coach_leave_batch_create_and_training_dates.sql` |
+| 場地＋教練固定範本 | `supabase/migrations/20261002171951_coach_schedule_venue_templates.sql`，覆蓋舊範本匹配，新增安全常用場地與同交易新名稱保存；不改已部署 core／通知檔 |
+| 排班教練資格 | `supabase/migrations/20261002180340_coach_schedule_scheduling_coach_eligibility.sql`，精確 SCHEDULINGCOACH 共用有效帳號 helper；通知排班 VIEW audience 同步採同一資格，不新增角色權限 |
 | 教練排班表 | `supabase/migrations/20260924054852_coach_schedule_shared_training_slots.sql`、`supabase/migrations/20260924043936_coach_schedule_program_source_integrity.sql`、`supabase_coach_schedules_migration.sql`、`supabase_coach_schedules_schedulable_coaches_hotfix.sql`、`supabase_coach_schedules_training_location_sync_hotfix.sql`、`supabase_zzz_coach_schedule_match_source_integrity_migration.sql` |
 | 賽事同步 | `supabase_matches_google_calendar_sync_migration.sql`、`supabase_match_calendar_daily_sync_schedule.sql`、`supabase_match_leave_absences_migration.sql` |
 | 推播 | `supabase_web_push_subscriptions_migration.sql`、`supabase_push_dispatch_events_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzzzzzzzz_team_member_notification_outbox_migration.sql`、`supabase_match_reminder_notifications_migration.sql`、`supabase_match_reminder_schedule_config_migration.sql`、`supabase_match_reminder_health_migration.sql`、`supabase_fee_payment_reminders_migration.sql` |
@@ -469,6 +498,14 @@
 常用測試檔：
 
 - `src/stores/auth.test.ts`
+- `src/components/RolePermissionsManager.test.ts`
+- `src/components/RoleSortEditor.test.ts`
+- `src/utils/userRoleOrder.test.ts`
+- `src/services/rolesApi.test.ts`
+- `tests/database/appRoleCreation.integration.mjs`：本地隔離 PGlite 使用實際角色建立 migration／RLS，驗證可選來源、完整快照、ADMIN 來源拒絕、授權、原子回滾及來源獨立性；`pnpm test:roles:sql` 與 `pnpm check` 執行。
+- `tests/database/appRoleWeights.integration.mjs`：本地隔離 PGlite 驗證精確角色預設值、系統／自訂角色排序、有效 ADMIN／RLS、正整數與同數、原子回滾及其他角色／profile／權限資料保留；由 `pnpm test:roles:sql` 與 `pnpm check` 執行。
+- `tests/browser/role-permissions/README.md`、`tests/browser/verify-role-permissions.mjs`：真實角色權限元件／Element Plus 搭配本機 Supabase mock，驗證新增角色視窗的來源選取、儲存／失敗、loading guard、矩陣／角色選項刷新與手機版面；不操作正式資料。
+- `tests/browser/verify-role-order.mjs`：共用上述 fixture，新增真實 UsersView／RoleSortEditor 的排序數字、反覆保存、失敗保留、同分角色順序及網格／表格刷新回歸。
 - `src/services/matchesApi.test.ts`
 - `src/services/weatherApi.test.ts`
 - `src/services/publicLanding.test.ts`
@@ -511,7 +548,7 @@
 - 改資料讀寫：先找 `src/services/*Api.ts` 或該功能 service，再看 store。
 - 改跨頁狀態：看 `src/stores/*`。
 - 改純邏輯或同步規則：看 `src/utils/*` 與同名 test。
-- 改權限：看 `src/router/index.ts`、`src/stores/permissions.ts`、`RolePermissionsManager.vue`、migration。
+- 改權限：看 `src/router/index.ts`、`src/stores/permissions.ts`、`RolePermissionsManager.vue`、`src/services/rolesApi.ts`、migration。
 - 改 DB 安全：先讀 `docs/MIGRATIONS.md`，再 `rg` function / policy 名稱，確認後續 migration 沒有覆寫。
 - 改 Edge Function：先讀 `docs/EDGE_FUNCTIONS.md`，確認 env、auth 與對應 skill。
 - 改推播：看 `src/utils/pushNotifications.ts`、`send-push-notification`、`_shared/push.ts`。

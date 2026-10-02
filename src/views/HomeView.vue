@@ -10,6 +10,7 @@ import MyHomeTodayPanel from '@/components/home/MyHomeTodayPanel.vue'
 import MatchDetailDialog from '@/components/match-records/MatchDetailDialog.vue'
 import FeeManagementReminderPanel from '@/components/fees/FeeManagementReminderPanel.vue'
 import EquipmentPhotoCarousel from '@/components/equipment/EquipmentPhotoCarousel.vue'
+import { useForegroundRefresh } from '@/composables/useForegroundRefresh'
 import { useMyHomeNextMatch } from '@/composables/useMyHomeNextMatch'
 import { listCoachScheduleDashboardMonth } from '@/services/coachSchedulesApi'
 import { getDashboardTodayAttendanceStatus } from '@/services/dashboardAttendance'
@@ -562,6 +563,8 @@ const fetchCoachScheduleDashboard = async (options: { silent?: boolean } = {}) =
     }
   }
 }
+
+useForegroundRefresh(() => fetchCoachScheduleDashboard({ silent: true }), ['coach-leave-changed'])
 
 const fetchAnnouncementsData = async () => {
   if (!canViewAnnouncements.value) {

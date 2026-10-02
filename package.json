@@ -1,6 +1,6 @@
 {
   "name": "web",
-  "version": "1.1.69",
+  "version": "1.1.70",
   "private": true,
   "type": "module",
   "engines": {
@@ -11,9 +11,10 @@
     "dev": "vite",
     "typecheck": "vue-tsc --noEmit",
     "test": "vitest run",
-    "test:coach-schedules:sql": "node scripts/verify-coach-schedule-sources.mjs && node scripts/verify-coach-schedule-shared-slots.mjs",
+    "test:roles:sql": "node tests/database/appRoleCreation.integration.mjs && node tests/database/appRoleWeights.integration.mjs",
+    "test:coach-schedules:sql": "node scripts/verify-coach-schedule-sources.mjs && node scripts/verify-coach-schedule-shared-slots.mjs && node scripts/verify-coach-leave-and-schedule-templates.mjs && node tests/database/coachLeaveNotifications.integration.mjs && node tests/database/coachLeaveBatchCreate.integration.mjs && node tests/database/coachScheduleVenueTemplates.integration.mjs && node tests/database/coachSchedulingCoachEligibility.integration.mjs",
     "test:payments:sql": "node tests/database/quarterlyPaymentOwnership.integration.mjs && node tests/database/adminPaymentSubmission.integration.mjs && node tests/database/matchFeeExemptions.integration.mjs && node tests/database/playerMatchBilling.integration.mjs && node tests/database/monthlyPaymentOpenPeriod.integration.mjs --newline-matrix",
-    "check": "pnpm typecheck && pnpm test && pnpm test:coach-schedules:sql && pnpm test:payments:sql && vite build",
+    "check": "pnpm typecheck && pnpm test && pnpm test:roles:sql && pnpm test:coach-schedules:sql && pnpm test:payments:sql && vite build",
     "build": "vue-tsc && vite build",
     "preview": "vite preview"
   },

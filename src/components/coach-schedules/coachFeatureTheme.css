@@ -1,0 +1,10 @@
+/* Keep the coach feature's Element Plus controls on the existing gold-orange palette. */
+.coach-feature-theme {
+  --el-color-primary: var(--color-primary);
+  --el-color-primary-dark-2: var(--color-primary-hover);
+  --el-color-primary-light-3: var(--color-primary-hover);
+  --el-color-primary-light-5: #EBB96C;
+  --el-color-primary-light-7: #F2D3A1;
+  --el-color-primary-light-8: #F9ECD6;
+  --el-color-primary-light-9: #FDF7EE;
+}
