@@ -5,7 +5,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || "";
-const GEMINI_LINEUP_MODEL = Deno.env.get("GEMINI_LINEUP_MODEL") || "gemini-2.5-pro";
+const GEMINI_LINEUP_MODEL = Deno.env.get("GEMINI_LINEUP_MODEL") || "gemini-3.1-pro-preview";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

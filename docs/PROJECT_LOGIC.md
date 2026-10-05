@@ -356,7 +356,7 @@ UI 約定：
 - `MatchDetailDialog` 的「賽事備註」卡會合併已儲存手動請假列與 `get_match_leave_absences(p_match_id)` 的最新假單同步列；歷史、今日與未來賽事中已刪除假單留下的舊自動列都不再顯示。
 - `/match-records` 的「未來賽事」可由具 `matches:EDIT` 的使用者手動發送單場賽事通知；「提醒排程」同樣只給 `matches:EDIT` 使用者管理，設定存在 `system_settings.match_reminder_schedule_config`，透過 `get_match_reminder_schedule_config()` / `save_match_reminder_schedule_config(jsonb)` 讀寫全站共用多組規則，並透過 `get_match_reminder_health_status()` 顯示 ADMIN 可見的排程健康狀態。
 - Edge Function `send-match-reminders` 會驗證手動 bearer user 權限或排程 secret；自動排程每分鐘以 Asia/Taipei 判斷到期規則，寫入 `push_dispatch_events` 並發送 Web Push，通知 URL 統一導向 `/calendar?match_id=...`；自動模式會檢查近 30 分鐘漏發與派送異常，使用 `matches` + `HEALTH_ALERT` targeted event 通知 active `ADMIN`，不自動補發給家長 / 球員。
-- 陣容照片解析會先在前端壓縮 / 轉 data URL，再呼叫 `parse-lineup`，AI 結果需要 normalize 與 unresolved flow。
+- 陣容照片解析會先在前端壓縮 / 轉 data URL，再呼叫 `parse-lineup`；預設模型為 `gemini-3.1-pro-preview`，使用既有 `generateContent` 圖片輸入與 JSON Schema，AI 結果需要 normalize 與 unresolved flow。`GEMINI_LINEUP_MODEL` 可覆寫模型，既有環境若設定舊模型需同步更新；`parse-lineup/index.test.ts` 驗證預設 / 覆寫模型、圖片與 JSON 請求、結果正規化及未授權拒絕。
 - 比賽語音轉紀錄使用 IndexedDB 保存草稿與音檔 chunks，再呼叫 `transcribe-match-audio` 產生結構化事件。
 - 天氣預報優先透過 `resolve-location` 解析場地座標，外部 API 失敗時回到前端 fallback。
 

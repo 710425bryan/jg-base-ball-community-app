@@ -37,7 +37,7 @@
 | `COACH_LEAVE_OUTBOX_SECRET` | 教練請假 Outbox worker 驗證，需與 Vault 同名用途設定一致 | `process-coach-leave-notification-outbox` |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | 教練請假 Web Push 金鑰與聯絡識別；只從 Edge secrets 讀取 | `process-coach-leave-notification-outbox` |
 | `GEMINI_API_KEY` | 陣容照片解析 | `parse-lineup` |
-| `GEMINI_LINEUP_MODEL` | 陣容照片解析模型，預設 `gemini-2.5-pro` | `parse-lineup` |
+| `GEMINI_LINEUP_MODEL` | 陣容照片解析模型，預設 `gemini-3.1-pro-preview`；既有環境若明確設為舊模型，需同步更新此設定 | `parse-lineup` |
 | `OPENAI_API_KEY` | 語音轉文字與結構化紀錄 | `transcribe-match-audio` |
 | `OPENAI_TRANSCRIBE_MODEL` | 語音轉文字模型，預設 `gpt-4o-transcribe` | `transcribe-match-audio` |
 | `OPENAI_MATCH_AUDIO_LOG_MODEL` | 結構化比賽紀錄模型，預設 `gpt-5.4-mini` | `transcribe-match-audio` |
@@ -66,7 +66,7 @@
 | `supabase/functions/sync-match-calendar/index.ts` | iCal 賽事同步 | 排程同步走 `MATCH_CALENDAR_SYNC_SECRET`；前端手動解析只允許 bearer user 的 `dry_run` 預覽並檢查 `matches:CREATE/EDIT` |
 | `supabase/functions/leave-webhook/index.ts` | 外部請假 webhook | member match、請假 RPC、通知 target 要一致 |
 | `supabase/functions/record-fee-remittance/index.ts` | 匯款表單匯入 | secret 驗證、付款資料 normalize、通知去重 |
-| `supabase/functions/parse-lineup/index.ts` | 陣容照片 AI 解析 | 先驗證 bearer user，再用 user client 查 `matches:CREATE/EDIT` |
+| `supabase/functions/parse-lineup/index.ts` | 陣容照片 AI 解析 | 預設 Gemini 3.1 Pro Preview，保留 `GEMINI_LINEUP_MODEL` 覆寫；先驗證 bearer user，再用 user client 查 `matches:CREATE/EDIT`；`index.test.ts` 驗證模型請求、JSON 結果及拒絕未授權 |
 | `supabase/functions/transcribe-match-audio/index.ts` | 比賽語音轉文字與結構化紀錄 | 先驗證 bearer user，AI 結果需 normalize unresolved players |
 | `supabase/functions/resolve-location/index.ts` | 地點 geocoding API | 外部 API 失敗時前端要 fallback |
 | `supabase/functions/resolve-location/logic.ts` | 地點解析純邏輯 | 有 Vitest coverage |
@@ -77,6 +77,7 @@
 
 ## 本地注意事項
 
+- 2026-10-05 已將 `qwxzwomzoyfkorbwsscv` 的 `GEMINI_LINEUP_MODEL` 更新為 `gemini-3.1-pro-preview`，並比對遠端設定摘要與預期值的 SHA-256。線上 `parse-lineup` 第 18 版沿用既有環境覆寫，不重新部署；repo 預設值同步更新。6 項 handler 測試、36 項賽事 / 媒體回歸與型別檢查通過；尚未以實際照片驗證 Google API 回應。
 - 新球員 Outbox cron 需要 Vault entries：`team_member_outbox_function_url`、`team_member_outbox_authorization`、`team_member_outbox_secret`；最後一項需與 Edge secret `TEAM_MEMBER_OUTBOX_SECRET` 相同。
 - 教練請假 cron `coach-leave-notification-outbox-worker` 每分鐘執行；Vault 需 `coach_leave_outbox_function_url`、`coach_leave_outbox_authorization`、`coach_leave_outbox_secret`（對應 Edge `COACH_LEAVE_OUTBOX_SECRET`）。缺設定時保留 pending，不影響假單交易或站內通知。JWT authorization 必須符合目標環境 gateway，不可複製另一專案的 token。
 - 教練請假 worker 不引入既有 `_shared/push.ts`，新金鑰不寫 source／SQL。實際發送前仍需完成文件開頭的既有憑證處置與 Secret scan gate；release 順序與測試帳號 smoke 見 `docs/specs/2026-10-02-coach-leave-and-schedule-templates.md`。

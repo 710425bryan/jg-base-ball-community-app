@@ -475,7 +475,8 @@
 | `supabase/functions/sync-match-calendar/index.ts` | 賽事日曆同步 |
 | `supabase/functions/leave-webhook/index.ts` | 請假 webhook |
 | `supabase/functions/record-fee-remittance/index.ts` | 繳費匯款紀錄 |
-| `supabase/functions/parse-lineup/index.ts` | 陣容解析 |
+| `supabase/functions/parse-lineup/index.ts` | 陣容解析，預設 `gemini-3.1-pro-preview`，保留環境模型覆寫與使用者權限驗證 |
+| `supabase/functions/parse-lineup/index.test.ts` | 實際 handler 的模型請求、JSON 結果正規化、未授權與上游錯誤回歸 |
 | `supabase/functions/transcribe-match-audio/index.ts` | 比賽語音轉文字與結構化紀錄 |
 | `supabase/functions/resolve-location/index.ts` | 地點 geocoding |
 | `supabase/functions/resolve-location/logic.ts` | 地點解析純邏輯 |

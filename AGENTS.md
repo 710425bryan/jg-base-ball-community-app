@@ -222,7 +222,7 @@
 - 比賽刪除前會由 DB trigger 檢查比賽費：待確認、已付款或仍有目前付款關聯時必須阻擋；無付款歷程的未繳 / 取消費用可直接清除，曾付款但已駁回 / 回滾的明細要解除 `match_id` 並保留取消稽核紀錄。`MatchDetailDialog` 必須顯示 DB 阻擋原因。
 - 比賽紀錄相關元件在 `src/components/match-records/*`，照片使用 `matches-photos` bucket。
 - `/match-records` 的「未來賽事」可由具 `matches:EDIT` 的使用者手動發送單場賽事通知；「提醒排程」同樣只給 `matches:EDIT` 使用者管理，設定存在 `system_settings.match_reminder_schedule_config`，前端走 `src/services/matchReminderNotifications.ts` 呼叫 RPC 或 `send-match-reminders`，通知 URL 仍使用 `/calendar?match_id=...`；排程健康檢查由 `get_match_reminder_health_status()` 與 `send-match-reminders` 自動檢查，異常只通知 active `ADMIN`。
-- 陣容照片解析走 `src/utils/lineupPhotoParser.ts` 與 `supabase/functions/parse-lineup/index.ts`；比賽語音轉紀錄走 `MatchAudioRecorder`、`src/services/matchAudioApi.ts`、`src/utils/matchAudioTranscription.ts` 與 `supabase/functions/transcribe-match-audio/index.ts`。
+- 陣容照片解析走 `src/utils/lineupPhotoParser.ts` 與 `supabase/functions/parse-lineup/index.ts`，預設模型為 `gemini-3.1-pro-preview`，可由 `GEMINI_LINEUP_MODEL` 覆寫；既有環境若設定舊模型，需同步更新設定。`parse-lineup/index.test.ts` 涵蓋模型請求、結果正規化與權限拒絕。比賽語音轉紀錄走 `MatchAudioRecorder`、`src/services/matchAudioApi.ts`、`src/utils/matchAudioTranscription.ts` 與 `supabase/functions/transcribe-match-audio/index.ts`。
 - 賽事天氣走 `src/services/weatherApi.ts`，地點解析優先透過 `supabase/functions/resolve-location`，失敗時保留前端 fallback。
 
 ### 特訓報名與球員點數

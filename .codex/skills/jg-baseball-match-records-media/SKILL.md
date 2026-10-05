@@ -44,7 +44,7 @@ description: "Match records, schedule detail, dashboard Next Up, lineup, media, 
 - 歷史、今日與未來賽事的假單同步請假列走 `matchLeaveAbsences` service、`supabase_match_leave_absences_migration.sql` 與歷史同步補強 migration，只管理 `matches.absent_players` 中 `source = 'leave_request'` 的列。
 - 賽事出席率以 `matches.players` 的每人每場入選紀錄為唯一分母；同場 `absent_players` 命中時改計請假，不可再額外增加一次應到場次，也不可統計未入選球員的請假列。
 - `MatchAttendanceStatsTab` 提供姓名／背號搜尋；「應出席」數字的 hover 清單需保留日期、時間、賽事名稱、對手、級別與該場出席／請假狀態。
-- 陣容照片解析走 `parse-lineup` Edge Function 與 `lineupPhotoParser` 前處理。
+- 陣容照片解析走 `parse-lineup` Edge Function 與 `lineupPhotoParser` 前處理；預設 `gemini-3.1-pro-preview`，保留 `GEMINI_LINEUP_MODEL` 環境覆寫，既有環境設定舊模型時需同步更新。模型仍走 `generateContent` 圖片與 JSON Schema；`parse-lineup/index.test.ts` 涵蓋模型請求、結果正規化與權限拒絕。
 - 比賽語音轉紀錄走 `transcribe-match-audio` Edge Function、`matchAudioApi`、`matchAudioTranscription` 與 IndexedDB draft store。
 - 天氣預報走 `weatherApi`，地點解析優先呼叫 `resolve-location` Edge Function，再使用本地 fallback。
 
@@ -78,6 +78,6 @@ description: "Match records, schedule detail, dashboard Next Up, lineup, media, 
 
 - 基本檢查：`pnpm exec vue-tsc --noEmit`
 - 賽事 API：`pnpm exec vitest run src/services/matchesApi.test.ts`
-- 陣容 / 即時 / 語音：`pnpm exec vitest run src/utils/matchFieldEditor.test.ts src/utils/liveMatchScoreboard.test.ts src/utils/matchAudioTranscription.test.ts src/utils/lineupPhotoParser.test.ts`
+- 陣容 / 即時 / 語音：`pnpm exec vitest run src/utils/matchFieldEditor.test.ts src/utils/liveMatchScoreboard.test.ts src/utils/matchAudioTranscription.test.ts src/utils/lineupPhotoParser.test.ts supabase/functions/parse-lineup/index.test.ts`
 - 賽事提醒 / 天氣：`pnpm exec vitest run src/utils/matchReminderNotification.test.ts src/services/weatherApi.test.ts supabase/functions/resolve-location/logic.test.ts`
 - UI 或媒體流程風險高時跑：`pnpm build`
