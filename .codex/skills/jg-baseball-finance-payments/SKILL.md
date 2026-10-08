@@ -75,6 +75,7 @@ description: "Finance, fees, payment submissions, player balances, match fees, m
 - 季繳付款回報的開放期別以台灣日期為準，每季最後一個月 25 日起開放下一季；前端 helper 與 DB helper / trigger 必須同步，未開放的未來季不可新增付款回報，過去未繳季度可補繳。
 - 個人首頁 `get_my_home_snapshot()` 的付款待辦摘要必須沿用相同的月費 / 季費開放期別；尚未開放的帳款可保留在正式費用紀錄，但不可顯示成一般會員現在就要處理的欠費。
 - 季費補償的堂數不足只看當月週六數與 `/training-dates` 設定日期總數，補課日不限定週六。
+- 季費補償對象仍依 `quarterly` 收費模式；前端與產生 RPC 必須同用 `get_training_month_dates(month, 'chunggang_school_team')` 的共用課表，不能聚合其他課程日期。基準固定取週六數，未設定月份沿用同課表預設，未來月份可先產生待審單。零筆結果不得顯示成功，已核准／略過不計入待審筆數也不覆寫。日期修正 migration 為 `20261008050733_quarterly_compensation_training_dates.sql`（尚未部署）；跑 `node tests/database/quarterlyCompensationDates.integration.mjs --newline-matrix`（已納入付款 SQL 回歸）。
 - `is_primary_payer`、`is_half_price`、sibling / family grouping 會影響金額，改費用時要同步檢查。
 - 月費的半價／主要繳費人判斷要使用所有仍有效的球員／校隊手足；手足即使分屬月繳與季繳，仍可構成家庭優惠，不可先依 billing mode 過濾後才判斷折扣。
 - 手足主要繳費人退隊、離隊或關閉 / 畢業後，剩餘有效手足的新一期月費 / 季費試算不得沿用手足半價；主要繳費人恢復有效後，若 `sibling_ids` 與 `is_primary_payer` 仍保留，另一位有效手足可恢復手足減免。既有已保存帳款金額不自動覆寫，需由管理端重算或手動調整。

@@ -305,6 +305,7 @@
 - 裝備付款在加購申請 `approved` 後即可回報，費用端確認收款只代表款項已完成，不代表商品已備貨或已領取；若要刪除已收款測試請購，必須先走退款 / 作廢收款，並反向處理球員餘額。
 - 多品項裝備在 `/my-payments` 與管理端付款清單顯示履約狀態時，必須依交易所屬請購品項的 `ready_at` / `picked_up_at` 判斷；父請購單聚合狀態不可覆蓋單一品項已備貨或已領取的狀態。
 - 季費堂數不足補償以當月週六數對比 `/training-dates` 訓練日期設定總天數；任何設定日期都算一堂，達當月週六數就不補償。補償先產生 `quarterly_fee_compensation_items` 待審核單，核准後才用 `quarterly_compensation` source 寫入 `player_balance_transactions`。
+- 季費補償的對象依有效收費模式 `quarterly` 判斷；日期採季費面板共用課表 `get_training_month_dates(month, 'chunggang_school_team')`，不可合併其他課程日期。基準固定為當月週六數，補課不限星期，未設定月份沿用同課表預設，允許提前產生未來月份待審單。零筆結果須顯示未產生提示，有紀錄時只統計待審筆數，保留已核准／略過紀錄。修正為 `20261008050733_quarterly_compensation_training_dates.sql`（本機完成、尚未部署），驗證納入 `pnpm test:payments:sql`。
 - sibling / quarter fee / monthly settlement 等邏輯已拆在 `src/utils/*fee*` 與相關測試。
 - 手足主要繳費人退隊、離隊或關閉 / 畢業後，剩餘有效手足的新一期月費 / 季費試算不得沿用手足半價；主要繳費人恢復有效後，若 `sibling_ids` 與 `is_primary_payer` 仍保留，另一位有效手足可恢復手足減免。既有已保存帳款金額不自動覆寫，需由管理端重算或手動調整。
 - 比賽費走 `src/services/matchFees.ts`、`match_fee_items`、`match_payment_submissions`、`match_payment_submission_items`，可在 `/my-payments` 合併回報，在 `/fees` 審核。費用先在管理端產生並預設未開放；只有具 `fees:EDIT` 的管理者呼叫 `set_match_fee_payment_open_state()` 開放後，linked member 才可看見未繳項目並送出付款。

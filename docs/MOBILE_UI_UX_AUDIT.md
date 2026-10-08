@@ -1,5 +1,11 @@
 # 手機 UI/UX 一致性稽核與執行清單
 
+### 2026-10-08 季費補償產生結果提示（待實機驗收）
+
+- 季費補償面板零筆結果顯示持續提示及警告；已審核紀錄不計入成功訊息的待審筆數。產生期間停用月份選擇及重新整理，載入期間停用產生按鈕，保留既有 Element Plus 月份選單及版面。
+- 驗證通過：完整費用計算及直接相關測試 25 files／127 tests、付款 SQL 613 checks（含本次 21 checks × 4 組 LF／CRLF）、型別檢查及 `git diff --check`。正式函式唯讀確認兩個替換區塊各命中一次；此次未進行 build 或手機實機／瀏覽器版面驗收，不代表整個費用頁完成 UI 稽核。前端與日期修正 migration 尚未部署。
+- 1.1.72 升版補驗：全量 264 files／1438 tests、角色／教練／付款 SQL 與 production build 通過；全量測試以 `--maxWorkers 4` 避免本機大量平行執行造成的既有測試逾時。手機實機與瀏覽器版面驗收仍待執行，資料庫 migration 未套用；發布紀錄見 `docs/specs/2026-10-08-quarterly-compensation-dates.md`。
+
 本文件依 `docs/MOBILE_UI_UX_RULES.md` 追蹤登入後 `MainLayout` 頁面的實際調整進度。規則文件是目標規格，本文件是執行帳本；未完成程式修改與視覺驗收前，不得將項目標示為「完成」。
 
 清單新增 `/my-coach-leave-requests` 與 `/coach-leave-requests`，兩路由共用 `CoachLeaveRequestsView`；能力／體測列表與明細各自共用一套實作頁面。

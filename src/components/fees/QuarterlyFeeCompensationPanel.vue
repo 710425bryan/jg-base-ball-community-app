@@ -17,6 +17,7 @@
         <div class="grid gap-2 sm:grid-cols-[minmax(0,12rem)_auto_auto]">
           <el-select
             v-model="selectedMonth"
+            :disabled="isGenerating"
             size="large"
             class="w-full"
             placeholder="選擇月份"
@@ -31,7 +32,7 @@
           <button
             type="button"
             class="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-2 text-sm font-bold text-emerald-700 transition-colors hover:bg-emerald-50 disabled:opacity-60"
-            :disabled="isLoading"
+            :disabled="isLoading || isGenerating"
             @click="loadData"
           >
             <el-icon :class="{ 'is-loading': isLoading }"><Refresh /></el-icon>
@@ -40,7 +41,7 @@
           <button
             type="button"
             class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
-            :disabled="!canEdit || isGenerating || !monthSummary || monthSummary.compensationDays <= 0"
+            :disabled="!canEdit || isLoading || isGenerating || !monthSummary || monthSummary.compensationDays <= 0"
             @click="generateDrafts"
           >
             <el-icon><Calendar /></el-icon>
@@ -91,7 +92,7 @@
       </div>
 
       <div v-if="items.length === 0" class="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-5 text-sm font-bold text-gray-400">
-        目前沒有待審核或已審核的季費補償紀錄。
+        {{ generationAttempted ? '本次未產生補償資料，請確認訓練日期設定與季繳球員資料。' : '目前沒有待審核或已審核的季費補償紀錄。' }}
       </div>
 
       <div v-else class="overflow-x-auto rounded-2xl border border-gray-100">
@@ -208,6 +209,7 @@ import {
   skipQuarterlyFeeCompensationItem
 } from '@/services/quarterlyFeeCompensations'
 import { trainingDatesApi } from '@/services/trainingDatesApi'
+import { DEFAULT_TRAINING_PROGRAM_KEY } from '@/utils/trainingPrograms'
 import type {
   QuarterlyFeeCompensationDefaults,
   QuarterlyFeeCompensationItem
@@ -230,6 +232,7 @@ const canEdit = computed(() => permissionsStore.can('fees', 'EDIT'))
 const selectedMonth = ref(props.startMonth)
 const isLoading = ref(false)
 const isGenerating = ref(false)
+const generationAttempted = ref(false)
 const loadToken = ref(0)
 const items = ref<QuarterlyFeeCompensationItem[]>([])
 const defaults = ref<QuarterlyFeeCompensationDefaults>({
@@ -297,11 +300,13 @@ const loadData = async () => {
   const currentToken = loadToken.value + 1
   loadToken.value = currentToken
   isLoading.value = true
+  generationAttempted.value = false
 
   try {
     const [nextDefaults, monthDates, nextItems] = await Promise.all([
       getQuarterlyFeeCompensationDefaults(),
-      trainingDatesApi.getMonthDates(selectedMonth.value),
+      // Shared season calendar; compensation recipients still use quarterly billing.
+      trainingDatesApi.getMonthDates(selectedMonth.value, { programKey: DEFAULT_TRAINING_PROGRAM_KEY }),
       listQuarterlyFeeCompensationItems({
         periodKey: props.periodKey,
         month: selectedMonth.value
@@ -327,7 +332,7 @@ const loadData = async () => {
 }
 
 const generateDrafts = async () => {
-  if (!canEdit.value || !selectedMonth.value || !monthSummary.value) return
+  if (!canEdit.value || isLoading.value || isGenerating.value || !selectedMonth.value || !monthSummary.value) return
   if (monthSummary.value.compensationDays <= 0) {
     ElMessage.info('本月設定堂數已達基準堂數，不需要補償。')
     return
@@ -340,7 +345,15 @@ const generateDrafts = async () => {
       month: selectedMonth.value
     })
     syncEditableFields()
-    ElMessage.success('已產生待審核補償資料')
+    generationAttempted.value = true
+    const pendingCount = items.value.filter(item => item.status === 'pending').length
+    if (items.value.length === 0) {
+      ElMessage.warning('本次未產生補償資料，請確認訓練日期設定與季繳球員資料。')
+    } else if (pendingCount === 0) {
+      ElMessage.info('本月補償紀錄皆已審核，沒有待審核資料。')
+    } else {
+      ElMessage.success(`已更新待審核補償資料，共 ${pendingCount} 筆`)
+    }
   } catch (error: any) {
     ElMessage.error(error?.message || '產生補償資料失敗')
   } finally {

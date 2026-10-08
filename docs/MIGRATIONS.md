@@ -163,6 +163,7 @@
 | `supabase_player_balance_transactions_migration.sql` | 球員餘額流水帳與付款 RPC 覆寫 | 餘額權威主線 |
 | `supabase_inactive_member_visibility_migration.sql` | 關閉 / 畢業成員繳費名單修正 | `list_my_payment_members()` 不回傳退隊、離隊、關閉 / 畢業成員 |
 | `supabase_quarterly_fee_compensation_migration.sql` | 季費堂數不足補償 | 產生待審核補償單，核准後寫入球員餘額 |
+| `supabase/migrations/20261008050733_quarterly_compensation_training_dates.sql` | 季費補償日期範圍修正 | 產生 RPC 與季費面板共用課表日期，排除其他課程日期，基準固定當月週六數；允許未來月份。局部替換日期區塊並驗證命中數及 LF／CRLF，不改受補償球員條件、季費歸屬、權限、帳款／付款／餘額或已審紀錄。`quarterlyCompensationDates.integration.mjs --newline-matrix` 已納入付款 SQL 回歸。本機完成、尚未部署 |
 | `supabase_zzzzzzzzzzzz_quarterly_payment_open_period_migration.sql` | 季繳付款回報開放期別 | 每季最後一個月 25 日起開放下一季；覆寫付款估算 RPC，新增付款回報 trigger 防止未開放未來季寫入 |
 | `supabase_zzzzzzzzzzzzzz_monthly_payment_open_period_migration.sql` | 月繳付款回報開放期別 | 計次月費只開放已結束月份；固定月繳球員每月 25 日起開放下月，並以 trigger 防止未開放月份寫入 |
 | `supabase_zzzzzzzzzzzzzzzzzzzzzzzzzzzzz_my_home_payment_open_period_migration.sql` | 個人首頁付款待辦開放期別 hotfix | 覆寫 `get_my_home_snapshot()` 欠費摘要，只統計已開放付款的月費 / 季費期別 |

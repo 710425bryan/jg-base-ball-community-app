@@ -316,6 +316,8 @@
 | `src/components/fees/MonthlyFeeProgramTabs.vue` | 月費結算中港總部／國中部切換元件，含人數、44px 點擊區與 ARIA tab 語意 |
 | `src/components/fees/QuarterlyFees.vue` | 季費管理，排除固定月繳、球員計次月費與不收費球員 |
 | `src/components/fees/QuarterlyFeeCompensationPanel.vue` | 季費堂數不足補償試算、待審核與核准 |
+| `src/components/fees/QuarterlyFeeCompensationPanel.test.ts` | 季費未來月份、零筆提示、待審筆數、已審核提示及權限／補課測試 |
+| `tests/database/quarterlyCompensationDates.integration.mjs` | 季費補償日期隔離 SQL 回歸：多課表、一般／折扣、重複產生、未來月份、補課／預設、審核入帳與歷史保留，含 LF／CRLF |
 | `src/components/fees/ProfilePaymentSubmissionInbox.vue` | 個人付款回報金額核對、短繳阻擋、多繳入帳確認與必填退回原因 |
 | `src/components/fees/PlayerBalanceManager.vue` | 球員餘額管理與流水帳 |
 | `src/components/fees/MatchFeeManagementPanel.vue` | 比賽費預設收合、時間排序、開放／關閉（不自動通知）、取消群組刪除與付款狀態 |
