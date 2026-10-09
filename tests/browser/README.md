@@ -1,5 +1,13 @@
 # 教練功能手機瀏覽器回歸
 
+## 帳號停權即時退出回歸
+
+`node tests/browser/verify-account-suspension.mjs [output-directory]` 使用既有本機 `http://127.0.0.1:5174` dev server，可用 `SUSPENSION_TEST_URL` 指定本機網址。實際 App、Pinia、Auth SDK、router 與 LoginModal 不替換；REST/Auth 及 Realtime WebSocket 協定使用隔離資料，其他外部請求阻擋。沒有正式登入、帳號修改或寄信。
+
+390／1365px 兩個獨立登入工作階段同時收到停權 UPDATE，驗證不用重新整理即卸載後台、清掉記憶體及持久 session、回首頁且持續顯示原因；返回首頁後寄碼被拒，Auth OTP 呼叫數為零；重新啟用後可寄碼。量測畫面高度、水平溢出與返回按鈕 44px；輸出截圖與 evidence.json。正式 Realtime publication、真實裝置休眠與網路延遲須另驗，不以本機事件到畫面的時間作正式 SLA。
+
+## 教練功能
+
 從專案根目錄執行：
 
 ```sh

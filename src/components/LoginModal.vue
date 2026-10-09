@@ -55,6 +55,8 @@
                   v-model="email"
                   type="email"
                   aria-label="登入 email"
+                  aria-describedby="email-error"
+                  :aria-invalid="!!emailError"
                   autocomplete="email"
                   autocapitalize="none"
                   :disabled="isBusy"
@@ -63,6 +65,8 @@
                   placeholder="your@email.com"
                 />
               </div>
+
+              <p v-if="emailError" id="email-error" role="alert" class="rounded-xl border border-red-100 bg-red-50 px-3 py-3 text-sm leading-relaxed text-red-600">{{ emailError }}</p>
 
               <button
                 type="submit"
@@ -176,6 +180,7 @@ const emit = defineEmits(['update:modelValue'])
 const router = useRouter()
 const authStore = useAuthStore()
 const email = ref('')
+const emailError = ref('')
 const otpCode = ref('')
 const isLoading = ref(false)
 const isEmailSent = ref(false)
@@ -211,6 +216,7 @@ watch(
   (newValue) => {
     if (!newValue) return
     email.value = ''
+    emailError.value = ''
     otpCode.value = ''
     otpError.value = ''
     isEmailSent.value = false
@@ -227,6 +233,7 @@ const handleLogin = async () => {
 
 const sendOtp = async (targetEmail: string) => {
   isLoading.value = true
+  emailError.value = ''
 
   try {
     await authStore.sendMagicLink(targetEmail)
@@ -241,7 +248,7 @@ const sendOtp = async (targetEmail: string) => {
   } catch (error: unknown) {
     const message = getOtpAuthErrorMessage(error, '寄送驗證碼失敗，請稍後再試。')
     if (isEmailSent.value) otpError.value = message
-    ElMessage.error(message)
+    else emailError.value = message
   } finally {
     isLoading.value = false
   }
@@ -264,6 +271,7 @@ const resetEmailStep = () => {
   isEmailSent.value = false
   otpCode.value = ''
   otpError.value = ''
+  emailError.value = ''
 }
 
 const closeModal = () => {

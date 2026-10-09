@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
+import { flushPromises } from '@vue/test-utils'
 
 const createDeferred = <T,>() => {
   let resolve!: (value: T | PromiseLike<T>) => void
@@ -23,6 +24,12 @@ const passkeyListMock = vi.fn()
 const passkeyUpdateMock = vi.fn()
 const passkeyDeleteMock = vi.fn()
 const rpcMock = vi.fn()
+const accessMonitorCheckMock = vi.fn()
+const accessMonitorStopMock = vi.fn()
+const accessMonitorMock = vi.fn((_id: string, _profile: unknown, _onDenied: (message: string) => void) => ({
+  check: accessMonitorCheckMock, stop: accessMonitorStopMock
+}))
+vi.mock('@/services/profileAccessMonitor', () => ({ createProfileAccessMonitor: accessMonitorMock }))
 const profileSingleMock = vi.fn()
 const profileEqMock = vi.fn(() => ({
   single: profileSingleMock,
@@ -87,6 +94,23 @@ describe('auth store initialization', () => {
     })
     setActivePinia(createPinia())
   })
+  afterEach(() => vi.restoreAllMocks())
+
+  const initializeLastSeenSession = async () => {
+    const session = { access_token: 'last-seen-token', user: { id: 'last-seen-user' } } as any
+    let onAuthChange: (event: string, session: any) => void = () => {}
+    getSessionMock.mockResolvedValue({ data: { session } })
+    profileSingleMock.mockResolvedValue({ data: { id: session.user.id, role: 'MANAGER' }, error: null })
+    permissionsEqMock.mockResolvedValue({ data: [], error: null })
+    onAuthStateChangeMock.mockImplementation(callback => {
+      onAuthChange = callback
+      return { data: { subscription: { unsubscribe: vi.fn() } } }
+    })
+    const { useAuthStore } = await import('@/stores/auth')
+    const store = useAuthStore()
+    await store.ensureInitialized()
+    return { store, emit: () => onAuthChange('TOKEN_REFRESHED', session) }
+  }
 
   it('shares one initialization promise and ignores the mirrored initial auth event', async () => {
     const session = {
@@ -200,6 +224,7 @@ describe('auth store initialization', () => {
     expect(signInWithOtpMock).toHaveBeenCalledWith({
       email: 'test@example.com',
       options: {
+        shouldCreateUser: false,
         emailRedirectTo: window.location.origin
       }
     })
@@ -245,6 +270,101 @@ describe('auth store initialization', () => {
     expect(authStore.profile).toBeNull()
     expect(authStore.isAuthenticated).toBe(false)
     expect(permissionsStore.currentRole).toBe('')
+  })
+
+  it('removes a suspended session immediately, without waiting for sign-out, and ignores a late token event', async () => {
+    const pendingSignOut = createDeferred<any>()
+    signOutMock.mockReturnValueOnce(pendingSignOut.promise)
+    const { store, emit } = await initializeLastSeenSession()
+    const deny = accessMonitorMock.mock.calls.at(-1)![2] as (message: string) => void
+    deny('此帳號已被停權，無法登入系統。')
+    expect(store.isAuthenticated).toBe(false)
+    expect(store.profile).toBeNull()
+    expect(store.accessDeniedMessage).toBe('此帳號已被停權，無法登入系統。')
+    expect(accessMonitorStopMock).toHaveBeenCalledOnce()
+    emit()
+    await flushPromises()
+    expect(store.isAuthenticated).toBe(false)
+    expect(signOutMock).toHaveBeenCalledWith({ scope: 'local' })
+    pendingSignOut.resolve({ error: null })
+    await flushPromises()
+  })
+
+  it('does not revive an old session or clear a new login when an old profile fetch completes', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const pendingProfile = createDeferred<any>()
+    getSessionMock.mockResolvedValue({ data: { session: { user: { id: 'old-user' } } } })
+    profileSingleMock.mockReturnValueOnce(pendingProfile.promise)
+    const { useAuthStore } = await import('@/stores/auth')
+    const store = useAuthStore()
+    const initialization = store.ensureInitialized()
+    await flushPromises()
+    await store.signOut()
+    verifyOtpMock.mockResolvedValueOnce({ data: { session: { user: { id: 'new-user' } } }, error: null })
+    profileSingleMock.mockResolvedValueOnce({ data: { id: 'new-user', role: 'PARENT', is_active: true }, error: null })
+    await store.verifyOtpCode('new@example.com', '12345678')
+    pendingProfile.resolve({ data: { id: 'old-user', role: 'ADMIN', is_active: true }, error: null })
+    await initialization
+    expect(store.isAuthenticated).toBe(true)
+    expect(store.profile.id).toBe('new-user')
+    expect(accessMonitorMock).toHaveBeenCalledOnce()
+  })
+
+  it('checks current access on token refresh and ignores callbacks from a previous session', async () => {
+    const { store, emit } = await initializeLastSeenSession()
+    const previousDeny = accessMonitorMock.mock.calls.at(-1)![2] as (message: string) => void
+    emit()
+    await flushPromises()
+    expect(accessMonitorCheckMock).toHaveBeenCalledOnce()
+    await store.signOut()
+    await store.ensureInitialized()
+    previousDeny('old suspension')
+    expect(store.isAuthenticated).toBe(true)
+    expect(store.accessDeniedMessage).toBe('')
+    store.$dispose()
+    expect(accessMonitorStopMock).toHaveBeenCalledTimes(2)
+  })
+
+  it.each([false, null, 'true', { allowed: true }])('never sends mail unless the preflight is explicitly true (%s)', async canRequest => {
+    rpcMock.mockResolvedValue({ data: canRequest, error: null })
+    const { useAuthStore } = await import('@/stores/auth')
+    await expect(useAuthStore().sendMagicLink('suspended@example.com')).rejects.toThrow('已停權')
+    expect(signInWithOtpMock).not.toHaveBeenCalled()
+  })
+
+  it('does not restore login or dismiss the notice when an OTP profile response arrives after suspension', async () => {
+    const { store } = await initializeLastSeenSession()
+    const deny = accessMonitorMock.mock.calls.at(-1)![2]
+    const pendingProfile = createDeferred<any>()
+    profileSingleMock.mockReturnValueOnce(pendingProfile.promise)
+    verifyOtpMock.mockResolvedValueOnce({ data: { session: { user: { id: 'last-seen-user' } } }, error: null })
+    const verification = store.verifyOtpCode('test@example.com', '12345678')
+    const rejected = expect(verification).rejects.toThrow('已被停權')
+    await flushPromises()
+    deny('此帳號已被停權，無法登入系統。')
+    pendingProfile.resolve({ data: { id: 'last-seen-user', is_active: true }, error: null })
+    await rejected
+    expect(store.isAuthenticated).toBe(false)
+    expect(store.accessDeniedMessage).toContain('已被停權')
+  })
+
+  it('does not expose protected UI if a persisted session cannot load its profile', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    getSessionMock.mockResolvedValue({ data: { session: { user: { id: 'offline-user' } } } })
+    profileSingleMock.mockResolvedValueOnce({ data: null, error: new Error('offline') })
+    const { useAuthStore } = await import('@/stores/auth')
+    const store = useAuthStore()
+    await store.ensureInitialized()
+    expect(store.isAuthenticated).toBe(false)
+    expect(store.accessDeniedMessage).toBe('')
+    expect(signOutMock).not.toHaveBeenCalled()
+  })
+
+  it('does not call Auth OTP when the preflight query fails, even with truthy data', async () => {
+    rpcMock.mockResolvedValue({ data: true, error: new Error('network error') })
+    const { useAuthStore } = await import('@/stores/auth')
+    await expect(useAuthStore().sendMagicLink('test@example.com')).rejects.toThrow('未寄送驗證碼')
+    expect(signInWithOtpMock).not.toHaveBeenCalled()
   })
 
   it('verifies formatted OTP input with the same normalized email used for sending', async () => {

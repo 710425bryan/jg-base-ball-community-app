@@ -143,6 +143,31 @@ describe('LoginModal OTP recovery', () => {
     return wrapper
   }
 
+  it('keeps a denied send on the email form with a persistent accessible error', async () => {
+    authStoreMock.sendMagicLink.mockRejectedValueOnce(new Error('此信箱不存在、已停權或不在可登入時間內，無法登入。'))
+    const wrapper = await openEmailStep()
+    expect(wrapper.get('#email-error').text()).toContain('已停權')
+    expect(wrapper.get('input[type="email"]').attributes('aria-invalid')).toBe('true')
+    expect(wrapper.find('input[autocomplete="one-time-code"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('驗證碼已寄出')
+    expect(routerPushMock).not.toHaveBeenCalled()
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    expect(wrapper.find('#email-error').exists()).toBe(false)
+    expect(wrapper.text()).toContain('驗證碼已寄出')
+  })
+
+  it('shows suspension when resend is rejected, without presenting a new success', async () => {
+    const wrapper = await openEmailStep()
+    await vi.advanceTimersByTimeAsync(60_000)
+    authStoreMock.sendMagicLink.mockRejectedValueOnce(new Error('此信箱不存在、已停權或不在可登入時間內，無法登入。'))
+    await wrapper.findAll('button').find(button => button.text() === '重新寄送驗證碼')!.trigger('click')
+    await flushPromises()
+    expect(wrapper.get('#otp-error').text()).toContain('已停權')
+    expect(wrapper.text()).not.toContain('60 秒後')
+    expect(routerPushMock).not.toHaveBeenCalled()
+  })
+
   it('shows an actionable persistent error and resends to the normalized address after cooldown', async () => {
     authStoreMock.verifyOtpCode.mockRejectedValueOnce({ code: 'otp_expired', message: 'Token has expired or is invalid' })
     const wrapper = await openEmailStep()

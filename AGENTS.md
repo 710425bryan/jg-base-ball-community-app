@@ -140,6 +140,8 @@
 - 登入使用 magic link / OTP；登入前 email 檢查走 `can_request_magic_link()`，不可匿名直查 `profiles`。
 - OTP 寄碼／驗證共用 `src/utils/otpLogin.ts` 正規化 email 與 8 碼數字，驗證成功需取得 session 才繼續 profile 檢查；`LoginModal` 提供中文失效提示、60 秒 UI 冷卻後重新寄碼與重複送出保護，Supabase Auth 仍決定有效期與頻率限制。
 - `src/stores/auth.ts` 負責 session、profile、last seen、role permissions hydration。
+- 停權即時退出由 `src/services/profileAccessMonitor.ts` 只訂閱本人 `profiles.id` 的 UPDATE；收到拒絕狀態先清除本機帳號／權限、卸載後台，由 `App` 跳過未儲存草稿阻擋導回首頁並顯示 `AuthAccessNotice`。訂閱成功、token 更新、回前景／網路恢復與前景 30 秒備援重新確認；舊 session／權限回應不得恢復登入，網路錯誤不視為停權。`20261009134852_immediate_profile_suspension.sql` 須先啟用 profiles publication，2026-10-09 發布前唯讀確認正式 publication 已啟用（history 未記錄本檔），前端隨 1.1.73 發布；離線／凍結裝置需恢復後才能收到事件。
+- 初次寄碼／重新寄碼只接受 `can_request_magic_link()` 明確回傳 true；false／查詢錯誤皆不呼叫 Auth OTP，`shouldCreateUser: false` 不開放自動建立帳號。LoginModal 在 email／OTP 欄位旁持續顯示錯誤。App 的已登入狀態必須有同一使用者且允許存取的 profile；初始化讀取失敗只清除記憶體狀態、保留可重試的持久 session，不顯示受保護頁面。
 - `src/stores/permissions.ts` 從 `app_role_permissions` 讀取 feature/action；`ADMIN` 有前端 bypass。
 - `permissionsStore.can()`、按鈕顯示、router guard 只算 UX 控制，不是資料安全邊界。
 - 真正安全邊界在 DB RLS、policy、`security definer` RPC、Edge Function 驗證。

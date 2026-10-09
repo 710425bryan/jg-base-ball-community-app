@@ -49,6 +49,8 @@
 | `src/layouts/PublicLayout.vue` | 公開頁 header / footer / login 入口 |
 | `src/layouts/MainLayout.vue` | 登入後導覽、通知中心、手機選單、底部導覽，以及登出前頁面草稿確認 |
 | `src/components/LoginModal.vue` | magic link / OTP 登入 UI、失效提示與冷卻後重新寄碼 |
+| `src/components/AuthAccessNotice.vue` | 停權／存取期間失效後的持續登出說明與返回首頁 |
+| `src/services/profileAccessMonitor.ts` | 本人 profile Realtime UPDATE、前景／重連／token／備援查詢與期間失效檢查 |
 | `src/components/PushSettingsDialog.vue` | Web Push 訂閱設定 |
 | `src/components/RolePermissionsManager.vue` | 角色與 feature/action 權限管理；新增角色可選複製來源，ADMIN 不可複製 |
 | `src/components/RoleSortEditor.vue` | 桌面選取角色與手機 Drawer 共用的排序數字欄位／保存操作，包含系統角色 |

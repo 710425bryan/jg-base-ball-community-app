@@ -8,8 +8,10 @@ export const usePermissionsStore = defineStore('permissions', () => {
   const roles = ref<any[]>([])
   const isLoading = ref(false)
   const currentRole = ref<string>('')
+  let permissionsRequestId = 0
 
   const fetchPermissions = async (roleKey: string) => {
+    const requestId = ++permissionsRequestId
     isLoading.value = true
     currentRole.value = roleKey
 
@@ -25,12 +27,14 @@ export const usePermissionsStore = defineStore('permissions', () => {
         .eq('role_key', roleKey)
       
       if (error) throw error
+      if (requestId !== permissionsRequestId) return
       permissions.value = data || []
     } catch (err) {
+      if (requestId !== permissionsRequestId) return
       console.error('Failed to fetch permissions', err)
       permissions.value = []
     } finally {
-      isLoading.value = false
+      if (requestId === permissionsRequestId) isLoading.value = false
     }
   }
 

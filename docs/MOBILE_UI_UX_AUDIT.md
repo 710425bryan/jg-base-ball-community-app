@@ -1,5 +1,11 @@
 # 手機 UI/UX 一致性稽核與執行清單
 
+### 2026-10-09 停權即時退出與登入寄碼阻擋（本機完成，待實機／部署驗收）
+
+- `AuthAccessNotice` 在收到停權事件後取代後台，顯示「已自動登出」與原因、管理員聯絡指引及至少 44px 的返回首頁按鈕；使用 viewport 高度與 safe-area padding。`LoginModal` 的 email 拒絕原因留在欄位旁，明確指出未寄送驗證碼；保留公開登入既有原生 email／OTP 控制與品牌卡片。
+- 390／1365px 兩個獨立瀏覽器 session 使用真實 App／SDK 與隔離 REST/Auth/Realtime 協定，確認無 reload 退出、後台 DOM 卸載、session 清除、持續提示、停權寄碼零 OTP 請求、重新啟用可寄碼、無水平溢出與 pageerror。截圖：`/Users/bryan/.codex/visualizations/2026/10/09/01a120e3-8a3e-7261-94ef-a55fec8a5d7a/suspension-update/`。
+- 267 files／1474 Vitest tests、既有獨立 Node 測試 13 tests、新增停權 SQL 14 checks、角色／教練／付款 SQL 與 build 通過。原本 Node 測試被全量 Vitest 收入的 runner 問題保留並分別驗證，詳見 `docs/specs/2026-10-09-immediate-account-suspension.md`。1.1.73 發布前唯讀確認正式 publication 已啟用，前端部署另以 CI／Vercel 結果驗收；實體 iPhone／Android 背景凍結與真實網路待驗收。
+
 ### 2026-10-08 季費補償產生結果提示（待實機驗收）
 
 - 季費補償面板零筆結果顯示持續提示及警告；已審核紀錄不計入成功訊息的待審筆數。產生期間停用月份選擇及重新整理，載入期間停用產生按鈕，保留既有 Element Plus 月份選單及版面。

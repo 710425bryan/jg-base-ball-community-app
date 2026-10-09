@@ -32,6 +32,7 @@
 | `supabase_zzzzzzzzzzzzzzzzzzzzzzzzz_team_members_safe_security_hardening_migration.sql` | 球員安全 view / RLS / 欄位權限 hardening | 最後部署；`security_invoker`、linked scope、撤銷 raw table 整表 SELECT |
 | `supabase_zzzzzzzzzzzzzzzzzzzzzzzzzz_team_members_safe_role_scope_hotfix.sql` | 收斂安全球員名單的全隊可見權限 | 只有 `players:VIEW`、`players:EDIT` 或 ADMIN 可看全隊；一般 linked user 僅看綁定球員 |
 | `supabase_profile_access_control_migration.sql` | profile access state / 登入可用性 | 影響 auth store 與登入限制 |
+| `supabase/migrations/20261009134852_immediate_profile_suspension.sql` | profiles 加入 Realtime publication，供本人接收停權 UPDATE | 本機隔離 SQL 14 checks 通過；2026-10-09 發布前唯讀確認正式 profiles publication 已啟用、原 self SELECT policy 保留，history 無本檔，不能推定整檔已套用；本次不重套 SQL。保留原 self/admin SELECT RLS 與 grants。post-check 確認 publication membership 及停權 self row 仍可讀；不修改 managed Auth table 或寄信設定 |
 | `supabase_profiles_personal_settings_migration.sql` | 個人設定與大頭照欄位 / RPC | 搭配 profile settings |
 | `supabase_profiles_personal_settings_function_fix_migration.sql` | 個人設定 function 修正 | 覆寫個人設定 RPC 時必讀 |
 | `supabase_profiles_binding_last_seen_migration.sql` | linked member / last seen 相關補強 | 影響個人功能可見性 |

@@ -1,11 +1,12 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, onScopeDispose } from 'vue'
 import { supabase } from '@/services/supabase'
 import type { User, Session } from '@supabase/supabase-js'
 import { usePermissionsStore } from './permissions'
 import { getProfileAccessState } from '@/utils/profileAccess'
 import { isSupabasePasskeyApiAvailable } from '@/utils/passkeySupport'
 import { isValidOtpCode, normalizeLoginEmail, normalizeOtpCode } from '@/utils/otpLogin'
+import { createProfileAccessMonitor } from '@/services/profileAccessMonitor'
 
 const LAST_SEEN_SYNC_INTERVAL_MS = 5 * 60 * 1000
 const PASSKEY_API_UNAVAILABLE_MESSAGE =
@@ -36,16 +37,32 @@ export const useAuthStore = defineStore('auth', () => {
   const session = ref<Session | null>(null)
   const profile = ref<any | null>(null)
   const isInitializing = ref(true)
+  const accessDeniedMessage = ref('')
 
-  const isAuthenticated = computed(() => !!user.value)
+  const isAuthenticated = computed(() => Boolean(
+    user.value && profile.value?.id === user.value.id && getProfileAccessState(profile.value).allowed
+  ))
   const isPasskeyApiAvailable = computed(() => isSupabasePasskeyApiAvailable(supabase.auth))
   const permissionsStore = usePermissionsStore()
 
   let initializationPromise: Promise<void> | null = null
   let authStateSubscription: { unsubscribe: () => void } | null = null
   let hydratedProfileUserId: string | null = null
+  let authGeneration = 0
+  let accessMonitor: ReturnType<typeof createProfileAccessMonitor> | null = null
+  let monitoredUserId: string | null = null
+  let rejectedUserId: string | null = null
+  let revocationPromise: Promise<void> | null = null
+
+  const stopAccessMonitor = () => {
+    accessMonitor?.stop()
+    accessMonitor = null
+    monitoredUserId = null
+  }
 
   const clearLocalAuthContext = async () => {
+    stopAccessMonitor()
+    authGeneration += 1
     session.value = null
     user.value = null
     profile.value = null
@@ -59,25 +76,57 @@ export const useAuthStore = defineStore('auth', () => {
   const fetchProfile = async (userId: string) => {
     const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single()
     if (error) throw error
-    profile.value = data || null
-    return profile.value
+    return data || null
   }
 
-  const rejectInvalidProfileAccess = async () => {
+  const invalidateAccess = (message: string, showNotice = false): Promise<void> => {
+    if (showNotice) accessDeniedMessage.value = message
+    if (revocationPromise) return revocationPromise
+    rejectedUserId = user.value?.id ?? rejectedUserId
+    // Clear the protected UI before waiting for any Auth/network request.
+    const cleared = clearLocalAuthContext()
+    revocationPromise = (async () => {
+      await cleared
+      try {
+        await supabase.auth.signOut({ scope: 'local' })
+      } catch (error) {
+        console.warn('Unable to finish revoked session sign-out', error)
+      }
+    })().finally(() => { revocationPromise = null })
+    return revocationPromise
+  }
+
+  const rejectInvalidProfileAccess = async (showNotice = false) => {
     const accessState = getProfileAccessState(profile.value)
 
     if (accessState.allowed) {
       return
     }
 
-    try {
-      await supabase.auth.signOut()
-    } finally {
-      await clearLocalAuthContext()
-    }
-
+    await invalidateAccess(accessState.message, showNotice)
     throw new Error(accessState.message)
   }
+
+  const startAccessMonitor = () => {
+    const userId = user.value?.id
+    if (!userId || monitoredUserId === userId) return
+    stopAccessMonitor()
+    const generation = authGeneration
+    monitoredUserId = userId
+    const monitor = createProfileAccessMonitor(userId, profile.value, message => {
+      if (generation === authGeneration && user.value?.id === userId) {
+        void invalidateAccess(message, true)
+      }
+    })
+    if (generation === authGeneration) accessMonitor = monitor
+    else monitor.stop()
+  }
+
+  onScopeDispose(() => {
+    authGeneration += 1
+    stopAccessMonitor()
+    authStateSubscription?.unsubscribe()
+  })
 
   const maybeTouchLastSeen = async (userId: string) => {
     const cachedLastSeenAt = lastSeenSyncCache.get(userId) ?? 0
@@ -108,8 +157,13 @@ export const useAuthStore = defineStore('auth', () => {
 
   const syncAuthContext = async (
     nextSession: Session | null,
-    options: { forceProfileReload?: boolean } = {}
+    options: { forceProfileReload?: boolean; showAccessNotice?: boolean } = {}
   ) => {
+    if (nextSession?.user.id === rejectedUserId && !options.forceProfileReload) return
+    if (user.value?.id !== nextSession?.user.id) {
+      stopAccessMonitor()
+      authGeneration += 1
+    }
     session.value = nextSession
     user.value = nextSession?.user ?? null
 
@@ -117,32 +171,56 @@ export const useAuthStore = defineStore('auth', () => {
       await clearLocalAuthContext()
       return
     }
+    const contextUserId = user.value.id
+    const contextGeneration = authGeneration
+    const assertCurrentContext = () => {
+      if (contextGeneration !== authGeneration || user.value?.id !== contextUserId) {
+        throw new Error(accessDeniedMessage.value || '登入狀態已變更，請重新登入。')
+      }
+    }
 
     const shouldReloadProfile =
       options.forceProfileReload || hydratedProfileUserId !== user.value.id || !profile.value
 
     if (shouldReloadProfile) {
-      await fetchProfile(user.value.id)
-      hydratedProfileUserId = user.value.id
+      let nextProfile
+      try {
+        nextProfile = await fetchProfile(contextUserId)
+      } catch (error) {
+        // Preserve the stored session for retry, but fail closed in this UI.
+        // An old request must never clear a newer account's context.
+        if (contextGeneration === authGeneration && user.value?.id === contextUserId) {
+          await clearLocalAuthContext()
+        }
+        throw error
+      }
+      assertCurrentContext()
+      profile.value = nextProfile
+      hydratedProfileUserId = contextUserId
     }
 
-    await rejectInvalidProfileAccess()
+    await rejectInvalidProfileAccess(options.showAccessNotice)
+    assertCurrentContext()
+    rejectedUserId = null
 
     const nextRole = profile.value?.role || ''
     if (permissionsStore.currentRole !== nextRole) {
       await permissionsStore.fetchPermissions(nextRole)
     }
 
-    void maybeTouchLastSeen(user.value.id)
+    assertCurrentContext()
+    startAccessMonitor()
+    void maybeTouchLastSeen(contextUserId)
   }
 
   const registerAuthStateListener = () => {
     if (authStateSubscription) return
 
-    const { data } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data } = supabase.auth.onAuthStateChange((event, newSession) => {
       void syncAuthContext(newSession).catch((error) => {
         console.warn('Failed to sync auth state', error)
       })
+      if (event === 'TOKEN_REFRESHED') void accessMonitor?.check()
     })
 
     authStateSubscription = data.subscription
@@ -156,7 +234,7 @@ export const useAuthStore = defineStore('auth', () => {
         data: { session: existingSession }
       } = await supabase.auth.getSession()
 
-      await syncAuthContext(existingSession, { forceProfileReload: true })
+      await syncAuthContext(existingSession, { forceProfileReload: true, showAccessNotice: true })
     } catch (error) {
       console.error('Failed to initialize auth', error)
     } finally {
@@ -182,13 +260,14 @@ export const useAuthStore = defineStore('auth', () => {
       p_email: normalizedEmail
     })
 
-    if (permissionError || !canRequest) {
-      throw new Error('此信箱不存在、已停權或不在可登入時間內，無法登入。')
+    if (permissionError || canRequest !== true) {
+      throw new Error('此信箱不存在、已停權或不在可登入時間內，無法登入。未寄送驗證碼，請聯絡管理員。')
     }
 
     const { error } = await supabase.auth.signInWithOtp({ 
       email: normalizedEmail,
       options: {
+        shouldCreateUser: false,
         emailRedirectTo: window.location.origin
       }
     })
@@ -200,6 +279,7 @@ export const useAuthStore = defineStore('auth', () => {
       throw new Error('請輸入完整的 8 碼數字驗證碼。')
     }
 
+    await revocationPromise
     const { data, error } = await supabase.auth.verifyOtp({
       email: normalizeLoginEmail(email),
       token: normalizeOtpCode(token),
@@ -209,6 +289,7 @@ export const useAuthStore = defineStore('auth', () => {
     if (!data.session) throw new Error('登入未完成，請重新寄送驗證碼後再試。')
     
     await syncAuthContext(data.session, { forceProfileReload: true })
+    accessDeniedMessage.value = ''
     
     return data
   }
@@ -222,6 +303,7 @@ export const useAuthStore = defineStore('auth', () => {
   const signInWithPasskey = async () => {
     assertPasskeyApiAvailable()
 
+    await revocationPromise
     const { data, error } = await supabase.auth.signInWithPasskey()
     if (error) throw error
 
@@ -230,6 +312,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     await syncAuthContext(data.session, { forceProfileReload: true })
+    accessDeniedMessage.value = ''
 
     return data
   }
@@ -287,6 +370,7 @@ export const useAuthStore = defineStore('auth', () => {
     session,
     profile,
     isInitializing,
+    accessDeniedMessage,
     isAuthenticated,
     isPasskeyApiAvailable,
     initializeAuth,

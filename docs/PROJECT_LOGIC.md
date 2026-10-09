@@ -101,6 +101,11 @@ UI 約定：
 5. 登入前 email 檢查走 `can_request_magic_link()` RPC。
 6. `touch_profile_last_seen()` 用於更新最後上線時間。
 7. `LoginModal` 的寄碼／驗證共用 `otpLogin.ts` 正規化 email 與 8 碼數字（保留前導零、整理貼上空白／全形數字、不截斷超長輸入）；OTP 驗證必須取得 session 才繼續 profile 與權限檢查。失效／錯誤驗證碼顯示中文 inline 提示，可重新寄送，成功寄碼後有 60 秒 UI 冷卻，實際頻率與有效期仍由 Supabase Auth 決定；請求期間阻擋重複送出與切換 email。
+8. 本人 `profiles.id` UPDATE 由 `profileAccessMonitor.ts` 透過 Realtime 監聽；拒絕存取時，auth store 先清空記憶體帳號／profile／權限，App 卸載受保護畫面、跳過未儲存草稿阻擋導回首頁並顯示持續的 `AuthAccessNotice`，再完成本機 session signOut。重新登入必須再次取得有效 profile，晚到的登入／權限請求不可恢復先前授權。
+9. Monitor 在訂閱成功、token 更新、回前景、online、pageshow 與前景 30 秒備援檢查本人狀態，合併執行中查詢；Realtime 新事件優先於舊查詢回應。有效期間結束設本機 timer。登出／切換帳號／store dispose 清理監聽，暫時網路失敗不冒充停權。
+10. 寄碼與重新寄碼只接受既有 `can_request_magic_link()` 明確 true，否則不呼叫 Auth OTP 並在欄位旁顯示「未寄送驗證碼」。Auth 寄碼使用 `shouldCreateUser: false`，既有 UsersView 仍先建立 Auth 帳號再寫 profile。初始化讀不到 profile 時不呈現後台，保留持久 session 供恢復後重試。
+
+2026-10-09 本機實作及隔離驗證，前端隨 1.1.73 發布。即時事件需要 `20261009134852_immediate_profile_suspension.sql` 的 profiles publication；發布前唯讀確認正式已啟用、原 self SELECT policy 保留，history 未記錄本檔，因此本次不重套 SQL。migration 只加入 profiles publication、不修改 RLS 或 grants。已連線的新版客戶端接收事件後立即退場；離線／系統凍結須待恢復。此機制不等於 Auth server ban 或全資料層撤銷 JWT；既有直接 Data API／Auth API 權限邊界不以 UI 登出代替。
 
 重要規則：
 

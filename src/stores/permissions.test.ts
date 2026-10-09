@@ -35,6 +35,21 @@ describe('permissions store', () => {
     expect(store.can('anything', 'DELETE')).toBe(true)
   })
 
+  it('does not restore revoked permissions from a late response or overwrite the next account', async () => {
+    let resolveOld!: (value: any) => void
+    mocks.eq.mockImplementationOnce(() => new Promise(resolve => { resolveOld = resolve }))
+    const store = usePermissionsStore()
+    const pending = store.fetchPermissions('MANAGER')
+    await store.fetchPermissions('')
+    await store.fetchPermissions('PARENT')
+    resolveOld({ data: [{ feature: 'users', action: 'EDIT' }], error: null })
+    await pending
+    expect(store.currentRole).toBe('PARENT')
+    expect(store.permissions).toEqual([])
+    expect(store.can('users', 'EDIT')).toBe(false)
+    expect(store.isLoading).toBe(false)
+  })
+
   it('sorts fetched roles by weight then key, and refreshes order after an edit', async () => {
     const store = usePermissionsStore()
     const rows = [{ role_key: 'FINANCE', weight: 20 }, { role_key: 'COACH', weight: 16 }, { role_key: 'ADMIN', weight: 1 }]

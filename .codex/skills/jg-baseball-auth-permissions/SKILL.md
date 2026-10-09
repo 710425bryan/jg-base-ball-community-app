@@ -27,6 +27,11 @@ description: "Role-based auth and permission workflow for jg-base-ball-community
 
 ## Auth 守則
 
+- 即時停權由 `profileAccessMonitor.ts` 只訂閱本人 `profiles.id` UPDATE，需先部署 `20261009134852_immediate_profile_suspension.sql` 開啟 publication；不可放寬 self/admin SELECT RLS。前景／重連／token／30 秒備援查詢與 access_end timer 補漏，請求須合併、可停止且隔離舊 session 回應；網路失敗不能冒充停權。
+- 拒絕存取先清本機帳號及權限、卸載受保護 outlet，再 signOut；App 必須跳過草稿確認導回首頁並顯示 `AuthAccessNotice`。`permissions.fetchPermissions` 的舊請求也不得覆蓋清空／新帳號的權限。初始化尚未取得同帳號有效 profile 時不能視為已登入，失敗保留可重試的持久 session。
+- 寄碼／重新寄碼都必須等 `can_request_magic_link` 明確 true 才呼叫 Auth OTP；使用 `shouldCreateUser: false`，欄位旁持續顯示拒絕原因。不得為測試向真實帳號寄碼。應用退出不等於 server ban 或所有資料 API 的 JWT 撤銷；離線或凍結裝置只能恢復後處理。
+- 回歸：`profileAccessMonitor.test.ts`、`auth.test.ts`、`permissions.test.ts`、`App.test.ts`、`LoginModal.test.ts`、`AuthAccessNotice.test.ts`、`profileAccess.test.ts`、`router/index.test.ts`；SQL `node tests/database/immediateProfileSuspension.integration.mjs`；瀏覽器 `node tests/browser/verify-account-suspension.mjs`（需本機 dev server，API／Realtime 全部隔離）。
+
 - 保留 `ensureInitialized()` 與 direct navigation 初始化流程。
 - 保留 `syncAuthContext()` 內的 profile hydration 與 role reload 行為。
 - 保留 magic link 僅允許 `profiles` 內既有 email 的限制。
