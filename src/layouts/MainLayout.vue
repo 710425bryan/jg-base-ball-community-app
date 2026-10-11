@@ -129,7 +129,7 @@
                   <span class="text-sm font-extrabold text-gray-800 leading-tight truncate max-w-[9rem]">{{ currentUserDisplayName }}</span>
                   <div class="flex items-center gap-1.5 mt-0.5">
                     <span class="text-[10px] text-gray-500 font-bold bg-gray-100/80 px-1.5 py-0.5 rounded border border-gray-200 leading-none" title="系統版本">v{{ appVersion }}</span>
-                    <span class="text-xs text-primary font-bold truncate max-w-[6rem]">{{ translateRole(authStore.profile?.role) }}</span>
+                    <span class="text-xs text-primary font-bold truncate max-w-[6rem]">{{ accountRoleName }}</span>
                   </div>
                 </div>
                 <el-icon class="text-gray-400 shrink-0"><ArrowDown /></el-icon>
@@ -207,7 +207,7 @@
              </div>
              <div class="flex flex-col min-w-0">
                <span class="text-base font-extrabold text-gray-800 truncate">{{ currentUserDisplayName }}</span>
-               <span class="text-sm text-primary font-bold mt-0.5">{{ translateRole(authStore.profile?.role) }}</span>
+               <span class="text-sm text-primary font-bold mt-0.5">{{ accountRoleName }}</span>
              </div>
            </div>
            <span class="text-[10px] text-gray-500 font-bold bg-white px-2 py-1 rounded-md border border-gray-200 shadow-sm tracking-wide">v{{ appVersion }}</span>
@@ -375,7 +375,9 @@ import { useReadableTextMode } from '@/composables/useReadableTextMode';
 import { runWithUnsavedChangesConfirmation } from '@/composables/useUnsavedChangesGuard';
 import { useForegroundRefresh } from '@/composables/useForegroundRefresh';
 import { isActiveCoachProfile } from '@/utils/coachLeaveRequests';
+import { getAppRoleDisplayName } from '@/utils/appRoleDisplay';
 import { useVersionCheck } from '@/composables/useVersionCheck';
+import { useAppRoleNames } from '@/composables/useAppRoleNames';
 import { buildNotificationFeedItemId, type NotificationFeedItem, type NotificationFeedRow, type NotificationSource } from '@/types/dashboard';
 import { buildSiblingGroupMap, normalizeSiblingIds } from '@/utils/siblingGroups'
 import {
@@ -400,6 +402,7 @@ const router = useRouter();
 const route = useRoute();
 const authStore = useAuthStore();
 const permissionsStore = usePermissionsStore();
+useAppRoleNames();
 const { isReadableTextMode, setReadableTextMode, toggleReadableTextMode } = useReadableTextMode();
 const {
   notifications,
@@ -514,6 +517,12 @@ const translateRole = (role: string | undefined) => {
   }
   return role ? map[role] || role : '未知權限'
 }
+
+const accountRoleName = computed(() => getAppRoleDisplayName(
+  authStore.profile?.role,
+  permissionsStore.roles,
+  translateRole(authStore.profile?.role)
+));
 
 const handleSignOut = async () => {
   isMobileMenuOpen.value = false;

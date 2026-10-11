@@ -758,6 +758,7 @@ import {
   type GuardianAccountSyncInput,
   type GuardianAccountSyncRow
 } from '@/utils/playerSync'
+import { GENERAL_MEMBER_ROLE_FALLBACK, resolveGeneralMemberRoleKeyFromRoles } from '@/utils/guardianAccountRole'
 import { normalizeSiblingIds } from '@/utils/siblingGroups'
 import {
   buildSiblingHalfPriceCleanupIds,
@@ -855,8 +856,6 @@ const PLAYER_SYNC_REQUIRED_HEADERS = [
   '肖像授權同意權'
 ]
 const DEFAULT_SYNC_USER_PASSWORD = '123456'
-const GENERAL_MEMBER_ROLE_FALLBACK = 'MEMBER'
-const GENERAL_MEMBER_ROLE_CANDIDATE_KEYS = ['MEMBER', 'PARENT', 'GENERAL_MEMBER']
 const DEFAULT_U_LEVEL_OPTIONS = ['U12', 'U11', 'U10', 'U9', 'U8']
 const DEFAULT_EXISTING_MEMBER_JOINED_DATE = '2026-02-01'
 const teamGroupOptions = computed(() => teamGroupsStore.options)
@@ -1590,25 +1589,13 @@ type GuardianAccountSyncResult = {
   skippedAuthDuplicate: number
 }
 
-const resolveGeneralMemberRoleKeyFromRoles = (roles: any[]) => {
-  const exactRole = roles.find((role) => role.role_name === '一般成員')
-  if (exactRole?.role_key) return exactRole.role_key
-
-  for (const candidateKey of GENERAL_MEMBER_ROLE_CANDIDATE_KEYS) {
-    const candidateRole = roles.find((role) => role.role_key === candidateKey)
-    if (candidateRole?.role_key) return candidateRole.role_key
-  }
-
-  return ''
-}
-
 const resolveGeneralMemberRoleKey = async () => {
   const currentRoleKey = resolveGeneralMemberRoleKeyFromRoles(permissionsStore.roles)
   if (currentRoleKey) return currentRoleKey
 
   const { data, error } = await supabase
     .from('app_roles')
-    .select('role_key, role_name')
+    .select('role_key')
     .order('weight', { ascending: true })
 
   if (error) {

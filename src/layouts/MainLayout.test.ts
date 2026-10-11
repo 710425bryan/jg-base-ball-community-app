@@ -4,6 +4,15 @@ import { describe, expect, it } from 'vitest'
 const source = readFileSync(new URL('./MainLayout.vue', import.meta.url), 'utf8')
 
 describe('MainLayout team member notification security', () => {
+  it('uses saved account role names for both menus while leaving player identity labels unchanged', () => {
+    expect(source).toContain('useAppRoleNames();')
+    expect(source.match(/\{\{ accountRoleName \}\}/g)).toHaveLength(2)
+    expect(source).toContain('const accountRoleName = computed(() => getAppRoleDisplayName(')
+    expect(source).toContain('permissionsStore.roles,')
+    expect(source).toContain('translateRole(authStore.profile?.role)')
+    expect(source).toContain('translateRole(member.role)')
+  })
+
   it('gates own coach leave by coach identity and keeps notifications in the backend', () => {
     expect(source).toContain("isActiveCoachProfile(authStore.profile) && permissionsStore.can('my_coach_leave_requests', 'VIEW')")
     expect(source).toContain("permissionsStore.can('coach_leave_requests', 'VIEW')")

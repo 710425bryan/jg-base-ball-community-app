@@ -38,6 +38,8 @@ description: "Player roster, users, profile binding, team groups, roster cache, 
 - 使用者主檔存在 `profiles`，綁定球員使用 `profiles.linked_team_member_ids`。
 - 使用者新增 / 更新 / 刪除優先走 `admin_insert_profile()`、`admin_update_profile()`、`admin_delete_user()`。
 - 使用者名單表格／卡片共用 `src/utils/userRoleOrder.ts`，依 `app_roles.weight` 升冪、相同數字依 `role_key` 排序；未知角色或缺值使用 99，不依角色名稱插隊。數字由「角色與權限設定」的 `RoleSortEditor` 手動保存，系統／自訂角色都可調整；`rolesApi.updateAppRoleWeight()` 走有效 ADMIN 的 SECURITY INVOKER RPC `update_app_role_weight()`，只更新顯示數字，不改角色授權。保存成功先以 RPC 結果同步元件與 permission store 角色清單，再重新查詢；後續載入失敗仍保留新排序。修改時跑 `userRoleOrder.test.ts`、`UsersView.test.ts` 及 auth skill 的排序回歸。
+- 「角色與權限設定」可透過 `RoleNameEditor` 修改「顯示名稱 (中文)」，識別碼唯讀。`rolesApi.updateAppRoleName()` 呼叫 `update_app_role_name(p_role_key, p_role_name)`，限有效 ADMIN、SECURITY INVOKER 沿用 RLS；系統／自訂角色均可改，去除首尾空白、名稱必填且最多 100 字，只更新 `app_roles.role_name`。保存結果先同步角色清單與 permission store，再重新查詢，查詢失敗仍保留成功結果。名稱不參與授權或排序，不改 `role_key`、`profiles.role`、權限列或 weight；須先部署 `20261011150448_app_role_display_names.sql`，本次僅本機完成。
+- Google 同步家長帳號的角色解析抽至 `guardianAccountRole.ts`，只依 `MEMBER → PARENT → GENERAL_MEMBER` 固定識別碼，不再以「一般成員」顯示名稱選角色；查詢失敗／無候選仍沿用 MEMBER fallback。不改既有帳號角色、球員身分或收費資料。
 - team group 設定透過 `team_group_settings` 與 `teamGroupsApi` RPC 管理，前端共用 `teamGroups` store。
 - team group 只適用在 eligible role，非球員類角色不應保留無效分組。
 - 中港校隊 / 國中部身分存於 `team_members.training_program`；`team_group` 只作所屬群組（熊隊）使用。`PlayersView` 的所屬群組下拉不可因中港校隊 / 國中部身分而 disabled，也不可改名為訓練項目。

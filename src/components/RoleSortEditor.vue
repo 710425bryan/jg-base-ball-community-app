@@ -13,7 +13,7 @@ const saving = ref(false)
 const validationError = ref('')
 const unchanged = computed(() => weight.value === getRoleWeight(props.role))
 
-watch(() => [props.role.role_key, props.role.weight], () => {
+watch([() => props.role.role_key, () => props.role.weight], () => {
   weight.value = getRoleWeight(props.role)
   validationError.value = ''
 })

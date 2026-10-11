@@ -236,6 +236,9 @@ UI 約定：
 
 - `profiles.role` 與 `profiles.linked_team_member_ids` 直接決定多個個人 RPC 的可見範圍；`profiles_access_admin_guard` 會要求這兩欄的 UPDATE 呼叫者具 `users:EDIT`，避免一般帳號透過 self-update policy 自行升級成 ADMIN 或擴大 linked member。
 - 角色權限 UI 讀寫 `app_roles`、`app_role_permissions`。
+- 「角色與權限設定」可透過 `RoleNameEditor` 修改「顯示名稱 (中文)」，識別碼唯讀。`rolesApi.updateAppRoleName()` 呼叫 `update_app_role_name(p_role_key, p_role_name)`，限有效 ADMIN、SECURITY INVOKER 沿用 RLS；系統／自訂角色均可改，去除首尾空白、名稱必填且最多 100 字，只更新 `app_roles.role_name`。保存結果先同步角色清單與 permission store，再重新查詢，查詢失敗仍保留成功結果。名稱不參與授權或排序，不改 `role_key`、`profiles.role`、權限列或 weight；須先部署 `20261011150448_app_role_display_names.sql`，本次僅本機完成。
+- Google 同步家長帳號的角色解析抽至 `guardianAccountRole.ts`，只依 `MEMBER → PARENT → GENERAL_MEMBER` 固定識別碼，不再以「一般成員」顯示名稱選角色；查詢失敗／無候選仍沿用 MEMBER fallback。不改既有帳號角色、球員身分或收費資料。
+- 導覽列、公開頁登入者徽章及個人設定以 `appRoleDisplay` 按識別碼讀取 permission store 的角色名稱；兩個 layout 由 `useAppRoleNames` 在有效登入、本人 profile 一致且角色 metadata 尚空時載入，未登入不查詢。保留載入失敗的既有 fallback；同 session 儲存名稱即時反映，未新增跨裝置 Realtime。
 - `RolePermissionsManager` 的「新增角色」提供「複製角色權限」單一 Element Plus 選單，預設為「不複製，從空白權限開始」。其他系統及自訂角色都可作來源；`ADMIN` 具有 bypass，選項顯示但停用並提示最高權限無法複製，RPC 也拒絕此來源。
 - 建立角色經 `src/services/rolesApi.ts` 的 `createAppRole()` 呼叫 `create_app_role(p_role_key, p_role_name, p_copy_from_role_key)`，回傳新 `app_roles` 列。RPC 限已登入且通過 active / access window 的 `ADMIN`，沿用角色管理原有限制；角色與來源 `app_role_permissions` 全部已儲存 feature/action 一起建立，包含目前矩陣未列出的權限。未指定來源時建立空白權限；來源不存在、重複識別碼或複製失敗時整筆交易回滾。
 - 新角色權限為建立時快照，後續可獨立調整，不跟隨來源變更，也不改來源角色。成功後刷新元件角色列表與 permission store 的角色選項，供使用者管理選取新角色；前端不以逐筆 INSERT 補複製，避免留下角色已建立但權限不完整的狀態。此 RPC migration 需先於前端部署。

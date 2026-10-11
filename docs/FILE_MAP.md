@@ -53,6 +53,7 @@
 | `src/services/profileAccessMonitor.ts` | 本人 profile Realtime UPDATE、前景／重連／token／備援查詢與期間失效檢查 |
 | `src/components/PushSettingsDialog.vue` | Web Push 訂閱設定 |
 | `src/components/RolePermissionsManager.vue` | 角色與 feature/action 權限管理；新增角色可選複製來源，ADMIN 不可複製 |
+| `src/components/RoleNameEditor.vue` | 桌面與手機 Drawer 的角色中文名稱編輯；識別碼唯讀、失敗保留草稿、ADMIN 才可儲存 |
 | `src/components/RoleSortEditor.vue` | 桌面選取角色與手機 Drawer 共用的排序數字欄位／保存操作，包含系統角色 |
 | `src/components/ViewModeSwitch.vue` | 檢視模式切換 |
 | `src/components/common/AppPageHeader.vue` | 登入後功能頁 page title 標準元件 |
@@ -86,7 +87,7 @@
 
 | 檔案 | 用途 | 後端依賴 |
 | --- | --- | --- |
-| `src/services/rolesApi.ts` | 新增角色與可選來源權限快照的原子建立、角色排序數字保存 | `create_app_role()`／`update_app_role_weight()`；只允許有效 ADMIN |
+| `src/services/rolesApi.ts` | 新增角色與可選來源權限快照的原子建立、角色排序數字／中文名稱保存 | `create_app_role()`／`update_app_role_weight()`／`update_app_role_name()`；只允許有效 ADMIN |
 | `src/services/publicLanding.ts` | 公開首頁摘要與保留的匿名入隊申請 service | `get_public_landing_snapshot()`；目前 LINE 聯絡視窗不呼叫申請 service |
 | `src/services/dashboardAttendance.ts` | 後台大廳今日訓練點名狀態，含今日多筆點名單 | `get_dashboard_today_attendance_status()` |
 | `src/services/myHome.ts` | 個人化首頁摘要與 linked member 一週內 Next Up 比賽 RPC | `get_my_home_snapshot()` / `get_my_home_next_event()` |
@@ -199,6 +200,8 @@
 | `src/utils/performanceConfig.ts` | 能力 / 體測欄位與圖表設定 |
 | `src/utils/holidayMotionLayout.ts` | 節日動畫版位 |
 | `src/utils/profileAccess.ts` | profile 可登入狀態判斷 |
+| `src/utils/appRoleDisplay.ts`、`src/composables/useAppRoleNames.ts` | 按穩定角色識別碼顯示可編輯名稱；僅有效登入後補載角色 metadata |
+| `src/utils/guardianAccountRole.ts` | Google 同步家長帳號只依固定候選角色識別碼解析，顯示名稱不參與授權選擇 |
 | `src/utils/userRoleOrder.ts` | 角色清單與使用者名單共用 weight 升冪排序，相同數字以 role_key 排序，缺值／未知角色使用 99 |
 | `src/utils/otpLogin.ts` | OTP email／驗證碼正規化、8 碼格式檢查與中文錯誤訊息 |
 | `src/utils/supabaseRpc.ts` | RPC missing fallback helper |
@@ -508,6 +511,7 @@
 - `src/utils/userRoleOrder.test.ts`
 - `src/services/rolesApi.test.ts`
 - `tests/database/appRoleCreation.integration.mjs`：本地隔離 PGlite 使用實際角色建立 migration／RLS，驗證可選來源、完整快照、ADMIN 來源拒絕、授權、原子回滾及來源獨立性；`pnpm test:roles:sql` 與 `pnpm check` 執行。
+- `tests/database/appRoleNames.integration.mjs`：隔離角色改名 SQL，驗證有效 ADMIN／RLS、系統／自訂角色、名稱長度、重名不擴權及識別碼／profile／權限／其他 metadata 不變；由 `pnpm test:roles:sql` 執行。
 - `tests/database/appRoleWeights.integration.mjs`：本地隔離 PGlite 驗證精確角色預設值、系統／自訂角色排序、有效 ADMIN／RLS、正整數與同數、原子回滾及其他角色／profile／權限資料保留；由 `pnpm test:roles:sql` 與 `pnpm check` 執行。
 - `tests/browser/role-permissions/README.md`、`tests/browser/verify-role-permissions.mjs`：真實角色權限元件／Element Plus 搭配本機 Supabase mock，驗證新增角色視窗的來源選取、儲存／失敗、loading guard、矩陣／角色選項刷新與手機版面；不操作正式資料。
 - `tests/browser/verify-role-order.mjs`：共用上述 fixture，新增真實 UsersView／RoleSortEditor 的排序數字、反覆保存、失敗保留、同分角色順序及網格／表格刷新回歸。

@@ -28,6 +28,8 @@ description: "Player roster sync workflow for jg-base-ball-community-app. Use wh
 - 球員名單顯示有 `src/stores/playerRoster.ts` 的 session 內快取；Google 同步、新增、編輯、刪除成功後要 force refresh，不能只沿用快取。
 - `get_team_members_cache_meta()` 依 `team_members.updated_at` 判斷名單是否變更；調整寫入流程時要確保更新會推進 `updated_at`。
 
+- Google 同步家長帳號的角色解析抽至 `guardianAccountRole.ts`，只依 `MEMBER → PARENT → GENERAL_MEMBER` 固定識別碼，不再以「一般成員」顯示名稱選角色；查詢失敗／無候選仍沿用 MEMBER fallback。不改既有帳號角色、球員身分或收費資料。
+
 ## 工作流程
 
 1. 先找出穩定的同步鍵，再決定 dedupe 規則。

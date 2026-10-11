@@ -34,3 +34,21 @@ export const updateAppRoleWeight = async (roleKey: string, weight: number): Prom
   if (!data) throw new Error('儲存排序未回傳結果，請重新整理角色名單。')
   return data as AppRole
 }
+
+export const updateAppRoleName = async (roleKey: string, roleName: string): Promise<AppRole> => {
+  const name = roleName.trim()
+  if (!name || Array.from(name).length > 100) {
+    throw new Error('顯示名稱請輸入 1 到 100 個字。')
+  }
+  const { data, error } = await supabase.rpc('update_app_role_name', {
+    p_role_key: roleKey.trim(), p_role_name: name
+  }).single()
+  if (error) {
+    if (error.code === 'PGRST202') {
+      throw new Error('角色名稱功能尚未更新，請先部署角色顯示名稱的資料庫 migration。')
+    }
+    throw error
+  }
+  if (!data) throw new Error('儲存名稱未回傳結果，請重新整理角色名單。')
+  return data as AppRole
+}

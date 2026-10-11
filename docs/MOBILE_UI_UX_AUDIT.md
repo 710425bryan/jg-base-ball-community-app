@@ -1,5 +1,12 @@
 # 手機 UI/UX 一致性稽核與執行清單
 
+### 2026-10-11 角色中文顯示名稱（待部署／實機驗收）
+
+- 新增共用 `RoleNameEditor`，桌面選取角色與手機 Drawer 均可編輯名稱；識別碼只讀。Element Plus 輸入、44px 儲存按鈕、欄位旁持續錯誤與儲存防重複；保存後同步角色列表、使用者名單與角色選項。
+- 先修正家長同步依名稱判斷的風險，改固定 role key；僅改顯示名稱，權限與帳號角色不變。正式 DB 僅唯讀檢查，新增 RPC 尚未部署；本項不代表權限頁完成全頁 UI 稽核。
+- 本次相關 Vitest 19 files／176 tests、型別／production build、角色 SQL 216 checks（建立 84、排序 71、名稱 61）及 `git diff --check` 通過。保存中切換角色仍能同步成功結果，名稱／排序保存互不清除另一欄草稿；最後版面修補另重跑三個 editor／manager 檔 38 tests 通過。未執行全量 `pnpm check`；SQL 為隔離 PGlite，不操作正式資料。
+- 真實 RolePermissionsManager／RoleNameEditor／RoleSortEditor／UsersView 與 Element Plus，以本機 Supabase mock 在 Chromium 360／390／700／1280px 通過 95 checks、33 張截圖；包含成功／失敗保留、防重複、識別碼唯讀、名單網格／表格／選項同步、權限資料不變、同角色兩欄草稿保留、保存中切換角色、100 字中英文長名及實際觸控捲動。無外部請求、console error 或水平溢出，欄位／儲存至少 44px；已目視最終手機／桌面畫面。證據 `/tmp/jg-role-name-verification/evidence.json`；實體 iPhone／Android 鍵盤、safe area 與正式登入保存待驗收。
+
 ### 2026-10-09 停權即時退出與登入寄碼阻擋（本機完成，待實機／部署驗收）
 
 - `AuthAccessNotice` 在收到停權事件後取代後台，顯示「已自動登出」與原因、管理員聯絡指引及至少 44px 的返回首頁按鈕；使用 viewport 高度與 safe-area padding。`LoginModal` 的 email 拒絕原因留在欄位旁，明確指出未寄送驗證碼；保留公開登入既有原生 email／OTP 控制與品牌卡片。

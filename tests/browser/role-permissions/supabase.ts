@@ -75,7 +75,7 @@ export const supabase = {
     return query
   },
   rpc(name: string, params: { p_role_key: string; p_role_name?: string; p_copy_from_role_key?: string | null; p_weight?: number }) {
-    if (!['create_app_role', 'update_app_role_weight'].includes(name)) throw new Error(`Unexpected RPC in isolated fixture: ${name}`)
+    if (!['create_app_role', 'update_app_role_weight', 'update_app_role_name'].includes(name)) throw new Error(`Unexpected RPC in isolated fixture: ${name}`)
     fixture.calls.push({ action: name, data: copy(params) })
     return {
       async single() {
@@ -85,7 +85,15 @@ export const supabase = {
         }
         if (fixture.failNext) {
           fixture.failNext = false
-          return { data: null, error: { message: name === 'update_app_role_weight' ? '測試排序儲存失敗，請稍後再試' : '測試建立失敗，請稍後再試', code: 'TEST_FAILURE' } }
+          const message = name === 'update_app_role_name' ? '測試名稱儲存失敗，請稍後再試'
+            : name === 'update_app_role_weight' ? '測試排序儲存失敗，請稍後再試' : '測試建立失敗，請稍後再試'
+          return { data: null, error: { message, code: 'TEST_FAILURE' } }
+        }
+        if (name === 'update_app_role_name') {
+          const role = fixture.roles.find((row) => row.role_key === params.p_role_key)
+          if (!role) return { data: null, error: { message: '角色不存在', code: 'TEST_FAILURE' } }
+          role.role_name = params.p_role_name!
+          return { data: copy(role), error: null }
         }
         if (name === 'update_app_role_weight') {
           const role = fixture.roles.find((row) => row.role_key === params.p_role_key)

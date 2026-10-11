@@ -188,6 +188,8 @@
 - 使用者名單的表格與卡片共用 `userRoleOrder` 依 `app_roles.weight` 由小到大排序，相同數字依 `role_key` 穩定排序；未知角色或缺少數字時使用 99，不再依角色名稱插隊。「角色與權限設定」的 `RoleSortEditor` 可逐角色調整正整數，包含 ADMIN／系統角色；保存由 `rolesApi.updateAppRoleWeight()` 呼叫 `update_app_role_weight()`，只允許有效 ADMIN 並沿用既有 RLS。只更改顯示排序，不更動授權、角色身分或其他欄位；保存成功先以 RPC 結果同步元件與 permission store 角色清單，再重新查詢，後續載入失敗仍保留新排序。
 - `profiles.role` 與 `profiles.linked_team_member_ids` 是授權邊界欄位；即使 self-update policy 允許個人更新其他 profile 設定，這兩欄也必須由 DB trigger 再檢查 `users:EDIT`，不可讓一般帳號自行升級角色或改綁定範圍。
 - 權限 UI 在 `RolePermissionsManager.vue`，對應 `app_roles` 與 `app_role_permissions`。
+- 「角色與權限設定」可透過 `RoleNameEditor` 修改「顯示名稱 (中文)」，識別碼唯讀。`rolesApi.updateAppRoleName()` 呼叫 `update_app_role_name(p_role_key, p_role_name)`，限有效 ADMIN、SECURITY INVOKER 沿用 RLS；系統／自訂角色均可改，去除首尾空白、名稱必填且最多 100 字，只更新 `app_roles.role_name`。保存結果先同步角色清單與 permission store，再重新查詢，查詢失敗仍保留成功結果。名稱不參與授權或排序，不改 `role_key`、`profiles.role`、權限列或 weight；須先部署 `20261011150448_app_role_display_names.sql`，本次僅本機完成。
+- Google 同步家長帳號的角色解析抽至 `guardianAccountRole.ts`，只依 `MEMBER → PARENT → GENERAL_MEMBER` 固定識別碼，不再以「一般成員」顯示名稱選角色；查詢失敗／無候選仍沿用 MEMBER fallback。不改既有帳號角色、球員身分或收費資料。
 - 「新增角色」可用 Element Plus 選單選擇複製既有角色權限，預設不複製；`ADMIN` 為最高權限，列為不可選來源。建立由 `src/services/rolesApi.ts` 的 `createAppRole()` 呼叫 `create_app_role()` RPC，只允許有效 `ADMIN`；角色與來源全部已儲存 feature/action 在同一交易建立，失敗一起回滾。複製是建立時快照，後續可獨立調整，不連動或修改來源角色；成功後刷新角色清單與 permission store 的角色選項。
 
 ### 賽事報名管理

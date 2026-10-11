@@ -319,6 +319,8 @@ import PushSettingsDialog from '@/components/PushSettingsDialog.vue'
 import { useReadableTextMode } from '@/composables/useReadableTextMode'
 import { supabase } from '@/services/supabase'
 import { useAuthStore, type AuthPasskey } from '@/stores/auth'
+import { usePermissionsStore } from '@/stores/permissions'
+import { getAppRoleDisplayName } from '@/utils/appRoleDisplay'
 import { compressImage } from '@/utils/imageCompressor'
 import {
   normalizeAccountLast5,
@@ -335,6 +337,7 @@ const MAX_AVATAR_BYTES = 1024 * 1024
 const paymentMethodOptions = PAYMENT_METHOD_OPTIONS
 
 const authStore = useAuthStore()
+const permissionsStore = usePermissionsStore()
 const { isReadableTextMode, setReadableTextMode } = useReadableTextMode()
 
 const isLoading = ref(true)
@@ -404,7 +407,7 @@ const currentRoleName = computed(() => {
     return '一般成員'
   }
 
-  return roleMap[role] || role
+  return getAppRoleDisplayName(role, permissionsStore.roles, roleMap[role] || role)
 })
 
 const currentDisplayName = computed(() => form.nickname.trim() || authStore.profile?.name || '球隊夥伴')

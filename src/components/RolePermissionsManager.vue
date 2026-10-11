@@ -24,12 +24,12 @@
             :class="['p-4 rounded-xl mb-2 cursor-pointer transition-all border border-transparent', selectedRole?.role_key === role.role_key ? 'bg-orange-50 border-orange-200 shadow-sm' : 'hover:bg-white hover:border-gray-200']"
           >
             <div class="flex justify-between items-center">
-              <div class="flex flex-col">
-                <span class="font-extrabold text-gray-800" :class="{ 'text-primary': selectedRole?.role_key === role.role_key }">{{ role.role_name }}</span>
+              <div class="flex min-w-0 flex-col">
+                <span class="break-all font-extrabold text-gray-800" :class="{ 'text-primary': selectedRole?.role_key === role.role_key }">{{ role.role_name }}</span>
                 <span class="text-xs font-bold text-gray-400 mt-0.5">{{ role.role_key }}</span>
                 <span class="text-xs text-gray-500 mt-1">排序 {{ getRoleWeight(role) }}</span>
               </div>
-              <div class="flex items-center gap-2">
+              <div class="flex shrink-0 items-center gap-2">
                 <!-- 手機版：箭頭提示 -->
                 <span class="lg:hidden text-gray-300">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
@@ -49,8 +49,8 @@
       <div class="hidden lg:flex flex-1 flex-col min-w-0">
         <template v-if="selectedRole">
           <div class="p-5 border-b border-gray-100 flex justify-between items-end flex-wrap gap-4 shrink-0 bg-white">
-            <div>
-              <h3 class="text-xl font-extrabold text-gray-800">
+            <div class="min-w-0">
+              <h3 class="break-all text-xl font-extrabold text-gray-800">
                 {{ selectedRole.role_name }}
                 <span class="text-sm font-bold text-gray-400 ml-2">權限配置</span>
               </h3>
@@ -61,7 +61,8 @@
             <div v-if="selectedRole.is_system" class="px-3 py-1 bg-gray-100 text-gray-500 rounded-lg text-xs font-bold border border-gray-200">
               系統預設 (無法刪除)
             </div>
-            <RoleSortEditor :role="selectedRole" :can-edit="permissionsStore.currentRole === 'ADMIN'" @saved="handleRoleWeightSaved" />
+            <RoleNameEditor :role="selectedRole" :can-edit="permissionsStore.currentRole === 'ADMIN'" @saved="handleRoleSaved" />
+            <RoleSortEditor :role="selectedRole" :can-edit="permissionsStore.currentRole === 'ADMIN'" @saved="handleRoleSaved" />
           </div>
           
           <div class="flex-1 overflow-y-auto p-5 bg-white" v-loading="isLoadingPermissions">
@@ -152,14 +153,14 @@
       <div class="h-full flex flex-col">
         <!-- Drawer Header -->
         <div class="flex items-center justify-between p-4 border-b border-gray-100 shrink-0">
-          <div>
-            <h3 class="text-lg font-extrabold text-gray-800">
+          <div class="min-w-0 flex-1">
+            <h3 class="break-all text-lg font-extrabold text-gray-800">
               {{ selectedRole?.role_name }}
               <span class="text-sm font-bold text-gray-400 ml-2">權限配置</span>
             </h3>
             <p class="text-xs text-gray-400 mt-0.5">變更後立即生效</p>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex shrink-0 items-center gap-2">
             <div v-if="selectedRole?.is_system" class="px-2 py-1 bg-gray-100 text-gray-500 rounded-lg text-xs font-bold border border-gray-200">
               系統預設
             </div>
@@ -177,7 +178,8 @@
 
         <!-- Drawer Body -->
         <div class="permissions-drawer__scroll flex-1 overflow-y-auto p-4" v-loading="isLoadingPermissions">
-          <RoleSortEditor v-if="selectedRole" :role="selectedRole" :can-edit="permissionsStore.currentRole === 'ADMIN'" class="mb-4" @saved="handleRoleWeightSaved" />
+          <RoleNameEditor v-if="selectedRole" :role="selectedRole" :can-edit="permissionsStore.currentRole === 'ADMIN'" class="mb-4" @saved="handleRoleSaved" />
+          <RoleSortEditor v-if="selectedRole" :role="selectedRole" :can-edit="permissionsStore.currentRole === 'ADMIN'" class="mb-4" @saved="handleRoleSaved" />
           <div v-if="selectedRole?.role_key === 'ADMIN'" class="p-3 bg-orange-50 text-orange-700 text-xs font-bold text-center border border-orange-200 rounded-xl mb-4">
             ADMIN 為最高權限，自動擁有所有操作權，無法單獨調整。
           </div>
@@ -277,6 +279,7 @@ import { usePermissionsStore } from '@/stores/permissions'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AppDialogFooter from '@/components/common/AppDialogFooter.vue'
 import RoleSortEditor from '@/components/RoleSortEditor.vue'
+import RoleNameEditor from '@/components/RoleNameEditor.vue'
 import { getRoleWeight, sortUserRoles } from '@/utils/userRoleOrder'
 import type { AppRole } from '@/types/appRole'
 
@@ -318,7 +321,7 @@ const fetchRoles = async () => {
   }
 }
 
-const handleRoleWeightSaved = async (updated: AppRole) => {
+const handleRoleSaved = async (updated: AppRole) => {
   roles.value = sortUserRoles(roles.value.map(role => role.role_key === updated.role_key ? updated : role))
   permissionsStore.roles = [...roles.value]
   if (selectedRole.value?.role_key === updated.role_key) selectedRole.value = updated

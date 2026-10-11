@@ -209,9 +209,14 @@ import HolidayThemeRibbon from '@/components/layout/HolidayThemeRibbon.vue'
 import LoginModal from '@/components/LoginModal.vue'
 import { useReadableTextMode } from '@/composables/useReadableTextMode'
 import { useVersionCheck } from '@/composables/useVersionCheck'
+import { useAppRoleNames } from '@/composables/useAppRoleNames'
 import { useAuthStore } from '@/stores/auth'
+import { usePermissionsStore } from '@/stores/permissions'
+import { getAppRoleDisplayName } from '@/utils/appRoleDisplay'
 
 const authStore = useAuthStore()
+const permissionsStore = usePermissionsStore()
+useAppRoleNames()
 const router = useRouter()
 const showLogin = ref(false)
 const isMobileMenuOpen = ref(false)
@@ -226,7 +231,7 @@ const getRoleName = (role?: string) => {
     COACH: '教練'
   }
 
-  return role ? (dict[role] || role) : '尚未設定'
+  return getAppRoleDisplayName(role, permissionsStore.roles, role ? (dict[role] || role) : '尚未設定')
 }
 
 const goToDashboard = () => {

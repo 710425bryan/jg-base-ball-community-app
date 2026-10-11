@@ -8,9 +8,10 @@ import { systemFeatures } from '@/utils/permissionFeatures'
 import RolePermissionsManager from './RolePermissionsManager.vue'
 import AppDialogFooter from '@/components/common/AppDialogFooter.vue'
 import RoleSortEditor from '@/components/RoleSortEditor.vue'
+import RoleNameEditor from '@/components/RoleNameEditor.vue'
 
 const mocks = vi.hoisted(() => ({
-  from: vi.fn(), createAppRole: vi.fn(), updateAppRoleWeight: vi.fn(), validate: vi.fn(), clearValidate: vi.fn(),
+  from: vi.fn(), createAppRole: vi.fn(), updateAppRoleWeight: vi.fn(), updateAppRoleName: vi.fn(), validate: vi.fn(), clearValidate: vi.fn(),
   fetchRoles: vi.fn(), success: vi.fn(), error: vi.fn(),
   permissionRows: [] as Array<{ feature: string; action: string }>,
   roleRows: [] as Array<{ role_key: string; role_name: string; is_system: boolean; weight: number }>,
@@ -18,7 +19,7 @@ const mocks = vi.hoisted(() => ({
   rolesReadError: null as { message: string } | null
 }))
 vi.mock('@/services/supabase', () => ({ supabase: { from: mocks.from } }))
-vi.mock('@/services/rolesApi', () => ({ createAppRole: mocks.createAppRole, updateAppRoleWeight: mocks.updateAppRoleWeight }))
+vi.mock('@/services/rolesApi', () => ({ createAppRole: mocks.createAppRole, updateAppRoleWeight: mocks.updateAppRoleWeight, updateAppRoleName: mocks.updateAppRoleName }))
 vi.mock('@/stores/permissions', () => ({ usePermissionsStore: () => ({
   fetchRoles: mocks.fetchRoles, currentRole: 'ADMIN',
   get roles() { return mocks.storeRoleRows },
@@ -72,10 +73,12 @@ const fixtureRoles = [
 ]
 const createdRole = { role_key: 'ASSISTANT', role_name: '助理教練', is_system: false, weight: 100 }
 
-const mountManager = () => shallowMount(RolePermissionsManager, {
+const mountManager = (realNameEditor = false) => shallowMount(RolePermissionsManager, {
   global: {
     directives: { loading: () => {} },
     stubs: {
+      RoleNameEditor: !realNameEditor,
+      'el-button': { name: 'ElButton', props: ['disabled', 'loading'], emits: ['click'], template: '<button :disabled="disabled" @click="$emit(\'click\')"><slot /></button>' },
       'el-drawer': { props: ['modelValue'], template: '<div v-if="modelValue"><slot /></div>' },
       'el-dialog': { name: 'ElDialog', props: ['modelValue'], template: '<div v-if="modelValue"><slot /><slot name="footer" /></div>' },
       'el-form': defineComponent({
@@ -242,6 +245,54 @@ describe('RolePermissionsManager role creation', () => {
     ])
     expect(wrapper.findComponent(RoleSortEditor).props('role')).toEqual(updated)
     expect(mocks.fetchRoles).toHaveBeenCalledOnce()
+    wrapper.unmount()
+  })
+
+  it.each([false, true])('updates role labels from the saved result even if refresh fails (%s)', async (refreshFails) => {
+    const wrapper = mountManager()
+    await flushPromises()
+    await wrapper.findAll('.p-4.mb-2.cursor-pointer').find(card => card.text().includes('教練'))!.trigger('click')
+    await flushPromises()
+    const updated = { ...fixtureRoles[1]!, role_name: '球隊指導' }
+    mocks.roleRows = mocks.roleRows.map(role => role.role_key === updated.role_key ? updated : role)
+    if (refreshFails) mocks.rolesReadError = { message: 'role refresh failed' }
+    const editor = wrapper.findComponent(RoleNameEditor)
+    expect(editor.props('canEdit')).toBe(true)
+    editor.vm.$emit('saved', updated)
+    await flushPromises()
+    expect(wrapper.findComponent(RoleNameEditor).props('role')).toEqual(updated)
+    expect(mocks.storeRoleRows.find(role => role.role_key === 'COACH')).toEqual(updated)
+    expect(wrapper.text()).toContain('球隊指導')
+    expect(mocks.fetchRoles).toHaveBeenCalledOnce()
+    expect(source.match(/<RoleNameEditor/g)).toHaveLength(2)
+    // Saving metadata must not write or reload permission flags.
+    expect(mocks.from.mock.calls.filter(([table]) => table === 'app_role_permissions')).toHaveLength(1)
+    wrapper.unmount()
+  })
+
+  it('keeps a pending name save connected when the administrator selects another role', async () => {
+    const updated = { ...fixtureRoles[2]!, role_name: '支援團隊' }
+    let finish!: (value: typeof updated) => void
+    mocks.updateAppRoleName.mockReturnValue(new Promise(resolve => { finish = resolve }))
+    const wrapper = mountManager(true)
+    await flushPromises()
+    const cards = () => wrapper.findAll('.p-4.mb-2.cursor-pointer')
+    await cards().find(card => card.text().includes('自訂角色'))!.trigger('click')
+    await flushPromises()
+    const editor = wrapper.findComponent(RoleNameEditor)
+    editor.findComponent({ name: 'ElInput' }).vm.$emit('update:modelValue', '支援團隊')
+    await flushPromises()
+    editor.findComponent({ name: 'ElButton' }).vm.$emit('click')
+    await flushPromises()
+    await cards().find(card => card.text().includes('教練'))!.trigger('click')
+    mocks.roleRows = mocks.roleRows.map(role => role.role_key === 'CUSTOM' ? updated : role)
+    finish(updated)
+    await flushPromises()
+    expect(mocks.updateAppRoleName).toHaveBeenCalledExactlyOnceWith('CUSTOM', '支援團隊')
+    expect(mocks.storeRoleRows.find(role => role.role_key === 'CUSTOM')).toEqual(updated)
+    expect(cards().find(card => card.text().includes('CUSTOM'))!.text()).toContain('支援團隊')
+    expect(wrapper.findComponent(RoleNameEditor).props('role').role_key).toBe('COACH')
+    expect(wrapper.findComponent(RoleNameEditor).findComponent({ name: 'ElInput' }).props('modelValue')).toBe('教練')
     wrapper.unmount()
   })
 })

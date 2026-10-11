@@ -3,6 +3,16 @@ import { describe, expect, it } from 'vitest'
 
 const source = readFileSync(new URL('./PlayersView.vue', import.meta.url), 'utf8')
 
+describe('PlayersView guardian account role integration', () => {
+  it('resolves new-account permissions from stable keys and retains the reload and fallback paths', () => {
+    expect(source).toContain("from '@/utils/guardianAccountRole'")
+    expect(source).toContain('resolveGeneralMemberRoleKeyFromRoles(permissionsStore.roles)')
+    expect(source).toContain(".select('role_key')")
+    expect(source).toContain('resolveGeneralMemberRoleKeyFromRoles(data || []) || GENERAL_MEMBER_ROLE_FALLBACK')
+    expect(source).not.toContain("role.role_name === '一般成員'")
+  })
+})
+
 describe('PlayersView independent match billing integration', () => {
   it('hydrates and saves match billing separately while leaving the date to the database', () => {
     expect(source).toContain('<PlayerBillingFields')

@@ -87,6 +87,14 @@ describe('RoleSortEditor', () => {
     wrapper.unmount()
   })
 
+  it('retains the weight draft when only the saved display name changes', async () => {
+    const wrapper = mountEditor()
+    await change(wrapper, 5)
+    await wrapper.setProps({ role: { ...role, role_name: '財務管理' } })
+    expect(wrapper.findComponent({ name: 'ElInputNumber' }).props('modelValue')).toBe(5)
+    wrapper.unmount()
+  })
+
   it('keeps non-admin input read-only with no save action', async () => {
     const wrapper = mountEditor(false)
     expect(wrapper.findComponent({ name: 'ElInputNumber' }).props('disabled')).toBe(true)

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({ rpc: vi.fn(), single: vi.fn() }))
 vi.mock('@/services/supabase', () => ({ supabase: { rpc: mocks.rpc } }))
-import { createAppRole, updateAppRoleWeight } from './rolesApi'
+import { createAppRole, updateAppRoleWeight, updateAppRoleName } from './rolesApi'
 
 describe('createAppRole', () => {
   beforeEach(() => {
@@ -74,5 +74,50 @@ describe('updateAppRoleWeight', () => {
   it('rejects an empty result instead of claiming the change succeeded', async () => {
     mocks.single.mockResolvedValue({ data: null, error: null })
     await expect(updateAppRoleWeight('FINANCE', 5)).rejects.toThrow('未回傳結果')
+  })
+})
+
+
+describe('updateAppRoleName', () => {
+  const saved = { role_key: 'FINANCE', role_name: '財務管理', is_system: true, weight: 20 }
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.rpc.mockReturnValue({ single: mocks.single })
+    mocks.single.mockResolvedValue({ data: saved, error: null })
+  })
+
+  it('sends only the existing key and trimmed display name and returns the server result', async () => {
+    expect(await updateAppRoleName(' FINANCE ', ' 財務管理 ')).toEqual(saved)
+    expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith('update_app_role_name', {
+      p_role_key: 'FINANCE', p_role_name: '財務管理'
+    })
+  })
+
+  it.each(['', '  ', '\t\n', '名'.repeat(101)])('rejects an invalid display name before the RPC', async (name) => {
+    await expect(updateAppRoleName('FINANCE', name)).rejects.toThrow('1 到 100')
+    expect(mocks.rpc).not.toHaveBeenCalled()
+  })
+
+  it('counts Unicode code points consistently with PostgreSQL', async () => {
+    await updateAppRoleName('FINANCE', '𠮷'.repeat(100))
+    expect(mocks.rpc).toHaveBeenCalledOnce()
+    await expect(updateAppRoleName('FINANCE', '𠮷'.repeat(101))).rejects.toThrow('1 到 100')
+  })
+
+  it('explains a missing migration without a raw update fallback', async () => {
+    mocks.single.mockResolvedValue({ data: null, error: { code: 'PGRST202' } })
+    await expect(updateAppRoleName('FINANCE', '財務管理')).rejects.toThrow('請先部署角色顯示名稱')
+    expect(mocks.rpc).toHaveBeenCalledOnce()
+  })
+
+  it('keeps authorization and persistence failures for the field to report', async () => {
+    const error = { code: '42501', message: '只有有效管理員可以修改角色名稱' }
+    mocks.single.mockResolvedValue({ data: null, error })
+    await expect(updateAppRoleName('FINANCE', '財務管理')).rejects.toBe(error)
+  })
+
+  it('does not claim success without a returned row', async () => {
+    mocks.single.mockResolvedValue({ data: null, error: null })
+    await expect(updateAppRoleName('FINANCE', '財務管理')).rejects.toThrow('未回傳結果')
   })
 })
