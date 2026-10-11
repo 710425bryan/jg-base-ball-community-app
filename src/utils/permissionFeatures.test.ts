@@ -2,6 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { ACTIONS, systemFeatures } from './permissionFeatures'
 
 describe('permission feature registry', () => {
+  it('explains the training VIEW prerequisite separately from management actions', () => {
+    expect(systemFeatures.find((feature) => feature.key === 'training')).toMatchObject({
+      desc: '勾選檢視才可使用特訓報名與點數；新增、修改、刪除控制管理操作',
+      actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
+    })
+  })
+
   it('keeps personal coach leave separate from whole-team leave and schedule privileges', () => {
     expect(systemFeatures.find((feature) => feature.key === 'my_coach_leave_requests')).toMatchObject({
       name: '我的教練假單', actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']

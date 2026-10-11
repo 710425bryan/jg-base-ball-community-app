@@ -25,12 +25,12 @@ Supabase
 - Vercel 預設會對非 production branch 建立 Preview，對 production branch 建立 Production。實際 production branch 必須在 Vercel Project Settings 再確認。
 - Supabase 尚未接自動 production deploy。現有 migration 同時散布在根目錄 `supabase_*.sql` 與 `supabase/migrations/*`，在 migration ledger 對齊前，不可直接假設 `supabase db push` 能完整重建 production schema。
 
-### 目前的 production 阻擋（2026-08-26 稽核）
+### Production 稽核紀錄（2026-08-26；2026-10-12 更新）
 
-- 兩個 Edge Function 原始碼仍含 hard-coded private VAPID material：`supabase/functions/_shared/push.ts` 與 `supabase/functions/send-training-registration-notifications/index.ts`。不得輸出或繼續部署現有值；必須先撤銷 / 旋轉，改由 Supabase secrets 讀取。若旋轉整組 VAPID key pair，既有瀏覽器訂閱可能需要重新訂閱。
-- `supabase/functions/leave-webhook/index.ts` 沒有程式內 request-secret 驗證，而 `supabase/config.toml` 也沒有逐支 function 的 `verify_jwt` 設定。完成 gateway 現況確認與 auth mode 版本化前，不自動部署 Edge Functions。
+- 2026-10-12 已依使用者授權輪替 VAPID key pair，移除 `_shared/push.ts` 與 `send-training-registration-notifications/index.ts` 的私鑰 literal，12 支通知函式改讀 Supabase secrets；105 筆舊訂閱已停用。前端 1.1.76 提供重新啟用流程。Git 歷史的退役金鑰保留為歷史紀錄，不改寫共享 Git 歷史，也不可恢復或繼續部署該值。逐檔部署比對與範圍見 `docs/EDGE_FUNCTIONS.md`、`docs/specs/2026-10-11-training-view-permission.md`。
+- 2026-10-12 已將本次 12 支通知函式的實際 gateway 模式寫入 `supabase/config.toml`，保留線上現況；`leave-webhook`、`send-push-notification`、`record-fee-remittance` 為 false，其餘九支為 true。這不是全面改造既有 webhook 的應用驗證；其他函式發布前仍須核對自身 auth mode。
 - 部分歷史 diagnostics SQL 綁定特定 production function URL 與公開 anon token；雖不是 service-role secret，仍不可直接重播到 staging，必須改成環境參數或環境專屬設定。
-- 因此新 secret scan 預期先保持紅燈。只有在憑證已失效、程式碼已移除、git history 已清理或對已撤銷值建立精確 baseline 後，才可解除這個 gate。
+- Secret scan 結果以發布 commit 的 GitHub CI 為準，不從本機檢查推論。退役金鑰不得再用；不得 allowlist 仍有效的憑證，歷史曝露紀錄須保留可追溯性。
 
 ## 2. Delivery 狀態
 

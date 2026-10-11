@@ -537,6 +537,18 @@ describe('HomeView dashboard redesign', () => {
     expect(wrapper.findComponent({ name: 'MyHomeTodayPanel' }).props('nextEvent')).toBeNull()
   })
 
+  it.each([
+    { role: 'COMMITTEE', permissions: [], expected: false },
+    { role: 'COMMITTEE', permissions: ['training'], expected: true },
+    { role: 'ADMIN', permissions: [], expected: true }
+  ])('gates home training points by VIEW for $role ($expected)', async ({ role, permissions, expected }) => {
+    const { wrapper } = await mountHomeView({ role, permissions, linkedTeamMemberIds: ['member-1'] })
+    const panel = wrapper.findComponent({ name: 'MyHomeTodayPanel' })
+    expect(panel.props('showTrainingPoints')).toBe(expected)
+    expect(myHomeServiceMocks.getMyHomeSnapshot).toHaveBeenCalledWith(dayjs().format('YYYY-MM-DD'), { includeTrainingPoints: expected })
+    if (!expected) expect(panel.props('showTrainingRegistrationAction')).toBe(false)
+  })
+
   it('shows the admin stats cards for ADMIN users', async () => {
     const { wrapper } = await mountHomeView({
       role: 'ADMIN'

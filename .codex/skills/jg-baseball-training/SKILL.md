@@ -35,7 +35,7 @@ description: "Training registration and player points workflow for jg-base-ball-
 
 ## 權限規則
 
-- `training:VIEW` 可讓管理者或 linked member 進入 `/training` 查看允許資料。
+- `training:VIEW` 是 `/training`、桌機／手機選單、首頁特訓入口與特訓 RPC 的必要權限；linked member 或單一 CREATE / EDIT / DELETE 不再取代 VIEW。有效 ADMIN 保留 bypass。`TrainingView` wrapper 於權限撤銷、角色／帳號變動時卸載 `TrainingWorkspace`。綁定球員只決定資料與報名範圍，不能當作功能授權。
 - 教練管理與點數管理只給具備 `training:CREATE`、`training:EDIT`、`training:DELETE` 任一管理權限者。
 - 一般成員、家長或只有 `training:VIEW` 的使用者，只能看到個人報名、點數與錄取狀態，不可看到教練管理或點數發放工具。
 - 前端顯示控制只是 UX；資料安全必須由 RLS / policy / security definer RPC 驗證。
@@ -44,11 +44,12 @@ description: "Training registration and player points workflow for jg-base-ball-
 
 - 個人報名只呼叫 `create_training_registration(p_session_id, p_member_id, p_note)`。
 - 取消報名只呼叫 `cancel_training_registration(p_registration_id)`。
-- DB 端必須檢查 linked member、報名時間窗、手動狀態、點數與禁報狀態。
+- DB 端必須先檢查有效 `training:VIEW`，再檢查 linked member、報名時間窗、手動狀態、點數與禁報狀態。取消 VIEW 不刪除原有報名／點數紀錄；raw-table RLS 與 user-facing RPC 一起限制，內部自動化沿用 server 權限。
 - `training_session_settings.auto_select_enabled` 預設關閉，只影響開啟後的新報名；名額未滿且點數足夠時 DB 端自動建立 `selected` + `reserved`，滿額時仍保留 `applied` 待審。
 - 已取消、未錄取、已扣點等狀態不得顯示不合適的取消操作。
 - 錄取名單公布前，一般使用者不可看到名單；公布後只能看到非敏感欄位。
 - 報名開始時間到達且狀態為 `open` 時，排程 Edge Function 送出特訓課開放報名通知；報名截止前 24 小時內若還有錄取名額，會再送一次截止提醒。通知必須同時進通知中心與 Web Push。
+- 特訓開放、截止與公布通知只派送給有效 `training:VIEW` 帳號；綁定或其他管理 action 不能代替 VIEW。單筆 submitted 另需 EDIT，selected 保留原報名人及綁定範圍。共用判斷在 `_shared/trainingNotificationAccess.ts`；站內 feed 與前端快取也須套相同門檻。
 - 特訓通知 event key 使用 `training_registration_open:<session_id>:<registration_start_at>` 與 `training_registration_deadline:<session_id>:<registration_end_at>`，避免排程每 5 分鐘重複派送。
 - 單筆報名 / 錄取通知走 `send-training-registration-status-notifications`；`submitted` 只通知 active `training:EDIT` 管理者，`selected` 只通知報名使用者，並以 `push_dispatch_events.target_user_id` 限制通知中心可見範圍。
 - 錄取名單公布後，前端呼叫 `send-training-selection-notifications` 送出「特訓課錄取名單已公布」通知；event key 使用 `training_selection_published:<session_id>:<published_at>`，通知同時進通知中心與 Web Push。

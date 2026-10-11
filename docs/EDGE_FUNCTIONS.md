@@ -11,7 +11,7 @@
 5. 修改賽事、陣容、語音或天氣讀 `jg-baseball-match-records-media` skill。
 6. 不硬編碼 secret、service role key、cron authorization 或 API key。
 
-> 發布阻擋（2026-08-26 稽核）：`supabase/functions/_shared/push.ts` 與 `supabase/functions/send-training-registration-notifications/index.ts` 仍有 hard-coded private VAPID material；`leave-webhook` 的 gateway `verify_jwt` 模式也尚未寫入 `supabase/config.toml`。在私鑰撤銷 / 旋轉並移至 Supabase secrets、逐支 function auth mode 完成版本化之前，不得自動部署 Edge Functions。請勿在文件、log 或回報中輸出任何現有值。
+> 憑證輪替（2026-10-12）：使用者明確選擇換新 VAPID 金鑰並接受重新啟用推播。已移除 `_shared/push.ts` 與報名通知內嵌私鑰，改用 `_shared/webPushConfig.ts` 讀取 secrets；新金鑰已設定至正式 Supabase，前端 public key 納入 1.1.76。105 筆舊訂閱已停用並保留記錄，使用者更新後須在推播設定重新啟用，不能以舊金鑰回復派送。12 支通知函式已部署成功，九支非特訓保留線上行為，只替換金鑰初始化；三支特訓同步套用 VIEW gate。既有 source/Git 歷史仍屬曝露紀錄，不可輸出值。十二支本次通知 function 的 gateway 模式已版本化，保留遠端既有 `verify_jwt`（三支特訓為 true）；既有三支 false 模式只隨本次金鑰部署保留，不表示已全面改造其應用驗證。
 
 ## 共用環境變數
 
@@ -35,7 +35,7 @@
 | `TRAINING_LOCATION_NOTIFICATION_SECRET` | 場地通知排程驗證 | `send-training-location-notifications` |
 | `TEAM_MEMBER_OUTBOX_SECRET` | 新球員通知 Outbox worker 驗證 | `process-team-member-notification-outbox` |
 | `COACH_LEAVE_OUTBOX_SECRET` | 教練請假 Outbox worker 驗證，需與 Vault 同名用途設定一致 | `process-coach-leave-notification-outbox` |
-| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | 教練請假 Web Push 金鑰與聯絡識別；只從 Edge secrets 讀取 | `process-coach-leave-notification-outbox` |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | Web Push 金鑰與聯絡識別；只從 Edge secrets 讀取，缺少設定立即拒絕啟動；既有訂閱與前端 public key 必須一致 | `_shared/webPushConfig.ts`（`_shared/push.ts`、`send-training-registration-notifications`）、`process-coach-leave-notification-outbox` |
 | `GEMINI_API_KEY` | 陣容照片解析 | `parse-lineup` |
 | `GEMINI_LINEUP_MODEL` | 陣容照片解析模型，預設 `gemini-3.1-pro-preview`；既有環境若明確設為舊模型，需同步更新此設定 | `parse-lineup` |
 | `OPENAI_API_KEY` | 語音轉文字與結構化紀錄 | `transcribe-match-audio` |
@@ -49,6 +49,7 @@
 | --- | --- | --- |
 | `supabase/functions/send-push-notification/index.ts` | Web Push 派送入口 | bearer user 驗證、feature/action 收件、`eventKey` 去重；單一 explicit target 會同步寫入 `push_dispatch_events.target_user_id`，供付款退回等 targeted 通知進入通知中心 |
 | `supabase/functions/_shared/push.ts` | 推播共用 helper | 權限查詢、subscription 讀取、過期 subscription 清理 |
+| `supabase/functions/_shared/webPushConfig.ts` | Web Push secrets 初始化 | 只從 VAPID secrets 設定；缺值拒絕啟動且錯誤不包含值；同名測試涵蓋設定讀取、缺值與三支特訓 JWT 設定 |
 | `supabase/functions/process-team-member-notification-outbox/index.ts` | 新球員 Outbox worker | secret + JWT；每批 25 events / 100 deliveries、逐裝置派送、6 次重試與 stale lock reclaim |
 | `supabase/functions/process-team-member-notification-outbox/logic.ts` | Outbox 重試與 concurrency 純邏輯 | 有 Vitest coverage |
 | `supabase/functions/process-coach-leave-notification-outbox/index.ts` | 教練請假新增／修改／取消 Outbox worker | `verify_jwt=true`＋`x-sync-secret`；service-only claim RPC，每批 25 events / 100 deliveries、6 次重試；派送前重查有效帳號、權限、裝置所有權與 enabled；404/410 只清除該使用者過期裝置 |
@@ -56,9 +57,10 @@
 | `supabase/functions/notify-holiday-theme/index.ts` | 節日主題通知 | 手動需使用者權限，自動需 secret |
 | `supabase/functions/notify-holiday-theme/logic.ts` | 節日通知純邏輯 | 有 Vitest coverage |
 | `supabase/functions/send-match-reminders/index.ts` | 賽事提醒 | 排程走 `MATCH_REMINDER_SECRET`，每分鐘讀 `match_reminder_schedule_config` 判斷 Asia/Taipei 到期規則；手動單場發送需 bearer user 具 `matches:EDIT`；URL 使用 `/calendar?match_id=...`；自動模式會用 `HEALTH_ALERT` targeted event 通知 active `ADMIN` 排程漏發或派送異常 |
-| `supabase/functions/send-training-registration-notifications/index.ts` | 特訓報名開始 / 截止前提醒 | event key 必須穩定 |
-| `supabase/functions/send-training-registration-status-notifications/index.ts` | 單筆特訓報名完成 / 錄取通知 | bearer user 驗證，`submitted` 給 `training:EDIT` 管理者，`selected` 給報名使用者 |
-| `supabase/functions/send-training-selection-notifications/index.ts` | 特訓錄取名單公布通知 | 手動觸發需檢查使用者權限 |
+| `supabase/functions/send-training-registration-notifications/index.ts` | 特訓報名開始 / 截止前提醒 | event key 必須穩定；僅有效 `training:VIEW` 帳號／ADMIN，綁定球員不再自動取得收件資格 |
+| `supabase/functions/send-training-registration-status-notifications/index.ts` | 單筆特訓報名完成 / 錄取通知 | bearer user 必須有效且具 `training:VIEW`；`submitted` 給另具 `training:EDIT` 管理者，`selected` 保留原報名人／綁定球員範圍，收件者同樣需 VIEW |
+| `supabase/functions/send-training-selection-notifications/index.ts` | 特訓錄取名單公布通知 | 手動觸發需有效 `training:VIEW + EDIT`／ADMIN；收件者需有效 `training:VIEW`／ADMIN |
+| `supabase/functions/_shared/trainingNotificationAccess.ts` | 特訓通知收件與存取期間共用檢查 | 使用伺服器當下時間，ADMIN 也需有效帳號；同名測試執行三支通知 entry point 的實際查詢與授權函式，不啟動網路或 Web Push |
 | `supabase/functions/send-training-date-notifications/index.ts` | 訓練日期異動通知 | bearer user 驗證 `training_dates:EDIT`，只通知 linked users |
 | `supabase/functions/send-training-location-notifications/index.ts` | 訓練場地通知 | 排除已請假球員，只通知 linked users |
 | `supabase/functions/send-fee-payment-reminders/index.ts` | 收費催繳通知 | 不走排程；`preview/send` 需 bearer user 具 `fees:EDIT` 或 `ADMIN`，`test` 只允許 `ADMIN` 且目標固定為自己，文案取目前管理員綁定球員的未繳帳款；targeted event source 為 `fee_payment_reminder`，URL 使用 `/my-payments` |
@@ -77,6 +79,7 @@
 
 ## 本地注意事項
 
+- 2026-10-12 三支特訓通知的 VIEW gate 已部署；前端 `useNotificationFeed` 同步過濾舊 RPC 回傳的無權限特訓事件，VIEW 撤銷當下即從顯示結果排除特訓快取／新插入事件，刷新時再淘汰已撤權的快取。前端納入 1.1.76；正式部署與權限驗證見 `docs/specs/2026-10-11-training-view-permission.md`。實機推播須在重新啟用訂閱後另外確認。
 - 2026-10-05 已將 `qwxzwomzoyfkorbwsscv` 的 `GEMINI_LINEUP_MODEL` 更新為 `gemini-3.1-pro-preview`，並比對遠端設定摘要與預期值的 SHA-256。線上 `parse-lineup` 第 18 版沿用既有環境覆寫，不重新部署；repo 預設值同步更新。6 項 handler 測試、36 項賽事 / 媒體回歸與型別檢查通過；尚未以實際照片驗證 Google API 回應。
 - 新球員 Outbox cron 需要 Vault entries：`team_member_outbox_function_url`、`team_member_outbox_authorization`、`team_member_outbox_secret`；最後一項需與 Edge secret `TEAM_MEMBER_OUTBOX_SECRET` 相同。
 - 教練請假 cron `coach-leave-notification-outbox-worker` 每分鐘執行；Vault 需 `coach_leave_outbox_function_url`、`coach_leave_outbox_authorization`、`coach_leave_outbox_secret`（對應 Edge `COACH_LEAVE_OUTBOX_SECRET`）。缺設定時保留 pending，不影響假單交易或站內通知。JWT authorization 必須符合目標環境 gateway，不可複製另一專案的 token。
@@ -91,3 +94,26 @@
 - Edge Function 純邏輯：跑對應 `*.test.ts`，例如 `supabase/functions/resolve-location/logic.test.ts`、`supabase/functions/notify-holiday-theme/logic.test.ts` 或 `supabase/functions/process-team-member-notification-outbox/logic.test.ts`。
 - 前端呼叫端改動：至少跑 `pnpm exec vue-tsc --noEmit`。
 - 通知類改動：人工檢查 `push_dispatch_events` source、event key、target user / member、通知中心與 Web Push URL。
+
+## 1.1.76 通知部署紀錄（2026-10-12）
+
+正式專案 `qwxzwomzoyfkorbwsscv` 的下列函式皆為 ACTIVE；下載的每個檔案 SHA-256 與凍結的部署來源完全相符，無退役私鑰 literal，皆使用 secrets helper。九支非特訓的原始碼以部署前線上版本為底，只替換金鑰初始化，沒有用本機其他功能差異覆蓋線上。
+
+| Function | 部署後版本 | verify_jwt |
+| --- | --- | --- |
+| `leave-webhook` | 27 | false |
+| `send-push-notification` | 27 | false |
+| `record-fee-remittance` | 22 | false |
+| `send-match-reminders` | 24 | true |
+| `send-training-location-notifications` | 11 | true |
+| `send-training-registration-notifications` | 11 | true |
+| `send-training-selection-notifications` | 14 | true |
+| `send-training-date-notifications` | 11 | true |
+| `send-fee-payment-reminders` | 10 | true |
+| `process-team-member-notification-outbox` | 6 | true |
+| `send-match-fee-payment-notifications` | 5 | true |
+| `send-training-registration-status-notifications` | 1 | true |
+
+既有 11 支的版本號相對準備 manifest 為 +2，新 status 為 1；CLI 與管理 API 結果一致。發布驗證以實際 ACTIVE 狀態與逐檔 hash 為準，不由版號差推論部署次數。此次未部署 `notify-holiday-theme` 或 `process-coach-leave-notification-outbox`。
+
+部署後 30 項 HTTP 檢查通過：11 支 OPTIONS 200、Outbox 依既有 handler 回 405；9 支 JWT 函式各自的無 Authorization／無效 JWT POST 皆回 401。此驗證只涵蓋冷啟動與 gateway 拒絕，不代替有效使用者完整操作或實機推播；沒有發送測試通知或寫入業務資料。

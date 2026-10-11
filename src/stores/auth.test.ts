@@ -112,6 +112,67 @@ describe('auth store initialization', () => {
     return { store, emit: () => onAuthChange('TOKEN_REFRESHED', session) }
   }
 
+  it('shares pending last-seen writes and retains the five-minute throttle', async () => {
+    let now = Date.now()
+    vi.spyOn(Date, 'now').mockImplementation(() => now)
+    const pending = createDeferred<any>()
+    rpcMock.mockImplementationOnce(() => pending.promise)
+    const { store, emit } = await initializeLastSeenSession()
+
+    emit()
+    emit()
+    await flushPromises()
+    expect(rpcMock).toHaveBeenCalledTimes(1)
+
+    pending.resolve({ data: null, error: null })
+    await flushPromises()
+    now = Math.max(now, Date.parse(store.profile.last_seen_at))
+    now += 4 * 60_000
+    emit()
+    await flushPromises()
+    expect(rpcMock).toHaveBeenCalledTimes(1)
+
+    now += 60_001
+    emit()
+    await flushPromises()
+    expect(rpcMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('allows a later last-seen attempt after an error without rejecting login', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    rpcMock.mockRejectedValueOnce(new Error('network failed'))
+    const { store, emit } = await initializeLastSeenSession()
+    await flushPromises()
+    expect(store.isAuthenticated).toBe(true)
+    expect(store.profile.last_seen_at).toBeUndefined()
+
+    emit()
+    await flushPromises()
+    expect(rpcMock).toHaveBeenCalledTimes(2)
+    expect(store.profile.last_seen_at).toBeDefined()
+  })
+
+  it('ignores a last-seen response from a signed-out session of the same user', async () => {
+    const oldWrite = createDeferred<any>()
+    const newWrite = createDeferred<any>()
+    rpcMock.mockImplementationOnce(() => oldWrite.promise).mockImplementationOnce(() => newWrite.promise)
+    const { store, emit } = await initializeLastSeenSession()
+    await store.signOut()
+    await store.ensureInitialized()
+    expect(rpcMock).toHaveBeenCalledTimes(2)
+
+    oldWrite.resolve({ data: null, error: null })
+    await flushPromises()
+    expect(store.profile.last_seen_at).toBeUndefined()
+    emit()
+    await flushPromises()
+    expect(rpcMock).toHaveBeenCalledTimes(2)
+
+    newWrite.resolve({ data: null, error: null })
+    await flushPromises()
+    expect(store.profile.last_seen_at).toBeDefined()
+  })
+
   it('shares one initialization promise and ignores the mirrored initial auth event', async () => {
     const session = {
       access_token: 'session-token',

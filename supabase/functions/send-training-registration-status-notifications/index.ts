@@ -1,3 +1,4 @@
+import { canReceiveTrainingNotification, isActiveTrainingProfile } from "../_shared/trainingNotificationAccess.ts";
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 import {
@@ -59,6 +60,7 @@ type TrainingRegistrationRow = {
 type CallerContext = {
   id: string;
   profile: ProfileRow | null;
+  canViewTraining: boolean;
   canEditTraining: boolean;
 };
 
@@ -96,19 +98,6 @@ const normalizeKind = (value: unknown): TrainingRegistrationStatusNotificationKi
 const normalizeSingle = <T>(value: T | T[] | null | undefined): T | null =>
   Array.isArray(value) ? value[0] || null : value || null;
 
-const isActiveProfile = (profile: ProfileRow, now: Date) => {
-  if (profile.is_active === false) return false;
-
-  const nowTime = now.getTime();
-  const startTime = profile.access_start ? new Date(profile.access_start).getTime() : null;
-  const endTime = profile.access_end ? new Date(profile.access_end).getTime() : null;
-
-  if (startTime !== null && !Number.isNaN(startTime) && startTime > nowTime) return false;
-  if (endTime !== null && !Number.isNaN(endTime) && endTime < nowTime) return false;
-
-  return true;
-};
-
 const fetchCaller = async (req: Request): Promise<CallerContext | null> => {
   const authHeader = req.headers.get("Authorization") || "";
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
@@ -132,26 +121,31 @@ const fetchCaller = async (req: Request): Promise<CallerContext | null> => {
     return null;
   }
 
+  if (!isActiveTrainingProfile(profile as ProfileRow | null, new Date())) return null;
+
   const role = String((profile as ProfileRow | null)?.role || "");
   if (role === "ADMIN") {
-    return { id: userId, profile: profile as ProfileRow | null, canEditTraining: true };
+    return { id: userId, profile: profile as ProfileRow | null, canViewTraining: true, canEditTraining: true };
   }
 
   const { data: permissions, error: permissionError } = await supabase
     .from("app_role_permissions")
-    .select("feature")
+    .select("action")
     .eq("role_key", role)
     .eq("feature", "training")
-    .eq("action", "EDIT");
+    .in("action", ["VIEW", "EDIT"]);
 
   if (permissionError) {
     console.warn("Training registration status notification permission lookup failed", permissionError);
   }
 
+  const actions = new Set((permissions || []).map((permission: { action: string }) => permission.action));
+  const canViewTraining = !permissionError && actions.has("VIEW");
   return {
     id: userId,
     profile: profile as ProfileRow | null,
-    canEditTraining: !permissionError && (permissions || []).length > 0,
+    canViewTraining,
+    canEditTraining: canViewTraining && actions.has("EDIT"),
   };
 };
 
@@ -230,14 +224,24 @@ const assertAuthorized = (
     throw jsonResponse({ success: false, error: "unauthorized training registration notification request" }, 401);
   }
 
-  if (caller.canEditTraining || callerOwnsRegistration(caller, registration)) {
+  if (caller.canViewTraining && (caller.canEditTraining || callerOwnsRegistration(caller, registration))) {
     return;
   }
 
   throw jsonResponse({ success: false, error: "training registration notification is not allowed" }, 403);
 };
 
-const fetchTrainingEditTargetUserIds = async (now: Date) => {
+const fetchTrainingViewRoles = async () => {
+  const { data, error } = await supabase
+    .from("app_role_permissions")
+    .select("role_key")
+    .eq("feature", "training")
+    .eq("action", "VIEW");
+  if (error) throw error;
+  return new Set<string>((data || []).map((row: { role_key: string }) => row.role_key));
+};
+
+const fetchTrainingEditTargetUserIds = async (now: Date, viewRoles: ReadonlySet<string>) => {
   const { data: permissionRows, error: permissionError } = await supabase
     .from("app_role_permissions")
     .select("role_key")
@@ -260,12 +264,12 @@ const fetchTrainingEditTargetUserIds = async (now: Date) => {
 
   return [...new Set(
     ((data || []) as ProfileRow[])
-      .filter((profile) => profile.id && isActiveProfile(profile, now))
+      .filter((profile) => canReceiveTrainingNotification(profile, viewRoles, now))
       .map((profile) => profile.id),
   )];
 };
 
-const fetchProfileById = async (profileId: string, now: Date) => {
+const fetchProfileById = async (profileId: string, now: Date, viewRoles: ReadonlySet<string>) => {
   const { data, error } = await supabase
     .from("profiles")
     .select("id, role, linked_team_member_ids, is_active, access_start, access_end")
@@ -274,10 +278,10 @@ const fetchProfileById = async (profileId: string, now: Date) => {
 
   if (error) throw error;
   const profile = data as ProfileRow | null;
-  return profile?.id && isActiveProfile(profile, now) ? profile : null;
+  return canReceiveTrainingNotification(profile, viewRoles, now) ? profile : null;
 };
 
-const fetchLinkedTargetUserIds = async (memberId: string, now: Date) => {
+const fetchLinkedTargetUserIds = async (memberId: string, now: Date, viewRoles: ReadonlySet<string>) => {
   const { data, error } = await supabase
     .from("profiles")
     .select("id, role, linked_team_member_ids, is_active, access_start, access_end")
@@ -287,7 +291,7 @@ const fetchLinkedTargetUserIds = async (memberId: string, now: Date) => {
 
   return [...new Set(
     ((data || []) as ProfileRow[])
-      .filter((profile) => profile.id && isActiveProfile(profile, now))
+      .filter((profile) => canReceiveTrainingNotification(profile, viewRoles, now))
       .map((profile) => profile.id),
   )];
 };
@@ -297,16 +301,17 @@ const fetchTargetUserIds = async (
   kind: TrainingRegistrationStatusNotificationKind,
   now: Date,
 ) => {
+  const viewRoles = await fetchTrainingViewRoles();
   if (kind === "submitted") {
-    return fetchTrainingEditTargetUserIds(now);
+    return fetchTrainingEditTargetUserIds(now, viewRoles);
   }
 
   if (registration.applied_by) {
-    const appliedByProfile = await fetchProfileById(registration.applied_by, now);
+    const appliedByProfile = await fetchProfileById(registration.applied_by, now, viewRoles);
     if (appliedByProfile?.id) return [appliedByProfile.id];
   }
 
-  return fetchLinkedTargetUserIds(registration.member_id, now);
+  return fetchLinkedTargetUserIds(registration.member_id, now, viewRoles);
 };
 
 const groupSubscriptionsByUser = (subscriptions: StoredWebPushSubscription[]) => {
@@ -362,7 +367,8 @@ serve(async (req) => {
       return jsonResponse({ success: false, error: "training registration is not selected" }, 400);
     }
 
-    const targetUserIds = await fetchTargetUserIds(registration, kind, now);
+    // Profile access must use the server clock, never the optional diagnostic time.
+    const targetUserIds = await fetchTargetUserIds(registration, kind, new Date());
     const subscriptions = dryRun ? [] : await fetchEnabledPushSubscriptions(supabase, targetUserIds);
     const subscriptionsByUser = groupSubscriptionsByUser(subscriptions);
     const title = buildTrainingRegistrationStatusNotificationTitle(context, kind);

@@ -4,6 +4,15 @@ import { describe, expect, it } from 'vitest'
 const source = readFileSync(new URL('./MainLayout.vue', import.meta.url), 'utf8')
 
 describe('MainLayout team member notification security', () => {
+  it('requires training VIEW for both personal menus without changing other linked-member entries', () => {
+    expect(source).toContain("const canOpenTraining = computed(() => permissionsStore.can('training', 'VIEW'));")
+    expect(source).toContain(`v-if="canOpenTraining" @click="router.push('/training')"`)
+    expect(source).toContain("{ label: '特訓報名', to: '/training', visible: canOpenTraining.value }")
+    expect(source).not.toContain('canManageTraining.value || hasLinkedTeamMembers.value')
+    expect(source).toContain("canManagePerformanceFeature('baseball_ability') || hasLinkedTeamMembers.value")
+    expect(source).toContain("permissionsStore.currentRole === 'ADMIN' || hasLinkedTeamMembers.value")
+  })
+
   it('uses saved account role names for both menus while leaving player identity labels unchanged', () => {
     expect(source).toContain('useAppRoleNames();')
     expect(source.match(/\{\{ accountRoleName \}\}/g)).toHaveLength(2)
@@ -17,9 +26,18 @@ describe('MainLayout team member notification security', () => {
     expect(source).toContain("isActiveCoachProfile(authStore.profile) && permissionsStore.can('my_coach_leave_requests', 'VIEW')")
     expect(source).toContain("permissionsStore.can('coach_leave_requests', 'VIEW')")
     expect(source).toContain("coach_leave: '教練請假'")
-    expect(source).toContain("['coach-leave-changed']")
+    expect(source).toContain('useNotificationFeedRefresh(')
     expect(source).not.toContain("table: 'coach_leave_requests'")
     expect(source).not.toContain("buildPushEventKey('coach_leave'")
+  })
+  it('invalidates pending notification responses when the account or permissions change', () => {
+    expect(source).toContain('watchNotificationFeedScope(')
+    expect(source).toContain("userId: authStore.user?.id || ''")
+    expect(source).toContain('userId !== profileUserId')
+    const hydrationGuard = source.slice(source.indexOf('if (permissionRole !== role || permissionsLoading)'), source.indexOf('syncRealtimeSubscriptions();', source.indexOf('if (permissionRole !== role || permissionsLoading)')))
+    expect(hydrationGuard).toContain('resetNotificationFeed();')
+    expect(hydrationGuard).toContain('clearScheduledNotificationFeedLoad();')
+    expect(source).toContain("refreshNotificationFeed('open')")
   })
   it('does not subscribe to raw team member changes or dispatch member pushes in the browser', () => {
     expect(source).not.toContain("channel('team-members-channel')")

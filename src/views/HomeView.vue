@@ -168,8 +168,9 @@ const {
   now
 })
 const shouldShowCoachSchedulePanel = computed(() => canViewCoachSchedules.value || isCoachProfile.value)
+const canViewTraining = computed(() => permissionsStore.can('training', 'VIEW'))
 const showMyHomeTrainingRegistrationAction = computed(() =>
-  canShowMyHomeTrainingRegistrationAction(myHomeNextEvent.value)
+  canViewTraining.value && canShowMyHomeTrainingRegistrationAction(myHomeNextEvent.value)
 )
 
 const userName = computed(() => authStore.profile?.nickname || authStore.profile?.name || '球隊夥伴')
@@ -621,7 +622,7 @@ const fetchMyHomeSnapshotData = async (options: MyHomeSnapshotFetchOptions = {})
   }
 
   try {
-    const snapshot = await getMyHomeSnapshot(now.value.format('YYYY-MM-DD'))
+    const snapshot = await getMyHomeSnapshot(now.value.format('YYYY-MM-DD'), { includeTrainingPoints: canViewTraining.value })
     myHomeSnapshot.value = snapshot
 
     const hasSelectedMember = snapshot.members.some((member) => member.id === selectedMyHomeMemberId.value)
@@ -1101,6 +1102,7 @@ onUnmounted(() => {
       :next-event="myHomeNextEvent"
       :is-loading="isMyHomeLoading"
       :error-message="myHomeError"
+      :show-training-points="canViewTraining"
       :show-training-registration-action="showMyHomeTrainingRegistrationAction"
       :weather="myHomeWeatherCard"
       @refresh="fetchMyHomeSnapshotData"

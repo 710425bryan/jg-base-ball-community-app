@@ -40,6 +40,8 @@ description: 教練本人與管理請假、排班移除稽核及教練請假 Out
 - Active ADMIN、`coach_leave_requests:VIEW` 使用者及具有 `coach_schedules:VIEW` 的教練為 audience。初始化、每次重試和 feed 共用資格判斷，權限被收回後不得派送；沒有 subscription 仍可顯示通知中心。
 - 管理者 URL 是 `/coach-leave-requests?highlight_leave_id=...`，排班教練是 `/coach-schedules?month=YYYY-MM`。不可把本人或排班 VIEW當成管理原因權限。
 - 先部署 core migration，再通知 migration、專屬 worker 與 cron；本地測試不代表 remote migration、推播或排程部署成功。
+- 依使用者「固定 11 筆歷史通知只留站內，新事件才推播」決定，一次性 `scripts/suppress-coach-leave-historical-push-20261009.sql` 已於 **2026-10-09 14:48:18 台灣（06:48:18Z）正式套用**。cutoff `2026-10-06T07:07:21.743675Z` 以前的固定集合經鎖定／metadata fingerprint 驗證後改 `recorded`；獨立 post-check 確認 11 recorded、零歷史 delivery／claim eligible／派送計數、無鎖、內容與 feed／claim 定義 hash 不變，outbox mode 保留。40 項隔離 SQL 檢查包含同一舊假單 cutoff 後新 revision 仍可 claim；不把新 revision 依假單 ID 一起抑制。此處置不重跑，heartbeat 不得執行、擴大集合或補送歷史事件。
+- 此決定不解除 worker 發布門檻：專屬 Edge Function 尚未部署、四項所需 Edge secret 尚缺；shared push 仍有 hard-coded 私鑰，須依 `docs/EDGE_FUNCTIONS.md` 完成私鑰旋轉／移入 secrets 與 auth mode 版本化。不得保存 key 值；歷史處置、worker 部署、新通知實際派送需分別驗證，不把其中一項完成當成全流程成功。
 - SQL Editor 必須完整執行各檔的 BEGIN→COMMIT。通知 migration 會先檢查 core 表／RPC／payload；42703 缺 `coach_leave_payload` 先確認第一份已成功，不能只補欄位當成完整安裝。失敗交易先 rollback，再按順序執行未成功的檔案；已成功 migration 不整份重跑，尤其不能重新搬移通知 feed。
 
 ## 驗證

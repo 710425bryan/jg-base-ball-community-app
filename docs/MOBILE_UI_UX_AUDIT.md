@@ -403,3 +403,13 @@
 - 360／390／640／767／1440px 與 390px 下 root 20px 放大文字均檢查頁面及收費欄位，沒有水平溢出，放大文字後仍可操作及儲存。正式登入、iPhone safe area／鍵盤與遠端 migration 尚待驗收，本機瀏覽器證據不能視為正式環境已上線。
 - 型別檢查、全量 239 files／1,229 tests、收費完整回歸加元件 22 files／111 tests、收費 SQL 225 項及 production build 通過。首次全量執行有兩項既有測試超時，以 2 workers 完整重跑全數通過。SQL 測試使用真實 migration／RPC／trigger，包含預設值與重跑、啟用日期、單場免繳、請假、付款歷程、linked scope、欄位權限及 Google 同步保留；新 migration 尚未遠端套用。
 - `PlayersView` 已抽離收費選項、說明與樣式；既有大型 `MyPaymentsView`／`FeeSettings` 僅更正文案，為避免擴大付款流程風險未在此次拆分，後續可依付款表單與設定分頁拆出子元件。純型別／文件以型別及 diff 檢查驗證，migration 以隔離 PostgreSQL integration 驗證。
+# 2026-10-11 特訓 VIEW 權限入口
+
+- 範圍：`MainLayout` 個人選單、首頁特訓卡片／入口、`TrainingView` 權限 wrapper；原 UI 移至 `TrainingWorkspace`，不改內容版面。
+- 本機隔離 Chromium 390px／1365px 已驗證：未勾 VIEW 已綁定帳號不顯示入口／點數卡、直接網址拒絕；VIEW 可進個人報名且無管理 tabs；撤權卸載並導回大廳；ADMIN 原管理功能保留。
+- 證據：`tests/browser/verify-training-permission.mjs`、`/tmp/jg-training-permission-browser/evidence.json`（12 checks、8 screenshots，無 page errors）；已目視 390px 個人報名畫面。
+- 狀態：本機瀏覽器驗證完成；正式部署、實體 iOS／Android、原生鍵盤／safe area 尚未驗收。
+
+### 1.1.76 推播重新啟用
+
+- `PushSettingsDialog` 以既有 Element Plus 按鈕提示「此裝置需要重新啟用推播」，保留至少 44px 點擊高度。只在明確啟用時更新舊訂閱。16 項 mounted UI／helper 回歸通過；未做真實手機推播送達驗收。

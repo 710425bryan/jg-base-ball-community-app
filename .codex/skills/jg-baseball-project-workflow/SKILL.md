@@ -42,6 +42,8 @@ description: "Project-specific workflow for jg-base-ball-community-app. Use when
 - 改 `/calendar`、`/match-records`、陣容、照片、語音、天氣或賽事提醒時，先讀 `jg-baseball-match-records-media` skill。
 - 改 `/leave-requests`、`/my-leave-requests`、`/attendance`、點名 detail 或請假 webhook 時，先讀 `jg-baseball-leave-attendance` skill。
 - 改球員名單、使用者、linked member、team group 或敏感欄位時，先讀 `jg-baseball-roster-users-team-groups` skill。
+- 排查 Storage 544／DB timeout 時先讀 `docs/SUPABASE_TIMEOUT_RECOVERY_20261009.md` 與 `docs/MIGRATIONS.md`。2026-10-09 已部署 retention `20261009051707` 與台灣 03:20／03:30 維護排程；前端請求去重納入 1.1.76、準備發行。2026-10-12 的 last-seen migration `20261011161534` 只補齊既有線上節流的 history，function body 與 ACL 未變；本次未重跑 retention、維護啟用或歷史通知處置腳本，亦不代表 timeout 長期驗收已完成。
+- `scripts/supabase-recovery-observer.mjs` 只做單次唯讀觀察；狀態放須保持 Git ignored 的 `.codex/runtime/`。比較計數差值並辨識 reset／缺樣本，不用跨月累計平均宣稱當下恢復；20 秒 retention 軟預算與目前 120 秒 statement_timeout 硬上限要分開回報。
 
 ## UI 與手機規則
 

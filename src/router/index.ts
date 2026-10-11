@@ -10,7 +10,7 @@ import { getLegacyEquipmentAdminRedirect } from '../utils/equipmentPurchaseAdmin
 
 const CHUNK_RELOAD_SESSION_KEY = 'router:chunk-reload-target'
 const DEFAULT_AUTHENTICATED_ROUTE = '/dashboard'
-const LINKED_MEMBER_VIEW_FEATURES = new Set(['baseball_ability', 'physical_tests', 'training'])
+const LINKED_MEMBER_VIEW_FEATURES = new Set(['baseball_ability', 'physical_tests'])
 const PERFORMANCE_MANAGE_ACTIONS = ['CREATE', 'EDIT', 'DELETE'] as const
 
 const isDynamicImportError = (error: unknown) => {
@@ -48,7 +48,7 @@ const hasFeatureAccess = (
   feature: string
 ) => (
   permissionsStore.can(feature, 'VIEW') ||
-  canManagePerformanceFeature(permissionsStore, feature)
+  (feature !== 'training' && canManagePerformanceFeature(permissionsStore, feature))
 )
 
 const router = createRouter({
@@ -114,7 +114,7 @@ const router = createRouter({
           path: 'training',
           name: 'Training',
           component: () => import('../views/TrainingView.vue'),
-          meta: { feature: 'training', allowLinkedMemberView: true }
+          meta: { feature: 'training' }
         },
         {
           path: 'training-locations',

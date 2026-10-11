@@ -132,6 +132,31 @@ describe('myHome service', () => {
     expect(snapshot.training_month_dates.map((item) => item.date)).toEqual(['2026-07-04', '2026-07-11'])
   })
 
+  it.each([false, true])('skips training point reads without access and preserves other home data (snapshot points: %s)', async (withSnapshotPoints) => {
+    rpcMock.mockResolvedValue({
+      data: {
+        members: [{
+          id: 'member-1', name: '小明', role: '球員', status: '在隊',
+          ...(withSnapshotPoints ? { point_balance: 12, reserved_training_points: 2, available_training_points: 10 } : {})
+        }],
+        training_locations: [],
+        training_month_dates: ['2026-07-04'],
+        payment_summary: { unpaid_count: 1, pending_review_count: 0, total_unpaid_amount: 500 }
+      },
+      error: null
+    })
+    inMock.mockResolvedValue({ data: [{ id: 'member-1', status: '在隊', is_inactive_or_graduated: false }], error: null })
+    apiMocks.listMyMatchFeeItems.mockResolvedValue([])
+
+    const { getMyHomeSnapshot } = await import('./myHome')
+    const snapshot = await getMyHomeSnapshot('2026-07-05', { includeTrainingPoints: false })
+
+    expect(rpcMock.mock.calls.some(([name]) => name === 'list_my_training_members')).toBe(false)
+    expect(snapshot.members[0]).toMatchObject({ id: 'member-1', point_balance: 0, reserved_training_points: 0, available_training_points: 0 })
+    expect(snapshot.payment_summary.total_unpaid_amount).toBe(500)
+    expect(snapshot.training_month_dates.map((item) => item.date)).toEqual(['2026-07-04'])
+  })
+
   it('fetches member program dates when an older snapshot only includes default training dates', async () => {
     apiMocks.trainingProgramsApi.listSettings.mockResolvedValue([
       {

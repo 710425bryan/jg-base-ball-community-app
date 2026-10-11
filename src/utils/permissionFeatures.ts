@@ -106,7 +106,7 @@ export const systemFeatures = [
   {
     key: 'training',
     name: '特訓報名',
-    desc: '管理球員點數、特訓報名與錄取名單',
+    desc: '勾選檢視才可使用特訓報名與點數；新增、修改、刪除控制管理操作',
     actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE']
   },
   {

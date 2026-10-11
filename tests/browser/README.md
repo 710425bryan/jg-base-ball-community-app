@@ -38,3 +38,13 @@ Fixture 掛載實際 Vue 頁面、Element Plus、AppGlobalSelect、AppGlobalDial
 多選選單保留 Element Plus 標準行為：選完後透過原有箭頭關閉，再操作儲存；更多選單與儲存必須第一次觸控就生效。批次送出失敗案例是刻意的 API 錯誤注入，只有在錯誤顯示後才重試；一般操作不重試點擊。輸出 `evidence.json`、agent-browser snapshot 與各尺寸截圖；失敗會保留當前截圖及文字診斷。成功條件為 result PASS、沒有 browser error／外部請求，每個尺寸恰好一次自動帶入確認且只送出一筆可用活動。
 
 這是 Chromium 模擬手機尺寸驗證，不能取代實體 iPhone／Android、硬體 safe area、真實 Supabase 授權／RPC 或瀏覽器推播送達驗收。資料庫規則另由隔離 SQL 回歸驗證。
+# 特訓檢視權限
+
+使用真實 App／Router／Pinia，攔截全部 Auth、REST 與 Realtime；測試不使用正式 session、不寫入遠端、不派送通知。
+
+```bash
+VITE_SUPABASE_URL=https://training-permission.supabase.co VITE_SUPABASE_ANON_KEY=ci-anon-key pnpm exec vite --host 127.0.0.1 --port 5188 --strictPort
+node tests/browser/verify-training-permission.mjs
+```
+
+涵蓋 390px／1365px 下無 VIEW 已綁定、CRUD 缺 VIEW、個人 VIEW、撤權卸載、未綁定 VIEW 與 ADMIN。輸出 `/tmp/jg-training-permission-browser/evidence.json` 及截圖；非本機請求均被 mock 或阻擋。

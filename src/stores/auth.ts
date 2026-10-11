@@ -49,6 +49,7 @@ export const useAuthStore = defineStore('auth', () => {
   let authStateSubscription: { unsubscribe: () => void } | null = null
   let hydratedProfileUserId: string | null = null
   let authGeneration = 0
+  let lastSeenInFlight: { userId: string; generation: number; promise: Promise<void> } | null = null
   let accessMonitor: ReturnType<typeof createProfileAccessMonitor> | null = null
   let monitoredUserId: string | null = null
   let rejectedUserId: string | null = null
@@ -63,6 +64,7 @@ export const useAuthStore = defineStore('auth', () => {
   const clearLocalAuthContext = async () => {
     stopAccessMonitor()
     authGeneration += 1
+    lastSeenInFlight = null
     session.value = null
     user.value = null
     profile.value = null
@@ -129,6 +131,11 @@ export const useAuthStore = defineStore('auth', () => {
   })
 
   const maybeTouchLastSeen = async (userId: string) => {
+    if (user.value?.id !== userId) return
+    if (lastSeenInFlight?.userId === userId && lastSeenInFlight.generation === authGeneration) {
+      return lastSeenInFlight.promise
+    }
+
     const cachedLastSeenAt = lastSeenSyncCache.get(userId) ?? 0
     const profileLastSeenAt = profile.value?.last_seen_at ? new Date(profile.value.last_seen_at).getTime() : 0
     const newestKnownSeenAt = Math.max(cachedLastSeenAt, profileLastSeenAt)
@@ -138,21 +145,25 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     const nextSeenAt = new Date().toISOString()
-    const { error } = await supabase.rpc('touch_profile_last_seen')
+    const requestGeneration = authGeneration
+    const promise = (async () => {
+      try {
+        const { error } = await supabase.rpc('touch_profile_last_seen')
+        if (error) throw error
+        if (requestGeneration !== authGeneration || user.value?.id !== userId) return
 
-    if (error) {
-      console.warn('Failed to touch profile last seen', error)
-      return
-    }
-
-    lastSeenSyncCache.set(userId, Date.now())
-
-    if (profile.value?.id === userId) {
-      profile.value = {
-        ...profile.value,
-        last_seen_at: nextSeenAt
+        lastSeenSyncCache.set(userId, Date.now())
+        if (profile.value?.id === userId) {
+          profile.value = { ...profile.value, last_seen_at: nextSeenAt }
+        }
+      } catch (error) {
+        console.warn('Failed to touch profile last seen', error)
       }
-    }
+    })().finally(() => {
+      if (lastSeenInFlight?.promise === promise) lastSeenInFlight = null
+    })
+    lastSeenInFlight = { userId, generation: requestGeneration, promise }
+    return promise
   }
 
   const syncAuthContext = async (
@@ -163,6 +174,7 @@ export const useAuthStore = defineStore('auth', () => {
     if (user.value?.id !== nextSession?.user.id) {
       stopAccessMonitor()
       authGeneration += 1
+      lastSeenInFlight = null
     }
     session.value = nextSession
     user.value = nextSession?.user ?? null

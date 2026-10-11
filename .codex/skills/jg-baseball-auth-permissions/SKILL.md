@@ -25,6 +25,8 @@ description: "Role-based auth and permission workflow for jg-base-ball-community
 
 - `/my-payments` 新增付款回報的免綁定例外只限有效 `ADMIN`，不等同任何 `fees` feature 權限；集中於 `usePaymentSubmissionAccess` 與 DB `private.can_submit_payment_for_member()`。啟用／存取期間、原回報者、待審及金額檢查仍有效。
 
+- 特訓 `/training` 必須有 `training:VIEW`；linked member 例外只保留在能力／體測，不再適用特訓。管理 action 不代替 VIEW；路由、MainLayout、TrainingView wrapper、RPC／RLS、feed／通知需同步。2026-10-11 本機實作與發布清單見 `docs/specs/2026-10-11-training-view-permission.md`。
+
 ## Auth 守則
 
 - 即時停權由 `profileAccessMonitor.ts` 只訂閱本人 `profiles.id` UPDATE，需先部署 `20261009134852_immediate_profile_suspension.sql` 開啟 publication；不可放寬 self/admin SELECT RLS。前景／重連／token／30 秒備援查詢與 access_end timer 補漏，請求須合併、可停止且隔離舊 session 回應；網路失敗不能冒充停權。
@@ -55,7 +57,7 @@ description: "Role-based auth and permission workflow for jg-base-ball-community
 
 ## 角色中文顯示名稱
 
-- 「角色與權限設定」可透過 `RoleNameEditor` 修改「顯示名稱 (中文)」，識別碼唯讀。`rolesApi.updateAppRoleName()` 呼叫 `update_app_role_name(p_role_key, p_role_name)`，限有效 ADMIN、SECURITY INVOKER 沿用 RLS；系統／自訂角色均可改，去除首尾空白、名稱必填且最多 100 字，只更新 `app_roles.role_name`。保存結果先同步角色清單與 permission store，再重新查詢，查詢失敗仍保留成功結果。名稱不參與授權或排序，不改 `role_key`、`profiles.role`、權限列或 weight；須先部署 `20261011150448_app_role_display_names.sql`，本次僅本機完成。
+- 「角色與權限設定」可透過 `RoleNameEditor` 修改「顯示名稱 (中文)」，識別碼唯讀。`rolesApi.updateAppRoleName()` 呼叫 `update_app_role_name(p_role_key, p_role_name)`，限有效 ADMIN、SECURITY INVOKER 沿用 RLS；系統／自訂角色均可改，去除首尾空白、名稱必填且最多 100 字，只更新 `app_roles.role_name`。保存結果先同步角色清單與 permission store，再重新查詢，查詢失敗仍保留成功結果。名稱不參與授權或排序，不改 `role_key`、`profiles.role`、權限列或 weight；2026-10-12 唯讀確認正式 `update_app_role_name(text,text)` 已存在，function body、SECURITY INVOKER、空 search_path 與 authenticated ACL 均符合 `20261011150448_app_role_display_names.sql`；migration history 尚未記錄本檔，本次未重跑。
 - Google 同步家長帳號的角色解析抽至 `guardianAccountRole.ts`，只依 `MEMBER → PARENT → GENERAL_MEMBER` 固定識別碼，不再以「一般成員」顯示名稱選角色；查詢失敗／無候選仍沿用 MEMBER fallback。不改既有帳號角色、球員身分或收費資料。
 - 導覽列、公開頁登入者徽章及個人設定以 `appRoleDisplay` 按識別碼讀取 permission store 的角色名稱；兩個 layout 由 `useAppRoleNames` 在有效登入、本人 profile 一致且角色 metadata 尚空時載入，未登入不查詢。保留載入失敗的既有 fallback；同 session 儲存名稱即時反映，未新增跨裝置 Realtime。
 - 驗證 `RoleNameEditor.test.ts`、`RolePermissionsManager.test.ts`、`rolesApi.test.ts`、`guardianAccountRole.test.ts`、`PlayersView.test.ts`、`appRoleDisplay.test.ts`、`useAppRoleNames.test.ts`、三處名稱顯示元件測試及 `pnpm test:roles:sql`。瀏覽器使用 `node tests/browser/verify-role-name.mjs`，隔離 mock 驗證手機／桌面保存、失敗保留、同步使用者名單與權限資料不變。

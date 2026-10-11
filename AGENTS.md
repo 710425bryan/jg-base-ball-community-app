@@ -90,6 +90,7 @@
 - `docs/DELIVERY_WORKFLOW.md`：需求、Spec、開發、CI、Vercel Preview、Supabase staging / production gate 與 rollback 流程。
 - `docs/MIGRATIONS.md`：migration / hotfix / repair 索引，修改 DB function / policy 前必讀。
 - `docs/EDGE_FUNCTIONS.md`：Supabase Edge Functions、外部服務與環境變數索引。
+- `docs/SUPABASE_TIMEOUT_RECOVERY_20261009.md`：Storage 544／DB timeout 的維護紀錄、觀察限制與驗收狀態；維運腳本與 migration 對照見 `docs/MIGRATIONS.md`。
 - `.codex/skills/`：專案 AI workflow。
 - `public/`：靜態資產；`public/version.json` 由 Vite plugin 維護，功能開發不手動改。
 - `dist/`、`dev-dist/`：建置產物，預設不要編輯。
@@ -142,6 +143,7 @@
 - `src/stores/auth.ts` 負責 session、profile、last seen、role permissions hydration。
 - 停權即時退出由 `src/services/profileAccessMonitor.ts` 只訂閱本人 `profiles.id` 的 UPDATE；收到拒絕狀態先清除本機帳號／權限、卸載後台，由 `App` 跳過未儲存草稿阻擋導回首頁並顯示 `AuthAccessNotice`。訂閱成功、token 更新、回前景／網路恢復與前景 30 秒備援重新確認；舊 session／權限回應不得恢復登入，網路錯誤不視為停權。`20261009134852_immediate_profile_suspension.sql` 須先啟用 profiles publication，2026-10-09 發布前唯讀確認正式 publication 已啟用（history 未記錄本檔），前端隨 1.1.73 發布；離線／凍結裝置需恢復後才能收到事件。
 - 初次寄碼／重新寄碼只接受 `can_request_magic_link()` 明確回傳 true；false／查詢錯誤皆不呼叫 Auth OTP，`shouldCreateUser: false` 不開放自動建立帳號。LoginModal 在 email／OTP 欄位旁持續顯示錯誤。App 的已登入狀態必須有同一使用者且允許存取的 profile；初始化讀取失敗只清除記憶體狀態、保留可重試的持久 session，不顯示受保護頁面。
+- `last_seen_at` 同使用者／session 執行中請求去重保留 5 分鐘間隔及切換帳號隔離，前端納入 1.1.76、準備發行；2026-10-12 以 `20261011161534_profile_last_seen_write_throttle.sql` 補齊既有線上 5 分鐘節流的 migration history，部署前後 function body 與 ACL 一致，並非本次才啟用節流。
 - `src/stores/permissions.ts` 從 `app_role_permissions` 讀取 feature/action；`ADMIN` 有前端 bypass。
 - `permissionsStore.can()`、按鈕顯示、router guard 只算 UX 控制，不是資料安全邊界。
 - 真正安全邊界在 DB RLS、policy、`security definer` RPC、Edge Function 驗證。
@@ -173,6 +175,7 @@
 - `HomeView` 的 Team Members 只統計有效名單：`status in ('退隊', '離隊')` 或 `is_inactive_or_graduated = true` 不顯示、不納入總人數；校隊依 `training_program = 'junior_high_school_team'` 分為國中部，其餘校隊顯示為國小校隊，總人數包含兩類校隊與社區球員但不含教練。
 - `HomeView` 的「今日訓練點名狀態」走 `get_dashboard_today_attendance_status()`，會列出今日所有點名單並只顯示給 `leave_requests:VIEW` 使用者。
 - 通知中心優先走 `get_notification_feed()`；若 RPC 缺失，依 `useNotificationFeed` 的 fallback fetcher 邏輯處理。
+- 通知刷新由 `useNotificationFeedRefresh` 協調初次載入、回前景、開啟及資料異動，`useNotificationFeed` 合併請求並隔離過期回應；前端納入 1.1.76、準備發行。保留開啟時費用提醒、異動刷新、權限撤銷與登出清除。
 - 公告管理在 `AnnouncementsView`，資料表為 `announcements`，附件 / 圖片目前使用 storage。
 
 ### 球員、使用者與權限
@@ -188,7 +191,7 @@
 - 使用者名單的表格與卡片共用 `userRoleOrder` 依 `app_roles.weight` 由小到大排序，相同數字依 `role_key` 穩定排序；未知角色或缺少數字時使用 99，不再依角色名稱插隊。「角色與權限設定」的 `RoleSortEditor` 可逐角色調整正整數，包含 ADMIN／系統角色；保存由 `rolesApi.updateAppRoleWeight()` 呼叫 `update_app_role_weight()`，只允許有效 ADMIN 並沿用既有 RLS。只更改顯示排序，不更動授權、角色身分或其他欄位；保存成功先以 RPC 結果同步元件與 permission store 角色清單，再重新查詢，後續載入失敗仍保留新排序。
 - `profiles.role` 與 `profiles.linked_team_member_ids` 是授權邊界欄位；即使 self-update policy 允許個人更新其他 profile 設定，這兩欄也必須由 DB trigger 再檢查 `users:EDIT`，不可讓一般帳號自行升級角色或改綁定範圍。
 - 權限 UI 在 `RolePermissionsManager.vue`，對應 `app_roles` 與 `app_role_permissions`。
-- 「角色與權限設定」可透過 `RoleNameEditor` 修改「顯示名稱 (中文)」，識別碼唯讀。`rolesApi.updateAppRoleName()` 呼叫 `update_app_role_name(p_role_key, p_role_name)`，限有效 ADMIN、SECURITY INVOKER 沿用 RLS；系統／自訂角色均可改，去除首尾空白、名稱必填且最多 100 字，只更新 `app_roles.role_name`。保存結果先同步角色清單與 permission store，再重新查詢，查詢失敗仍保留成功結果。名稱不參與授權或排序，不改 `role_key`、`profiles.role`、權限列或 weight；須先部署 `20261011150448_app_role_display_names.sql`，本次僅本機完成。
+- 「角色與權限設定」可透過 `RoleNameEditor` 修改「顯示名稱 (中文)」，識別碼唯讀。`rolesApi.updateAppRoleName()` 呼叫 `update_app_role_name(p_role_key, p_role_name)`，限有效 ADMIN、SECURITY INVOKER 沿用 RLS；系統／自訂角色均可改，去除首尾空白、名稱必填且最多 100 字，只更新 `app_roles.role_name`。保存結果先同步角色清單與 permission store，再重新查詢，查詢失敗仍保留成功結果。名稱不參與授權或排序，不改 `role_key`、`profiles.role`、權限列或 weight；2026-10-12 唯讀確認正式 `update_app_role_name(text,text)` 已存在，function body、SECURITY INVOKER、空 search_path 與 authenticated ACL 均符合 `20261011150448_app_role_display_names.sql`；migration history 尚未記錄本檔，本次未重跑。
 - Google 同步家長帳號的角色解析抽至 `guardianAccountRole.ts`，只依 `MEMBER → PARENT → GENERAL_MEMBER` 固定識別碼，不再以「一般成員」顯示名稱選角色；查詢失敗／無候選仍沿用 MEMBER fallback。不改既有帳號角色、球員身分或收費資料。
 - 「新增角色」可用 Element Plus 選單選擇複製既有角色權限，預設不複製；`ADMIN` 為最高權限，列為不可選來源。建立由 `src/services/rolesApi.ts` 的 `createAppRole()` 呼叫 `create_app_role()` RPC，只允許有效 `ADMIN`；角色與來源全部已儲存 feature/action 在同一交易建立，失敗一起回滾。複製是建立時快照，後續可獨立調整，不連動或修改來源角色；成功後刷新角色清單與 permission store 的角色選項。
 
@@ -233,7 +236,7 @@
 
 - 特訓沿用 `matches.match_level = '特訓課'`，報名與點數資料集中在 `training_session_settings`、`training_registrations`、`player_point_transactions`、`training_no_show_blocks`。
 - 前端頁面為 `/training`，分為個人報名、教練管理、點數管理；資料存取皆走 `src/services/trainingApi.ts` 封裝的 security definer RPC。
-- `training` feature/actions：`VIEW / CREATE / EDIT / DELETE`；linked member 可進入 `/training` 看自己的點數與報名。教練管理與點數管理只給 `CREATE / EDIT / DELETE` 其中一種管理權限者，單純 `VIEW` 不顯示管理工具。
+- `training` feature/actions：`VIEW / CREATE / EDIT / DELETE`；`/training`、選單與首頁特訓入口必須有 `training:VIEW`，綁定球員不再自動放行，單有管理 action 也不能代替 VIEW；有效 ADMIN 保留 bypass。有 VIEW 的使用者仍只可替本人 linked member 報名；教練管理與點數管理另需 `CREATE / EDIT / DELETE`，單純 VIEW 不顯示管理工具。前端納入 1.1.76、準備發行；DB migration `20261011161249_training_view_permission_gate.sql` 已於 2026-10-12 部署，RPC、RLS 與通知 feed 均要求 VIEW。三支特訓通知 Edge Functions 亦已部署；完整安全邊界、驗證與發布狀態見 `docs/specs/2026-10-11-training-view-permission.md`。
 - 報名開關由 DB 端檢查手動狀態與時間窗；個人端不可直接寫 raw table。`training_session_settings.auto_select_enabled` 只影響開啟後的新報名：名額未滿且點數足夠時 DB 端直接錄取並保留點數，滿額時仍維持待審。
 - 教練可在沒有資料時建立特訓課與報名設定；新增特訓課預設上課時間 `09:00 - 12:00`、地點 `中港國小`，上課時間使用 Element Plus 時間範圍元件。
 - 報名開始時間到達且狀態為開放時，由 `send-training-registration-notifications` 排程檢查發送「特訓課開放報名」通知；報名截止前 24 小時內若還有錄取名額，會再發送一次「特訓課報名即將截止」通知；公布錄取名單時由 `send-training-selection-notifications` 發送「特訓課錄取名單已公布」通知；單筆報名 / 錄取狀態由 `send-training-registration-status-notifications` 發送，報名完成只通知 `training:EDIT` 管理者，錄取只通知報名使用者；事件寫入 `push_dispatch_events` 供通知中心顯示，同時發送 Web Push。
@@ -284,6 +287,7 @@
 - 只新增台灣今天起日期；多日限全日，單日可全日 / 上午 / 下午，上午與下午以 13:00 半開區間分界，未知活動時間按全日檢查。原因選填最多 500 字，僅本人或具假單管理 `VIEW` 可讀；已結束（end_date 早於今天）與已取消假單唯讀；跨日仍進行中的假單可取消，修改只保留今天起範圍並保存原範圍稽核，有效假單修改 / 取消需 `updated_at`，新增可帶固定 client UUID 防止重試重複。
 - 新增 / 修改立即實際移除該教練與假單重疊的今日起有效排班指派，保留活動和其他教練，寫入 private audit 並更新排班版本。取消 / 縮小請假範圍不恢復原指派，需管理者重新指派；請假、排班與來源重連共用同一交易鎖，matches 異動於 BEFORE statement 先取鎖，避免刪除賽事與保存排班鎖次序相反。
 - 每次成功異動在同一交易寫入 `push_dispatch_events` Outbox，event key 為 `coach_leave:<UUID>:<revision>:created|updated|cancelled`。通知不含原因；收件人為 active `ADMIN`、具 `coach_leave_requests:VIEW` 者，以及同時具 `coach_schedules:VIEW` 的教練，逐次派送與通知中心共用最新權限判斷。管理者導向假單 `highlight_leave_id`，排班教練導向所屬月份 `/coach-schedules`；無推播訂閱仍有通知中心事件。
+- 依使用者決定，固定 11 筆歷史教練通知已於 2026-10-09 14:48:18 台灣（06:48:18Z）透過 `scripts/suppress-coach-leave-historical-push-20261009.sql` 正式改為 `recorded`、只留站內；post-check 確認零 delivery／歷史可 claim／派送計數、無鎖，mode／內容及 feed／claim 定義保留。一次性處置不得重跑或交由唯讀 heartbeat 執行／補送；worker／四項 Edge secrets／VAPID 部署門檻仍未完成，新推播尚未恢復，詳細驗證見 coach-leave skill、`docs/MIGRATIONS.md`。
 
 
 ### 收費與付款
@@ -415,6 +419,8 @@
 - Edge Function 不硬編碼 secret、service role key、cron authorization；使用環境變數或 DB setting。
 - 修改 Edge Function 或外部 API 前讀 `docs/EDGE_FUNCTIONS.md`，確認所需 env、auth 模式與對應 skill。
 - Storage bucket policy 要跟功能權限一致；例如 avatars、equipments、matches-photos 各自有不同使用情境。
+- 2026-10-09 正式專案已部署 cron history retention `20261009051707`：已結束紀錄保留 30 天，另保留每個現有排程最新 10 筆；每批最多掃描 500 筆。台灣每日 03:20 維護 `net._http_response`（一般 VACUUM、只 ANALYZE `created`），03:30 執行 retention；詳細限制及初次分批清理進度見維護報告，不可宣稱歷史積欠已清完。
+- `scripts/supabase-recovery-observer.mjs` 每次只做唯讀觀察，執行資料放在須保持 Git ignored 的 `.codex/runtime/`；它不清理資料、不自行發送告警，也不能代替持續在線的外部監控。
 
 ## 10. 驗證矩陣
 
@@ -452,6 +458,7 @@
 - 名單 / 使用者 / 組別：`pnpm exec vitest run src/utils/playerSync.test.ts src/stores/playerRoster.test.ts src/stores/teamGroups.test.ts src/utils/profileAccess.test.ts`
 - 新增角色／權限複製：`pnpm exec vitest run src/components/RolePermissionsManager.test.ts src/services/rolesApi.test.ts` 與 `pnpm test:roles:sql`；涵蓋來源選取、完整快照、不複製、來源獨立性、有效 ADMIN／無權限、ADMIN 來源拒絕、RLS 阻擋與整筆回滾；SQL 回歸亦納入 `pnpm check`。
 - 角色數字排序：`pnpm exec vitest run src/components/RoleSortEditor.test.ts src/components/RolePermissionsManager.test.ts src/services/rolesApi.test.ts src/utils/userRoleOrder.test.ts src/views/UsersView.test.ts src/stores/permissions.test.ts` 與 `pnpm test:roles:sql`；涵蓋正整數、系統／自訂角色、相同數字／未知角色排序、保存結果同步／重新查詢失敗、有效 ADMIN／RLS、保存失敗及權限資料保留。
+- 特訓檢視權限：`pnpm test:training:sql` 與 `node tests/browser/verify-training-permission.mjs`（隔離環境啟動方式見 `tests/browser/README.md`）；涵蓋 linked-only／僅管理 action 拒絕、VIEW 與綁定範圍、權限撤銷、ADMIN、RLS／RPC、背景自動化及既有資料保留；SQL 回歸納入 `pnpm check`。
 - 球員同步：`pnpm exec vitest run src/utils/playerSync.test.ts`
 - 廠商名單：`pnpm exec vitest run src/utils/vendors.test.ts`
 - 推播工具：`pnpm exec vitest run src/utils/pushNotifications.test.ts`

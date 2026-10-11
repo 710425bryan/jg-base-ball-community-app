@@ -80,7 +80,7 @@
 ### `jg-baseball-training`
 
 - 路徑：`.codex/skills/jg-baseball-training/SKILL.md`
-- 用途：特訓報名、球員點數、教練錄取、特訓點名與禁報流程。
+- 用途：特訓報名、球員點數、教練錄取、特訓點名與禁報流程；`training:VIEW` 入口、RPC／RLS 與通知 gate（綁定球員不再自動放行）。
 - 典型情境：修改 `/training`、`training_session_settings`、`training_registrations`、`player_point_transactions`、`training_no_show_blocks`、特訓快速發放點數、或 `attendance_events.training_session_id` 串接。
 
 ### `jg-baseball-training-locations`

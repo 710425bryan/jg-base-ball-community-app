@@ -80,6 +80,7 @@ const mountPanel = (
     snapshot,
     nextEvent,
     selectedMemberId: 'member-1',
+    showTrainingPoints: true,
     showTrainingRegistrationAction: true
   },
   global: {
@@ -101,6 +102,16 @@ describe('MyHomeTodayPanel', () => {
 
   afterEach(() => {
     vi.useRealTimers()
+  })
+
+  it('hides training point data and registration links when their permission is removed', async () => {
+    const wrapper = mountPanel(buildSnapshot('特訓課'))
+    expect(wrapper.find('.training-point-card').exists()).toBe(true)
+    await wrapper.setProps({ showTrainingPoints: false, showTrainingRegistrationAction: false })
+    expect(wrapper.find('.training-point-card').exists()).toBe(false)
+    expect(wrapper.findAllComponents(RouterLinkStub).some((link) => link.props('to') === '/training')).toBe(false)
+    expect(wrapper.text()).toContain('本月訓練日期')
+    expect(wrapper.text()).toContain('測試球員')
   })
 
   it('links to training registration when Next Up is a training class', () => {

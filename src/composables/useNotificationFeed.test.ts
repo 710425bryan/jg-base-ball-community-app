@@ -1,5 +1,11 @@
-import { describe, expect, it, vi } from 'vitest'
-import { createNotificationFeedController } from './useNotificationFeed'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { flushPromises } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
+import { supabase } from '@/services/supabase'
+import { usePermissionsStore } from '@/stores/permissions'
+import { createNotificationFeedController, useNotificationFeed } from './useNotificationFeed'
+
+vi.mock('@/services/supabase', () => ({ supabase: { rpc: vi.fn() } }))
 
 const createDeferred = <T,>() => {
   let resolve!: (value: T | PromiseLike<T>) => void
@@ -11,6 +17,181 @@ const createDeferred = <T,>() => {
 }
 
 describe('notification feed controller', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it.each([{ actions: [] as string[] }, { actions: ['EDIT'] }])('filters old RPC training events without VIEW (%j)', async ({ actions }) => {
+    setActivePinia(createPinia())
+    const permissions = usePermissionsStore()
+    permissions.currentRole = 'COMMITTEE'
+    permissions.permissions = actions.map(action => ({ feature: 'training', action }))
+    vi.mocked(supabase.rpc).mockResolvedValue({ data: [
+      { id: 'training', source: 'training', title: '特訓', body: '', created_at: '2026-10-11', link: '/training' },
+      { id: 'dates', source: 'training_date', title: '日期', body: '', created_at: '2026-10-11', link: '/dashboard' },
+    ], error: null } as any)
+    const controller = createNotificationFeedController()
+    await controller.loadNotificationFeed()
+    expect(controller.notifications.value.map(note => note.source)).toEqual(['training_date'])
+  })
+
+  it('rechecks VIEW after an RPC resolves and removes training cached before revocation', async () => {
+    setActivePinia(createPinia())
+    const permissions = usePermissionsStore()
+    permissions.currentRole = 'MEMBER'
+    permissions.permissions = [{ feature: 'training', action: 'VIEW' }]
+    const rows = [{ id: 'training', source: 'training', title: '特訓', body: '', created_at: '2026-10-11', link: '/training' }]
+    vi.mocked(supabase.rpc).mockResolvedValueOnce({ data: rows, error: null } as any)
+    const controller = createNotificationFeedController()
+    await controller.loadNotificationFeed()
+    expect(controller.notifications.value).toHaveLength(1)
+
+    const response = createDeferred<any>()
+    vi.mocked(supabase.rpc).mockImplementationOnce(() => response.promise as any)
+    const refresh = controller.loadNotificationFeed(10, { staleMs: 0 })
+    permissions.permissions = []
+    response.resolve({ data: rows, error: null })
+    await refresh
+    expect(controller.notifications.value).toEqual([])
+  })
+
+  it('preserves ADMIN training notifications without explicit VIEW permission rows', async () => {
+    setActivePinia(createPinia())
+    usePermissionsStore().currentRole = 'ADMIN'
+    vi.mocked(supabase.rpc).mockResolvedValueOnce({ data: [
+      { id: 'training', source: 'training', title: '特訓', body: '', created_at: '2026-10-11', link: '/training' }
+    ], error: null } as any)
+    const controller = createNotificationFeedController()
+    await controller.loadNotificationFeed()
+    expect(controller.notifications.value.map(note => note.source)).toEqual(['training'])
+  })
+
+  it('immediately hides cached and locally inserted training notifications when VIEW is revoked', () => {
+    setActivePinia(createPinia())
+    const permissions = usePermissionsStore()
+    permissions.currentRole = 'MEMBER'
+    permissions.permissions = [{ feature: 'training', action: 'VIEW' }]
+    const feed = useNotificationFeed()
+    feed.resetNotificationFeed()
+    vi.mocked(supabase.rpc).mockClear()
+    feed.upsertNotification({ id: 'training:old', source: 'training', title: '特訓', body: '', createdAt: '2026-10-11', link: '/training', highlightMemberId: null })
+    feed.upsertNotification({ id: 'training_date:1', source: 'training_date', title: '日期', body: '', createdAt: '2026-10-11', link: '/dashboard', highlightMemberId: null })
+    expect(feed.notifications.value.map(note => note.source)).toEqual(['training', 'training_date'])
+
+    permissions.permissions = []
+    expect(feed.notifications.value.map(note => note.source)).toEqual(['training_date'])
+    feed.upsertNotification({ id: 'training:late', source: 'training', title: '特訓', body: '', createdAt: '2026-10-12', link: '/training', highlightMemberId: null })
+    expect(feed.notifications.value.map(note => note.source)).toEqual(['training_date'])
+    expect(supabase.rpc).not.toHaveBeenCalled()
+    feed.resetNotificationFeed()
+  })
+
+  it('coalesces mutations during a request into one sequential forced refresh', async () => {
+    const initial = createDeferred<any[]>()
+    const refreshed = createDeferred<any[]>()
+    const fetcher = vi.fn().mockImplementationOnce(() => initial.promise).mockImplementationOnce(() => refreshed.promise)
+    const controller = createNotificationFeedController(fetcher)
+    const first = controller.loadNotificationFeed()
+    const changed = controller.loadNotificationFeed(10, { force: true })
+    const changedAgain = controller.loadNotificationFeed(10, { force: true })
+    expect(fetcher).toHaveBeenCalledTimes(1)
+
+    initial.resolve([{ id: 'old', source: 'coach_leave', title: 'revoked', body: '', created_at: '2026-10-09', link: '/coach-schedules' }])
+    await flushPromises()
+    expect(fetcher).toHaveBeenCalledTimes(2)
+    expect(controller.notifications.value).toEqual([])
+    expect(controller.isLoading.value).toBe(true)
+    refreshed.resolve([])
+    await Promise.all([first, changed, changedAgain])
+    expect(fetcher).toHaveBeenCalledTimes(2)
+    expect(controller.isLoading.value).toBe(false)
+  })
+
+  it('upgrades a pending background request once when the bell needs fee reminders', async () => {
+    const background = createDeferred<any[]>()
+    const fetcher = vi.fn().mockImplementationOnce(() => background.promise).mockResolvedValue([])
+    const controller = createNotificationFeedController(fetcher)
+    const first = controller.loadNotificationFeed()
+    const open = controller.loadNotificationFeed(10, { includeFeeReminders: true })
+    const openAgain = controller.loadNotificationFeed(10, { includeFeeReminders: true })
+    expect(fetcher).toHaveBeenCalledTimes(1)
+    background.resolve([])
+    await Promise.all([first, open, openAgain])
+    expect(fetcher).toHaveBeenCalledTimes(2)
+    expect(fetcher).toHaveBeenLastCalledWith(10, { includeFeeReminders: true })
+    await controller.loadNotificationFeed(10, { includeFeeReminders: true, staleMs: 30_000 })
+    expect(fetcher).toHaveBeenCalledTimes(2)
+  })
+
+  it('honors cache age and refreshes fee scope after a background-only refresh', async () => {
+    let now = Date.now()
+    vi.spyOn(Date, 'now').mockImplementation(() => now)
+    const fetcher = vi.fn().mockResolvedValue([])
+    const controller = createNotificationFeedController(fetcher)
+    await controller.loadNotificationFeed(10, { includeFeeReminders: true })
+    now += 29_000
+    await controller.loadNotificationFeed(10, { staleMs: 30_000 })
+    expect(fetcher).toHaveBeenCalledTimes(1)
+    now += 1_001
+    await controller.loadNotificationFeed(10, { staleMs: 30_000 })
+    expect(fetcher).toHaveBeenCalledTimes(2)
+    await controller.loadNotificationFeed(10, { includeFeeReminders: true })
+    expect(fetcher).toHaveBeenCalledTimes(3)
+  })
+
+  it('removes revoked coach-leave visibility on a normal expired-cache refresh', async () => {
+    const fetcher = vi.fn().mockResolvedValueOnce([{
+      id: 'coach-leave', source: 'coach_leave', title: 'private', body: '', created_at: '2026-10-09', link: '/coach-schedules'
+    }]).mockResolvedValueOnce([])
+    const controller = createNotificationFeedController(fetcher)
+    await controller.loadNotificationFeed()
+    expect(controller.notifications.value).toHaveLength(1)
+    await controller.loadNotificationFeed(10, { staleMs: 0 })
+    expect(controller.notifications.value).toEqual([])
+  })
+
+  it('does not let a previous session response clear or populate a newer request', async () => {
+    const oldRows = createDeferred<any[]>()
+    const newRows = createDeferred<any[]>()
+    const fetcher = vi.fn().mockImplementationOnce(() => oldRows.promise).mockImplementationOnce(() => newRows.promise)
+    const controller = createNotificationFeedController(fetcher)
+    const oldLoad = controller.loadNotificationFeed()
+    const oldQueued = controller.loadNotificationFeed(10, { force: true })
+    controller.resetNotificationFeed()
+    const newLoad = controller.loadNotificationFeed()
+    oldRows.resolve([{ id: 'old-user', source: 'coach_leave', title: 'private', body: '', created_at: '2026-10-09', link: '/coach-schedules' }])
+    await Promise.all([oldLoad, oldQueued])
+    expect(controller.isLoading.value).toBe(true)
+    expect(controller.notifications.value).toEqual([])
+    const sharedNewLoad = controller.loadNotificationFeed()
+    expect(fetcher).toHaveBeenCalledTimes(2)
+    newRows.resolve([])
+    await Promise.all([newLoad, sharedNewLoad])
+    expect(controller.isLoading.value).toBe(false)
+  })
+
+  it('releases failed requests without automatic retries and allows a later refresh', async () => {
+    const fetcher = vi.fn().mockRejectedValueOnce(new Error('timeout')).mockResolvedValue([])
+    const controller = createNotificationFeedController(fetcher)
+    await expect(controller.loadNotificationFeed()).rejects.toThrow('timeout')
+    expect(fetcher).toHaveBeenCalledTimes(1)
+    expect(controller.isLoading.value).toBe(false)
+    await controller.loadNotificationFeed()
+    expect(fetcher).toHaveBeenCalledTimes(2)
+  })
+
+  it('preserves a requested mutation refresh when the older request fails', async () => {
+    let rejectInitial!: (error: Error) => void
+    const initial = new Promise<any[]>((_, reject) => { rejectInitial = reject })
+    const fetcher = vi.fn().mockImplementationOnce(() => initial).mockResolvedValue([])
+    const controller = createNotificationFeedController(fetcher)
+    const first = controller.loadNotificationFeed()
+    const changed = controller.loadNotificationFeed(10, { force: true })
+    rejectInitial(new Error('timeout'))
+    await Promise.all([first, changed])
+    expect(fetcher).toHaveBeenCalledTimes(2)
+    expect(controller.isLoaded.value).toBe(true)
+    expect(controller.isLoading.value).toBe(false)
+  })
+
   it('removes coach leave notifications after the server revokes visibility on a forced reload', async () => {
     const fetcher = vi.fn().mockResolvedValueOnce([{
       id: 'coach_leave:leave-1:1:created', source: 'coach_leave', title: '教練請假',

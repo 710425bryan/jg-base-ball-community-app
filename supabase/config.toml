@@ -2,3 +2,39 @@ project_id = "qwxzwomzoyfkorbwsscv"
 
 [functions.process-coach-leave-notification-outbox]
 verify_jwt = true
+
+[functions.send-training-registration-notifications]
+verify_jwt = true
+
+[functions.send-training-selection-notifications]
+verify_jwt = true
+
+[functions.send-training-registration-status-notifications]
+verify_jwt = true
+
+[functions.leave-webhook]
+verify_jwt = false
+
+[functions.send-push-notification]
+verify_jwt = false
+
+[functions.record-fee-remittance]
+verify_jwt = false
+
+[functions.send-match-reminders]
+verify_jwt = true
+
+[functions.send-training-location-notifications]
+verify_jwt = true
+
+[functions.send-training-date-notifications]
+verify_jwt = true
+
+[functions.send-fee-payment-reminders]
+verify_jwt = true
+
+[functions.process-team-member-notification-outbox]
+verify_jwt = true
+
+[functions.send-match-fee-payment-notifications]
+verify_jwt = true

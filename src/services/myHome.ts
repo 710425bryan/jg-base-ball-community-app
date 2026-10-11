@@ -557,7 +557,10 @@ const normalizeSnapshot = (payload: Partial<MyHomeSnapshot> | null | undefined):
   }
 }
 
-export const getMyHomeSnapshot = async (today?: string | null) => {
+export const getMyHomeSnapshot = async (
+  today?: string | null,
+  options: { includeTrainingPoints?: boolean } = {}
+) => {
   if (isSupabaseRpcUnavailable(RPC_NAME)) {
     return createEmptyMyHomeSnapshot()
   }
@@ -591,7 +594,17 @@ export const getMyHomeSnapshot = async (today?: string | null) => {
   )
   const snapshot = await enrichSnapshotWithTrainingMonthDates(snapshotWithLocations, payload, programSettings, today)
 
-  const withTrainingPoints = await enrichMembersWithTrainingPoints(snapshot, rawMembers)
+  const withTrainingPoints = options.includeTrainingPoints === false
+    ? {
+        ...snapshot,
+        members: snapshot.members.map((member) => ({
+          ...member,
+          point_balance: 0,
+          reserved_training_points: 0,
+          available_training_points: 0
+        }))
+      }
+    : await enrichMembersWithTrainingPoints(snapshot, rawMembers)
   const activeSnapshot = await filterActiveSnapshotMembers(withTrainingPoints)
   const activeSnapshotWithPrograms = enrichSnapshotWithTrainingPrograms(activeSnapshot, programSettings)
   const snapshotWithLeaveSegments = await enrichSnapshotWithLeaveSegments(activeSnapshotWithPrograms)

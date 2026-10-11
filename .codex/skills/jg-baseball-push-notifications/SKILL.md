@@ -25,6 +25,7 @@ description: "Push notification workflow for jg-base-ball-community-app. Use whe
 - 同一事件若可能從表單、Realtime、重試或多個入口觸發，必須提供穩定 `eventKey`。
 - 讓 `send-push-notification` 與 `push_dispatch_events` 負責 dedupe，不要在各入口各做一套。
 - 排程型通知可用專屬 Edge Function，但仍必須寫入 `push_dispatch_events`，並確認 `get_notification_feed()` 可顯示對應 source。
+- 特訓報名開始／截止、錄取名單公布與單筆報名通知的收件者必須為有效 `training:VIEW` 帳號（ADMIN 保留 bypass 但仍檢查啟用與存取期間）；綁定球員或只有 CREATE／EDIT／DELETE 不再取得收件資格。`submitted` 另需 EDIT；`selected` 仍限定原報名人或原有綁定範圍。三支 Edge Function 共用 `_shared/trainingNotificationAccess.ts`，存取期間依伺服器時間，不接受診斷 payload 的 `now` 替代。2026-10-12 已部署三支特訓函式與 DB gate，前端納入 1.1.76。
 - 新球員通知只由 `team_members` AFTER INSERT trigger 建立 Outbox；前端與 raw Realtime 不可再發送，worker 以 `push_dispatch_deliveries` 逐裝置記錄與重試。
 - 通知 click deep link 不可只靠單一 hash、search、IndexedDB 或 `postMessage`。`public/push-sw.js` 必須同步啟動 client 導向，並把 target 寫入 IndexedDB `jg-baseball-push-deeplink/pendingTargets/latest` 與 Cache Storage `jg-baseball-push-deeplink-cache`；前端統一透過 `src/utils/pushDeepLink.ts` 正規化、短時間重試 consume target，推播設定需保留可供 iPhone 截圖的 click 診斷資訊。
 - 賽事提醒或舊 `/match-records?match_id=...` 連結都要導到 `/calendar?match_id=...`，讓「賽程與行事曆」負責開啟比賽詳情 dialog。
@@ -32,6 +33,9 @@ description: "Push notification workflow for jg-base-ball-community-app. Use whe
 - 賽事提醒自動排程同樣走 `send-match-reminders`，每分鐘依 `system_settings.match_reminder_schedule_config` 判斷到期規則；event key 要包含 match、rule、scheduled date/time，避免每分鐘重複發送並支援同一場多組提醒。
 - 收費催繳通知走 `send-fee-payment-reminders`，不走自動排程；`preview/send` 由 bearer user 的 `fees:EDIT` 或 `ADMIN` 控制，`test` 只允許 `ADMIN` 且只通知目前登入者，文案使用目前管理員綁定球員的未繳帳款組成。通知中心事件使用 `fees` + `PAYMENT_REMINDER`，source 為 `fee_payment_reminder`，URL 使用 `/my-payments`。
 - 比賽費開放／重新開放不自動產生家長站內通知或 Web Push，`MatchFeeManagementPanel` 不呼叫通知 service。既有 `send-match-fee-payment-notifications` 保留，直接呼叫仍需重驗 `fees:EDIT` / `ADMIN`、場次開放狀態與 linked member 收件範圍；不要在開放流程重新接入自動通知。
+- 通知中心讀取的刷新去重與 Web Push 派送去重是不同流程。`useNotificationFeedRefresh` 協調初次／前景／開啟／資料異動，`useNotificationFeed` 合併請求並隔離舊回應；保留費用提醒、權限撤銷與登出清除。此前端修正納入 1.1.76 Git 發布；正式 pg_net／cron 維護及驗收見 `docs/SUPABASE_TIMEOUT_RECOVERY_20261009.md`。
+
+- 2026-10-12 已更換 VAPID 金鑰並停用 105 筆舊訂閱。`webPushPublicKey.ts` 只保存 public key；私鑰與 subject 由 Edge secrets 提供。`webPushSubscription.ts` 比對瀏覽器 applicationServerKey，舊值或缺失時由 `PushSettingsDialog` 顯示重新啟用。只有使用者主動啟用才解除舊訂閱並用新 key 訂閱，開啟設定不可自動改變訂閱；不得恢復已退役私鑰。
 
 ## 工作流程
 
@@ -52,7 +56,10 @@ description: "Push notification workflow for jg-base-ball-community-app. Use whe
 ## 驗證
 
 - 跑 `pnpm exec vitest run src/utils/pushNotifications.test.ts`。
+- 金鑰與訂閱更新：`pnpm exec vitest run src/utils/webPushSubscription.test.ts src/components/PushSettingsDialog.test.ts supabase/functions/_shared/webPushConfig.test.ts`；部署前比對 frontend public key 與 Edge secret 摘要，不可輸出 private key／token。
+- 特訓通知權限：`pnpm exec vitest run supabase/functions/_shared/trainingNotificationAccess.test.ts src/composables/useNotificationFeed.test.ts`；同名 shared 測試直接執行三支 Edge Function 的 recipient／caller 函式，驗證 VIEW、有效 ADMIN、存取期間與 targeted 範圍，測試不得發送通知。
 - 改到 click target 或 deep link 時，補跑 `pnpm exec vitest run src/utils/pushDeepLink.test.ts src/composables/useNotificationFeed.test.ts`。
+- 改通知中心讀取／刷新時，跑 `pnpm exec vitest run src/composables/useNotificationFeed.test.ts src/composables/useNotificationFeedRefresh.test.ts src/layouts/MainLayout.test.ts`；勿用 RPC 呼叫成功取代內容、權限或實際派送驗收。
 - 針對可能重複觸發的入口做一次 dedupe 檢查。
 - 若動到 Edge Function payload 或 summary，確認前端呼叫端仍能正常解讀結果。
 - 比賽費開放通知：`pnpm exec vitest run src/utils/matchFeePaymentNotifications.test.ts src/services/matchFeePaymentNotifications.test.ts src/components/fees/MatchFeeManagementPanel.test.ts supabase/functions/send-match-fee-payment-notifications/index.test.ts`。

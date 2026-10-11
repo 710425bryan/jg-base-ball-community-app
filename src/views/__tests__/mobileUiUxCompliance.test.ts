@@ -1,7 +1,10 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
-const readView = (name: string) => readFileSync(new URL(`../${name}.vue`, import.meta.url), 'utf8')
+const readView = (name: string) => readFileSync(new URL(
+  name === 'TrainingView' ? '../../components/training/TrainingWorkspace.vue' : `../${name}.vue`,
+  import.meta.url
+), 'utf8')
 const readComponent = (path: string) => readFileSync(new URL(`../../components/${path}.vue`, import.meta.url), 'utf8')
 const globalStyle = readFileSync(new URL('../../style.css', import.meta.url), 'utf8')
 

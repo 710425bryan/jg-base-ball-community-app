@@ -1,3 +1,5 @@
+import { configureWebPush } from "../_shared/webPushConfig.ts";
+import { canReceiveTrainingNotification } from "../_shared/trainingNotificationAccess.ts";
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 import webpush from "https://esm.sh/web-push@3.6.7";
@@ -8,14 +10,7 @@ const FALLBACK_TRAINING_NOTIFICATION_SECRET = Deno.env.get("TRAINING_NOTIFICATIO
 const TRAINING_NOTIFICATION_SETTINGS_KEY = "training_registration_notification";
 const TAIPEI_TIME_ZONE = "Asia/Taipei";
 const EMPTY_VALUE = "未設定";
-const publicVapidKey = "BIrzQ2oSy_bdMkLjQMDZCnBMzpkFzNHYa1QlcFKNQ3OCjDsMLeKC-2WazmnkSFUK7nwSlM3n8XFahxUxNrLMCmg";
-const privateVapidKey = "wLgkicqYN9HKaOg2oZbdpvcFXdVybK11OdaOjOjQ72U";
-
-webpush.setVapidDetails(
-  "mailto:team@example.com",
-  publicVapidKey,
-  privateVapidKey,
-);
+configureWebPush(webpush, (name) => Deno.env.get(name));
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -47,12 +42,6 @@ type ProfileRow = {
   is_active?: boolean | null;
   access_start?: string | null;
   access_end?: string | null;
-};
-
-type TeamMemberRow = {
-  id: string;
-  role: string | null;
-  status: string | null;
 };
 
 type RegistrationStatusRow = {
@@ -373,19 +362,6 @@ const assertAuthorized = async (req: Request, payload: any) => {
   }
 };
 
-const isActiveProfile = (profile: ProfileRow, now: Date) => {
-  if (profile.is_active === false) return false;
-
-  const nowTime = now.getTime();
-  const accessStartTime = profile.access_start ? new Date(profile.access_start).getTime() : null;
-  const accessEndTime = profile.access_end ? new Date(profile.access_end).getTime() : null;
-
-  if (accessStartTime !== null && !Number.isNaN(accessStartTime) && accessStartTime > nowTime) return false;
-  if (accessEndTime !== null && !Number.isNaN(accessEndTime) && accessEndTime < nowTime) return false;
-
-  return true;
-};
-
 const normalizeMatch = (value: TrainingSettingsRow["matches"]) =>
   Array.isArray(value) ? value[0] || null : value;
 
@@ -491,7 +467,7 @@ const fetchTrainingPermissionRoles = async () => {
     .from("app_role_permissions")
     .select("role_key")
     .eq("feature", "training")
-    .in("action", ["VIEW", "CREATE", "EDIT", "DELETE"]);
+    .eq("action", "VIEW");
 
   if (error) throw error;
 
@@ -503,29 +479,8 @@ const fetchTrainingPermissionRoles = async () => {
   return roles;
 };
 
-const fetchEligibleTrainingMemberIds = async () => {
-  const { data, error } = await supabase
-    .from("team_members_safe")
-    .select("id, role, status");
-
-  if (error) throw error;
-
-  return new Set(
-    ((data || []) as TeamMemberRow[])
-      .filter((member) =>
-        Boolean(member.id)
-        && (member.role === "球員" || member.role === "校隊")
-        && member.status !== "退隊"
-      )
-      .map((member) => member.id),
-  );
-};
-
 const fetchTrainingTargetUserIds = async (now: Date) => {
-  const [permissionRoles, eligibleMemberIds] = await Promise.all([
-    fetchTrainingPermissionRoles(),
-    fetchEligibleTrainingMemberIds(),
-  ]);
+  const permissionRoles = await fetchTrainingPermissionRoles();
 
   const { data, error } = await supabase
     .from("profiles")
@@ -535,16 +490,7 @@ const fetchTrainingTargetUserIds = async (now: Date) => {
 
   return [...new Set(
     ((data || []) as ProfileRow[])
-      .filter((profile) => {
-        if (!profile.id || !isActiveProfile(profile, now)) return false;
-        if (profile.role && permissionRoles.has(profile.role)) return true;
-
-        const linkedIds = Array.isArray(profile.linked_team_member_ids)
-          ? profile.linked_team_member_ids
-          : [];
-
-        return linkedIds.some((memberId) => eligibleMemberIds.has(memberId));
-      })
+      .filter((profile) => canReceiveTrainingNotification(profile, permissionRoles, now))
       .map((profile) => profile.id),
   )];
 };
@@ -644,7 +590,8 @@ serve(async (req) => {
       });
     }
 
-    const targetUserIds = await fetchTrainingTargetUserIds(now);
+    // Profile access must use the server clock, never the optional diagnostic time.
+    const targetUserIds = await fetchTrainingTargetUserIds(new Date());
     const subscriptions = dryRun ? [] : await fetchEnabledPushSubscriptions(supabase, targetUserIds);
 
     let createdCount = 0;

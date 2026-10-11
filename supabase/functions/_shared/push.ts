@@ -1,14 +1,8 @@
+import { configureWebPush } from "./webPushConfig.ts";
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 import webpush from "https://esm.sh/web-push@3.6.7";
 
-const publicVapidKey = "BIrzQ2oSy_bdMkLjQMDZCnBMzpkFzNHYa1QlcFKNQ3OCjDsMLeKC-2WazmnkSFUK7nwSlM3n8XFahxUxNrLMCmg";
-const privateVapidKey = "wLgkicqYN9HKaOg2oZbdpvcFXdVybK11OdaOjOjQ72U";
-
-webpush.setVapidDetails(
-  "mailto:team@example.com",
-  publicVapidKey,
-  privateVapidKey,
-);
+configureWebPush(webpush, (name) => Deno.env.get(name));
 
 export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

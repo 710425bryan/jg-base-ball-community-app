@@ -19,6 +19,7 @@ const props = defineProps<{
   selectedMemberId: string
   isLoading?: boolean
   errorMessage?: string
+  showTrainingPoints?: boolean
   showTrainingRegistrationAction?: boolean
   weather?: {
     summary: string
@@ -409,7 +410,7 @@ watch([selectedTrainingMonth, selectedProgramKey], () => {
           </div>
 
           <button
-            v-if="selectedMember"
+            v-if="selectedMember && showTrainingPoints"
             type="button"
             class="training-point-card mt-4"
             :class="{ 'is-flipped': isPointCardFlipped }"

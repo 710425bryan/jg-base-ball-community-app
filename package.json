@@ -1,6 +1,6 @@
 {
   "name": "web",
-  "version": "1.1.75",
+  "version": "1.1.76",
   "private": true,
   "type": "module",
   "engines": {
@@ -10,11 +10,13 @@
   "scripts": {
     "dev": "vite",
     "typecheck": "vue-tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --exclude scripts/supabase-recovery-observer.test.mjs && pnpm test:observer",
+    "test:observer": "node --test scripts/supabase-recovery-observer.test.mjs",
     "test:roles:sql": "node tests/database/appRoleCreation.integration.mjs && node tests/database/appRoleWeights.integration.mjs && node tests/database/appRoleNames.integration.mjs",
+    "test:training:sql": "node tests/database/trainingViewGate.integration.mjs",
     "test:coach-schedules:sql": "node scripts/verify-coach-schedule-sources.mjs && node scripts/verify-coach-schedule-shared-slots.mjs && node scripts/verify-coach-leave-and-schedule-templates.mjs && node tests/database/coachLeaveNotifications.integration.mjs && node tests/database/coachLeaveBatchCreate.integration.mjs && node tests/database/coachScheduleVenueTemplates.integration.mjs && node tests/database/coachSchedulingCoachEligibility.integration.mjs",
     "test:payments:sql": "node tests/database/quarterlyPaymentOwnership.integration.mjs && node tests/database/adminPaymentSubmission.integration.mjs && node tests/database/matchFeeExemptions.integration.mjs && node tests/database/playerMatchBilling.integration.mjs && node tests/database/monthlyPaymentOpenPeriod.integration.mjs --newline-matrix && node tests/database/quarterlyCompensationDates.integration.mjs --newline-matrix",
-    "check": "pnpm typecheck && pnpm test && pnpm test:roles:sql && pnpm test:coach-schedules:sql && pnpm test:payments:sql && vite build",
+    "check": "pnpm typecheck && pnpm test && pnpm test:roles:sql && pnpm test:training:sql && pnpm test:coach-schedules:sql && pnpm test:payments:sql && vite build",
     "build": "vue-tsc && vite build",
     "preview": "vite preview"
   },

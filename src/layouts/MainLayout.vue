@@ -373,7 +373,7 @@ import HolidayThemeRibbon from '@/components/layout/HolidayThemeRibbon.vue';
 import { configureNotificationFeedFallbackFetcher, useNotificationFeed } from '@/composables/useNotificationFeed';
 import { useReadableTextMode } from '@/composables/useReadableTextMode';
 import { runWithUnsavedChangesConfirmation } from '@/composables/useUnsavedChangesGuard';
-import { useForegroundRefresh } from '@/composables/useForegroundRefresh';
+import { useNotificationFeedRefresh, watchNotificationFeedScope } from '@/composables/useNotificationFeedRefresh';
 import { isActiveCoachProfile } from '@/utils/coachLeaveRequests';
 import { getAppRoleDisplayName } from '@/utils/appRoleDisplay';
 import { useVersionCheck } from '@/composables/useVersionCheck';
@@ -407,7 +407,6 @@ const { isReadableTextMode, setReadableTextMode, toggleReadableTextMode } = useR
 const {
   notifications,
   isLoading: isNotificationFeedLoading,
-  loadNotificationFeed,
   upsertNotification,
   resetNotificationFeed
 } = useNotificationFeed();
@@ -444,11 +443,7 @@ const hasLinkedTeamMembers = computed(() => {
 });
 const canOpenMyCoachLeave = computed(() => isActiveCoachProfile(authStore.profile) && permissionsStore.can('my_coach_leave_requests', 'VIEW'));
 const canOpenEquipmentAddons = computed(() => permissionsStore.currentRole === 'ADMIN' || hasLinkedTeamMembers.value);
-const trainingManageActions = ['VIEW', 'CREATE', 'EDIT', 'DELETE'] as const;
-const canManageTraining = computed(() =>
-  trainingManageActions.some((action) => permissionsStore.can('training', action))
-);
-const canOpenTraining = computed(() => canManageTraining.value || hasLinkedTeamMembers.value);
+const canOpenTraining = computed(() => permissionsStore.can('training', 'VIEW'));
 const isBasicMember = computed(() => authStore.profile?.role === 'MEMBER');
 const performanceManageActions = ['CREATE', 'EDIT', 'DELETE'] as const;
 const canManagePerformanceFeature = (feature: string) =>
@@ -503,7 +498,7 @@ const handleNotificationClick = (link: string | undefined) => {
 };
 
 const handleNotificationBellClick = () => {
-  void loadNotificationFeedSafely(true, { includeFeeReminders: true });
+  void refreshNotificationFeed('open');
 };
 
 const translateRole = (role: string | undefined) => {
@@ -830,24 +825,12 @@ type IdleCapableWindow = Window & typeof globalThis & {
 let notificationIdleHandle: number | null = null;
 let notificationDelayHandle: number | null = null;
 
-const loadNotificationFeedSafely = async (
-  force = false,
-  options: { includeFeeReminders?: boolean } = {}
-) => {
-  try {
-    await loadNotificationFeed(10, {
-      force,
-      includeFeeReminders: Boolean(options.includeFeeReminders),
-      staleMs: force ? 30_000 : 60_000
-    });
-  } catch (error) {
-    console.error('Error fetching notification feed:', error);
-  }
-};
-
-useForegroundRefresh(() => {
-  if (authStore.profile?.role && !permissionsStore.isLoading) return loadNotificationFeedSafely(true);
-}, ['coach-leave-changed']);
+const { refreshNotificationFeed } = useNotificationFeedRefresh(
+  () => Boolean(authStore.profile?.role)
+    && authStore.profile?.id === authStore.user?.id
+    && permissionsStore.currentRole === authStore.profile.role
+    && !permissionsStore.isLoading
+);
 
 const scheduleNotificationFeedLoad = () => {
   if (!authStore.profile?.role || typeof window === 'undefined') return;
@@ -856,13 +839,13 @@ const scheduleNotificationFeedLoad = () => {
 
   if (typeof idleWindow.requestIdleCallback === 'function') {
     notificationIdleHandle = idleWindow.requestIdleCallback(() => {
-      void loadNotificationFeedSafely();
+      void refreshNotificationFeed();
     }, { timeout: 1200 });
     return;
   }
 
   notificationDelayHandle = window.setTimeout(() => {
-    void loadNotificationFeedSafely();
+    void refreshNotificationFeed();
   }, 800);
 };
 
@@ -1393,15 +1376,17 @@ const realtimePermissionSignature = computed(() => (
 ));
 
 // 監聽權限 hydration，確保有權限的角色才會開啟 WebSocket
-watch(
+watchNotificationFeedScope(
   () => ({
+    userId: authStore.user?.id || '',
+    profileUserId: authStore.profile?.id || '',
     role: authStore.profile?.role || '',
     permissionRole: permissionsStore.currentRole,
     permissionsLoading: permissionsStore.isLoading,
     permissionSignature: realtimePermissionSignature.value
   }),
-  ({ role, permissionRole, permissionsLoading }) => {
-    if (!role) {
+  ({ userId, profileUserId, role, permissionRole, permissionsLoading }) => {
+    if (!role || !userId || userId !== profileUserId) {
       clearScheduledNotificationFeedLoad();
       stopListening();
       resetNotificationFeed();
@@ -1409,7 +1394,9 @@ watch(
     }
 
     if (permissionRole !== role || permissionsLoading) {
+      clearScheduledNotificationFeedLoad();
       stopListening();
+      resetNotificationFeed();
       return;
     }
 
@@ -1417,8 +1404,7 @@ watch(
     syncRealtimeSubscriptions();
     clearScheduledNotificationFeedLoad();
     scheduleNotificationFeedLoad();
-  },
-  { immediate: true }
+  }
 );
 
 

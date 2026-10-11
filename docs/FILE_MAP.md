@@ -38,6 +38,7 @@
 | `.github/workflows/ci.yml` | PR / main 的 secret scan、typecheck、全量 Vitest 與 production build 品質閘門 |
 | `docs/MIGRATIONS.md`　　　　　　| migration、hotfix、repair 索引　　　　　　　　　|
 | `docs/EDGE_FUNCTIONS.md`　　　　| Edge Functions、外部服務與環境變數索引　　　　　|
+| `docs/SUPABASE_TIMEOUT_RECOVERY_20261009.md` | Storage 544／DB timeout 維護紀錄、正式與本機部署界線、觀察與驗收證據 |
 | `docs/EQUIPMENT_REFUND_FLOW.md` | 裝備退款 / 作廢收款流程　　　　　　　　　　　　 |
 
 規則：新增 route-level 頁面時，要同步更新本檔 Views、Services / Types / Utils 對照、`docs/PROJECT_LOGIC.md` 功能邏輯，以及對應 `.codex/skills/<feature>/SKILL.md`；若沒有對應 skill，需建立或說明併入既有 skill 的理由。
@@ -109,6 +110,7 @@
 | `src/services/matchFees.ts` | 比賽費付款、單場免繳、開放 / 關閉、取消群組刪除與審核 RPC | `matches.match_fee_payment_*` / `match_fee_items` / `match_payment_submissions` |
 | `src/services/matchFeePaymentNotifications.ts` | 保留的比賽費通知 service，開放流程不再呼叫 | `send-match-fee-payment-notifications` Edge Function |
 | `src/services/weatherApi.ts` | 賽事 / 首頁天氣預報與地點解析 | `resolve-location`、Open-Meteo |
+| `src/components/training/TrainingWorkspace.vue` | 特訓個人報名與管理 workspace，由 `TrainingView` VIEW gate 控制掛載及卸載 | 原有 training RPC |
 | `src/services/trainingApi.ts` | 特訓報名、點數、特訓點名 RPC 與單筆報名 / 錄取通知呼叫 | `training_*` / `player_point_transactions` / `attendance_events.training_session_id` |
 | `src/services/trainingProgramsApi.ts` | 訓練項目設定 RPC | `training_program_settings` |
 | `src/services/trainingDatesApi.ts` | 每月訓練日期設定與日期異動通知呼叫 | `training_month_date_settings` / `get_training_month_dates()` / `save_training_month_dates()` / `send-training-date-notifications` |
@@ -130,6 +132,7 @@
 | --- | --- |
 | `src/composables/useVersionCheck.ts` | 版本輪詢與更新列 |
 | `src/composables/useNotificationFeed.ts` | 通知中心資料 controller |
+| `src/composables/useNotificationFeedRefresh.ts` | MainLayout 初次／前景／開啟／異動刷新協調；與 controller 去重修正納入 1.1.76、準備發行 |
 | `src/composables/useHolidayTheme.ts` | 節日主題公開設定、v2 config normalize |
 | `src/composables/useMyHomeNextMatch.ts` | 個人首頁 Next Up 請求競態控制與本人賽事資格驗證 |
 | `src/composables/useUnsavedChangesGuard.ts` | 頁面草稿的站內離頁／瀏覽器關閉保護、active guard 與登出一次性 bypass |
@@ -237,7 +240,7 @@
 | `/holiday-theme-settings` | `src/views/HolidayThemeSettingsView.vue` | `holiday_theme_settings:VIEW` |
 | `/attendance` | `src/views/AttendanceListView.vue` | `attendance:VIEW` |
 | `/attendance/:id` | `src/views/RollCallView.vue` | `attendance:VIEW` |
-| `/training` | `src/views/TrainingView.vue` | `training` + linked member exception |
+| `/training` | `src/views/TrainingView.vue` + `src/components/training/TrainingWorkspace.vue` | 必須 `training:VIEW`；linked member 僅限制資料範圍，不再提供入口例外 |
 | `/training-program-settings` | `src/views/TrainingProgramSettingsView.vue` | `training_dates:VIEW` |
 | `/training-dates` | `src/views/TrainingDatesView.vue` | `training_dates:VIEW` |
 | `/training-locations` | `src/views/TrainingLocationsView.vue` | `training_locations:VIEW` |
@@ -438,6 +441,8 @@
 
 | 類型 | 重要檔案 |
 | --- | --- |
+| Cron history retention（已部署） | `supabase/migrations/20261009051707_cron_run_history_retention.sql`；30 天＋現有 job 最新 10 筆、500 筆批次與持久掃描進度 |
+| Last-seen 節流（history 已補齊） | `supabase/migrations/20261011161534_profile_last_seen_write_throttle.sql`；2026-10-12 部署以補齊既有線上 auth.uid() 本人 5 分鐘節流的 migration history，function body 與 ACL 未變 |
 | 權限 / RLS | `supabase_access_control_rls_migration.sql`、`supabase_access_control_policy_cleanup_migration.sql` |
 | Profile access | `supabase_profile_access_control_migration.sql`、`supabase_profiles_personal_settings_migration.sql`、`supabase/migrations/20260903091633_admin_my_leave_all_members.sql` |
 | 公開首頁 / Dashboard | `supabase_dashboard_snapshot_migration.sql`、`supabase_my_home_snapshot_migration.sql`、`supabase_zz_my_home_training_points_migration.sql`、`supabase_my_home_next_match_week_window_migration.sql` |
@@ -448,6 +453,7 @@
 | 廠商 | `supabase_vendor_management_migration.sql` |
 | 能力 / 體測 | `supabase_performance_data_migration.sql`、`supabase_performance_view_scope_migration.sql` |
 | 特訓 / 點數 | `supabase_training_points_migration.sql`、`supabase_zz_training_point_transaction_delete_migration.sql`、`supabase_zz_training_registration_notifications_migration.sql`、`supabase_zzzzzzzz_training_auto_select_notifications_migration.sql` |
+| 特訓 VIEW gate（已部署） | `supabase/migrations/20261011161249_training_view_permission_gate.sql`；2026-10-12 部署 RPC／RLS／通知 feed 的 VIEW gate，保留 linked member 範圍、ADMIN bypass 與既有資料 |
 | 訓練項目 / 訓練日期設定 / 換月預設排程 | `supabase_training_dates_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzz_training_program_scope_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzzzz_team_member_training_program_hotfix.sql`、`supabase_zzzzzzzzzzzzzzzzzzzzz_training_program_label_rename_migration.sql` |
 | 場地與人員配置 | `supabase_training_locations_migration.sql`、`supabase_zzzzzzzzz_training_location_attendance_migration.sql`、`supabase_zzzzzzzzzz_training_location_venue_settings_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzz_training_location_leave_time_segment_migration.sql` |
 | 教練請假 / 原子排班範本 | `supabase/migrations/20261002150832_coach_leave_and_schedule_templates.sql`、`supabase/migrations/20261002150855_coach_leave_notification_outbox.sql` |
@@ -500,11 +506,20 @@
 | `scripts/generate-icons.js` | PWA icon 產生 |
 | `scripts/bump_fonts.cjs` | 字型資產處理 |
 | `scripts/google-form-remittance-apps-script.js` | Google Form 匯款 Apps Script |
+| `scripts/activate-pg-net-response-maintenance.sql` | 台灣 03:20 一般 VACUUM／只 ANALYZE net._http_response(created)，已啟用 |
+| `scripts/activate-cron-history-retention.sql` | 台灣 03:30 retention，daily 最多刪除 10,000／掃描 100,000，20 秒軟預算、目前全域 120 秒硬上限 |
+| `scripts/supabase-recovery-observer.mjs` | 單次唯讀、限量觀察與計數差值；本機輸出放須保持 Git ignored 的 `.codex/runtime/`，不清理／派送通知 |
+| `scripts/suppress-coach-leave-historical-push-20261009.sql` | 2026-10-09 14:48:18 台灣已正式將固定 11 筆歷史教練通知改 recorded、保留站內及內容；一次性維運 DML，不重跑，heartbeat 禁止執行，新推播仍未恢復 |
 
 ## 14. 測試入口
 
 常用測試檔：
 
+- `tests/database/cronHistoryRetention.integration.mjs`：隔離 PostgreSQL 保留條件、批次／進度、ACL、交易回滾與頂層 CALL。
+- `tests/database/coachLeaveHistoricalPushSuppression.integration.mjs`：40 項隔離 SQL 檢查通過，涵蓋歷史通知 recorded／內容保留、漂移拒絕及同一舊假單 cutoff 後新 revision 仍可 claim。
+- `tests/database/profileLastSeenThrottle.integration.mjs`：隔離 PostgreSQL 的本人、5 分鐘節流與原 ACL。
+- `scripts/supabase-recovery-observer.test.mjs`：唯讀查詢、計數重設／缺樣本、摘要與本機輸出邊界。
+- `src/composables/useNotificationFeed.test.ts`、`useNotificationFeedRefresh.test.ts`、`src/layouts/MainLayout.test.ts`：請求合併、前景／異動／費用提醒與舊回應隔離。
 - `src/stores/auth.test.ts`
 - `src/components/RolePermissionsManager.test.ts`
 - `src/components/RoleSortEditor.test.ts`

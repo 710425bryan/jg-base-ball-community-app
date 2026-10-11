@@ -112,6 +112,7 @@ UI 約定：
 - 不要在匿名情境直查 `profiles`。
 - 不要把前端 permission check 當成資料安全。
 - 修改 role / feature / action 時，要同步 DB、前端、文件與 skill。
+- Auth store 依使用者與 session generation 合併執行中的 last-seen 請求，保留既有 5 分鐘間隔並忽略舊 session 回應，納入 1.1.76、準備發行。2026-10-12 部署 `20261011161534_profile_last_seen_write_throttle.sql`，補齊既有線上 DB 節流的 migration history；部署前已確認 `auth.uid()` 本人更新具有相同 5 分鐘條件，部署後 function body、owner 與 ACL 不變，13 項隔離 SQL 檢查通過。
 
 ## 5. 公開首頁與入隊
 
@@ -236,7 +237,7 @@ UI 約定：
 
 - `profiles.role` 與 `profiles.linked_team_member_ids` 直接決定多個個人 RPC 的可見範圍；`profiles_access_admin_guard` 會要求這兩欄的 UPDATE 呼叫者具 `users:EDIT`，避免一般帳號透過 self-update policy 自行升級成 ADMIN 或擴大 linked member。
 - 角色權限 UI 讀寫 `app_roles`、`app_role_permissions`。
-- 「角色與權限設定」可透過 `RoleNameEditor` 修改「顯示名稱 (中文)」，識別碼唯讀。`rolesApi.updateAppRoleName()` 呼叫 `update_app_role_name(p_role_key, p_role_name)`，限有效 ADMIN、SECURITY INVOKER 沿用 RLS；系統／自訂角色均可改，去除首尾空白、名稱必填且最多 100 字，只更新 `app_roles.role_name`。保存結果先同步角色清單與 permission store，再重新查詢，查詢失敗仍保留成功結果。名稱不參與授權或排序，不改 `role_key`、`profiles.role`、權限列或 weight；須先部署 `20261011150448_app_role_display_names.sql`，本次僅本機完成。
+- 「角色與權限設定」可透過 `RoleNameEditor` 修改「顯示名稱 (中文)」，識別碼唯讀。`rolesApi.updateAppRoleName()` 呼叫 `update_app_role_name(p_role_key, p_role_name)`，限有效 ADMIN、SECURITY INVOKER 沿用 RLS；系統／自訂角色均可改，去除首尾空白、名稱必填且最多 100 字，只更新 `app_roles.role_name`。保存結果先同步角色清單與 permission store，再重新查詢，查詢失敗仍保留成功結果。名稱不參與授權或排序，不改 `role_key`、`profiles.role`、權限列或 weight；2026-10-12 唯讀確認正式 `update_app_role_name(text,text)` 已存在，function body、SECURITY INVOKER、空 search_path 與 authenticated ACL 均符合 `20261011150448_app_role_display_names.sql`；migration history 尚未記錄本檔，本次未重跑。
 - Google 同步家長帳號的角色解析抽至 `guardianAccountRole.ts`，只依 `MEMBER → PARENT → GENERAL_MEMBER` 固定識別碼，不再以「一般成員」顯示名稱選角色；查詢失敗／無候選仍沿用 MEMBER fallback。不改既有帳號角色、球員身分或收費資料。
 - 導覽列、公開頁登入者徽章及個人設定以 `appRoleDisplay` 按識別碼讀取 permission store 的角色名稱；兩個 layout 由 `useAppRoleNames` 在有效登入、本人 profile 一致且角色 metadata 尚空時載入，未登入不查詢。保留載入失敗的既有 fallback；同 session 儲存名稱即時反映，未新增跨裝置 Realtime。
 - `RolePermissionsManager` 的「新增角色」提供「複製角色權限」單一 Element Plus 選單，預設為「不複製，從空白權限開始」。其他系統及自訂角色都可作來源；`ADMIN` 具有 bypass，選項顯示但停用並提示最高權限無法複製，RPC 也拒絕此來源。
@@ -402,11 +403,11 @@ UI 約定：
 
 資料流：
 
-- 家長 / 球員透過 `/training` 依 linked member 查看點數、點數紀錄、可報名特訓與自己的報名狀態；即使是管理者，在「我要報名」區塊也只顯示目前選取成員的點數紀錄。
+- `/training`、桌機／手機選單與首頁特訓卡片／入口必須有 `training:VIEW`；linked member 與其他管理 action 不能單獨代替 VIEW，有效 ADMIN 保留 bypass。`TrainingView` 是存取 wrapper，權限撤銷或登入身分不一致時卸載 `TrainingWorkspace`，避免保留舊頁面資料。家長 / 球員獲授 VIEW 後，才依 linked member 查看點數、可報名特訓與自己的報名狀態；管理者的「我要報名」也只顯示目前選取成員。首頁無 VIEW 時不呼叫特訓點數 fallback。
 - 教練在 `/training` 設定特訓報名時間窗、手動開關、自動錄取、名額與扣點數，並審核錄取 / 候補 / 未錄取；教練管理與點數管理只給 `training:CREATE / EDIT / DELETE` 任一管理權限者。
 - 沒有特訓資料時，教練可在報名設定內新增特訓課與 settings；新增特訓課預設上課時間 `09:00 - 12:00`、地點 `中港國小`，上課時間使用 Element Plus 時間範圍元件，送出仍存成 `matches.match_time` 字串；`auto_select_enabled` 預設關閉，只影響開啟後的新報名。
 - 報名開始時間到達且 `manual_status = 'open'` 時，`send-training-registration-notifications` 會建立 `training_registration_open:*` 事件，讓系統通知中心與 Web Push 同步收到「特訓課開放報名」通知；報名截止前 24 小時內若 `selected_count < capacity`（或不限名額），會建立 `training_registration_deadline:*` 事件再提醒一次。單筆報名成功後，前端呼叫 `send-training-registration-status-notifications`：`submitted` 通知 active `training:EDIT` 管理者，`selected` 只通知報名使用者，事件用 `target_user_id` / `target_member_ids` 限定通知中心可見範圍。教練在報名審核按下「公布名單」後，前端會呼叫 `send-training-selection-notifications`，建立 `training_selection_published:*` 事件並發送「特訓課錄取名單已公布」通知。
-- 報名 RPC 會在 DB 端檢查 linked member、點數、禁報狀態、手動狀態與報名時間窗；若自動錄取開啟且名額未滿，直接建立 `selected` + `reserved`，滿額則保留 `applied` 待審。
+- 特訓 RPC 與 raw-table RLS 追加 `training:VIEW` gate，報名仍檢查 linked member、點數、禁報狀態、手動狀態與時間窗；若自動錄取開啟且名額未滿，建立 `selected` + `reserved`，滿額保留 `applied` 待審。移除 VIEW 不刪既有報名或點數資料。`20261011161249_training_view_permission_gate.sql` 已於 2026-10-12 部署，通知 feed 的特訓來源也要求 VIEW；正式唯讀驗證確認未勾 VIEW 的 linked 帳號被拒絕，有 VIEW 者仍受綁定範圍限制，點數與權限資料筆數／雜湊未變。前端納入 1.1.76、準備發行；完整發布與測試證據見 `docs/specs/2026-10-11-training-view-permission.md`。
 - 錄取時保留點數；`process_training_session_automation()` 在上課當天對已錄取名單扣點，並用 idempotency key 避免重複扣。
 - 點數管理支援快速發放：可一鍵選全隊、角色、組別，套用常用點數 / 原因 preset；真正寫入仍統一呼叫 `grant_player_points(uuid[], integer, text)`，以交易紀錄追加方式建立流水帳。
 - 點數流水帳可由 `training:DELETE` 權限者刪除手動建立的誤發紀錄；刪除統一走 `delete_player_point_transactions(uuid[])`，系統扣點 / 關聯報名 / idempotency 紀錄不可刪，且刪除後餘額不得低於已保留點數。
@@ -416,7 +417,7 @@ UI 約定：
 
 - 個人端不直接寫入 training raw table，新增 / 取消報名走 security definer RPC。
 - 一般成員或家長即使有 `training:VIEW`，也只看到個人報名 / 點數檢視，不可看到教練管理或點數發放工具。
-- 錄取名單公布後，登入使用者只能看到非敏感名單欄位。
+- 錄取名單公布後，有 `training:VIEW` 的使用者只能看到允許的非敏感名單欄位。特訓通知同樣要求有效 VIEW，個別通知仍受 target user / member 範圍限制。
 - 點數流水帳不可任意更新；加點、扣點、調整都新增 `player_point_transactions`，誤發刪除需走受權限與餘額檢查保護的 RPC。
 - 特訓報名開始 / 截止前提醒與單筆報名 / 錄取通知都必須有穩定 event key；個別通知需帶 `target_user_id`，避免通知中心洩漏給非目標使用者。
 
@@ -555,6 +556,8 @@ UI 約定：
 - 新增 / 修改與排班共用 `pg_advisory_xact_lock(20360924,1)`，在同一交易刪除重疊的今日起正常排班指派，保留活動及其他教練，保存 `private.coach_leave_audit` 與 `private.coach_schedule_assignment_changes` 並推進事件版本。取消或縮小範圍不還原原教練，管理者需重新指派。
 - 排班 RPC 增加實體 `venue_id`、請假 `unavailable_coach_profile_ids` 及不含原因的 `assignment_changes`。首頁和排班使用既有讀取權限，普通教練仍只看本人指派；頁面聚焦 / 回到前景會刷新以避免留著過期排班。
 - 異動提交同時產生 Outbox `coach_leave:<UUID>:<revision>:<operation>`，`coach_leave_payload` 只含 ID、日期、時段、操作和 revision。revision 新增為 1，修改 / 取消 +1，相同重試不重複通知。
+- 依使用者「11 筆歷史教練通知只留站內，新通知才推播」決定，`scripts/suppress-coach-leave-historical-push-20261009.sql` 已於 **2026-10-09 14:48:18 台灣（06:48:18Z）正式套用**。固定 cutoff `2026-10-06T07:07:21.743675Z` 以前的 11 筆事件經鎖定／metadata fingerprint 驗證後改為 `recorded`；獨立 post-check 確認歷史 delivery／claim eligible／派送計數均為 0、無鎖、內容及 feed／claim 定義 hash 不變，outbox mode 與站內內容保留。40 項隔離 SQL 檢查亦確認同一舊假單於 cutoff 後新增 revision 仍可 claim。這是一次性歷史處置，不重跑；heartbeat 不得執行、擴大集合或補送。
+- 上述使用者決定不等於新推播已啟用：專屬 worker 仍未部署、四項所需 Edge secret 尚缺；shared push 的 hard-coded 私鑰與 auth mode 發布門檻仍依 `docs/EDGE_FUNCTIONS.md` 處理，不在文件保存任何 key 值。處置成功與新通知端到端驗收須分別記錄。
 - `process-coach-leave-notification-outbox` 將通知送給有效 `ADMIN`、`coach_leave_requests:VIEW` 使用者，以及具 `coach_schedules:VIEW` 且通過共用教練資格的使用者（含 SCHEDULINGCOACH）。共用 audience helper 在初始化、派送重試及 feed 重新驗權，無訂閱者仍可看通知中心；管理者連結 `/coach-leave-requests?highlight_leave_id=...`，排班教練連結 `/coach-schedules?month=YYYY-MM`。新增資格不授予假單私人原因讀取權或任何 feature/action。
 - Migration 順序：`20261002150832_coach_leave_and_schedule_templates.sql` → `20261002150855_coach_leave_notification_outbox.sql` → `20261002155846_coach_leave_batch_create_and_training_dates.sql` → `20261002171951_coach_schedule_venue_templates.sql`，新版前端需在最後一筆之後發布；場地範本不修改通知 worker。本地 isolated PGlite `pnpm test:coach-schedules:sql` 覆蓋來源、假單連動、權限、範本、批次和 Outbox。remote migration / function / cron 部署須另驗證，不由本地測試推導上線；PGlite 不驗證真正多連線競爭，staging PostgreSQL 必須補驗鎖競爭。
 - 日期快選／原子批次新增另追加 `20261002155846_coach_leave_batch_create_and_training_dates.sql`，由 `tests/database/coachLeaveBatchCreate.integration.mjs` 驗證真實 program 日期來源、同批 rollback、權限與 receipt；不可修改已成功部署的前兩份 migration。
@@ -829,6 +832,7 @@ UI 約定：
 - `src/utils/pushNotifications.ts`
 - `src/utils/pushDeepLink.ts`
 - `src/composables/useNotificationFeed.ts`
+- `src/composables/useNotificationFeedRefresh.ts`
 - `src/components/PushSettingsDialog.vue`
 - `public/push-sw.js`
 - `supabase/functions/send-push-notification/index.ts`
@@ -862,6 +866,8 @@ UI 約定：
 10. 使用者點擊 Web Push 時，`public/push-sw.js` 同步啟動 client 導向，並把 target 寫入 IndexedDB `jg-baseball-push-deeplink/pendingTargets/latest` 與 Cache Storage `jg-baseball-push-deeplink-cache`；前端用 `pushDeepLink.ts` 正規化、短時間重試 consume pending target 後交給 router，推播設定可查看最後一次 click 診斷。
 11. `process-team-member-notification-outbox` 每分鐘領取最多 25 個新球員事件與 100 個到期 delivery，逐 subscription 派送；暫時失敗依 1 / 5 / 15 / 60 / 360 分鐘重試，404 / 410 清除 subscription，處理鎖超過 5 分鐘可重新領取。
 
+通知讀取修正納入 1.1.76、準備發行：`MainLayout` 透過 `useNotificationFeedRefresh` 協調初次載入、回前景、開啟及 `coach-leave-changed`；初次沿用 60 秒快取，回前景／開啟採 30 秒，資料異動才強制刷新，開啟仍要求費用提醒。`useNotificationFeed` 合併重複請求、處理必要的後續刷新並隔離舊回應；此刷新去重本身不改 Web Push 派送與收件權限。
+
 重要規則：
 
 - 不要把所有通知硬綁 `leave_requests`。
@@ -892,6 +898,14 @@ UI 約定：
 
 - 一般功能開發不手動改 `public/version.json`。
 - 修改 router / PWA / build 時要確認更新列與 chunk error recovery。
+
+## 19A. Supabase timeout 維護與觀察
+
+- 正式專案 `qwxzwomzoyfkorbwsscv` 已於 2026-10-09 部署 `20261009051707_cron_run_history_retention.sql`。只清理 `cron.job_run_details` 已結束且完成超過 30 天的 succeeded／failed 紀錄，另保留每個現有排程最新 10 筆（包含停用排程）；不改業務資料與原排程設定。
+- `private.cron_history_retention_state` 保存降冪 runid 掃描進度與計數；每批掃描最多 500 筆，刪除與進度同交易提交。daily procedure 每次最多刪除 10,000 筆／掃描 100,000 筆，批次間檢查 20 秒軟預算並暫停；目前已驗證全域 `statement_timeout` 為 120 秒硬上限，批次鎖等待上限 500ms。20 秒不是單批硬逾時，設定異動後需重驗。
+- 台灣每日 03:20 的 `pg-net-response-maintenance` 執行一般 `VACUUM (ANALYZE, TRUNCATE FALSE)`，只統計 `net._http_response(created)`；03:30 的 `cron-run-history-retention` 執行 retention。既有 HTTP 回應 TTL 維持 6 小時；啟用 SQL 位於 `scripts/activate-*.sql`，維護不要求實體檔案立即縮小。
+- 初次歷史積欠已分批刪除 55,000 筆，因新增 timeout 停止後續 bootstrap，積欠尚未清完，須以 `last_sweep_completed_at` 與掃描／刪除差值判斷進度；單批刪除零筆不代表沒有過期資料。最新執行結果、30 分鐘／24 小時／7 天驗收與限制集中在 [維護報告](SUPABASE_TIMEOUT_RECOVERY_20261009.md)。
+- `scripts/supabase-recovery-observer.mjs` 是單次唯讀觀察工具，使用限量查詢與前後計數差值；`.codex/runtime/` 僅存本機狀態且須保持 Git ignored。工具不執行清理或通知派送，失敗／缺樣本為未知，不能宣稱為持續在線外部監控。
 
 ## 20. 維護本文件
 

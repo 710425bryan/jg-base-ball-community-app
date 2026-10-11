@@ -23,6 +23,18 @@
         </p>
       </div>
 
+      <div v-if="needsPushRenewal" class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800" role="status">
+        <p class="font-bold">此裝置需要重新啟用推播</p>
+        <p class="mt-1 leading-relaxed">系統推播設定已更新，請重新啟用，讓這台裝置繼續接收通知。</p>
+        <el-button
+          type="primary"
+          class="mt-3 !min-h-11"
+          :loading="isFetchingSettings"
+          :disabled="isFetchingSettings || !settingsForm.is_supported"
+          @click="handleTogglePush(true)"
+        >重新啟用推播</el-button>
+      </div>
+
       <section class="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -95,7 +107,7 @@
         </dl>
       </section>
 
-      <div v-if="settingsForm.receive_notifications" class="space-y-3 animate-fade-in">
+      <div v-if="settingsForm.receive_notifications && !needsPushRenewal" class="space-y-3 animate-fade-in">
         <div class="bg-green-50 p-4 rounded-xl text-sm text-green-700 space-y-2 border border-green-100 flex items-center gap-2">
           <el-icon class="text-green-500 text-xl"><CircleCheckFilled /></el-icon>
           <span class="font-bold">此裝置已成功綁定系統推播通知！</span>
@@ -137,6 +149,8 @@ import { ElMessage } from 'element-plus'
 import { CircleCheckFilled, InfoFilled } from '@element-plus/icons-vue'
 import { supabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/auth'
+import { WEB_PUSH_PUBLIC_KEY } from '@/utils/webPushPublicKey'
+import { ensureCurrentWebPushSubscription, hasCurrentWebPushKey } from '@/utils/webPushSubscription'
 import {
   readPushDeepLinkDiagnostics,
   type PushDeepLinkDiagnostics,
@@ -153,7 +167,7 @@ const emit = defineEmits<{
 
 const authStore = useAuthStore()
 
-const VAPID_PUBLIC_KEY = 'BIrzQ2oSy_bdMkLjQMDZCnBMzpkFzNHYa1QlcFKNQ3OCjDsMLeKC-2WazmnkSFUK7nwSlM3n8XFahxUxNrLMCmg'
+const needsPushRenewal = ref(false)
 
 const isFetchingSettings = ref(false)
 const isLoadingPushDiagnostics = ref(false)
@@ -464,6 +478,7 @@ const refreshPushDiagnostics = async () => {
 const resetPushSettingsState = (state = getPushSupportState()) => {
   guideMode.value = getDefaultGuideMode(state)
   settingsForm.receive_notifications = false
+  needsPushRenewal.value = false
   settingsForm.web_push_sub = null
   settingsForm.current_endpoint = ''
   settingsForm.subscription_id = ''
@@ -506,6 +521,7 @@ const loadCurrentDevicePushState = async () => {
   settingsForm.web_push_sub = currentSubscription.toJSON()
   settingsForm.current_endpoint = endpoint
   settingsForm.provider_label = detectPushProvider(endpoint)
+  needsPushRenewal.value = !hasCurrentWebPushKey(currentSubscription, WEB_PUSH_PUBLIC_KEY)
 
   const { data, error } = await supabase
     .rpc('get_my_web_push_subscription', {
@@ -517,7 +533,7 @@ const loadCurrentDevicePushState = async () => {
 
   const currentRow = data as WebPushSubscriptionRow | null
   if (currentRow?.enabled) {
-    settingsForm.receive_notifications = true
+    settingsForm.receive_notifications = !needsPushRenewal.value
     settingsForm.subscription_id = currentRow.id
     settingsForm.platform_label = currentRow.platform || settingsForm.platform_label
   }
@@ -537,18 +553,8 @@ const loadSettings = async () => {
   }
 }
 
-const urlB64ToUint8Array = (base64String: string) => {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4)
-  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/')
-  const rawData = window.atob(base64)
-  const outputArray = new Uint8Array(rawData.length)
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i)
-  }
-  return outputArray
-}
-
 const handleTogglePush = async (val: boolean | string | number) => {
+  if (isFetchingSettings.value) return
   if (Boolean(val)) {
     isFetchingSettings.value = true
     try {
@@ -581,14 +587,7 @@ const handleTogglePush = async (val: boolean | string | number) => {
         throw new Error('目前找不到可用的 Service Worker，請重新整理後再試一次。')
       }
 
-      let subscription = await registration.pushManager.getSubscription()
-
-      if (!subscription) {
-        subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC_KEY)
-        })
-      }
+      const subscription = await ensureCurrentWebPushSubscription(registration.pushManager, WEB_PUSH_PUBLIC_KEY)
 
       const subJSON = subscription.toJSON()
       const endpoint = subscription.endpoint || subJSON.endpoint || ''
@@ -617,6 +616,8 @@ const handleTogglePush = async (val: boolean | string | number) => {
 
       const savedSubscription = data as { id?: string } | null
       settingsForm.subscription_id = savedSubscription?.id || ''
+      needsPushRenewal.value = false
+      settingsForm.receive_notifications = true
 
       ElMessage.success(`此裝置推播綁定成功${providerLabel ? `：${providerLabel}` : '！'}`)
     } catch (e: any) {

@@ -40,6 +40,10 @@ vi.mock('../views/HomeView.vue', () => ({
   default: { template: '<div />' }
 }))
 
+vi.mock('../views/TrainingView.vue', () => ({
+  default: { template: '<div />' }
+}))
+
 vi.mock('../views/CoachLeaveRequestsView.vue', () => ({
   default: { template: '<div />' }
 }))
@@ -115,6 +119,48 @@ describe('router route and guard coverage', () => {
     await router.isReady()
 
     expect(router.currentRoute.value.path).toBe('/')
+  })
+
+  it.each([{ linkedIds: [] }, { linkedIds: ['member-1'] }])('denies training without VIEW even with linked members %j', async ({ linkedIds }) => {
+    authStoreMock.isAuthenticated = true
+    authStoreMock.profile = { role: 'COMMITTEE', linked_team_member_ids: linkedIds }
+    const router = (await import('./index')).default
+    await router.push('/calendar')
+    await router.push('/training')
+    expect(router.currentRoute.value.path).toBe('/dashboard')
+    expect(router.getRoutes().find((route) => route.path === '/training')?.meta.allowLinkedMemberView).toBeUndefined()
+  })
+
+  it.each(['CREATE', 'EDIT', 'DELETE'])('does not treat training %s as VIEW', async (action) => {
+    authStoreMock.isAuthenticated = true
+    authStoreMock.profile = { linked_team_member_ids: ['member-1'] }
+    permissionsStoreMock.can.mockImplementation((feature, requestedAction) => feature === 'training' && requestedAction === action)
+    const router = (await import('./index')).default
+    await router.push('/calendar')
+    await router.push('/training')
+    expect(router.currentRoute.value.path).toBe('/dashboard')
+    await router.push('/attendance/event-1')
+    expect(router.currentRoute.value.path).toBe('/dashboard')
+  })
+
+  it.each([{ linkedIds: [] }, { linkedIds: ['member-1'] }])('allows training VIEW independently from member binding %j', async ({ linkedIds }) => {
+    authStoreMock.isAuthenticated = true
+    authStoreMock.profile = { linked_team_member_ids: linkedIds }
+    permissionsStoreMock.can.mockImplementation((feature, action) => feature === 'training' && action === 'VIEW')
+    const router = (await import('./index')).default
+    await router.push('/calendar')
+    await router.push('/training')
+    expect(router.currentRoute.value.path).toBe('/training')
+  })
+
+  it('retains ADMIN access through the permission store bypass', async () => {
+    authStoreMock.isAuthenticated = true
+    authStoreMock.profile = { role: 'ADMIN' }
+    permissionsStoreMock.can.mockReturnValue(true)
+    const router = (await import('./index')).default
+    await router.push('/calendar')
+    await router.push('/training')
+    expect(router.currentRoute.value.path).toBe('/training')
   })
 
   it('allows linked member access for performance detail features', async () => {
