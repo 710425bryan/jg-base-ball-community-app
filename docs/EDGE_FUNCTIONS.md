@@ -1,5 +1,11 @@
 # Edge Functions And Environment
 
+- 誤取消恢復（2026-10-12 本機實作，待部署）：`restore_match()` 清除目前取消狀態後，原 `sync-match-calendar`／`send-match-reminders` 依既有時間、名單與去重條件重新納入同一場次；不新增恢復推播、不清除原派送事件、不補送過期排程。parser、sync handler 與 reminder handler 已新增取消→恢復→再次取消及既有 eventKey 去重回歸；本輪不新增 Edge 實作或 secret。
+
+- 2026-10-12 本機更新 `send-match-reminders`（待部署）：手動取消場次回傳 409；排程與健康檢查先排除取消，建立事件及派送前重新確認，取消／刪除／查詢失敗皆略過。須先部署 `20261012024808_match_cancellation.sql`；沿用既有 bearer／cron secret 驗證，無新增 secret。已交付推播服務的通知不能撤回。隔離 runtime 測試含派送前取消競態，發布說明見 `docs/specs/2026-10-12-match-cards-cancellation.md`。
+- 同次發布須更新 `sync-match-calendar`：它引用共用 `googleCalendarParser.ts`，既有已取消場次由原 UID／fallback 配對後一律略過，外部欄位差異不覆蓋原資料，也不阻擋其他正常匯入。前端手動 fallback 與 Edge 預覽／自動同步使用同一規則。
+- `sync-match-calendar` 實際 UPDATE 與 optional-column 重試均帶 `cancelled_at IS NULL`，規劃後才取消／刪除而回傳零列時增加 `skipped_count`，不計為更新或補建；缺少取消欄位及真正 DB 錯誤仍失敗。`index.test.ts` 以完整 handler／真 parser 驗證 9 個案例，含 header/body secret、競態、欄位重試、bearer 僅預覽與拒絕未授權。須先部署取消 migration，無新增環境變數。
+
 本文件整理 `supabase/functions/` 的 Edge Function、外部服務與環境變數。AI 修改 Edge Function、排程、外部 API、Web Push 或 AI 解析流程前，先讀本檔與對應 skill。
 
 ## 讀取規則

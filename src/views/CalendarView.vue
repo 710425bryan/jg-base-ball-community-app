@@ -7,13 +7,17 @@ import { ElMessage } from 'element-plus'
 import AppPageHeader from '@/components/common/AppPageHeader.vue'
 import MatchDetailDialog from '@/components/match-records/MatchDetailDialog.vue'
 import { useMatchesStore } from '@/stores/matches'
+import { usePermissionsStore } from '@/stores/permissions'
 import type { MatchRecord } from '@/types/match'
+import { isMatchCancelled } from '@/utils/matchPresentation'
 import {
   getDashboardMatchStart,
   getDashboardUpcomingMatches
 } from '@/utils/dashboardHome'
 
 const matchesStore = useMatchesStore()
+const permissionsStore = usePermissionsStore()
+const canRestoreMatches = computed(() => permissionsStore.can('matches', 'EDIT'))
 const route = useRoute()
 const router = useRouter()
 const showParserInfo = ref(false)
@@ -37,6 +41,10 @@ const scheduleTabs: Array<{ key: ScheduleTab; label: string; description: string
 
 const upcomingMatches = computed(() => getDashboardUpcomingMatches(matchesStore.matches, dayjs(), 8))
 const nextMatch = computed(() => upcomingMatches.value[0] || null)
+const cancelledMatches = computed(() => matchesStore.matches
+  .filter((match) => isMatchCancelled(match) && match.match_date >= dayjs().format('YYYY-MM-DD'))
+  .sort((left, right) => left.match_date.localeCompare(right.match_date) || left.match_time.localeCompare(right.match_time))
+)
 const activeScheduleTabDescription = computed(() =>
   scheduleTabs.find((tab) => tab.key === activeScheduleTab.value)?.description || ''
 )
@@ -262,13 +270,39 @@ watch(detailVisible, (visible) => {
       </section>
 
       <section
+        v-if="cancelledMatches.length > 0"
+        v-show="activeScheduleTab === 'upcoming'"
+        aria-label="已取消賽事"
+        class="rounded-2xl border border-red-200 bg-white p-4 md:p-5"
+      >
+        <h3 class="text-lg font-black text-slate-800">已取消賽事</h3>
+        <p class="mt-1 text-sm font-bold text-red-700">以下賽事已取消，無須集合。</p>
+        <div class="mt-4 grid gap-3 md:grid-cols-2">
+          <button
+            v-for="match in cancelledMatches"
+            :key="match.id"
+            type="button"
+            class="min-h-11 rounded-2xl border border-red-100 bg-red-50 p-4 text-left transition-colors hover:border-red-300"
+            @click="openMatchDetail(match.id)"
+          >
+            <span class="rounded-full bg-red-100 px-3 py-1 text-sm font-black text-red-700">已取消 · 無須集合</span>
+            <h4 class="mt-3 text-lg font-black text-slate-800">{{ getMatchTitle(match) }}</h4>
+            <p class="mt-2 text-sm font-bold text-slate-600">原訂 {{ formatMatchDate(match) }}｜{{ formatMatchTime(match) }}</p>
+            <p v-if="match.location" class="mt-1 break-words text-sm font-bold text-slate-600">原地點：{{ match.location }}</p>
+            <p class="mt-2 whitespace-pre-line break-words text-sm font-semibold text-red-700">{{ match.cancellation_reason || '賽事已取消' }}</p>
+            <span class="mt-3 inline-block text-sm font-bold text-slate-700">查看保留的賽事詳情</span>
+          </button>
+        </div>
+      </section>
+
+      <section
         v-show="activeScheduleTab === 'calendar'"
         class="min-h-[520px] overflow-hidden rounded-3xl border border-gray-100 bg-white p-2 shadow-[0_8px_30px_rgb(0,0,0,0.04)] md:p-4"
       >
         <div class="mb-3 flex items-center justify-between px-2 pt-2">
           <div>
             <h3 class="text-lg font-black text-slate-800">完整 Google Calendar</h3>
-            <p class="mt-1 text-xs font-bold text-gray-400">保留月曆檢視，方便查看長期安排。</p>
+            <p class="mt-1 text-xs font-bold text-gray-500">顯示原始 Google Calendar；取消狀態以系統賽事詳情為準。</p>
           </div>
         </div>
 
@@ -304,6 +338,7 @@ watch(detailVisible, (visible) => {
       v-model="detailVisible"
       :match-id="selectedMatchId"
       :readonly="true"
+      :can-restore="canRestoreMatches"
     />
   </div>
 </template>

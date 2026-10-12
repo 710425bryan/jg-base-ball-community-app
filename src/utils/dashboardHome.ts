@@ -1,5 +1,6 @@
 import dayjs, { type Dayjs } from 'dayjs'
 import type { MatchRecord } from '@/types/match'
+import { isMatchCancelled } from '@/utils/matchPresentation'
 
 const TIME_TOKEN_PATTERN = /\d{1,2}:\d{2}/g
 const MONTH_LABELS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
@@ -44,9 +45,10 @@ export const getDashboardMatchEnd = (match: Pick<MatchRecord, 'match_date' | 'ma
 }
 
 export const isDashboardMatchInProgress = (
-  match: Pick<MatchRecord, 'match_date' | 'match_time'>,
+  match: Pick<MatchRecord, 'match_date' | 'match_time' | 'cancelled_at'>,
   now: Dayjs = dayjs()
 ) => {
+  if (isMatchCancelled(match)) return false
   const start = getDashboardMatchStart(match)
   const end = getDashboardMatchEnd(match)
   if (!start || !end) return false
@@ -65,6 +67,7 @@ const compareByStartDesc = (a: MatchRecord, b: MatchRecord) => compareByStartAsc
 export const pickDashboardHeroMatch = (matches: MatchRecord[], now: Dayjs = dayjs()) => {
   const candidates = matches
     .filter((match) => {
+      if (isMatchCancelled(match)) return false
       const end = getDashboardMatchEnd(match)
       return end ? end.valueOf() >= now.valueOf() : false
     })
@@ -77,6 +80,7 @@ export const pickDashboardHeroMatch = (matches: MatchRecord[], now: Dayjs = dayj
 export const getDashboardUpcomingMatches = (matches: MatchRecord[], now: Dayjs = dayjs(), limit = 4) =>
   matches
     .filter((match) => {
+      if (isMatchCancelled(match)) return false
       const end = getDashboardMatchEnd(match)
       return end ? end.valueOf() >= now.valueOf() : false
     })
@@ -86,6 +90,7 @@ export const getDashboardUpcomingMatches = (matches: MatchRecord[], now: Dayjs =
 export const getDashboardRecentMatches = (matches: MatchRecord[], now: Dayjs = dayjs(), limit = 4) =>
   matches
     .filter((match) => {
+      if (isMatchCancelled(match)) return false
       const end = getDashboardMatchEnd(match)
       return end ? end.valueOf() < now.valueOf() : false
     })

@@ -24,6 +24,8 @@ const normalizeMatchFeeItem = (row: any): MatchFeeItem => ({
   match_fee_amount: row?.match_fee_amount == null
     ? null
     : normalizeNumber(row.match_fee_amount),
+  match_cancelled_at: row?.match_cancelled_at ?? null,
+  match_cancellation_reason: row?.match_cancellation_reason ?? null,
   payment_opened_at: row?.payment_opened_at ?? null,
   payment_opened_by_name: row?.payment_opened_by_name ?? null,
   has_payment_history: row?.has_payment_history === true,
@@ -73,9 +75,18 @@ export const listMyMatchFeeItems = async (memberId: string) => {
 }
 
 export const listMatchFeeItemsByMonth = async (feeMonth: string) => {
-  const { data, error } = await supabase.rpc('list_match_fee_items_by_month', {
+  const rpcName = 'list_match_fee_items_by_month_with_match_status'
+  let { data, error } = await supabase.rpc(rpcName, {
     p_fee_month: feeMonth
   })
+  // Fall back only when this wrapper has not been deployed. Permission,
+  // network and errors inside its existing finance dependency stay visible.
+  if (error && (error.code === 'PGRST202'
+    || (error.code === '42883' && String(error.message || '').includes(rpcName)))) {
+    ;({ data, error } = await supabase.rpc('list_match_fee_items_by_month', {
+      p_fee_month: feeMonth
+    }))
+  }
 
   if (error) throw error
   return unwrapRows<any>(data).map(normalizeMatchFeeItem)

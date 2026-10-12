@@ -4,9 +4,13 @@ import type { MatchRecord, MatchRecordInput } from '../types/match'
 let supportsGoogleCalendarEventIdColumn: boolean | null = null
 let supportsVideoUrlColumn: boolean | null = null
 let supportsMatchFeeAmountColumn: boolean | null = null
+let supportsCancellationColumns: boolean | null = null
 
 const MATCH_RECORD_SELECT = `
   id,
+  cancelled_at,
+  cancellation_reason,
+  cancelled_by,
   google_calendar_event_id,
   match_name,
   opponent,
@@ -52,6 +56,9 @@ const MATCH_RECORD_SELECT = `
 
 const MATCH_SUMMARY_SELECT = `
   id,
+  cancelled_at,
+  cancellation_reason,
+  cancelled_by,
   google_calendar_event_id,
   match_name,
   opponent,
@@ -76,6 +83,9 @@ const MATCH_SUMMARY_SELECT = `
 
 const applyOptionalColumnFallbacks = (select: string) => {
   let normalizedSelect = select
+  if (supportsCancellationColumns === false) {
+    normalizedSelect = normalizedSelect.replace(/  (cancelled_at|cancellation_reason|cancelled_by),\n/g, '')
+  }
   if (supportsGoogleCalendarEventIdColumn === false) {
     normalizedSelect = normalizedSelect.replace('  google_calendar_event_id,\n', '')
   }
@@ -112,18 +122,22 @@ const isMissingColumnError = (error: any, column: string) => {
 
 const markMissingOptionalColumns = (error: any) => {
   let hasMissingColumn = false
+  if (supportsCancellationColumns !== false && ['cancelled_at', 'cancellation_reason', 'cancelled_by'].some((column) => isMissingColumnError(error, column))) {
+    supportsCancellationColumns = false
+    hasMissingColumn = true
+  }
 
-  if (isMissingColumnError(error, 'google_calendar_event_id')) {
+  if (supportsGoogleCalendarEventIdColumn !== false && isMissingColumnError(error, 'google_calendar_event_id')) {
     supportsGoogleCalendarEventIdColumn = false
     hasMissingColumn = true
   }
 
-  if (isMissingColumnError(error, 'video_url')) {
+  if (supportsVideoUrlColumn !== false && isMissingColumnError(error, 'video_url')) {
     supportsVideoUrlColumn = false
     hasMissingColumn = true
   }
 
-  if (isMissingColumnError(error, 'match_fee_amount')) {
+  if (supportsMatchFeeAmountColumn !== false && isMissingColumnError(error, 'match_fee_amount')) {
     supportsMatchFeeAmountColumn = false
     hasMissingColumn = true
   }
@@ -132,7 +146,11 @@ const markMissingOptionalColumns = (error: any) => {
 }
 
 const stripUnsupportedColumns = <T extends Partial<MatchRecordInput>>(payload: T): Partial<MatchRecordInput> => {
-  const normalizedPayload: Partial<MatchRecordInput> = { ...payload }
+  // Cancellation audit fields can only be written by the cancellation RPC.
+  const normalizedPayload: Partial<MatchRecord> = { ...payload }
+  delete normalizedPayload.cancelled_at
+  delete normalizedPayload.cancellation_reason
+  delete normalizedPayload.cancelled_by
   if (supportsGoogleCalendarEventIdColumn === false) {
     delete normalizedPayload.google_calendar_event_id
   }
@@ -165,11 +183,13 @@ const withOptionalColumnFallback = async <T>(
 
   let { data, error } = await run(initialPayload)
 
-  if (error && markMissingOptionalColumns(error)) {
+  let retryCount = 0
+  while (error && retryCount++ < 4 && markMissingOptionalColumns(error)) {
     console.warn('One or more optional matches columns are unavailable; retrying without them.')
     ;({ data, error } = await run(stripUnsupportedColumns(payload)))
-  } else if (!error) {
-    markSupportedColumnsFromPayload(payload)
+  }
+  if (!error) {
+    markSupportedColumnsFromPayload(stripUnsupportedColumns(payload))
   }
 
   if (error) throw error
@@ -181,10 +201,12 @@ const withOptionalSelectFallback = async <T>(
 ) => {
   let { data, error } = await run()
 
-  if (error && markMissingOptionalColumns(error)) {
+  let retryCount = 0
+  while (error && retryCount++ < 4 && markMissingOptionalColumns(error)) {
     console.warn('One or more optional matches columns are unavailable; retrying select without them.')
     ;({ data, error } = await run())
-  } else if (!error) {
+  }
+  if (!error) {
     if (supportsGoogleCalendarEventIdColumn !== false) {
       supportsGoogleCalendarEventIdColumn = true
     }
@@ -201,6 +223,47 @@ const withOptionalSelectFallback = async <T>(
 }
 
 export const matchesApi = {
+  async cancelMatch(id: string, reason: string, expectedUpdatedAt?: string | null): Promise<MatchRecord> {
+    const normalizedReason = reason.trim()
+    if (!normalizedReason || normalizedReason.length > 500) {
+      throw new Error('請填寫 1 至 500 字的取消原因')
+    }
+    if (!expectedUpdatedAt) throw new Error('請重新載入比賽資料後再取消')
+    const { data, error } = await supabase.rpc('cancel_match', {
+      p_match_id: id,
+      p_reason: normalizedReason,
+      p_expected_updated_at: expectedUpdatedAt || null
+    })
+    if (error) {
+      if (error.code === 'PGRST202' || error.code === '42883') {
+        throw new Error('取消比賽功能尚未啟用，請聯絡管理員更新系統')
+      }
+      throw error
+    }
+    const row = Array.isArray(data) ? data[0] : data
+    if (!row?.id || !row.cancelled_at) throw new Error('取消結果尚未確認，請重新載入賽事後再確認')
+    return normalizeMatchRecord(row)
+  },
+
+  async restoreMatch(id: string, expectedUpdatedAt?: string | null): Promise<MatchRecord> {
+    if (!expectedUpdatedAt) throw new Error('請重新載入比賽資料後再恢復')
+    const { data, error } = await supabase.rpc('restore_match', {
+      p_match_id: id,
+      p_expected_updated_at: expectedUpdatedAt
+    })
+    if (error) {
+      if (error.code === 'PGRST202' || error.code === '42883') {
+        throw new Error('恢復比賽功能尚未啟用，請聯絡管理員更新系統')
+      }
+      throw error
+    }
+    const row = Array.isArray(data) ? data[0] : data
+    if (row?.id !== id || row.cancelled_at !== null || !row.updated_at) {
+      throw new Error('恢復結果尚未確認，請重新載入賽事後再確認')
+    }
+    return normalizeMatchRecord(row)
+  },
+
   async getMatches() {
     return matchesApi.listMatchesForAdmin()
   },
@@ -218,30 +281,36 @@ export const matchesApi = {
   },
 
   async listUpcomingMatches(limit = 8, fromDate?: string | null) {
-    const data = await withOptionalSelectFallback<any[]>(async () =>
-      await supabase
-        .from('matches')
-        .select(getMatchSummarySelect())
+    const data = await withOptionalSelectFallback<any[]>(async () => {
+      let query = supabase.from('matches').select(getMatchSummarySelect())
         .gte('match_date', fromDate || new Date().toISOString().slice(0, 10))
-        .order('match_date', { ascending: true })
-        .order('match_time', { ascending: true })
+      if (supportsCancellationColumns !== false) query = query.is('cancelled_at', null)
+      return await query.order('match_date', { ascending: true }).order('match_time', { ascending: true })
         .limit(Math.max(1, Math.min(limit, 50)))
-    )
+    })
+    return (data || []).map(normalizeMatchRecord)
+  },
 
+  async listCancelledUpcomingMatches(limit = 8, fromDate?: string | null) {
+    const data = await withOptionalSelectFallback<any[]>(async () => {
+      if (supportsCancellationColumns === false) return { data: [], error: null }
+      return await supabase.from('matches').select(getMatchSummarySelect())
+        .gte('match_date', fromDate || new Date().toISOString().slice(0, 10))
+        .not('cancelled_at', 'is', null)
+        .order('match_date', { ascending: true }).order('match_time', { ascending: true })
+        .limit(Math.max(1, Math.min(limit, 50)))
+    })
     return (data || []).map(normalizeMatchRecord)
   },
 
   async listRecentMatches(limit = 4, beforeDate?: string | null) {
-    const data = await withOptionalSelectFallback<any[]>(async () =>
-      await supabase
-        .from('matches')
-        .select(getMatchSummarySelect())
+    const data = await withOptionalSelectFallback<any[]>(async () => {
+      let query = supabase.from('matches').select(getMatchSummarySelect())
         .lt('match_date', beforeDate || new Date().toISOString().slice(0, 10))
-        .order('match_date', { ascending: false })
-        .order('match_time', { ascending: false })
+      if (supportsCancellationColumns !== false) query = query.is('cancelled_at', null)
+      return await query.order('match_date', { ascending: false }).order('match_time', { ascending: false })
         .limit(Math.max(1, Math.min(limit, 50)))
-    )
-
+    })
     return (data || []).map(normalizeMatchRecord)
   },
 
@@ -272,19 +341,16 @@ export const matchesApi = {
     })
   },
 
-  async updateMatch(id: string, updates: Partial<MatchRecordInput>) {
+  async updateMatch(id: string, updates: Partial<MatchRecordInput>, options: { requireActive?: boolean } = {}) {
     return withOptionalColumnFallback(updates, async (normalizedUpdates) => {
-      const { data, error } = await supabase
-        .from('matches')
-        .update(normalizedUpdates)
-        .eq('id', id)
-        .select(getMatchRecordSelect())
-        .single()
-
-      return {
-        data: data as MatchRecord | null,
-        error
+      let query = supabase.from('matches').update(normalizedUpdates).eq('id', id)
+      // Calendar writes must fail closed even when optional-column fallback was used.
+      if (options.requireActive || supportsCancellationColumns !== false) query = query.is('cancelled_at', null)
+      const { data, error } = await query.select(getMatchRecordSelect()).single()
+      if (error?.code === 'PGRST116') {
+        throw Object.assign(new Error('無法更新賽事，可能已取消或資料已異動，請重新載入'), { code: error.code })
       }
+      return { data: data as MatchRecord | null, error }
     })
   },
 

@@ -77,7 +77,7 @@
 | `src/stores/permissions.ts` | 角色權限讀取與 `can()` | `app_role_permissions` |
 | `src/stores/playerRoster.ts` | 球員名單 session 內快取與版本檢查 | `src/services/playerRosterApi.ts`、`get_team_members_cache_meta()` |
 | `src/stores/teamGroups.ts` | team group 設定、排序與共用選項 | `src/services/teamGroupsApi.ts`、`src/utils/teamGroups.ts` |
-| `src/stores/matches.ts` | 賽事資料狀態 | `src/services/matchesApi.ts` |
+| `src/stores/matches.ts` | 賽事資料狀態；取消／恢復及微秒版本防舊回應覆蓋 | `src/services/matchesApi.ts` |
 | `src/stores/equipment.ts` | 裝備主檔、交易、庫存狀態 | `src/services/equipmentApi.ts` |
 | `src/stores/equipmentRequests.ts` | 裝備加購申請 / 審核與逐品項履約狀態 | `src/services/equipmentApi.ts`、`src/services/equipmentRequestItemsApi.ts` |
 | `src/stores/equipmentPayments.ts` | 裝備付款項目與審核狀態 | `src/services/equipmentApi.ts` |
@@ -102,12 +102,12 @@
 | `src/services/playerIdentitiesApi.ts` | 自訂社區身分名稱選項讀取 | `player_identity_labels` SELECT RLS；寫入隨球員儲存的私有 trigger |
 | `src/services/registrationFormsApi.ts` | 賽事報名 CRUD、範本關聯／清單、generation log、私有原檔下載與 Edge binary 呼叫 | `registration_form_events` / `registration_form_event_templates` / `registration_form_templates` / `registration-form-documents` |
 | `src/services/teamGroupsApi.ts` | team group 設定 RPC | `team_group_settings` 相關 RPC |
-| `src/services/matchesApi.ts` | 賽事 CRUD | `matches` |
+| `src/services/matchesApi.ts` | 賽事 CRUD、取消／恢復 RPC 與同步取消防覆蓋 | `matches` |
 | `src/services/matchLeaveAbsences.ts` | 歷史與未來賽事假單同步請假預覽 / 詳情讀取 | `preview_match_leave_absences()`、`get_match_leave_absences()` |
 | `src/services/matchReminderNotifications.ts` | 未來賽事手動通知、提醒排程設定與排程健康狀態 RPC | `send-match-reminders` Edge Function、`system_settings.match_reminder_schedule_config`、`get_match_reminder_health_status()` |
 | `src/services/matchCalendarSync.ts` | Google Calendar 手動同步預覽 | `sync-match-calendar` Edge Function、瀏覽器 proxy fallback |
 | `src/services/matchAudioApi.ts` | 比賽語音轉紀錄 Edge Function 呼叫 | `transcribe-match-audio` |
-| `src/services/matchFees.ts` | 比賽費付款、單場免繳、開放 / 關閉、取消群組刪除與審核 RPC | `matches.match_fee_payment_*` / `match_fee_items` / `match_payment_submissions` |
+| `src/services/matchFees.ts` | 比賽費付款、單場免繳、開放 / 關閉、取消群組刪除與審核 RPC；月份清單補整場取消狀態，缺新 RPC 回退 | `matches.match_fee_payment_*` / `matches.cancelled_at` / `match_fee_items` / `match_payment_submissions` |
 | `src/services/matchFeePaymentNotifications.ts` | 保留的比賽費通知 service，開放流程不再呼叫 | `send-match-fee-payment-notifications` Edge Function |
 | `src/services/weatherApi.ts` | 賽事 / 首頁天氣預報與地點解析 | `resolve-location`、Open-Meteo |
 | `src/components/training/TrainingWorkspace.vue` | 特訓個人報名與管理 workspace，由 `TrainingView` VIEW gate 控制掛載及卸載 | 原有 training RPC |
@@ -166,7 +166,7 @@
 | `src/utils/coachScheduleMonthOverview.ts` | 全月日期／時間排序、不合併同日來源，只由保存的 profile IDs／assignments 顯示教練 |
 | `src/components/coach-schedules/CoachScheduleEventSummary.vue` | 教練排班卡片來源、日期／場地與教練摘要（不顯示訓練項目標籤） |
 | `src/utils/coachSchedules.ts` | 教練排班來源 label、月份 normalize、候選 / 已儲存事件合併與排序 |
-| `src/utils/googleCalendarParser.ts` | Google Calendar / iCal parser 與同步規劃 |
+| `src/utils/googleCalendarParser.ts` | Google Calendar / iCal parser 與同步規劃；比對到已取消賽事時 skip，保留原紀錄並讓其他項目繼續同步 |
 | `src/utils/matchCalendarCopy.ts` | Google Calendar / 賽事複製文字 |
 | `src/utils/matchReminderNotification.ts` | 賽事提醒文案、URL、event key |
 | `src/utils/matchReminderSchedule.ts` | 賽事提醒排程設定 normalize / validation / 到期規則 |
@@ -328,7 +328,7 @@
 | `tests/database/quarterlyCompensationDates.integration.mjs` | 季費補償日期隔離 SQL 回歸：多課表、一般／折扣、重複產生、未來月份、補課／預設、審核入帳與歷史保留，含 LF／CRLF |
 | `src/components/fees/ProfilePaymentSubmissionInbox.vue` | 個人付款回報金額核對、短繳阻擋、多繳入帳確認與必填退回原因 |
 | `src/components/fees/PlayerBalanceManager.vue` | 球員餘額管理與流水帳 |
-| `src/components/fees/MatchFeeManagementPanel.vue` | 比賽費預設收合、時間排序、開放／關閉（不自動通知）、取消群組刪除與付款狀態 |
+| `src/components/fees/MatchFeeManagementPanel.vue` | 比賽費預設收合、時間排序、開放／關閉（不自動通知）、取消群組刪除與付款狀態；整場取消紅色標示及原因 |
 | `src/components/fees/MatchFeeMemberList.vue` | 比賽費球員明細、單場免繳開關、版本衝突刷新；手機卡片／桌機表格 |
 | `src/components/fees/MatchPaymentSubmissionInbox.vue` | 比賽費付款回報審核 |
 | `src/components/fees/MyMatchFeesPanel.vue` | 個人已開放比賽費與既有付款歷程面板 |
@@ -369,7 +369,7 @@
 | --- | --- |
 | `src/components/match-records/MatchFormDialog.vue` | 比賽新增 / 編輯；不收費球員仍可加入參賽名單、陣容、即時 / 語音紀錄及打擊 / 投球成績 |
 | `src/components/match-records/MatchDetailDialog.vue` | 比賽詳情 |
-| `src/components/match-records/SyncCalendarDialog.vue` | Google Calendar / iCal 同步 |
+| `src/components/match-records/SyncCalendarDialog.vue` | Google Calendar / iCal 同步；取消場次略過，透過 API 原子防覆蓋，取消競態不阻斷其他正常項目 |
 | `src/components/match-records/MatchLineupTab.vue` | 陣容 |
 | `src/components/match-records/MatchFieldEditor.vue` | 視覺化守位編輯 |
 | `src/components/match-records/MatchAttendanceStatsTab.vue` | 賽事出席統計、姓名／背號搜尋與應出席賽事 hover 清單；以 `matches.players` 場次為分母並用 `absent_players` 判斷請假 |
@@ -377,7 +377,14 @@
 | `src/components/match-records/MatchLiveController.vue` | 即時比賽控制 |
 | `src/components/match-records/MatchAudioRecorder.vue` | 比賽語音錄製與轉紀錄 |
 | `src/components/match-records/VisualField.vue` | 視覺化球場 |
-| `src/components/match-records/MatchesGrid.vue` | 賽事卡片列表 |
+| `src/components/match-records/MatchesGrid.vue` | 賽事月份分組與排序，委派 MatchCard |
+| `src/components/match-records/MatchCard.vue` | 封面／預覽、比分、更多操作、取消狀態 |
+| `src/components/match-records/MatchScheduleInfo.vue` | 集合／比賽時間、完整地點及導航 |
+| `src/components/match-records/MatchCancelDialog.vue` | 取消原因、版本快照、送出／失敗保留 |
+| `src/components/match-records/MatchRestoreDialog.vue` | 誤取消恢復確認、EDIT／版本檢查、費用及排班說明、失敗保留 |
+| `src/composables/useMatchStatusDialogs.ts` | 比賽紀錄頁取消／恢復視窗狀態、目前選取場次與權限 guard |
+| `src/utils/matchPresentation.ts` | 集合時間逐行擷取、取消判斷、地圖 URL |
+| `src/composables/useMatchReminderAction.ts` | 手動提醒確認、權限與取消檢查、防重送 |
 | `src/components/match-records/MatchesTable.vue` | 賽事表格 |
 | `src/components/match-records/MatchReminderScheduleDialog.vue` | 賽事提醒排程設定 |
 
@@ -485,7 +492,7 @@
 | `supabase/functions/send-training-location-notifications/index.ts` | 訓練場地通知 |
 | `supabase/functions/send-fee-payment-reminders/index.ts` | 收費管理手動催繳通知 |
 | `supabase/functions/send-match-fee-payment-notifications/index.ts` | 保留的比賽費通知端點，開放流程不再呼叫 |
-| `supabase/functions/sync-match-calendar/index.ts` | 賽事日曆同步 |
+| `supabase/functions/sync-match-calendar/index.ts` | 賽事日曆同步；UPDATE 原子排除取消列，零列計為略過；同名測試涵蓋完整 handler 與同步競態 |
 | `supabase/functions/leave-webhook/index.ts` | 請假 webhook |
 | `supabase/functions/record-fee-remittance/index.ts` | 繳費匯款紀錄 |
 | `supabase/functions/parse-lineup/index.ts` | 陣容解析，預設 `gemini-3.1-pro-preview`，保留環境模型覆寫與使用者權限驗證 |
@@ -580,4 +587,5 @@
 - 改公開頁資料：優先找 public RPC，不要直接查 raw table。
 
 - `tests/database/matchFeeExemptions.integration.mjs`：隔離 Postgres 執行正式比賽費 RPC，驗證免繳、恢復、請假／不收費、權限、版本及付款歷史保護；由 `pnpm test:payments:sql` 與 `pnpm check` 執行。
+- `tests/database/matchFeeCancellationStatus.integration.mjs`：月份比賽費 RPC 整場取消狀態、原查詢契約／權限／付款快照保留、免繳及已解除場次關聯不誤判；LF／CRLF 納入 `pnpm test:payments:sql`。
 - `tests/database/monthlyPaymentOpenPeriod.fixture.mjs` / `monthlyPaymentOpenPeriod.integration.mjs`：隔離 Postgres 執行國中部月費開放 migration、實際付款估算／回報與首頁付款摘要；驗證每月 25 日、跨年、兩種月費模式、缺帳款／舊快照、權限及歷史金額不變；`--newline-matrix` 測四種 LF／CRLF 組合與未知版型回滾。migration 為已部署的 `supabase/migrations/20261001032108_junior_high_payment_open_period.sql`，已納入 `pnpm test:payments:sql`。

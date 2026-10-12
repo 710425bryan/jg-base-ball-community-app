@@ -15,6 +15,99 @@ const buildExistingMatch = (id: string, payload: ReturnType<typeof createMatchRe
 })
 
 describe('googleCalendarParser', () => {
+  it.each([true, false])('resumes normal sync after restoration without replacing the original record (UID match: %s)', hasUid => {
+    const parsed = parseMatchRecord({
+      id: 'restored-calendar@google.com', summary: '友誼賽 中港熊戰 vs 台北熊',
+      description: '組別 / 類別：U12\n賽事等級：友誼賽', location: '調整後球場',
+      startRaw: '20261018T000000Z', endRaw: '20261018T020000Z'
+    })
+    const existing = {
+      ...buildExistingMatch('original-match-id', createMatchRecordInput(parsed)),
+      google_calendar_event_id: hasUid ? parsed.id : null,
+      location: '原球場', cancelled_at: '2026-10-12T08:00:00Z' as string | null,
+      cancellation_reason: '誤取消' as string | null, cancelled_by: 'admin-id' as string | null
+    }
+    const options = { minimumMatchDate: '2026-10-12' }
+    expect(planCalendarSync([existing], [parsed], options)[0]).toMatchObject({ action: 'skip', payload: {} })
+
+    Object.assign(existing, { cancelled_at: null, cancellation_reason: null, cancelled_by: null })
+    const [restoredPlan] = planCalendarSync([existing], [parsed], options)
+    expect(restoredPlan).toMatchObject({ action: 'update', existingMatchId: existing.id, isBlocked: false })
+    expect(restoredPlan.payload).toMatchObject({ location: '調整後球場', google_calendar_event_id: parsed.id })
+    expect(restoredPlan.payload).not.toHaveProperty('cancelled_at')
+    expect(restoredPlan.payload).not.toHaveProperty('cancellation_reason')
+    expect(restoredPlan.payload).not.toHaveProperty('cancelled_by')
+    expect(planCalendarSync([{ ...existing, ...restoredPlan.payload }], [parsed], options)[0])
+      .toMatchObject({ action: 'skip', existingMatchId: 'original-match-id' })
+  })
+
+  it('skips changed Google events for a cancelled UID while other matches remain syncable', () => {
+    const parsed = parseMatchRecord({
+      id: 'cancelled-calendar@google.com',
+      summary: '友誼賽 中港熊戰 vs 台北熊',
+      description: '組別 / 類別：U12\n賽事等級：友誼賽',
+      location: '中港國小',
+      startRaw: '20261018T000000Z',
+      endRaw: '20261018T020000Z'
+    })
+    const existing = {
+      ...buildExistingMatch('cancelled-match', createMatchRecordInput(parsed)),
+      cancelled_at: '2026-10-12T08:00:00Z',
+      cancellation_reason: '場地關閉',
+      cancelled_by: 'admin-id',
+      location: '舊球場'
+    }
+    const changedCancelled = {
+      ...parsed,
+      date: '2026-10-25',
+      matchTime: '10:00 - 12:00',
+      opponent: '',
+      players: [{ number: '99', name: '不在名單的球員' }]
+    }
+    const activeParsed = { ...parsed, id: 'active-calendar@google.com' }
+    const activeExisting = { ...buildExistingMatch('active-match', createMatchRecordInput(activeParsed)), location: '舊球場' }
+    const newParsed = { ...parsed, id: 'new-calendar@google.com' }
+    const original = structuredClone(existing)
+    const items = planCalendarSync([existing, activeExisting], [changedCancelled, activeParsed, newParsed], {
+      minimumMatchDate: '2026-10-12', rosterMembers: []
+    })
+    const planned = items[0]
+
+    expect(items.map((item) => item.action)).toEqual(['skip', 'update', 'create'])
+    expect(planned.action).toBe('skip')
+    expect(planned.existingMatchId).toBe(existing.id)
+    expect(planned.payload).toEqual({})
+    expect(planned.scheduleDiffs).toEqual([])
+    expect(planned.isBlocked).toBe(false)
+    expect(planned.validationIssues).toEqual([{ severity: 'warning', message: '此賽事已取消，略過同步並保留原紀錄' }])
+    expect(existing).toEqual(original)
+    expect({ ...existing, ...planned.payload }).toEqual(original)
+    expect(items.filter((item) => item.action !== 'skip' && !item.isBlocked).map((item) => item.parsedMatch.id))
+      .toEqual(['active-calendar@google.com', 'new-calendar@google.com'])
+    const [uncancelledPlan] = planCalendarSync([{ ...existing, cancelled_at: null }], [changedCancelled], {
+      minimumMatchDate: '2026-10-12', rosterMembers: []
+    })
+    expect(uncancelledPlan.isBlocked).toBe(true)
+    expect(uncancelledPlan.validationIssues).toContainEqual(expect.objectContaining({ severity: 'blocking' }))
+  })
+
+  it('also skips a cancelled legacy match found by date, time and title fallback', () => {
+    const parsed = parseMatchRecord({
+      id: 'new-uid-for-legacy@google.com', summary: '友誼賽 中港熊戰 vs 台北熊',
+      description: '組別 / 類別：U12\n賽事等級：友誼賽', location: '中港國小',
+      startRaw: '20261018T000000Z', endRaw: '20261018T020000Z'
+    })
+    const existing = {
+      ...buildExistingMatch('legacy-cancelled', createMatchRecordInput(parsed)),
+      google_calendar_event_id: null,
+      cancelled_at: '2026-10-12T08:00:00Z', location: '保留原球場'
+    }
+    const [item] = planCalendarSync([existing], [parsed], { minimumMatchDate: '2026-10-12' })
+    expect(item).toMatchObject({ action: 'skip', existingMatchId: existing.id, payload: {}, isBlocked: false })
+    expect(existing.google_calendar_event_id).toBeNull()
+    expect(existing.location).toBe('保留原球場')
+  })
+
   afterEach(() => {
     vi.unstubAllGlobals()
   })

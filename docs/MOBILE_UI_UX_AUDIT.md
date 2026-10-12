@@ -1,5 +1,32 @@
 # 手機 UI/UX 一致性稽核與執行清單
 
+### 2026-10-12 收費管理比賽取消標示（本機完成，待部署／實機）
+
+- `/fees` 比賽費場次卡以紅底白字＋圖示顯示「比賽已取消」，紅色卡框與淡紅原因區在明細收合時仍可見，原因完整換行；取消卡不提供開放／關閉繳費。只看權威賽事取消時間，個別免繳或取消費用不誤標，原已收／待確認金額與明細保留。
+- 真實卡片元件、Element Plus 與全域樣式搭配隔離資料，390／768／1365px 共 27 checks 通過，涵蓋收合取消標示、長原因、正常開放入口、個別免繳、展開付款明細、唯讀及水平溢出；無頁面錯誤、外部請求或寫入。初跑冷載入逾時後調整 runner 首次 navigation 上限再完整補跑，採 `output/playwright/match-fee-cancellation/verified/evidence.json`，不把初跑 FAIL 算成功。
+- 補拍 390px 單卡另 9 checks 通過：`output/playwright/match-fee-cancellation/mobile-card/390-manager-cancelled-payment-history.png`，已目視確認 badge、原因、金額與展開鈕完整。證據均 ignored；未驗收實體 iPhone／Android、safe area 或正式環境。
+- 完整費用單元加卡片 23 檔／134 tests、付款 SQL（含新狀態 RPC LF／CRLF 56 checks）與含型別檢查的 build 通過。新 RPC 必須先部署才可提供權威整場取消資訊；相依與發布順序見比賽卡片規格補充。
+
+### 2026-10-12 誤取消恢復（本機完成，待部署／實機）
+
+- 已取消卡片／表格更多選單及具編輯權限的賽程詳情新增「恢復比賽」，確認視窗保留原時地／取消原因，顯示費用與排班後續處理；原卡片高度不因更多選單增加操作而變長。操作至少 44px，主按鈕使用品牌琥珀色。
+- 390／768／1365 px 隔離 Chromium 覆蓋恢復失敗保留、成功回正常賽事、唯讀不可恢復、Calendar 深連結確認及恢復後回列表，無頁面錯誤／外部請求／非預期寫入。初跑 reload 逾時後依未完成項目補跑；詳細分段證據與限制見 `docs/specs/2026-10-12-match-restoration.md`，不將初跑 FAIL 檔視為整組通過。
+- 手機最新確認畫面：`output/playwright/match-cancellation/restoration-calendar-390/390-calendar-restore-confirmation.png`；實體 iPhone／Android 與 safe area 仍待驗收，未發布遠端。
+
+### 2026-10-12 比賽卡片第二次調整：Logo／單卡閱讀高度（本機完成，待部署／實機）
+
+- 預設封面移除手套與球，改為中央清晰可見的隊徽浮水印；手機封面 80px，預設圖完整顯示，真實上傳照片填滿並保留獨立預覽。
+- 手機整個大工具列不再固定占用 221–273px；月份貼齊 App header 下方，搜尋／頁籤回到頁首操作。桌機原有吸頂與標籤保留。減少卡片留白，放寬比賽時間欄，整個地點區可導航，全文 16px 自然換行，集合時間 24px，操作至少 44px。
+- 375×812：普通卡 590→499px、長地址卡 694→551px；扣除 App shell／月份後閱讀區 409→630px，這兩種與測試取消卡（629px）皆可在捲到卡片位置後完整呈現。390×844 閱讀區 662px，三種同樣完整呈現；360×740 閱讀區 558px，普通／長地址完整，取消長地址仍須約 71px 捲動。
+- 320×568 閱讀區僅 386px，普通／長地址／取消卡約 546／624／702px，仍需頁面自然捲動。未縮小重要字級或以固定高度、卡片內捲動、截斷文字假裝一屏可讀；文字放大、更多資訊及實機 safe area 仍可能增加所需高度。
+- 隔離 Chromium 四尺寸 32 checks、完整操作流程三尺寸 24 checks 通過；before／after 量測及實際 viewport 截圖位於 `output/playwright/match-cancellation/mobile-density-before`、`mobile-density-after`，最終操作證據位於 `mobile-compact-final-flow`（全部 ignored）。未驗收實體裝置或正式環境。
+
+### 2026-10-12 比賽卡片／取消比賽（本機完成，待部署／實機）
+
+- 集合時間、比賽時間、完整地點及導航直接呈現，短封面支援真圖／預設／失敗備援；更多選單與預覽／詳情觸控至少 44px。取消用 Element Plus 滿版手機 Dialog，必填原因、固定 footer、失敗保留輸入及重複送出保護。
+- 真實 App／Router／Store 的隔離 Chromium 390／768／1365px 共 24 checks 通過，含兩分頁、長地點、三種照片狀態、獨立預覽、取消失敗／重試成功與唯讀權限。18 張截圖及 evidence.json 放 `output/playwright/match-cancellation/`（ignored）；沒有外部請求／非預期寫入／pageError。
+- 集合時間缺值顯示「待確認」；已取消保留原訂資訊並醒目標示無須集合。此項未代表實體 iPhone／Android、正式 Supabase、外部 Google 月曆已驗收。完整測試與發布相依見 `docs/specs/2026-10-12-match-cards-cancellation.md`。
+
 ### 2026-10-11 角色中文顯示名稱（待部署／實機驗收）
 
 - 新增共用 `RoleNameEditor`，桌面選取角色與手機 Drawer 均可編輯名稱；識別碼只讀。Element Plus 輸入、44px 儲存按鈕、欄位旁持續錯誤與儲存防重複；保存後同步角色列表、使用者名單與角色選項。

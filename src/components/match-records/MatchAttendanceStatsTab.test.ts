@@ -135,6 +135,20 @@ beforeEach(() => {
 })
 
 describe('MatchAttendanceStatsTab', () => {
+  it('removes cancelled matches from the displayed count and attendance denominator', async () => {
+    const wrapper = await mountTab()
+    await wrapper.setProps({ matches: [
+      buildMatch({ id: 'played', players: '王小明' }),
+      buildMatch({ id: 'cancelled', players: '王小明', cancelled_at: '2026-07-25T08:00:00Z', absent_players: [{ name: '王小明', type: '請假' }] })
+    ] })
+
+    expect(wrapper.get('[data-test="match-count"]').text()).toBe('1')
+    const vm = wrapper.vm as any
+    expect(vm.attendanceRows).toEqual([
+      expect.objectContaining({ name: '王小明', calledUp: 1, attended: 1, absentTotal: 0, attendanceRate: 100 })
+    ])
+  })
+
   it('filters attendance rows by player name and jersey number', async () => {
     const wrapper = await mountTab()
     const vm = wrapper.vm as any

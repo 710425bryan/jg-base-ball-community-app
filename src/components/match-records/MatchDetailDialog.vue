@@ -5,6 +5,9 @@ import { useMatchesStore } from '@/stores/matches'
 import type { MatchRecord } from '@/types/match'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import VisualField from '@/components/match-records/VisualField.vue'
+import MatchScheduleInfo from './MatchScheduleInfo.vue'
+import MatchRestoreDialog from './MatchRestoreDialog.vue'
+import { isMatchCancelled } from '@/utils/matchPresentation'
 import { normalizeExternalUrl } from '@/utils/externalUrl'
 import { formatMatchRecordForGoogleCalendar } from '@/utils/matchCalendarCopy'
 import { getMatchLeaveAbsences } from '@/services/matchLeaveAbsences'
@@ -21,11 +24,14 @@ const props = defineProps<{
   matchId: string | null
   matchRecord?: MatchRecord | null
   readonly?: boolean
+  canDelete?: boolean
+  canRestore?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void
   (e: 'edit'): void
+  (e: 'restored', match: MatchRecord): void
 }>()
 
 const visible = computed({
@@ -50,7 +56,7 @@ watch(
   ([isVisible, matchId]) => {
     if (!isVisible || !matchId) return
     if (props.matchRecord?.id === matchId) return
-    void matchesStore.fetchMatch(matchId).catch((error) => {
+    void matchesStore.fetchMatch(matchId, { force: true }).catch((error) => {
       console.error('Unable to load match detail:', error)
       ElMessage.error('載入比賽詳情失敗，請稍後再試')
     })
@@ -70,6 +76,17 @@ const isFuture = computed(() => {
   if (!matchData.value?.match_date) return false
   return dayjs(matchData.value.match_date).isAfter(dayjs(), 'day')
 })
+
+const isCancelled = computed(() => Boolean(matchData.value && isMatchCancelled(matchData.value)))
+const restoreDialogVisible = ref(false)
+const canRestoreSelectedMatch = computed(() => props.canRestore === true && isCancelled.value && matchData.value?.match_level !== '特訓課')
+const handleRestored = (match: MatchRecord) => {
+  restoreDialogVisible.value = false
+  emit('restored', match)
+  visible.value = false
+}
+const coverFailed = ref(false)
+watch(() => matchData.value?.photo_url, () => { coverFailed.value = false })
 
 const displayAbsentPlayers = computed(() => {
   const savedPlayers = matchData.value?.absent_players || []
@@ -123,7 +140,7 @@ const formatCurrency = (amount: number) => new Intl.NumberFormat('en-US', {
 }).format(Number(amount) || 0)
 
 const handleDelete = async () => {
-  if (!matchData.value) return
+  if (!matchData.value || props.readonly || !props.canDelete) return
   try {
     await ElMessageBox.confirm('確定要刪除這場比賽紀錄嗎？這項動作無法復原。', '警告', {
       type: 'error',
@@ -236,10 +253,10 @@ const pitchingTeamStats = computed(() => {
             <button @click="handleCopyMatchInfo" class="bg-emerald-500/80 hover:bg-emerald-500 rounded-full w-11 h-11 flex items-center justify-center text-white shadow transition-colors tooltip" title="複製 Google 行事曆格式">
               <el-icon class="text-xl"><DocumentCopy /></el-icon>
             </button>
-            <button v-if="!props.readonly" @click="emit('edit')" class="bg-primary hover:bg-primary/90 rounded-full w-11 h-11 flex items-center justify-center text-white shadow shadow-primary/30 transition-colors tooltip" title="編輯紀錄">
+            <button v-if="!props.readonly && !isCancelled" @click="emit('edit')" class="bg-primary hover:bg-primary/90 rounded-full w-11 h-11 flex items-center justify-center text-white shadow shadow-primary/30 transition-colors tooltip" title="編輯紀錄">
               <el-icon class="text-xl"><Edit /></el-icon>
             </button>
-            <button v-if="!props.readonly" @click="handleDelete" class="bg-red-500/80 hover:bg-red-500 rounded-full w-11 h-11 flex items-center justify-center text-white shadow transition-colors tooltip" title="刪除紀錄">
+            <button v-if="!props.readonly && props.canDelete" @click="handleDelete" class="bg-red-500/80 hover:bg-red-500 rounded-full w-11 h-11 flex items-center justify-center text-white shadow transition-colors tooltip" title="刪除紀錄">
               <el-icon class="text-xl"><Delete /></el-icon>
             </button>
          </div>
@@ -249,8 +266,7 @@ const pitchingTeamStats = computed(() => {
       <div class="flex-1 overflow-y-auto w-full custom-scrollbar scroll-smooth">
         <!-- 1. Header & Banner -->
         <div class="relative w-full h-80 md:h-[400px] overflow-hidden bg-gray-900 shrink-0">
-          <img v-if="matchData.photo_url" :src="matchData.photo_url" class="absolute inset-0 w-full h-full object-cover opacity-60" />
-          <div v-else class="absolute inset-0 bg-gradient-to-br from-slate-800 to-indigo-950 opacity-80 backdrop-blur-3xl"></div>
+          <img :src="matchData.photo_url && !coverFailed ? matchData.photo_url : '/images/match-default-cover.webp'" alt="賽事封面" class="absolute inset-0 w-full h-full object-cover opacity-60" @error="coverFailed = true" />
           
           <!-- Banner Content -->
           <div class="absolute inset-0 flex flex-col justify-end p-6 md:p-10 pb-20 md:pb-28 bg-gradient-to-t from-gray-950 via-gray-900/60 to-transparent">
@@ -271,8 +287,14 @@ const pitchingTeamStats = computed(() => {
         <!-- Content Padding -->
         <div class="p-4 md:p-8 space-y-6 max-w-7xl mx-auto">
           
+          <section v-if="isCancelled" role="status" class="relative z-10 -mt-16 rounded-2xl border border-red-200 bg-red-50 p-5 md:-mt-20">
+            <h3 class="text-xl font-black text-red-700">已取消，無須集合</h3>
+            <p class="mt-2 whitespace-pre-wrap break-words text-red-700">取消原因：{{ matchData.cancellation_reason || '未填寫' }}</p>
+            <p class="mt-2 text-sm text-slate-600">以下保留原訂賽事資料；本場不計入賽事成績與出席統計。</p>
+            <button v-if="canRestoreSelectedMatch" type="button" class="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-primary px-4 text-base font-bold text-white hover:bg-primary-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary md:w-auto" @click="restoreDialogVisible = true">恢復比賽</button>
+          </section>
           <!-- 2. Score Board -->
-          <div data-testid="match-score-board" class="relative z-10 bg-white rounded-3xl shadow-sm border border-gray-100 p-4 md:p-8 flex justify-between items-center xl:w-2/3 mx-auto -mt-16 md:-mt-20">
+          <div v-if="!isCancelled" data-testid="match-score-board" class="relative z-10 bg-white rounded-3xl shadow-sm border border-gray-100 p-4 md:p-8 flex justify-between items-center xl:w-2/3 mx-auto -mt-16 md:-mt-20">
              <!-- Home -->
              <div class="flex flex-col items-center flex-1">
                <span class="text-gray-400 font-bold tracking-widest text-xs mb-2">HOME 主隊</span>
@@ -309,6 +331,8 @@ const pitchingTeamStats = computed(() => {
             <!-- Left Column: Info & Inning Logs -->
             <div class="xl:col-span-1 space-y-6">
                
+               <MatchScheduleInfo :match="matchData" :show-cancellation-status="false" :emphasize-gather-time="isFuture" />
+
                <!-- 3. Descriptions -->
                <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                  <h3 class="font-extrabold text-gray-800 mb-4 flex items-center border-b border-gray-100 pb-3">
@@ -523,6 +547,7 @@ const pitchingTeamStats = computed(() => {
       </div>
     </div>
   </el-dialog>
+  <MatchRestoreDialog v-model="restoreDialogVisible" :match="matchData" @restored="handleRestored" />
 </template>
 
 <style>

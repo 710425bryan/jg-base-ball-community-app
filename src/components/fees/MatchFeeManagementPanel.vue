@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Lock, Unlock } from '@element-plus/icons-vue'
+import { CircleCloseFilled, Delete, Lock, Unlock } from '@element-plus/icons-vue'
 import AppCollapseButton from '@/components/common/AppCollapseButton.vue'
 import MatchFeeMemberList from '@/components/fees/MatchFeeMemberList.vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
@@ -27,6 +27,8 @@ type MatchFeeGroup = {
   unpaid: number
   matchFeeAmount: number
   isPaymentOpen: boolean
+  isMatchCancelled: boolean
+  cancellationReason: string | null
   hasPaymentHistory: boolean
   allCancelled: boolean
 }
@@ -113,6 +115,7 @@ const groupedMatches = computed<MatchFeeGroup[]>(() => {
         left.member_name.localeCompare(right.member_name, 'zh-Hant')
       )
       const first = groupItems[0]
+      const cancelledMatch = groupItems.find((item) => item.match_id && item.match_cancelled_at)
       const activeItems = groupItems.filter((item) => item.payment_status !== 'cancelled')
       const matchFeeAmount = Number(
         groupItems.find((item) => item.match_fee_amount != null)?.match_fee_amount || 0
@@ -134,7 +137,9 @@ const groupedMatches = computed<MatchFeeGroup[]>(() => {
           .filter((item) => item.payment_status === 'unpaid')
           .reduce((total, item) => total + Number(item.amount || 0), 0),
         matchFeeAmount,
-        isPaymentOpen: groupItems.some((item) => Boolean(item.payment_opened_at)),
+        isPaymentOpen: !cancelledMatch && groupItems.some((item) => Boolean(item.payment_opened_at)),
+        isMatchCancelled: Boolean(cancelledMatch),
+        cancellationReason: cancelledMatch?.match_cancellation_reason || null,
         hasPaymentHistory: groupItems.some((item) => item.has_payment_history === true),
         allCancelled: groupItems.every((item) => item.payment_status === 'cancelled' && !item.is_exempt)
       }
@@ -207,7 +212,7 @@ const isDialogCancelled = (error: unknown) => error === 'cancel' || error === 'c
 
 const changePaymentOpenState = async (group: MatchFeeGroup, isOpen: boolean) => {
   const matchId = group.first.match_id
-  if (!matchId) return
+  if (!matchId || group.isMatchCancelled) return
 
   try {
     if (isOpen) {
@@ -424,14 +429,24 @@ defineExpose({
       <article
         v-for="group in groupedMatches"
         :key="group.key"
-        class="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm md:p-5"
+        class="rounded-3xl border bg-white p-4 shadow-sm md:p-5"
+        :class="group.isMatchCancelled ? 'border-red-200' : 'border-gray-100'"
         :data-testid="`match-fee-group-${group.first.match_name}`"
       >
         <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div class="min-w-0 flex-1">
             <div class="flex flex-wrap items-center gap-2">
-              <h4 class="text-lg font-black text-slate-800">{{ group.first.match_name }}</h4>
+              <h4 class="break-words text-lg font-black text-slate-800 [overflow-wrap:anywhere]">{{ group.first.match_name }}</h4>
               <span
+                v-if="group.isMatchCancelled"
+                class="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-red-700 px-3 py-1 text-sm font-bold text-white"
+                data-testid="match-cancelled-badge"
+              >
+                <el-icon aria-hidden="true"><CircleCloseFilled /></el-icon>
+                比賽已取消
+              </span>
+              <span
+                v-else
                 class="inline-flex rounded-full border px-2.5 py-1 text-xs font-bold"
                 :class="group.isPaymentOpen
                   ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
@@ -445,6 +460,14 @@ defineExpose({
             <p v-if="group.isPaymentOpen && group.first.payment_opened_by_name" class="mt-1 text-xs text-gray-400">
               由 {{ group.first.payment_opened_by_name }} 開放
             </p>
+            <div
+              v-if="group.isMatchCancelled"
+              class="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm leading-6 text-red-800"
+              data-testid="match-cancellation-notice"
+            >
+              <p class="font-bold">已停止開放繳費</p>
+              <p v-if="group.cancellationReason" class="break-words [overflow-wrap:anywhere]">取消原因：{{ group.cancellationReason }}</p>
+            </div>
           </div>
 
           <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
@@ -469,7 +492,7 @@ defineExpose({
             >
               <div class="flex min-w-0 flex-col gap-2 md:contents">
                 <button
-                  v-if="canEdit && !group.isPaymentOpen && group.first.match_id && group.matchFeeAmount > 0 && group.activeItems.length > 0"
+                  v-if="canEdit && !group.isMatchCancelled && !group.isPaymentOpen && group.first.match_id && group.matchFeeAmount > 0 && group.activeItems.length > 0"
                   type="button"
                   class="inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-70 md:w-auto"
                   :disabled="processingIds.has(`open-state:${group.key}`)"

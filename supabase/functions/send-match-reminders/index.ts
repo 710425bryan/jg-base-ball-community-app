@@ -152,6 +152,7 @@ const fetchMatchesByDate = async (targetDate: string) => {
     .from("matches")
     .select("*")
     .eq("match_date", targetDate)
+    .is("cancelled_at", null)
     .order("match_time", { ascending: true });
 
   if (error) throw error;
@@ -166,6 +167,7 @@ const fetchHealthMatchesByDates = async (targetDates: string[]) => {
     .from("matches")
     .select("id, match_date, match_time, match_name")
     .in("match_date", uniqueDates)
+    .is("cancelled_at", null)
     .order("match_date", { ascending: true })
     .order("match_time", { ascending: true });
 
@@ -189,7 +191,21 @@ const fetchMatchById = async (matchId: string) => {
     .limit(1);
 
   if (error) throw error;
+  if ((data || []).some((match: MatchRecord) => Boolean(match.cancelled_at))) {
+    throw jsonResponse({ error: "此賽事已取消，無法發送賽事提醒" }, 409);
+  }
   return (data || []) as MatchRecord[];
+};
+
+const getMatchDispatchState = async (matchId: string): Promise<"active" | "cancelled" | "unavailable"> => {
+  try {
+    const { data, error } = await supabase.from("matches")
+      .select("id, cancelled_at").eq("id", matchId).maybeSingle();
+    if (error || !data?.id) return "unavailable";
+    return data.cancelled_at ? "cancelled" : "active";
+  } catch {
+    return "unavailable";
+  }
 };
 
 const isActiveProfile = (profile: ActiveProfileRow, now: Date) => {
@@ -563,6 +579,12 @@ serve(async (req) => {
         continue;
       }
 
+      const beforeEventState = await getMatchDispatchState(match.id);
+      if (beforeEventState !== "active") {
+        matchResults.push({ match_id: match.id, event_key: eventKey, created: false, skipped: true, reason: beforeEventState });
+        continue;
+      }
+
       const reminderEvent = await createReminderEvent(match, title, body, url, eventKey);
 
       if (!reminderEvent.created) {
@@ -581,6 +603,11 @@ serve(async (req) => {
       }
 
       createdCount += 1;
+      const beforeDispatchState = await getMatchDispatchState(match.id);
+      if (beforeDispatchState !== "active") {
+        matchResults.push({ match_id: match.id, event_key: eventKey, event_id: reminderEvent.id, created: true, skipped: true, reason: beforeDispatchState });
+        continue;
+      }
       const pushSummary = await sendPushToSubscriptions(supabase, subscriptions, {
         title,
         body,

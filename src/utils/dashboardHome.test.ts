@@ -37,6 +37,21 @@ const createMatch = (
 })
 
 describe('dashboard home helpers', () => {
+  it('excludes cancelled games from live, next, upcoming and recent results', () => {
+    const now = dayjs('2026-04-20T14:30:00')
+    const cancelled = {
+      ...createMatch('cancelled-live', '2026-04-20', '14:00 - 16:00'),
+      cancelled_at: '2026-04-20T04:00:00Z'
+    }
+    const active = createMatch('next', '2026-04-21', '09:00 - 11:00')
+    const pastCancelled = { ...cancelled, id: 'cancelled-past', match_date: '2026-04-19' }
+
+    expect(isDashboardMatchInProgress(cancelled, now)).toBe(false)
+    expect(pickDashboardHeroMatch([cancelled, active], now)?.id).toBe('next')
+    expect(getDashboardUpcomingMatches([cancelled, active], now).map((match) => match.id)).toEqual(['next'])
+    expect(getDashboardRecentMatches([pastCancelled], now)).toEqual([])
+  })
+
   it('prioritizes an in-progress match for the hero banner', () => {
     const now = dayjs('2026-04-20T14:30:00')
     const matches = [

@@ -40,6 +40,38 @@ const buildMatch = (overrides: Partial<MatchRecord> = {}): MatchRecord => ({
 })
 
 describe('matchRecordStats', () => {
+  it('excludes cancelled records from player, tournament, batting, pitching, and attendance statistics', () => {
+    const player = { name: '王小明', jersey_number: '10' }
+    const cancelled = buildMatch({
+      id: 'cancelled',
+      tournament_name: '取消盃賽',
+      cancelled_at: '2026-03-31T08:00:00Z',
+      cancellation_reason: '雨勢過大',
+      players: '王小明',
+      absent_players: [{ name: '王小明', type: '請假' }],
+      batting_stats: [{ name: '王小明', pa: 3, ab: 3, h1: 1, h2: 0, h3: 0, hr: 0, rbi: 1, r: 1, bb: 0, hbp: 0, so: 0, sb: 0 }],
+      pitching_stats: [{ name: '王小明', ip: 3, h: 1, h2: 0, h3: 0, hr: 0, r: 0, er: 0, bb: 0, so: 1, np: 12, ab: 4, go: 1, ao: 1 }]
+    })
+    const played = buildMatch({ id: 'played', players: '王小明' })
+
+    expect(filterMatchesForPlayer([cancelled, played], player).map((match) => match.id)).toEqual(['played'])
+    expect(getTournamentNames([cancelled])).toEqual([])
+    expect(filterMatchesByTournament([cancelled], '取消盃賽')).toEqual([])
+    expect(aggregateTournamentBattingStats([cancelled])).toEqual([])
+    expect(aggregateTournamentPitchingStats([cancelled])).toEqual([])
+    expect(getTournamentPlayerBattingGameRows([cancelled], player.name)).toEqual([])
+    expect(getTournamentPlayerPitchingGameRows([cancelled], player.name)).toEqual([])
+    expect(getPlayerBattingGameRows([cancelled], player)).toEqual([])
+    expect(getPlayerPitchingGameRows([cancelled], player)).toEqual([])
+    expect(summarizePlayerBattingStats([cancelled], player).pa).toBe(0)
+    expect(summarizePlayerPitchingStats([cancelled], player).ip_outs).toBe(0)
+    expect(calculateMatchAttendanceStats([cancelled, played])).toEqual([
+      expect.objectContaining({ calledUp: 1, attended: 1, absentTotal: 0, attendanceRate: 100 })
+    ])
+    expect(cancelled.batting_stats).toHaveLength(1)
+    expect(cancelled.absent_players).toHaveLength(1)
+  })
+
   it('lists and filters stat groups by tournament_name with match_name fallback', () => {
     const matches = [
       buildMatch({ id: 'a', match_name: '春季聯賽 Game 1', tournament_name: '春季聯賽' }),

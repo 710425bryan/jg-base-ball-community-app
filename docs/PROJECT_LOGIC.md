@@ -317,6 +317,12 @@ UI 約定：
 
 ## 9. 賽事與比賽紀錄
 
+2026-10-12 本機新增（尚未部署）：卡片拆為 `MatchesGrid → MatchCard → MatchScheduleInfo`。照片立即顯示、失敗使用本機 WebP；集合時間從備註逐行擷取，缺值明示「待確認」，時間／地點不必進詳情才看得到。`MatchCancelDialog → matchesStore.cancelMatch → matchesApi.cancelMatch → cancel_match()` 使用有效 EDIT、理由及樂觀版本控制，成功保留同一場次並刷新卡片；舊回應不得恢復取消狀態。
+
+取消欄位為 `cancelled_at/cancellation_reason/cancelled_by`，只能透過取消／恢復 RPC 切換。取消時停止提醒、排除活動摘要與統計，未繳款項取消而待審／已付／餘額不變；教練排班保留指派改取消。正常近期摘要先排除取消再限筆數，行事曆另讀取消清單。migration／Edge 發布順序與隔離驗證見 [規格](specs/2026-10-12-match-cards-cancellation.md)。
+
+依誤取消恢復需求，本機新增 `MatchRestoreDialog → matchesStore.restoreMatch → matchesApi.restoreMatch → restore_match()`：已取消卡片／表格更多操作及具 EDIT 的賽程詳情可恢復。取消與恢復都需完整 `updated_at`，private audit 保留前後版本及取消理由；前端以微秒版本排序兩方向狀態，避免晚到查詢覆蓋。恢復後保持同一 ID，按正常條件重新納入同步／提醒／摘要；不立即推播或重送已派送提醒。未繳重算但付款仍關閉，歷史與免繳／餘額不變；教練來源只在本次連動取消且安全時恢復，有衝突或既有獨立取消則保留供管理者確認。相依 migration 與驗證見 [恢復規格](specs/2026-10-12-match-restoration.md)，尚未部署。
+
 主要檔案：
 
 - `src/views/CalendarView.vue`
@@ -357,6 +363,8 @@ UI 約定：
 - `matchesApi` 封裝 `matches` CRUD。
 - Google Calendar / iCal parser 負責把外部日曆轉成 match payload；手動同步預覽優先走 `sync-match-calendar` Edge Function dry-run，瀏覽器第三方 CORS proxy 只作 fallback。不收費（`fee_billing_mode = 'no_fee'`）球員 / 校隊同樣參與姓名與背號比對，保留於比賽名單與 lineup payload；收費模式不作為參賽排除條件。
 - 同步規劃維持 `create`、`update`、`skip` 三種結果。
+- UID 或日期／時間／標題 fallback 比對到已取消賽事時，`planCalendarSync()` 回 `skip` 並保留原 ID 與全部資料，外部賽程或球員異動不更新也不恢復；該項不列為 blocking，其他正常新增／更新繼續同步。手動 Dialog 與自動 `sync-match-calendar` 都排除 skip，前端與 Edge Function 必須同步發布這項 planner 變更。
+- 手動／排程的同步 UPDATE 再以 `cancelled_at IS NULL` 原子檢查，避免規劃後才取消的場次被覆蓋。Dialog 傳 `requireActive: true` 經 store 到 API，舊 schema 快取與欄位 fallback 也不可移除條件；零列且重新讀回已取消才略過。Edge 零列更新增加略過數，不重建，正常項目繼續；權限／查詢／缺欄錯誤仍回報失敗。此保護於 2026-10-12 本機完成，待與取消 migration 一併發布。
 - 比賽紀錄元件處理陣容、照片、出席統計、賽事細節與 live controller。
 - `MatchFormDialog` 的球員候選仍依在隊狀態與球員 / 校隊角色篩選，不依收費模式篩選；不收費球員可加入陣容、照片 / 語音解析候選、即時紀錄與打擊 / 投球成績，重新儲存保留出賽名單。比賽費由 DB `sync_match_fee_items_for_match()` 依獨立的 `match_fee_enabled`、生效日期、請假與單場免繳判斷，無需從 `matches.players` 刪除免收費者。
 - `MatchAttendanceStatsTab` 的賽事出席率只以每場 `matches.players` 入選名單計算應到場次；同一球員同一場只計一次。若該球員同時存在於 `absent_players`，該場計為請假而非出席，公式為 `(應到場次 - 請假場次) / 應到場次`；不在該場入選名單的請假列不納入統計。表格可依球員姓名或背號搜尋，桌機 hover「應出席」數字可查看日期、時間、賽事、對手、級別與出席／請假狀態。
@@ -644,6 +652,7 @@ UI 約定：
 - 開放 RPC 成功後，管理端只顯示開放成功並重新載入清單，不呼叫 `send-match-fee-payment-notifications`；首次開放及關閉後重新開放都不建立家長站內通知或派送 Web Push。家長仍可到 `/my-payments` 查看與回報付款；既有通知 service / Edge Function 保留，但不接入開放流程。
 - 開放時會保存依 `(member_id, amount)` 排序的應收簽章；金額或應繳名單異動且沒有付款歷程時自動關閉，賽事名稱、日期時間、盃賽與組別異動只更新快照、不改開放狀態。任一明細曾送出付款後不得關閉；`create_match_payment_submission()` 會鎖定全部相關場次、重新同步並驗證仍為開放，避免關閉與付款競態。
 - `/fees` 比賽費卡依日期與開始時間由早到晚排列、未知時間在當日最後，並預設收合。全場皆取消且無任何付款歷程時，`fees:DELETE` 可用 `delete_cancelled_match_fee_group()` 原子刪除；刪除賽事時，無歷程費用直接清除，待審 / 已付款會阻擋，已駁回 / 回滾的歷史明細則解除 `match_id` 並保留取消稽核紀錄。
+- 比賽費場次卡另以 `list_match_fee_items_by_month_with_match_status()` 補回的 `matches.cancelled_at`／`cancellation_reason` 顯示紅色「比賽已取消」、原因與停止開放提示，收合明細仍可見；待審／已付也能辨識整場取消，且取消卡無開放／關閉繳費入口。費用列的 `cancelled`、免繳或歷史原因不代表整場取消。新 RPC 延用原月份查詢與有效帳號／fees 權限，未修改計算或付款；缺 RPC 時前端回退原查詢，暫不顯示無法確認的整場狀態。須先部署 `20261012053334_match_fee_cancellation_status.sql`，本機實作，尚未上線。
 - 比賽時間修改沿用 `matches.id`，Google Calendar 同步沿用 event UID，因此同步只更新既有費用；刪除後重新建立使用新 ID，舊無歷程費用已清除且新費用維持未開放，不以名稱或日期模糊合併。
 - 費用提醒由 `get_fee_management_reminders()` 與 `get_notification_feed()` 整合進通知中心。
 - 手動催繳通知在 `/fees` 頁首開啟 `FeePaymentReminderDialog`，只給 `fees:EDIT` / `ADMIN` 使用；管理者可勾選中港校隊、國中部與社區，選擇月費月份與季費季度後手動 preview / send，不做 cron 或自動排程。正式催繳只處理已存檔月費與季費未繳，依 linked profile 發送 targeted Web Push，通知 URL 為 `/my-payments`；月費結算若仍有「一鍵存檔」待儲存變更，Dialog 會提醒管理者先存檔並阻擋預覽 / 測試 / 發送；測試通知只給 `ADMIN`，且目標固定為目前登入管理員，文案與正式催繳相同，但只用該管理員綁定球員的未繳帳款組成內容。

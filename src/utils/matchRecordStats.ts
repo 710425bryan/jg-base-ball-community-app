@@ -1,4 +1,5 @@
 import type { AbsentPlayer, BattingStat, MatchRecord, PitchingStat } from '@/types/match'
+import { isMatchCancelled } from '@/utils/matchPresentation'
 
 export interface MatchRosterMeta {
   name: string
@@ -303,13 +304,14 @@ export const getTournamentNames = (matches: MatchRecord[]) =>
   Array.from(
     new Set(
       matches
+        .filter((match) => !isMatchCancelled(match))
         .map(getMatchStatGroupName)
         .filter(Boolean)
     )
   ).sort((left, right) => right.localeCompare(left, 'zh-Hant'))
 
 export const filterMatchesByTournament = (matches: MatchRecord[], tournamentName: string) =>
-  matches.filter((match) => getMatchStatGroupName(match) === tournamentName)
+  matches.filter((match) => !isMatchCancelled(match) && getMatchStatGroupName(match) === tournamentName)
 
 export const doesMatchIncludePlayer = (match: MatchRecord, player: PlayerMatchIdentity) => {
   const playerName = normalizeName(player.name)
@@ -327,10 +329,10 @@ export const doesMatchIncludePlayer = (match: MatchRecord, player: PlayerMatchId
 }
 
 export const filterMatchesForPlayer = (matches: MatchRecord[], player: PlayerMatchIdentity) =>
-  matches.filter((match) => doesMatchIncludePlayer(match, player))
+  matches.filter((match) => !isMatchCancelled(match) && doesMatchIncludePlayer(match, player))
 
 export const filterPlayerStatMatches = (matches: MatchRecord[]) =>
-  matches.filter((match) => match.match_level !== '特訓課')
+  matches.filter((match) => !isMatchCancelled(match) && match.match_level !== '特訓課')
 
 export const summarizePlayerBattingStats = (
   matches: MatchRecord[],
@@ -378,6 +380,7 @@ export const aggregateTournamentBattingStats = (matches: MatchRecord[]): Tournam
   const rows = new Map<string, TournamentBattingRow>()
 
   matches.forEach((match) => {
+    if (isMatchCancelled(match)) return
     getStatsArray<BattingStat>(match.batting_stats).forEach((stat) => {
       const name = normalizeName(stat.name)
       if (!name) return
@@ -399,6 +402,7 @@ export const aggregateTournamentPitchingStats = (matches: MatchRecord[]): Tourna
   const rows = new Map<string, Omit<TournamentPitchingRow, 'formattedIP' | 'baa' | 'slga' | 'era' | 'go_ao'>>()
 
   matches.forEach((match) => {
+    if (isMatchCancelled(match)) return
     getStatsArray<PitchingStat>(match.pitching_stats).forEach((stat) => {
       const name = normalizeName(stat.name)
       if (!name) return
@@ -424,6 +428,7 @@ export const getTournamentPlayerBattingGameRows = (
   if (!targetName) return []
 
   return matches
+    .filter((match) => !isMatchCancelled(match))
     .map((match) => {
       const row: TournamentBattingGameRow = {
         ...createEmptyBattingRow(targetName),
@@ -485,6 +490,7 @@ export const getTournamentPlayerPitchingGameRows = (
   if (!targetName) return []
 
   return matches
+    .filter((match) => !isMatchCancelled(match))
     .map((match) => {
       const row = {
         ...createEmptyPitchingRow(targetName),
@@ -573,6 +579,7 @@ export const calculateMatchAttendanceStats = (
   }
 
   matches.forEach((match) => {
+    if (isMatchCancelled(match)) return
     const selectedPlayerNames = [...new Set(parsePlayerNames(match.players))]
     const absentPlayerNames = new Set(
       normalizeAbsentPlayers(match.absent_players).map((player) => player.name)

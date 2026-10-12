@@ -4,3 +4,5 @@ node_modules
 .env.example
 .DS_Store
 dist
+/output/playwright/match-cancellation/
+/output/playwright/match-fee-cancellation/

@@ -24,6 +24,11 @@ verify_jwt = false
 [functions.send-match-reminders]
 verify_jwt = true
 
+# Cron uses MATCH_CALENDAR_SYNC_SECRET; user bearer tokens are verified by
+# the handler and may only preview. Preserve the existing production mode.
+[functions.sync-match-calendar]
+verify_jwt = false
+
 [functions.send-training-location-notifications]
 verify_jwt = true
 

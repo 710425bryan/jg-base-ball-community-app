@@ -96,6 +96,7 @@ const mountPanel = async () => {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mocks.list.mockReset()
   mocks.can.mockReturnValue(true)
   mocks.confirm.mockResolvedValue(undefined)
   mocks.setOpenState.mockResolvedValue({
@@ -120,6 +121,63 @@ beforeEach(() => {
 })
 
 describe('MatchFeeManagementPanel', () => {
+  it.each(['cancelled', 'pending_review', 'paid'])('shows cancelled match status above collapsed %s fee details and prevents reopening', async (paymentStatus) => {
+    mocks.list.mockResolvedValue([makeItem({
+      payment_status: paymentStatus,
+      match_cancelled_at: '2026-07-19T08:00:00Z',
+      match_cancellation_reason: '豪雨停賽，場地積水暫停使用',
+      // Cancellation takes precedence even if opening metadata is stale.
+      payment_opened_at: '2026-07-18T08:00:00Z'
+    })])
+
+    const wrapper = await mountPanel()
+    expect(wrapper.get('[data-testid="match-cancelled-badge"]').text()).toBe('比賽已取消')
+    expect(wrapper.get('[data-testid="match-cancellation-notice"]').isVisible()).toBe(true)
+    expect(wrapper.get('[data-testid="match-cancellation-notice"]').text()).toContain('豪雨停賽，場地積水暫停使用')
+    expect(wrapper.get('[data-testid="match-fee-collapse-toggle"]').attributes('aria-expanded')).toBe('false')
+    expect(wrapper.find('[data-testid="open-payment-button"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="close-payment-button"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="payment-open-state"]').exists()).toBe(false)
+    expect(wrapper.emitted('summary-change')!.at(-1)![0]).toMatchObject({
+      total: paymentStatus === 'cancelled' ? 0 : 100,
+      paid: paymentStatus === 'paid' ? 100 : 0,
+      unpaid: 0
+    })
+    expect(mocks.setOpenState).not.toHaveBeenCalled()
+  })
+
+  it('does not infer match cancellation from exempt, cancelled, or detached fee history', async () => {
+    mocks.list.mockResolvedValue([
+      makeItem({ payment_status: 'cancelled', is_exempt: true }),
+      makeItem({ id: 'old-fee', match_id: 'old-match', payment_status: 'cancelled', cancelled_reason: '比賽已取消：舊原因' }),
+      makeItem({ id: 'detached', match_id: null, payment_status: 'cancelled', cancelled_reason: '比賽已刪除' })
+    ])
+    const wrapper = await mountPanel()
+    expect(wrapper.find('[data-testid="match-cancelled-badge"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="match-cancellation-notice"]').exists()).toBe(false)
+    expect(wrapper.findAll('[data-testid="payment-open-state"]')).toHaveLength(3)
+  })
+
+  it('shows cancellation to read-only users and removes it after a restored match is refreshed', async () => {
+    mocks.can.mockReturnValue(false)
+    mocks.list.mockResolvedValueOnce([makeItem({
+      payment_status: 'cancelled',
+      match_cancelled_at: '2026-07-19T08:00:00Z',
+      match_cancellation_reason: '<b>豪雨停賽</b>'
+    })]).mockResolvedValueOnce([makeItem({ match_cancelled_at: null, match_cancellation_reason: null })])
+    const wrapper = await mountPanel()
+    expect(wrapper.get('[data-testid="match-cancelled-badge"]').isVisible()).toBe(true)
+    expect(wrapper.get('[data-testid="match-cancellation-notice"]').text()).toContain('<b>豪雨停賽</b>')
+    expect(wrapper.find('[data-testid="match-cancellation-notice"] b').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="open-payment-button"]').exists()).toBe(false)
+
+    await wrapper.vm.refresh()
+    await flushPromises()
+    expect(wrapper.find('[data-testid="match-cancelled-badge"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="match-cancellation-notice"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="payment-open-state"]').text()).toBe('未開放')
+  })
+
   it('sorts matches from earlier to later, puts unknown times last, and defaults to collapsed', async () => {
     mocks.list.mockResolvedValue([
       makeItem({ id: 'late', match_id: 'late-match', match_name: '晚場', match_time: '14:00 - 15:30' }),
