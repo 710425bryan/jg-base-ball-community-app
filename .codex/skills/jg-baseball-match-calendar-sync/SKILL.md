@@ -23,6 +23,7 @@ description: "Match calendar sync workflow for jg-base-ball-community-app. Use w
 - 先用 `google_calendar_event_id` 比對既有資料，再用日期 + 開始時間 + 標題 fallback 比對。
 - 同步重新建立已刪除賽事時可能取得新的 `matches.id`；`supabase_zzz_coach_schedule_match_source_integrity_migration.sql` 必須在刪除舊賽事時同步清掉舊 UUID 的教練排班，不可改用日期或標題合併新舊排班。
 - 讓同步規劃維持在 `create`、`update`、`skip` 三種結果。
+- 來源讀取由 `supabase/functions/sync-match-calendar/calendarSource.ts` 限時、限量及檢查 VCALENDAR 封套；每 isolate 的 60 秒有效內容快取／同來源請求合併不取代每次最新 DB 規劃。429 遵守 Retry-After，缺值冷卻 60 秒；不以換 proxy、區域、IP 或偽裝請求規避。前端只對明確部署不存在／舊版缺預覽欄位保留 proxy 相容，來源／授權錯誤不得轉代理或顯示成功。
 - 已取消賽事（`cancelled_at` 有值）只要由 UID 或既有 fallback 比對到，就回傳不阻擋其他項目的 `skip`，payload 為空並提示保留原紀錄；即使外部日期、地點或球員改變，也不可 update、重建 ID 或恢復賽事。手動與自動同步共用此 planner，發布時須同步更新前端與 `sync-match-calendar` Edge Function。
 - 寫入時仍須原子檢查 `cancelled_at IS NULL`，防止規劃完成後才取消的競態；手動同步透過 store/API 傳 `requireActive: true`，不可因舊 schema 快取或 optional-column fallback 移除條件。缺欄必須失敗，不可無條件更新。手動零列更新須重讀確認取消才略過；排程零列更新計入 `skipped_count`，不得轉為新增，其他正常項目繼續同步。
 - 只有使用者經 `restore_match()` 明確恢復後，才重新以原 UID／fallback 納入正常同步；沿用同一 match ID，不在同步器清除取消。測試需包含取消→恢復→正常更新→再次取消略過。
@@ -42,5 +43,6 @@ description: "Match calendar sync workflow for jg-base-ball-community-app. Use w
 
 - 跑 `pnpm exec vitest run src/utils/googleCalendarParser.test.ts`。
 - 跑 `pnpm exec vitest run src/services/matchesApi.test.ts`。
+- 來源或手動預覽改動時另跑 `calendarSource.test.ts`、`matchCalendarSync.test.ts` 與 `node tests/browser/verify-calendar-sync.mjs`；瀏覽器使用隔離 HTTP，正式來源成功須另以授權 dry-run 確認，不可互相替代。
 - 改到同步寫入時，跑 `src/components/match-records/SyncCalendarDialog.test.ts`、`src/stores/matches.test.ts`、`supabase/functions/sync-match-calendar/index.test.ts`；包含規劃後取消、重試仍受保護、正常項目繼續與真正錯誤不被吞掉。
 - 需要時再跑 `pnpm exec vue-tsc --noEmit`。

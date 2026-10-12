@@ -361,7 +361,7 @@ UI 約定：
 資料流：
 
 - `matchesApi` 封裝 `matches` CRUD。
-- Google Calendar / iCal parser 負責把外部日曆轉成 match payload；手動同步預覽優先走 `sync-match-calendar` Edge Function dry-run，瀏覽器第三方 CORS proxy 只作 fallback。不收費（`fee_billing_mode = 'no_fee'`）球員 / 校隊同樣參與姓名與背號比對，保留於比賽名單與 lineup payload；收費模式不作為參賽排除條件。
+- Google Calendar / iCal parser 負責把外部日曆轉成 match payload；手動同步預覽優先走 `sync-match-calendar` Edge Function dry-run，只有明確部署不存在或舊版成功但缺少預覽欄位時，才使用瀏覽器第三方 CORS proxy 相容流程。來源限流、授權、網路及其他服務錯誤不轉代理；429 顯示等待秒數。來源 helper 限時 20 秒、2 MiB、驗證完整 VCALENDAR 封套，每個 isolate 最多 8 筆、有效內容快取 60 秒及同來源請求合併；429 依 Retry-After 冷卻，缺值預設 60 秒。跨 isolate 不共享快取，不保證解除 Google 限流；每次同步仍重新讀取 DB 取消狀態並規劃。不收費（`fee_billing_mode = 'no_fee'`）球員 / 校隊同樣參與姓名與背號比對，保留於比賽名單與 lineup payload；收費模式不作為參賽排除條件。
 - 同步規劃維持 `create`、`update`、`skip` 三種結果。
 - UID 或日期／時間／標題 fallback 比對到已取消賽事時，`planCalendarSync()` 回 `skip` 並保留原 ID 與全部資料，外部賽程或球員異動不更新也不恢復；該項不列為 blocking，其他正常新增／更新繼續同步。手動 Dialog 與自動 `sync-match-calendar` 都排除 skip，前端與 Edge Function 必須同步發布這項 planner 變更。
 - 手動／排程的同步 UPDATE 再以 `cancelled_at IS NULL` 原子檢查，避免規劃後才取消的場次被覆蓋。Dialog 傳 `requireActive: true` 經 store 到 API，舊 schema 快取與欄位 fallback 也不可移除條件；零列且重新讀回已取消才略過。Edge 零列更新增加略過數，不重建，正常項目繼續；權限／查詢／缺欄錯誤仍回報失敗。此保護於 2026-10-12 本機完成，待與取消 migration 一併發布。

@@ -6,7 +6,9 @@
 - 同次發布須更新 `sync-match-calendar`：它引用共用 `googleCalendarParser.ts`，既有已取消場次由原 UID／fallback 配對後一律略過，外部欄位差異不覆蓋原資料，也不阻擋其他正常匯入。前端手動 fallback 與 Edge 預覽／自動同步使用同一規則。
 - `sync-match-calendar` 實際 UPDATE 與 optional-column 重試均帶 `cancelled_at IS NULL`，規劃後才取消／刪除而回傳零列時增加 `skipped_count`，不計為更新或補建；缺少取消欄位及真正 DB 錯誤仍失敗。`index.test.ts` 以完整 handler／真 parser 驗證 9 個案例，含 header/body secret、競態、欄位重試、bearer 僅預覽與拒絕未授權。須先部署取消 migration，無新增環境變數。
 - 同次正式 `sync-match-calendar` v17 → v18（ACTIVE、`verify_jwt=false`），保留既有 custom-secret／user bearer 驗證並將模式明列於 config。兩支回讀的 9 個 source/runtime 檔與發布候選 `da1424c` 逐字一致。兩支各自 OPTIONS=200、缺少／無效身分=401；提醒 dry-run=200、health checked=true，建立／派送皆為0。只部署這兩支，未更動 secrets、cron 或執行正常提醒／同步。
-- 此次保留的既有問題：部署前 v17 與部署後 v18 的授權 `dry_run` 均回報 Google Calendar 來源讀取失敗（HTTP 500）；本機同一來源可取得有效 102 個 iCal 事件，來源 URL／設定未改。從 2026-10-12 起的 21 場只讀比較顯示，目前 repo 既有 parser 基線會在下次成功同步更新 6 場請假名單；本次取消保護相對該基線沒有額外 action／payload 差異。未執行比較產生的同步計畫，也不能將本機成功視為正式同步成功。上線後結果見 [發布紀錄](specs/2026-10-12-match-release.md)。
+- 1.1.77 發布時保留的既有問題：部署前 v17 與部署後 v18 的授權 `dry_run` 均回報 Google Calendar 來源讀取失敗（HTTP 500）；本機同一來源可取得有效 102 個 iCal 事件，來源 URL／設定未改。從 2026-10-12 起的 21 場只讀比較顯示，目前 repo 既有 parser 基線會在下次成功同步更新 6 場請假名單；取消保護相對該基線沒有額外 action／payload 差異。當時未執行比較產生的同步計畫，也不能將本機成功視為正式同步成功。上線後結果見 [發布紀錄](specs/2026-10-12-match-release.md)。
+- 後續來源修復（Edge v19已部署、前端1.1.78仍為候選）：正式 logs 已定位上游 Google HTTP 429。`calendarSource.ts` 加入 20 秒逾時、2 MiB 上限、完整 VCALENDAR 封套檢查、每 isolate 最多 8 筆的 60 秒有效內容快取／同來源併發合併；429 遵守 Retry-After，缺值冷卻 60 秒。不共用跨 isolate 快取、不繞路重試；來源失敗先中止，回 502／503／504 與安全 error code。成功 log 只存統計，不記來源 URL／參賽者。每次呼叫仍讀最新 DB 及保留取消 UPDATE 條件。v19 ACTIVE、verify_jwt=false，4個來源檔符合候選6edbee2；06:33、06:34、06:37 UTC三次授權dry-run仍為上游429，完整修復BLOCKED，未執行正常同步／合併前端。詳細證據與下一個必要輸入見 [來源修復紀錄](specs/2026-10-12-calendar-source-recovery.md)。
+- 2026-10-12後續決策：06:43 UTC來源仍429，使用者明確要求跳過公開行事曆／API部分；改以保留已知限制發布其餘前端修正，不再以正式來源成功作本次gate，也不宣稱手動／排程已恢復。沒有啟用Google API、建立金鑰或更動cron；v19取消防護及失敗零寫入保留。最終前端版本／部署結果以來源修復紀錄為準。
 
 本文件整理 `supabase/functions/` 的 Edge Function、外部服務與環境變數。AI 修改 Edge Function、排程、外部 API、Web Push 或 AI 解析流程前，先讀本檔與對應 skill。
 

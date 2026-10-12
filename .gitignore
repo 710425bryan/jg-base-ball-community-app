@@ -6,3 +6,4 @@ node_modules
 dist
 /output/playwright/match-cancellation/
 /output/playwright/match-fee-cancellation/
+/output/playwright/calendar-source-recovery/
