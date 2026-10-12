@@ -1,7 +1,7 @@
 # 行事曆來源讀取修復與同步驗證
 
 - 日期：2026-10-12（台灣）
-- 目標：`PRODUCTION`；狀態：`READY_FOR_RELEASE`（使用者已排除來源限流修復／Google API設定；發布已驗證的安全讀取與前端錯誤處理，來源仍有已知429限制）。
+- 目標：`PRODUCTION`；狀態：`DEPLOYED`（依使用者縮減後範圍完成：前端1.1.78及Edge v19已上線；來源限流修復／Google API設定已排除，來源仍有已知429限制）。
 - 使用者要求：修好行事曆來源讀取錯誤，確認手動與排程正常、已取消比賽不被覆蓋，部署正式環境。
 - 2026-10-12 06:45 UTC範圍調整：使用者回覆尚未設定Calendar API後，明確要求「幫我跳過這個部分」。因此不新增Google API／金鑰、不再重試來源、不執行正式同步測試；延續原部署授權完成其餘修正。不能把這個例外寫成Google來源已恢復或手動／排程正式同步已驗證成功。
 - 起點：main `beb442d234b49cdf2b6dee436a74dcce50a43a32`、前端1.1.77、正式 `sync-match-calendar` v18。
@@ -34,8 +34,8 @@
 ## 發布與回復
 
 - Branch：`codex/calendar-source-recovery`；正式Supabase `qwxzwomzoyfkorbwsscv`，Vercel正式branch `main`。
-- 前端候選版本1.1.78，版本產物由Vite plugin產生。
-- DB migration：預計無；保留前次已部署取消／恢復／費用標示結構。
+- 前端正式版本1.1.78，版本產物由Vite plugin產生。
+- DB migration：本次無；保留前次已部署取消／恢復／費用標示結構。
 - 只發布 `sync-match-calendar`，保留 `verify_jwt=false` 及既有custom-secret／user bearer權限；不發布提醒或其他函式。
 - 順序：review／測試／CI → 精確function部署與受控只讀驗證（已執行，確認上游429）→ 使用者排除來源修復／正式同步成功驗收 → 前端發布／正式靜態及登入入口驗收。
 - 429持續時保留可診斷證據、不宣稱已正常同步；使用者已要求跳過本部分，後續Google API方案不在本次實作／部署範圍。
@@ -53,10 +53,20 @@
 - 正式授權dry-run：2026-10-12 06:33:44 UTC、06:34:54 UTC與06:37:34 UTC均回503／`CALENDAR_SOURCE_RATE_LIMITED`，upstream429；Google未提供Retry-After，service採60秒冷卻。第二次在約70秒後，第三次再等待超過2分鐘；3次均未進入同步寫入。停止重複嘗試，不能宣稱已修復來源。
 - 06:37 UTC只讀統計：正式已取消比賽及其關聯費用目前均0筆；因此取消案例證據來自真handler、API及隔離瀏覽器fixture，不以空的正式資料集合宣稱驗證了真實取消個案。沒有建立或取消真實比賽作測試。
 - 每日排程仍啟用，`0 16 * * *`（台灣00:00）；本次尚未執行正常同步。2026-10-11 16:00:03 UTC有歷次HTTP200，可證明當次呼叫成功，不能取代新版本實際同步驗證。
-- 前端1.1.78保留Preview，尚未合併main／部署正式；正式前端維持1.1.77。Edge v19改善診斷與停止失敗寫入，但完整修復仍待來源恢復。
+- 以上來源診斷階段原先保留1.1.78於Preview；使用者縮減範圍後已完成下列正式發布。Edge v19改善診斷與停止失敗寫入，但Google來源仍未恢復。
 
 證據（ignored）：`.codex/runtime/releases/2026-10-12-calendar-source-recovery/` 的 pnpm-check、Edge before/after、聚合dry-run JSON；`output/playwright/calendar-source-recovery/manual-sync/` 的4情境及截圖。沒有保存來源事件內容、登入token或secret。
 
 後續只讀確認Google Cloud已登入，選取專案「JG manager project」，尚未建立Calendar API憑證；06:43:21 UTC額外一次dry-run仍為503／上游429。使用者隨後明確要求跳過公開行事曆部分，已關閉查閱頁面，沒有啟用API、建立金鑰或變更Cloud設定。不因行事曆所有者不同就推斷必然429；本次只確認實際收到的上游回應。
 
 官方API的[public events唯讀scope](https://developers.google.com/workspace/calendar/api/auth)及[API key／OAuth授權選擇](https://developers.google.com/workspace/guides/create-credentials)僅保留作未來參考，未納入本次發布。現有已取消比賽skip／原子UPDATE保護繼續有效，來源失敗不寫入任何比賽。
+
+## 正式發布完成
+
+- PR #2於審核head `5f6161cb768c9df8121b599ff810e4fad007c62c` 合併，main merge commit為 `bdf69c842e828363ce38a54fea88aa91c7ad2089`；兩者tree完全一致。最終獨立覆核未發現阻擋發布問題。
+- 審核head [CI 38214186014](https://github.com/710425bryan/jg-base-ball-community-app/actions/runs/38214186014)與main [CI 38214502725](https://github.com/710425bryan/jg-base-ball-community-app/actions/runs/38214502725)的Quality gate／Secret scan均通過。
+- 最終Preview `dpl_57XSmSpZyRefc2FB9iiaERNWoW7Y` READY；正式 `dpl_97NSFkMFxRpvGP1Frso1JyNbVKu6` READY，對應上述main commit，正式網域已指向此部署：[中港熊戰社區棒球](https://jg-base-ball-community-app.vercel.app)。
+- 2026-10-12 06:54 UTC正式靜態驗證：首頁／version.json／MatchRecordsView資產均200，版本1.1.78，首頁title與app mount正常；主檔 `index-CRXhDY2x.js`、賽事檔 `MatchRecordsView-DIi-h3aw.js` 與Preview相同，包含限流提示與 `requireActive` 取消保護。
+- Chrome既有快取首次更新仍載入舊檔；稍後再次使用既有更新提示後，實際DOM已載入 `index-CRXhDY2x.js`，更新提示消失，公開首頁及新版登入視窗正常。未寄出OTP、未登入或修改業務資料。初次載入遇既存refresh token失效，正常回到公開入口；不將這個既存登入狀態記為零瀏覽器錯誤。
+- 本次只發布安全讀取與錯誤處理改善；手動／排程的取消保護通過隔離測試，不能宣稱正式Google來源同步成功。使用者排除限流部分後未再讀取來源，未設定Google API／憑證、未更動排程或資料庫。
+- 正式靜態證據存於上述ignored目錄的 `production-smoke.json`；本段為發布後文件補記，不變更任何產品程式。回復前端可使用前版1.1.77部署 `dpl_3cBAhAXrfGXqxciY8rByX56PKjZe`，Edge可回復已保存v18，但皆須保留取消防護。
