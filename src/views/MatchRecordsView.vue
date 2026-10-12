@@ -16,8 +16,10 @@ import MatchReminderScheduleDialog from '@/components/match-records/MatchReminde
 import MatchTournamentStatsTab from '@/components/match-records/MatchTournamentStatsTab.vue'
 import MatchAttendanceStatsTab from '@/components/match-records/MatchAttendanceStatsTab.vue'
 import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
-import { sendMatchReminderNotification } from '@/services/matchReminderNotifications'
-import { describePushDispatchIssue } from '@/utils/pushNotifications'
+import { useMatchReminderAction } from '@/composables/useMatchReminderAction'
+import { useMatchStatusDialogs } from '@/composables/useMatchStatusDialogs'
+import MatchCancelDialog from '@/components/match-records/MatchCancelDialog.vue'
+import MatchRestoreDialog from '@/components/match-records/MatchRestoreDialog.vue'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { MatchRecord } from '@/types/match'
@@ -96,7 +98,8 @@ const syncDialogVisible = ref(false)
 const reminderScheduleDialogVisible = ref(false)
 const selectedMatchId = ref<string | null>(null)
 const formMode = ref<'add' | 'edit'>('add')
-const notifyingMatchId = ref<string | null>(null)
+const { notifyingMatchId, handleNotifyMatch } = useMatchReminderAction()
+const { cancelDialogVisible, restoreDialogVisible, cancellationMatch, restorationMatch, handleCancelMatch, handleRestoreMatch } = useMatchStatusDialogs()
 const stickyToolbarRef = ref<HTMLElement | null>(null)
 const stickyToolbarHeight = ref(0)
 let stickyToolbarResizeObserver: ResizeObserver | null = null
@@ -290,6 +293,7 @@ const handleViewMatch = (id: string) => {
 }
 
 const handleEditMatch = (id: string) => {
+  if (!canEditMatches.value || matchesStore.matches.find((match) => match.id === id)?.cancelled_at) return
   selectedMatchId.value = id
   formMode.value = 'edit'
   formDialogVisible.value = true
@@ -343,72 +347,6 @@ const handleOpenReminderSchedule = () => {
   reminderScheduleDialogVisible.value = true
 }
 
-const getMatchNotificationIssue = (result: Awaited<ReturnType<typeof sendMatchReminderNotification>> | null | undefined) => {
-  if (!result) {
-    return '通知派送結果不明，請稍後再確認接收裝置。'
-  }
-
-  if ((result.match_count ?? 0) === 0) {
-    return '找不到可發送通知的賽事。'
-  }
-
-  if ((result.created_count ?? 0) === 0 && (result.duplicate_count ?? 0) > 0) {
-    return '這場賽事通知已發送過，系統略過重複推播。'
-  }
-
-  return describePushDispatchIssue(result)
-}
-
-const handleNotifyMatch = async (id: string) => {
-  if (!canEditMatches.value) {
-    ElMessage.warning('需要比賽紀錄編輯權限才能發送通知')
-    return
-  }
-
-  const targetMatch = matchesStore.matches.find((match) => match.id === id)
-  if (!targetMatch) {
-    ElMessage.warning('找不到這筆比賽資料')
-    return
-  }
-
-  if (!targetMatch.match_date || !dayjs(targetMatch.match_date).isAfter(dayjs().startOf('day'), 'day')) {
-    ElMessage.warning('只有未來賽事可以手動發送通知')
-    return
-  }
-
-  try {
-    await ElMessageBox.confirm(
-      `確定要發送「${targetMatch.match_name}」的賽事通知嗎？`,
-      '發送賽事通知',
-      {
-        type: 'warning',
-        confirmButtonText: '發送',
-        cancelButtonText: '取消'
-      }
-    )
-
-    notifyingMatchId.value = id
-    const result = await sendMatchReminderNotification(id)
-    const issue = getMatchNotificationIssue(result)
-
-    if (issue) {
-      ElMessage.warning(issue)
-      return
-    }
-
-    ElMessage.success(`已發送賽事通知：${targetMatch.match_name}`)
-  } catch (error: any) {
-    if (error === 'cancel' || error === 'close') {
-      return
-    }
-
-    ElMessage.error(`通知發送失敗：${error?.message || '請稍後再試'}`)
-  } finally {
-    if (notifyingMatchId.value === id) {
-      notifyingMatchId.value = null
-    }
-  }
-}
 </script>
 
 <template>
@@ -418,7 +356,7 @@ const handleNotifyMatch = async (id: string) => {
   >
     
     <!-- Sticky Toolbar -->
-    <div ref="stickyToolbarRef" class="sticky top-0 z-20 bg-background/95 backdrop-blur-md pt-3 md:pt-4">
+    <div ref="stickyToolbarRef" class="z-20 bg-slate-50 backdrop-blur-md pt-3 md:sticky md:top-0 md:pt-4">
       <div class="px-4 pb-0 md:px-6 flex flex-col lg:flex-row gap-4 lg:items-center justify-between">
         <AppPageHeader title="比賽紀錄" subtitle="Match Records" :icon="Trophy" />
 
@@ -647,6 +585,8 @@ const handleNotifyMatch = async (id: string) => {
           @view="handleViewMatch" 
           @edit="handleEditMatch" 
           @notify="handleNotifyMatch"
+          @cancel="handleCancelMatch"
+          @restore="handleRestoreMatch"
           @delete="handleDeleteMatch"
         />
         <MatchesTable 
@@ -659,6 +599,8 @@ const handleNotifyMatch = async (id: string) => {
           @view="handleViewMatch" 
           @edit="handleEditMatch" 
           @notify="handleNotifyMatch"
+          @cancel="handleCancelMatch"
+          @restore="handleRestoreMatch"
           @delete="handleDeleteMatch"
         />
       </template>
@@ -673,7 +615,9 @@ const handleNotifyMatch = async (id: string) => {
     </div>
 
     <!-- Dialogs -->
-    <MatchDetailDialog v-model="detailDialogVisible" :match-id="selectedMatchId" :readonly="!canEditMatches" @edit="handleEditMatch(selectedMatchId!)" />
+    <MatchCancelDialog v-model="cancelDialogVisible" :match="cancellationMatch" />
+    <MatchRestoreDialog v-model="restoreDialogVisible" :match="restorationMatch" />
+    <MatchDetailDialog v-model="detailDialogVisible" :match-id="selectedMatchId" :readonly="!canEditMatches" :can-delete="canDeleteMatches" :can-restore="canEditMatches" @edit="handleEditMatch(selectedMatchId!)" />
     <MatchFormDialog v-model="formDialogVisible" :match-id="selectedMatchId" :mode="formMode" />
     <SyncCalendarDialog v-model="syncDialogVisible" />
     <MatchReminderScheduleDialog v-model="reminderScheduleDialogVisible" />

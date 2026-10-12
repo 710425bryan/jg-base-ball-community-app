@@ -12,6 +12,7 @@
         <p class="text-sm text-blue-700/90 leading-relaxed font-medium">
           這次同步會先解析公開 `.ics` 行事曆，再和現有比賽紀錄比對。
           同一場比賽會優先用 Google UID 命中，舊資料沒有 UID 時才退回「標題 + 日期 + 開始時間」更新。
+          已取消賽事保留原資料，手動與排程同步都會略過，不會覆蓋或恢復。
         </p>
 
         <div class="mt-4 bg-white rounded-lg border border-blue-100 p-3 shadow-sm">
@@ -388,13 +389,14 @@ const handleFetch = async () => {
 }
 
 const handleConfirmSync = async () => {
-  if (actionableItems.value.length === 0) return
+  if (isSaving.value || actionableItems.value.length === 0) return
 
   isSaving.value = true
 
   try {
     let createdCount = 0
     let updatedCount = 0
+    let skippedCount = syncItems.value.filter((item) => item.action === 'skip' && !item.isBlocked).length
 
     for (const item of actionableItems.value) {
       if (item.action === 'create') {
@@ -404,13 +406,30 @@ const handleConfirmSync = async () => {
       }
 
       if (item.action === 'update' && item.existingMatchId) {
-        await matchesStore.updateMatch(item.existingMatchId, item.payload)
+        if (matchesStore.matches.some((match) => match.id === item.existingMatchId && match.cancelled_at)) {
+          skippedCount += 1
+          continue
+        }
+        try {
+          await matchesStore.updateMatch(item.existingMatchId, item.payload, { requireActive: true })
+        } catch (error: any) {
+          // A preview may have been read before another user cancelled this match.
+          // Only skip a rejected atomic update when a fresh read confirms cancellation.
+          if (error?.code === 'PGRST116') {
+            const latest = await matchesStore.fetchMatch(item.existingMatchId, { force: true })
+            if (latest.cancelled_at) {
+              skippedCount += 1
+              continue
+            }
+          }
+          throw error
+        }
         updatedCount += 1
       }
     }
 
     await matchesStore.fetchMatches()
-    ElMessage.success(`同步完成：新增 ${createdCount} 筆，更新 ${updatedCount} 筆`)
+    ElMessage.success(`同步完成：新增 ${createdCount} 筆，更新 ${updatedCount} 筆，略過 ${skippedCount} 筆`)
     visible.value = false
   } catch (error: any) {
     ElMessage.error(`同步失敗：${error.message}`)

@@ -32,6 +32,18 @@ const makeMatch = (overrides: Partial<MatchRecord> = {}): MatchRecord => ({
 })
 
 describe('matchCalendarCopy', () => {
+  it('marks copied cancelled matches so the original gathering time is not an invitation', () => {
+    const text = formatMatchRecordForGoogleCalendar(makeMatch({ cancelled_at: '2026-10-12', cancellation_reason: '場地積水' }))
+    expect(text).toContain('【已取消】')
+    expect(text).toContain('狀態：已取消，無須集合')
+    expect(text).toContain('取消原因：場地積水')
+  })
+
+  it('does not copy the next note label as an empty gathering time', () => {
+    const text = formatMatchRecordForGoogleCalendar(makeMatch({ note: '集合時間：\n盃賽名稱：春季盃' }))
+    expect(text).toContain('集合時間：\n')
+    expect(text).not.toContain('集合時間：盃賽名稱')
+  })
   it('formats the summary like the Google Calendar match title', () => {
     expect(formatMatchRecordGoogleCalendarSummary(makeMatch())).toBe(
       '就是棒春季聯賽 中港熊戰 V.S 華興小學 08:00-09:30'

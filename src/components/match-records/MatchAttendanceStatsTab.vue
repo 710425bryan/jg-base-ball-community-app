@@ -6,6 +6,7 @@ import AppSearchInput from '@/components/common/AppSearchInput.vue'
 import { supabase } from '@/services/supabase'
 import type { MatchRecord } from '@/types/match'
 import { calculateMatchAttendanceStats, type MatchRosterMeta } from '@/utils/matchRecordStats'
+import { isMatchCancelled } from '@/utils/matchPresentation'
 
 const props = defineProps<{
   matches: MatchRecord[]
@@ -15,7 +16,8 @@ const roster = ref<MatchRosterMeta[]>([])
 const loadingRoster = ref(false)
 const playerSearchQuery = ref('')
 
-const attendanceRows = computed(() => calculateMatchAttendanceStats(props.matches, roster.value))
+const activeMatches = computed(() => props.matches.filter((match) => !isMatchCancelled(match)))
+const attendanceRows = computed(() => calculateMatchAttendanceStats(activeMatches.value, roster.value))
 const filteredAttendanceRows = computed(() => {
   const query = playerSearchQuery.value.trim().toLocaleLowerCase('zh-Hant')
   const numberQuery = query.replace(/^#/, '')
@@ -86,7 +88,7 @@ onMounted(() => {
       <div class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <div class="text-xs font-black tracking-widest text-slate-400">MATCHES</div>
         <div class="mt-2 flex items-baseline gap-2">
-          <span class="text-3xl font-black text-slate-900">{{ matches.length }}</span>
+          <span data-test="match-count" class="text-3xl font-black text-slate-900">{{ activeMatches.length }}</span>
           <span class="text-sm font-bold text-slate-400">場</span>
         </div>
       </div>

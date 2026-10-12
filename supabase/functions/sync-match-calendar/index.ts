@@ -150,13 +150,15 @@ const createMatch = async (payload: MatchRecordInput) =>
   });
 
 const updateMatch = async (id: string, payload: Partial<MatchRecordInput>) =>
-  withOptionalColumnFallback(payload, async (normalizedPayload) => {
+  withOptionalColumnFallback<{ id: string } | null>(payload, async (normalizedPayload) => {
     const { data, error } = await supabase
       .from("matches")
       .update(normalizedPayload)
       .eq("id", id)
+      // Cancellation can commit after planning; keep this guard on every retry.
+      .is("cancelled_at", null)
       .select("id")
-      .single();
+      .maybeSingle();
 
     return { data, error };
   });
@@ -306,6 +308,7 @@ serve(async (req) => {
     let createdCount = 0;
     let updatedCount = 0;
     let duplicateCount = 0;
+    let skippedUpdateCount = 0;
 
     if (!dryRun) {
       for (const item of actionableItems) {
@@ -326,7 +329,11 @@ serve(async (req) => {
         }
 
         if (item.action === "update" && item.existingMatchId) {
-          await updateMatch(item.existingMatchId, item.payload);
+          const updatedMatch = await updateMatch(item.existingMatchId, item.payload);
+          if (!updatedMatch) {
+            skippedUpdateCount += 1;
+            continue;
+          }
           updatedCount += 1;
         }
       }
@@ -341,7 +348,7 @@ serve(async (req) => {
       created_count: createdCount,
       updated_count: updatedCount,
       duplicate_count: duplicateCount,
-      skipped_count: planned.skip,
+      skipped_count: planned.skip + skippedUpdateCount,
       blocked_count: planned.blocked,
       optional_column_support: optionalColumnSupport,
       ...(includeItems ? { sync_items: syncItems } : {}),

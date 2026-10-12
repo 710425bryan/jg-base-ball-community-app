@@ -9,14 +9,32 @@ export const useMatchesStore = defineStore('matches', () => {
   const error = ref<string | null>(null)
   const loadedDetailIds = new Set<string>()
 
+  const snapshotVersion = (value?: string): number => {
+    if (!value) return NaN
+    // Postgres versions have microsecond precision; Date.parse alone loses
+    // ordering when cancel/restore happen in the same millisecond.
+    const fraction = value.match(/\.(\d+)(?:Z|[+-]\d{2}:?\d{2})$/i)?.[1] || ''
+    return Date.parse(value) * 1000 + Number(fraction.padEnd(6, '0').slice(3, 6))
+  }
+
+  const latestSnapshot = (existing: MatchRecord | undefined, incoming: MatchRecord): MatchRecord => {
+    const existingVersion = snapshotVersion(existing?.updated_at)
+    const incomingVersion = snapshotVersion(incoming.updated_at)
+    if (existing && existingVersion > incomingVersion) return existing
+    if (existing && Boolean(existing.cancelled_at) !== Boolean(incoming.cancelled_at)) {
+      // Both restoration and cancellation require a strictly newer snapshot.
+      // A legacy row without versions may still receive its first cancellation.
+      if ((existing.cancelled_at || Number.isFinite(existingVersion))
+        && !(incomingVersion > existingVersion)) return existing
+    }
+    return { ...existing, ...incoming }
+  }
+
   const mergeMatches = (incoming: MatchRecord[]) => {
     const merged = new Map(matches.value.map((match) => [match.id, match]))
 
     incoming.forEach((match) => {
-      merged.set(match.id, {
-        ...merged.get(match.id),
-        ...match
-      })
+      merged.set(match.id, latestSnapshot(merged.get(match.id), match))
     })
 
     matches.value = [...merged.values()]
@@ -31,7 +49,8 @@ export const useMatchesStore = defineStore('matches', () => {
     error.value = null
     try {
       const data = await matchesApi.listMatchesForAdmin()
-      matches.value = data
+      const existing = new Map(matches.value.map((match) => [match.id, match]))
+      matches.value = data.map((match) => latestSnapshot(existing.get(match.id), match))
       data.forEach((match) => loadedDetailIds.add(match.id))
       return data
     } catch (err: any) {
@@ -71,7 +90,11 @@ export const useMatchesStore = defineStore('matches', () => {
     loading.value = true
     error.value = null
     try {
-      const data = await matchesApi.listUpcomingMatches(limit, fromDate)
+      const [active, cancelled] = await Promise.all([
+        matchesApi.listUpcomingMatches(limit, fromDate),
+        matchesApi.listCancelledUpcomingMatches(limit, fromDate)
+      ])
+      const data = [...active, ...cancelled]
       mergeMatches(data)
       return data
     } catch (err: any) {
@@ -95,7 +118,7 @@ export const useMatchesStore = defineStore('matches', () => {
       const data = await matchesApi.getMatch(id)
       loadedDetailIds.add(id)
       mergeMatches([data])
-      return data
+      return matches.value.find((match) => match.id === id) || data
     } catch (err: any) {
       console.error('Failed to fetch match:', err)
       error.value = err.message || '無法載入比賽紀錄'
@@ -122,14 +145,14 @@ export const useMatchesStore = defineStore('matches', () => {
     }
   }
 
-  async function updateMatch(id: string, updates: Partial<MatchRecordInput>) {
+  async function updateMatch(id: string, updates: Partial<MatchRecordInput>, options?: { requireActive?: boolean }) {
     loading.value = true
     error.value = null
     try {
-      const data = await matchesApi.updateMatch(id, updates)
+      const data = options ? await matchesApi.updateMatch(id, updates, options) : await matchesApi.updateMatch(id, updates)
       const index = matches.value.findIndex(m => m.id === id)
       if (index !== -1) {
-        matches.value[index] = data
+        matches.value[index] = latestSnapshot(matches.value[index], data)
       }
       loadedDetailIds.add(data.id)
       return data
@@ -158,6 +181,20 @@ export const useMatchesStore = defineStore('matches', () => {
     }
   }
 
+  async function cancelMatch(id: string, reason: string, expectedUpdatedAt?: string | null) {
+    const data = await matchesApi.cancelMatch(id, reason, expectedUpdatedAt)
+    mergeMatches([data])
+    loadedDetailIds.add(data.id)
+    return data
+  }
+
+  async function restoreMatch(id: string, expectedUpdatedAt?: string | null) {
+    const data = await matchesApi.restoreMatch(id, expectedUpdatedAt)
+    mergeMatches([data])
+    loadedDetailIds.add(data.id)
+    return data
+  }
+
   return {
     matches,
     loading,
@@ -169,6 +206,8 @@ export const useMatchesStore = defineStore('matches', () => {
     fetchMatch,
     createMatch,
     updateMatch,
+    cancelMatch,
+    restoreMatch,
     deleteMatch
   }
 })

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { MatchRecord } from '@/types/match'
-import { Delete, Operation, DocumentCopy, Bell, VideoCamera } from '@element-plus/icons-vue'
+import AppActionOverflow from '@/components/common/AppActionOverflow.vue'
+import { getMatchGatherTime, isMatchCancelled } from '@/utils/matchPresentation'
 import { normalizeExternalUrl } from '@/utils/externalUrl'
 import { formatMatchRecordForGoogleCalendar } from '@/utils/matchCalendarCopy'
 import dayjs from 'dayjs'
@@ -19,11 +20,14 @@ const emit = defineEmits<{
   (e: 'edit', id: string): void
   (e: 'delete', id: string): void
   (e: 'notify', id: string): void
+  (e: 'cancel', id: string): void
+  (e: 'restore', id: string): void
 }>()
 
 const isFuture = (date: string) => dayjs(date).isAfter(dayjs(), 'day')
 
 const getResultTag = (m: MatchRecord) => {
+  if (isMatchCancelled(m)) return { label: '已取消', type: 'danger' }
   if (isFuture(m.match_date)) return { label: '未開打', type: 'info' }
   if (m.home_score > m.opponent_score) return { label: '勝', type: 'success' }
   if (m.home_score < m.opponent_score) return { label: '敗', type: 'danger' }
@@ -57,11 +61,12 @@ const openVideo = (url?: string | null) => {
       :header-cell-style="{ fontSize: '12px', fontWeight: 'bold' }"
     >
       <!-- Date -->
-      <el-table-column label="日期時間" width="130">
+      <el-table-column label="日期時間" width="190">
         <template #default="{ row }">
           <div class="flex flex-col justify-center">
             <span class="font-bold text-gray-800 text-sm">{{ dayjs(row.match_date).format('YYYY/MM/DD') }}</span>
-            <span class="text-xs text-gray-400 font-medium">{{ row.match_time }}</span>
+            <span class="font-bold text-slate-700">比賽 {{ row.match_time || '待確認' }}</span>
+            <span class="font-bold" :class="isMatchCancelled(row) ? 'text-slate-500' : 'text-amber-700'">集合 {{ getMatchGatherTime(row) || '待確認' }}</span>
           </div>
         </template>
       </el-table-column>
@@ -79,6 +84,9 @@ const openVideo = (url?: string | null) => {
         </template>
       </el-table-column>
 
+      <el-table-column label="比賽地點" min-width="180">
+        <template #default="{ row }"><span class="whitespace-normal break-words font-bold text-slate-800">{{ row.location || '待確認' }}</span></template>
+      </el-table-column>
       <!-- Versus -->
       <el-table-column label="對戰組合" min-width="220">
         <template #default="{ row }">
@@ -93,7 +101,8 @@ const openVideo = (url?: string | null) => {
       <!-- Score & Result -->
       <el-table-column label="比分結果" width="120" align="center">
         <template #default="{ row }">
-          <div v-if="!isFuture(row.match_date)" class="flex flex-col items-center">
+          <div v-if="isMatchCancelled(row)" class="text-center"><el-tag type="danger">已取消</el-tag><p class="mt-1 text-sm">無須集合</p></div>
+          <div v-else-if="!isFuture(row.match_date)" class="flex flex-col items-center">
             <span class="font-black text-base tracking-widest text-gray-900 line-through-none">
               <span :class="{'text-primary': row.home_score > row.opponent_score}">{{ row.home_score }}</span> 
               <span class="text-gray-300 mx-0.5">-</span> 
@@ -108,39 +117,17 @@ const openVideo = (url?: string | null) => {
       <!-- Actions -->
       <el-table-column label="操作" width="180" align="right" fixed="right">
         <template #default="{ row }">
-          <div class="flex items-center justify-end space-x-1" @click.stop>
-             <el-tooltip v-if="props.canNotify === true" content="發送賽事通知" placement="top">
-               <el-button
-                 @click.stop="emit('notify', row.id)"
-                 circle
-                 size="small"
-                 :loading="props.notifyingMatchId === row.id"
-                 :disabled="Boolean(props.notifyingMatchId && props.notifyingMatchId !== row.id)"
-                 class="!border-none hover:!bg-blue-50 hover:!text-blue-500 text-gray-400"
-               >
-                 <el-icon v-if="props.notifyingMatchId !== row.id"><Bell /></el-icon>
-               </el-button>
-             </el-tooltip>
-             <el-tooltip content="複製 Google 行事曆格式" placement="top">
-               <el-button @click.stop="copyMatchInfo(row)" circle size="small" class="!border-none hover:!bg-green-50 hover:!text-green-600 text-gray-400">
-                 <el-icon><DocumentCopy /></el-icon>
-               </el-button>
-             </el-tooltip>
-             <el-tooltip v-if="normalizeExternalUrl(row.video_url)" content="觀看影片" placement="top">
-               <el-button @click.stop="openVideo(row.video_url)" circle size="small" class="!border-none hover:!bg-sky-50 hover:!text-sky-600 text-gray-400">
-                 <el-icon><VideoCamera /></el-icon>
-               </el-button>
-             </el-tooltip>
-             <el-tooltip v-if="props.canEdit !== false" content="編輯" placement="top">
-               <el-button @click.stop="emit('edit', row.id)" circle size="small" class="!border-none hover:!bg-orange-50 hover:!text-orange-500 text-gray-400">
-                 <el-icon><Operation /></el-icon>
-               </el-button>
-             </el-tooltip>
-             <el-tooltip v-if="props.canDelete !== false" content="刪除" placement="top">
-               <el-button @click.stop="emit('delete', row.id)" circle size="small" class="!border-none hover:!bg-red-50 hover:!text-red-500 text-gray-400">
-                 <el-icon><Delete /></el-icon>
-               </el-button>
-             </el-tooltip>
+          <div class="flex items-center justify-end gap-2" @click.stop>
+            <el-button class="!min-h-11 !rounded-xl" @click="emit('view', row.id)">詳情</el-button>
+            <AppActionOverflow :aria-label="`${row.match_name} 更多操作`">
+              <el-dropdown-item v-if="props.canEdit !== false && !isMatchCancelled(row)" @click="emit('edit', row.id)">編輯賽事</el-dropdown-item>
+              <el-dropdown-item v-if="props.canNotify && !isMatchCancelled(row)" :disabled="Boolean(props.notifyingMatchId)" @click="emit('notify', row.id)">發送通知</el-dropdown-item>
+              <el-dropdown-item @click="copyMatchInfo(row)">複製賽事資訊</el-dropdown-item>
+              <el-dropdown-item v-if="normalizeExternalUrl(row.video_url)" @click="openVideo(row.video_url)">觀看影片</el-dropdown-item>
+              <el-dropdown-item v-if="props.canEdit === true && !isMatchCancelled(row) && row.match_level !== '特訓課'" divided class="!text-red-600" @click="emit('cancel', row.id)">取消比賽</el-dropdown-item>
+              <el-dropdown-item v-if="props.canEdit === true && isMatchCancelled(row) && row.match_level !== '特訓課'" divided class="!min-h-11 !text-primary" @click="emit('restore', row.id)">恢復比賽</el-dropdown-item>
+              <el-dropdown-item v-if="props.canDelete !== false" class="!text-red-600" @click="emit('delete', row.id)">刪除賽事</el-dropdown-item>
+            </AppActionOverflow>
           </div>
         </template>
       </el-table-column>

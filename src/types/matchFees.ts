@@ -16,6 +16,8 @@ export type MatchFeeItem = {
   fee_month: string
   amount: number
   match_fee_amount?: number | null
+  match_cancelled_at?: string | null
+  match_cancellation_reason?: string | null
   payment_opened_at?: string | null
   payment_opened_by_name?: string | null
   has_payment_history?: boolean

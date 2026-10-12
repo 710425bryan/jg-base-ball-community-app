@@ -81,6 +81,58 @@ describe('matchFees service', () => {
     })
   })
 
+  it('reads authoritative cancellation fields for every fee status without changing amounts or payment states', async () => {
+    rpcMock.mockResolvedValue({ data: ['cancelled', 'pending_review', 'paid'].map((payment_status, index) => ({
+      id: `fee-${index}`, payment_status, amount: '500', match_cancelled_at: '2026-10-12T08:00:00Z',
+      match_cancellation_reason: '球場積水', cancelled_reason: payment_status === 'cancelled' ? '比賽已取消：球場積水' : null
+    })), error: null })
+    const { listMatchFeeItemsByMonth } = await import('./matchFees')
+    const rows = await listMatchFeeItemsByMonth('2026-10')
+    expect(rpcMock).toHaveBeenCalledWith('list_match_fee_items_by_month_with_match_status', { p_fee_month: '2026-10' })
+    expect(rows.map(row => [row.payment_status, row.amount, row.match_cancelled_at, row.match_cancellation_reason]))
+      .toEqual(['cancelled', 'pending_review', 'paid'].map(status => [status, 500, '2026-10-12T08:00:00Z', '球場積水']))
+  })
+
+  it.each(['PGRST202', '42883'])('falls back to the original list only when the status RPC is unavailable (%s)', async code => {
+    rpcMock.mockResolvedValueOnce({ data: null, error: { code, message: 'function public.list_match_fee_items_by_month_with_match_status(text) does not exist' } })
+      .mockResolvedValueOnce({ data: [{ id: 'legacy', amount: 300, payment_status: 'cancelled', is_exempt: true, cancelled_reason: '單場免繳' }], error: null })
+    const { listMatchFeeItemsByMonth } = await import('./matchFees')
+    expect(await listMatchFeeItemsByMonth('2026-10')).toEqual([expect.objectContaining({
+      id: 'legacy', amount: 300, payment_status: 'cancelled', is_exempt: true,
+      match_cancelled_at: null, match_cancellation_reason: null
+    })])
+    expect(rpcMock).toHaveBeenNthCalledWith(2, 'list_match_fee_items_by_month', { p_fee_month: '2026-10' })
+  })
+
+  it('never infers match cancellation from an exemption or a historical fee reason', async () => {
+    rpcMock.mockResolvedValue({ data: [
+      { is_exempt: true, payment_status: 'cancelled', cancelled_reason: '單場免繳' },
+      { payment_status: 'cancelled', cancelled_reason: '比賽已取消：舊原因', match_cancelled_at: null, match_cancellation_reason: null }
+    ], error: null })
+    const { listMatchFeeItemsByMonth } = await import('./matchFees')
+    expect((await listMatchFeeItemsByMonth('2026-10')).map(row => [row.match_cancelled_at, row.match_cancellation_reason]))
+      .toEqual([[null, null], [null, null]])
+  })
+
+  it.each([
+    { code: '42501', message: 'fees VIEW permission required' },
+    { code: '57014', message: 'statement timeout' },
+    { code: '42883', message: 'function internal_billing_helper() does not exist' }
+  ])('does not hide $code failures with a legacy fallback', async error => {
+    rpcMock.mockResolvedValue({ data: null, error })
+    const { listMatchFeeItemsByMonth } = await import('./matchFees')
+    await expect(listMatchFeeItemsByMonth('2026-10')).rejects.toBe(error)
+    expect(rpcMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('propagates legacy fallback failures', async () => {
+    const denied = { code: '42501', message: 'denied' }
+    rpcMock.mockResolvedValueOnce({ data: null, error: { code: 'PGRST202' } })
+      .mockResolvedValueOnce({ data: null, error: denied })
+    const { listMatchFeeItemsByMonth } = await import('./matchFees')
+    await expect(listMatchFeeItemsByMonth('2026-10')).rejects.toBe(denied)
+  })
+
   it('deletes a safe cancelled group through the protected RPC', async () => {
     rpcMock.mockResolvedValue({ data: 3, error: null })
 

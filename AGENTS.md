@@ -220,11 +220,16 @@
 
 ### 賽事與 Google Calendar 同步
 
+- 比賽卡片以 `MatchCard`／`MatchScheduleInfo` 顯示照片（缺圖／失敗用本機預設封面）、集合／比賽時間及可換行地點；集合時間由 `matchPresentation.getMatchGatherTime()` 逐行讀取備註，缺值顯示「待確認」，不可推估或吃到下一行。
+- 取消比賽（2026-10-12 本機實作，待部署）由 `cancel_match()` 限有效 `matches:EDIT`、非特訓，保存理由／操作者／時間與版本檢查；保留照片及名單，不可用一般 update 清除取消。UI 顯示「已取消／無須集合」，不納入成績、出席、Next Up、近期摘要與賽前提醒。未繳費用取消，待審／已付與餘額不變；既有教練排班保留指派並標記取消。相依 migration `20261012024808_match_cancellation.sql` 必須先於 `send-match-reminders`／前端部署；驗證 `pnpm test:matches:sql`，完整說明見 `docs/specs/2026-10-12-match-cards-cancellation.md`。
+
 - 賽事資料表為 `matches`，主要 API 在 `src/services/matchesApi.ts`。
 - 不收隊費（`fee_billing_mode = 'no_fee'`）球員 / 校隊仍可正常參賽並記錄成績；比賽費依獨立開關、生效日期、參賽、請假與單場免繳由 DB `sync_match_fee_items_for_match()` 判斷，參賽資格與收費資格分開。
 - `/calendar` 是登入後賽程入口，`?match_id=` 會開啟 `MatchDetailDialog`；推播與通知連結應導向 `/calendar?match_id=...`。
 - 個人成績頁 `/my-records` 不直接使用後台 `matchesApi` 讀列表，而是透過 `myPlayerRecords` RPC 依球員可見範圍取回比賽紀錄；打擊 / 投球彙總邏輯在 `src/utils/matchRecordStats.ts`。
 - `matchesApi` 保留 `google_calendar_event_id` 欄位缺失 / schema cache 尚未更新時的 fallback。
+- 手動／排程行事曆同步略過已取消賽事；寫入當下必須帶 `cancelled_at IS NULL`，手動透過 store/API 的 `requireActive: true` 保證 optional-column fallback 不撤掉保護。規劃後才取消的場次不更新、不恢復、不補建，其他正常項目繼續；缺欄／真正 DB 錯誤仍失敗。發布須先部署取消 migration，再部署 `sync-match-calendar` 及前端。
+- 恢復比賽（2026-10-12 本機開發，待部署）由 `MatchRestoreDialog → restore_match()` 限有效 `matches:EDIT`、非特訓、完整版本；取消／恢復保留私有稽核，兩方向都需版本檢查，舊請求不得跨輪切換狀態。恢復保留原 ID 與內容並重新符合行事曆同步／提醒規則，無立即推播。未繳費用重算但仍未開放，付款／免繳／餘額保留；原教練排班若有衝突需另行確認。相依 `20261012033832_match_restoration_audit.sql`，詳見 `docs/specs/2026-10-12-match-restoration.md`。
 - Google Calendar / iCal parsing 與同步規劃在 `src/utils/googleCalendarParser.ts`，UI 在 `SyncCalendarDialog.vue`。
 - 比賽刪除前會由 DB trigger 檢查比賽費：待確認、已付款或仍有目前付款關聯時必須阻擋；無付款歷程的未繳 / 取消費用可直接清除，曾付款但已駁回 / 回滾的明細要解除 `match_id` 並保留取消稽核紀錄。`MatchDetailDialog` 必須顯示 DB 阻擋原因。
 - 比賽紀錄相關元件在 `src/components/match-records/*`，照片使用 `matches-photos` bucket。

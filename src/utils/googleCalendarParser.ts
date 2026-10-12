@@ -1047,6 +1047,19 @@ export const planCalendarSync = (
           : null
 
       const existingMatch = matchedByUid || findFallbackExistingMatch(existingMatches, parsedMatch)
+      if (existingMatch?.cancelled_at) {
+        return {
+          action: 'skip',
+          existingMatchId: existingMatch.id,
+          parsedMatch,
+          payload: {},
+          scheduleDiffs: [],
+          playerCheck,
+          validationIssues: [{ severity: 'warning', message: '此賽事已取消，略過同步並保留原紀錄' }],
+          isBlocked: false
+        }
+      }
+
       const updatePayload = {
         ...schedulePayload,
         ...createMatchParticipantUpdateInput(parsedMatch, payloadPlayers, existingMatch)

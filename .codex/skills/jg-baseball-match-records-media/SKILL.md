@@ -33,6 +33,14 @@ description: "Match records, schedule detail, dashboard Next Up, lineup, media, 
 
 ## 功能邊界
 
+- 取消比賽由 `MatchCancelDialog` 呼叫 `cancel_match()`，限有效 EDIT、非特訓、理由與版本檢查；2026-10-12 尚未部署。新欄位 `cancelled_at/cancellation_reason/cancelled_by` 不可進一般新增／修改 payload。取消保留所有紀錄，圖片／詳情可讀，UI 顯示無須集合，不可再當作未賽／平手或計入出席與成績。較慢的舊查詢不可抹去取消狀態。
+- 卡片資料流為 `MatchesGrid → MatchCard → MatchScheduleInfo`，缺圖與載入失敗使用 `public/images/match-default-cover.webp`；集合時間由 `matchPresentation` 逐行讀備註，缺值不可推估。正常摘要先排除取消再 limit；行事曆另取取消清單。
+- 誤取消恢復由 `MatchRestoreDialog → restore_match(uuid,timestamptz)` 處理，限有效 EDIT、非特訓，清空目前取消欄位並保留 private audit；取消與恢復都必須送完整 `updated_at`，重送只可命中同次狀態，不可跨輪取消／恢復。store 以微秒比較新舊版本，必須允許另一裝置較新的合法恢復。卡片／表格／詳情可操作，個人成績唯讀不提供入口。新增 migration `20261012033832_match_restoration_audit.sql` 相依於取消 migration，尚未部署。
+- 恢復使場次重新符合既有同步、提醒、摘要與統計；不立即推播或更改提醒去重。未繳比賽費依原規則同步但保持付款未開放，免繳／待審／已付／餘額保留。教練來源只恢復該次連動取消且仍安全的排班，有請假／資格／時段衝突或期間已修改則保留供確認；不得復活原先獨立取消的來源。
+- 預設封面為中央清晰 Logo 浮水印，手機完整顯示 Logo；上傳照片仍裁切填滿且可獨立預覽。手機大工具列隨頁捲走，月份貼齊 App header 下方；桌機維持工具列與月份連動吸頂。縮卡只能調整封面與留白，地點全文、集合／比賽時間字級及 44px 操作不可犧牲；需量測扣除 App shell／吸頂列後的閱讀高度，小螢幕或長內容允許頁面自然捲動。
+- 取消需連動賽前提醒、Next Up、公開／個人成績摘要、通知 feed 與教練排班；付款保留待審／已付／餘額，未繳轉取消且不得重新開放。先部署 `20261012024808_match_cancellation.sql` 再部署 `send-match-reminders`、`sync-match-calendar` 與前端；同步 planner 必須略過既有取消紀錄。測試 `pnpm test:matches:sql`、完整收費計算與付款／排班 SQL；瀏覽器驗證見 `tests/browser/verify-match-cancellation.mjs`。
+- 取消、開放繳費、`sync_match_fee_items_for_match()`、單場免繳與建立比賽付款均須先取得教練來源共用 advisory lock，再鎖賽事／費用；不能只在 sync 內補鎖，因付款／免繳呼叫者已可能持有賽事 row lock。migration 以唯一錨點補齊並保留既有 owner、ACL、SECURITY 與 search_path。
+
 - `matchesApi` 封裝 `matches` CRUD，保留 schema cache 欄位缺失 fallback。
 - `/calendar` 顯示賽程並用 `?match_id=` 開啟 `MatchDetailDialog`。
 - `/match-records` 是後台比賽紀錄管理，feature key 為 `matches`。

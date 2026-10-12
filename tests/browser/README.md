@@ -1,5 +1,23 @@
 # 教練功能手機瀏覽器回歸
 
+## 收費管理比賽取消標示
+
+`node tests/browser/verify-match-fee-cancellation.mjs [output-directory]` 自行啟動 `127.0.0.1:5193` 隔離 Vite，掛載真實 `MatchFeeManagementPanel`／球員明細、Element Plus 及全域樣式，只替換權限與 service 資料；不讀正式環境、不寫資料、不發送推播，外部請求皆阻擋。執行前需保留該 port。
+
+390／768／1365px 驗證正常未繳、整場取消、取消但保留待確認／已付、僅單場免繳；確認收合仍可見紅色「比賽已取消」及完整原因、沒有開放／關閉入口、明細付款狀態保留、唯讀可看與無水平溢出。可設定 `MATCH_FEE_WIDTHS=390` 只補拍手機；預設證據在 ignored `output/playwright/match-fee-cancellation/`。正式三尺寸成功證據存 `verified/`，手機單卡在 `mobile-card/`；瀏覽器 fixture 不能取代實體手機或 RPC／RLS 驗證。
+
+## 比賽卡片與取消比賽
+
+`node tests/browser/verify-match-cancellation.mjs [output-directory]` 自行啟動 `127.0.0.1:5192` 隔離 Vite，不讀 `.env`，不啟用正式版本寫入或 PWA plugin。掛載實際 App、Router、Pinia 與 Element Plus；Auth、REST、Realtime 全部攔截為 fixture，其他外部請求阻擋。執行前需保留 5192 port，使用已安裝的 Chromium。
+
+390／768／1365 px 覆蓋未來與歷史卡片、上傳照片／預設圖／圖片失效 fallback、照片預覽不誤開詳情、醒目的集合／比賽時間、長地點換行、44 px 操作與水平溢出。取消流程驗證未填原因／其他必填說明不送出、後端失敗保留內容、重試成功顯示取消與無須集合，並隱藏通知／再次取消操作；唯讀角色不可編輯、刪除、通知或取消。登入後會正常關閉既有 Web Push 設定提示，不建立真實訂閱。
+
+恢復流程驗證已取消卡片「恢復比賽」入口、原取消原因／賽程快照、返回不寫入、失敗保留、重試恢復同一 ID、重新顯示集合時間／導航／通知／編輯，且唯讀角色沒有恢復操作。Calendar 深連結詳情分別驗證 VIEW 無入口及 ADMIN 恢復成功；品牌確認按鈕應為 `rgb(216, 143, 34)`。只需補測 Calendar 與品牌色時，可設定 `MATCH_RESTORATION_CALENDAR_ONLY=1`，輸出到 `output/playwright/match-cancellation/restoration-calendar`；完整流程預設也包含 Calendar。
+
+預設證據在已忽略的 `output/playwright/match-cancellation/`，含截圖與 `evidence.json`。這是模擬資料的 Chromium UI 回歸；不代表 migration 已套用、正式 Edge Function 已部署或實機 safe area 已驗收。
+
+單卡閱讀高度量測可設定 `MATCH_CARD_MOBILE_DENSITY=1` 與 `MATCH_CANCELLATION_CAPTURE_ONLY=1`，並傳入 `output/playwright/match-cancellation/mobile-density-after`。涵蓋 375×812、390×844、360×740、320×568，記錄卡片、固定工具列、月份與實際閱讀區高度；普通地點、長地點和取消卡均保留全文與 44px 操作，不使用固定高度裁切或卡片內捲動。截圖及數據寫入 `evidence-capture.json`；與 `mobile-density-before` 比較，不能將瀏覽器整體高度當作可閱讀高度。
+
 ## 帳號停權即時退出回歸
 
 `node tests/browser/verify-account-suspension.mjs [output-directory]` 使用既有本機 `http://127.0.0.1:5174` dev server，可用 `SUSPENSION_TEST_URL` 指定本機網址。實際 App、Pinia、Auth SDK、router 與 LoginModal 不替換；REST/Auth 及 Realtime WebSocket 協定使用隔離資料，其他外部請求阻擋。沒有正式登入、帳號修改或寄信。

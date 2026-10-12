@@ -2,6 +2,7 @@
 import { mount, flushPromises } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import MatchDetailDialog from '../MatchDetailDialog.vue'
+import MatchRestoreDialog from '../MatchRestoreDialog.vue'
 import type { MatchRecord } from '@/types/match'
 import { getMatchLeaveAbsences } from '@/services/matchLeaveAbsences'
 
@@ -59,12 +60,14 @@ const baseMatch: MatchRecord = {
   pitching_stats: []
 }
 
-const mountDialog = async (matchRecord: MatchRecord = baseMatch) => {
+const mountDialog = async (matchRecord: MatchRecord = baseMatch, extraProps = {}) => {
   const wrapper = mount(MatchDetailDialog, {
     props: {
       modelValue: true,
       matchId: matchRecord.id,
-      matchRecord
+      matchRecord,
+      canDelete: true,
+      ...extraProps
     },
     global: {
       stubs: {
@@ -81,7 +84,8 @@ const mountDialog = async (matchRecord: MatchRecord = baseMatch) => {
         ElTableColumn: true,
         ElTimeline: { template: '<div><slot /></div>' },
         ElTimelineItem: { template: '<div><slot /></div>' },
-        VisualField: true
+        VisualField: true,
+        MatchRestoreDialog: true
       }
     }
   })
@@ -97,6 +101,30 @@ beforeEach(() => {
 })
 
 describe('MatchDetailDialog leave request absence display', () => {
+  it('can recover from the calendar read-only detail when explicitly authorized, then closes stale detail', async () => {
+    const cancelled = { ...baseMatch, cancelled_at: '2026-10-12', cancellation_reason: '誤取消' }
+    const wrapper = await mountDialog(cancelled, { readonly: true, canRestore: true })
+    await wrapper.findAll('button').find(button => button.text() === '恢復比賽')!.trigger('click')
+    const recovery = wrapper.getComponent(MatchRestoreDialog)
+    expect(recovery.props('modelValue')).toBe(true)
+    expect(recovery.props('match')).toEqual(cancelled)
+    const restored = { ...cancelled, cancelled_at: null }
+    recovery.vm.$emit('restored', restored)
+    expect(wrapper.emitted('restored')).toEqual([[restored]])
+    expect(wrapper.emitted('update:modelValue')).toEqual([[false]])
+  })
+  it.each([{ canRestore: false }, { canRestore: true, match_level: '特訓課' }])('does not expose an unauthorized or training recovery %j', async ({ canRestore, match_level }) => {
+    const wrapper = await mountDialog({ ...baseMatch, cancelled_at: '2026-10-12', match_level }, { canRestore })
+    expect(wrapper.findAll('button').some(button => button.text() === '恢復比賽')).toBe(false)
+  })
+  it('shows the cancellation reason instead of a result and disables editing', async () => {
+    const wrapper = await mountDialog({ ...baseMatch, cancelled_at: '2026-10-12', cancellation_reason: '場地積水' })
+    expect(wrapper.text()).toContain('已取消，無須集合')
+    expect(wrapper.text()).toContain('場地積水')
+    expect(wrapper.find('[data-testid="match-score-board"]').exists()).toBe(false)
+    expect(wrapper.find('button[title="編輯紀錄"]').exists()).toBe(false)
+    expect(wrapper.get('img[alt="賽事封面"]').attributes('src')).toBe('/images/match-default-cover.webp')
+  })
   it('shows manual absences, latest leave request absences, and match notes', async () => {
     vi.mocked(getMatchLeaveAbsences).mockResolvedValueOnce([
       {

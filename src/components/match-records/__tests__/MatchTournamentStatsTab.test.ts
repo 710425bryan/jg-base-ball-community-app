@@ -56,6 +56,22 @@ const mountTab = (matches = [buildMatch()]) => mount(MatchTournamentStatsTab, {
 })
 
 describe('MatchTournamentStatsTab', () => {
+  it('omits cancelled games and clears a tournament with no remaining games', async () => {
+    const wrapper = mountTab([
+      buildMatch({ id: 'active' }),
+      buildMatch({ id: 'cancelled', cancelled_at: '2026-03-31T08:00:00Z' })
+    ])
+    const vm = wrapper.vm as any
+    vm.selectedTournament = '春季聯賽'
+    await nextTick()
+    expect(vm.tournamentMatches.map((match: MatchRecord) => match.id)).toEqual(['active'])
+    expect(vm.battingRows[0].pa).toBe(3)
+
+    await wrapper.setProps({ matches: [buildMatch({ cancelled_at: '2026-03-31T08:00:00Z' })] })
+    expect(vm.tournamentOptions).toEqual([])
+    expect(vm.selectedTournament).toBe('')
+  })
+
   it('does not auto-select a tournament when options exist', () => {
     const wrapper = mountTab([
       buildMatch({ id: 'spring', tournament_name: '春季聯賽' }),

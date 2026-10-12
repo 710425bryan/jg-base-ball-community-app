@@ -1,4 +1,5 @@
 import type { LineupEntry, MatchRecord } from '@/types/match'
+import { getMatchGatherTime } from './matchPresentation'
 
 const GOOGLE_CALENDAR_TEAM_NAME = '中港熊戰'
 
@@ -16,12 +17,6 @@ const formatTitleTime = (value?: string | null) =>
 const formatCurrencyAmount = (value?: number | null) => {
   const amount = Number(value || 0)
   return Number.isFinite(amount) && amount > 0 ? String(amount) : ''
-}
-
-const getGatherTime = (match: MatchRecord) => {
-  const note = String(match.note || '')
-  const result = note.match(/集合時間\s*[:：]\s*([^\r\n]+)/)
-  return collapseWhitespace(result?.[1] || '')
 }
 
 const formatLineupPlayer = (player: LineupEntry) => {
@@ -60,7 +55,7 @@ export const formatMatchRecordGoogleCalendarSummary = (match: MatchRecord) => {
   const opponent = collapseWhitespace(match.opponent || '待確認')
   const time = formatTitleTime(match.match_time)
 
-  return [matchName, `${GOOGLE_CALENDAR_TEAM_NAME} V.S ${opponent}`, time].filter(Boolean).join(' ')
+  return [match.cancelled_at ? '【已取消】' : '', matchName, `${GOOGLE_CALENDAR_TEAM_NAME} V.S ${opponent}`, time].filter(Boolean).join(' ')
 }
 
 export const formatMatchRecordForGoogleCalendar = (match: MatchRecord) => {
@@ -70,9 +65,10 @@ export const formatMatchRecordForGoogleCalendar = (match: MatchRecord) => {
   const matchFeeAmount = formatCurrencyAmount(match.match_fee_amount)
 
   const descriptionLines = [
+    ...(match.cancelled_at ? ['狀態：已取消，無須集合', `取消原因：${collapseWhitespace(match.cancellation_reason || '')}`] : []),
     `組別 / 類別：${collapseWhitespace(match.category_group || '')}`,
     `賽事等級：${collapseWhitespace(match.match_level || '')}`,
-    `集合時間：${getGatherTime(match)}`,
+    `集合時間：${getMatchGatherTime(match)}`,
     `盃賽名稱：${collapseWhitespace(match.tournament_name || '')}`,
     '帶隊教練：',
     ...coaches,

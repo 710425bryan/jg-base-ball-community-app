@@ -118,6 +118,42 @@ describe('MatchRecordsView', () => {
     expect(source).toContain('ref="stickyToolbarRef"')
     expect(source).toContain("'--match-records-sticky-offset': `${stickyToolbarHeight.value}px`")
     expect(source).toContain('new ResizeObserver(updateStickyToolbarHeight)')
+    const toolbarClasses = source.match(/ref="stickyToolbarRef" class="([^"]+)"/)?.[1].split(' ') || []
+    expect(toolbarClasses).toContain('md:sticky')
+    expect(toolbarClasses).not.toContain('sticky')
+  })
+
+  it('opens cancellation only for an editable active non-training match', async () => {
+    const wrapper = shallowMount(MatchRecordsView, { global: { directives: { loading: () => undefined } } })
+    const vm = wrapper.vm as any
+    vm.handleCancelMatch('future-match')
+    expect(vm.cancelDialogVisible).toBe(false)
+    storeMocks.permissions.can.mockReturnValue(true)
+    // Permission store is mocked without reactivity: remount to hydrate computed permissions.
+    wrapper.unmount()
+    const editable = shallowMount(MatchRecordsView, { global: { directives: { loading: () => undefined } } })
+    const editableVm = editable.vm as any
+    editableVm.handleCancelMatch('future-match')
+    expect(editableVm.cancelDialogVisible).toBe(true)
+    expect(editableVm.cancellationMatch.id).toBe('future-match')
+    editableVm.cancelDialogVisible = false
+    storeMocks.matches.matches[0]!.cancelled_at = '2026-10-12'
+    editableVm.handleCancelMatch('future-match')
+    expect(editableVm.cancelDialogVisible).toBe(false)
+    editable.unmount()
+  })
+  it('opens recovery only for an editable cancelled match', () => {
+    storeMocks.matches.matches[0]!.cancelled_at = '2026-10-12'
+    const readonly = shallowMount(MatchRecordsView, { global: { directives: { loading: () => undefined } } })
+    ;(readonly.vm as any).handleRestoreMatch('future-match')
+    expect((readonly.vm as any).restoreDialogVisible).toBe(false)
+    readonly.unmount()
+    storeMocks.permissions.can.mockReturnValue(true)
+    const wrapper = shallowMount(MatchRecordsView, { global: { directives: { loading: () => undefined } } })
+    ;(wrapper.vm as any).handleRestoreMatch('future-match')
+    expect((wrapper.vm as any).restoreDialogVisible).toBe(true)
+    expect((wrapper.vm as any).restorationMatch.id).toBe('future-match')
+    wrapper.unmount()
   })
 
   it('aligns desktop toolbar controls to the shared 44px height', () => {

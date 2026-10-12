@@ -84,6 +84,9 @@ export interface LineScoreData {
 
 export interface MatchRecord {
   id: string;
+  cancelled_at?: string | null;
+  cancellation_reason?: string | null;
+  cancelled_by?: string | null;
   google_calendar_event_id?: string | null;
   match_name: string;
   opponent: string;
@@ -127,4 +130,4 @@ export interface MatchRecord {
   updated_at?: string;
 }
 
-export type MatchRecordInput = Omit<MatchRecord, 'id' | 'created_at' | 'updated_at'>;
+export type MatchRecordInput = Omit<MatchRecord, 'id' | 'created_at' | 'updated_at' | 'cancelled_at' | 'cancellation_reason' | 'cancelled_by'>;
