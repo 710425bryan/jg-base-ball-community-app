@@ -4,6 +4,7 @@ import ts from 'typescript'
 import { describe, expect, it, vi } from 'vitest'
 import { createMatchRecordInput, parseICalText, planCalendarSync } from '../../../src/utils/googleCalendarParser'
 import type { MatchRecord } from '../../../src/types/match'
+import { CalendarSourceError, createCalendarSourceFetcher } from './calendarSource'
 
 // Run the complete entry point and real planner without remote imports, secrets,
 // a listening server, external calendar requests, or production database writes.
@@ -40,6 +41,7 @@ type HarnessOptions = {
   calendarIds: string[]
   beforeUpdate?: (rows: MatchRecord[], attempt: UpdateAttempt, attemptNumber: number) => void
   updateErrors?: Array<{ code: string; message: string } | null>
+  sourceResponses?: Array<Response | Error>
 }
 
 const createHarness = (options: HarnessOptions) => {
@@ -101,7 +103,12 @@ const createHarness = (options: HarnessOptions) => {
     }
     return query
   }
-  const fetcher = vi.fn(async () => new Response(calendarText(options.calendarIds)))
+  const sourceResponses = [...options.sourceResponses || []]
+  const fetcher = vi.fn(async () => {
+    const next = sourceResponses.shift()
+    if (next instanceof Error) throw next
+    return next ?? new Response(calendarText(options.calendarIds))
+  })
   const getUser = vi.fn(async () => ({ data: { user: { id: 'test-user' } }, error: null }))
   const rpc = vi.fn(async () => ({ data: true, error: null }))
   const env: Record<string, string> = {
@@ -115,6 +122,7 @@ const createHarness = (options: HarnessOptions) => {
     createClient: (_url: string, key: string) => key === env.SUPABASE_SERVICE_ROLE_KEY
       ? { from, auth: { getUser } } : { rpc },
     fetch: fetcher, parseICalText, planCalendarSync, Request, Response, URL,
+    createCalendarSourceFetcher: () => createCalendarSourceFetcher({ fetcher }), CalendarSourceError,
     console: { log: vi.fn(), error: vi.fn() }
   })
   const run = async (body: Record<string, unknown> = {}, authorization: 'header' | 'body' | 'user' = 'header') => {
@@ -131,6 +139,52 @@ const createHarness = (options: HarnessOptions) => {
 }
 
 describe('sync-match-calendar cancellation protection', () => {
+  it('reports upstream rate limiting without leaking its body, retrying, or writing any match', async () => {
+    const original = existingMatch('active')
+    const harness = createHarness({ existing: [original], calendarIds: ['active', 'new'],
+      sourceResponses: [new Response('<html>private-calendar-token</html>', { status: 429, headers: { 'Retry-After': '120' } })] })
+    const result = await harness.run()
+    expect(result).toEqual({ status: 503, summary: {
+      success: false, error: 'Google Calendar 暫時限制讀取，請稍後再試',
+      error_code: 'CALENDAR_SOURCE_RATE_LIMITED', upstream_status: 429, retry_after_seconds: 120, retry_after_provided: true
+    } })
+    expect(harness.fetcher).toHaveBeenCalledOnce()
+    expect(harness.rows).toEqual([original])
+    expect(harness.inserted).toEqual([])
+    expect(harness.updateAttempts).toEqual([])
+  })
+
+  it.each([
+    [new Response('<html>private content</html>'), 'CALENDAR_SOURCE_INVALID'],
+    [new Response('secret body', { status: 403 }), 'CALENDAR_SOURCE_HTTP'],
+    [new Error('secret source URL'), 'CALENDAR_SOURCE_NETWORK'],
+    [new Response('BEGIN:VCALENDAR\r\nEND:VCALENDAR', { headers: { 'Content-Length': '999999999' } }), 'CALENDAR_SOURCE_TOO_LARGE']
+  ])('stops all writes on source failure and still skips cancellation after recovery (%s)', async (failure, code) => {
+    const cancelled = existingMatch('cancelled', cancellation)
+    const active = existingMatch('active')
+    const harness = createHarness({ existing: [cancelled, active], calendarIds: ['cancelled', 'active', 'new'], sourceResponses: [failure as Response | Error] })
+    const failed = await harness.run()
+    expect(failed.status).toBe(502)
+    expect(failed.summary.error_code).toBe(code)
+    expect(JSON.stringify(failed.summary)).not.toContain('secret')
+    expect(harness.updateAttempts).toEqual([])
+    expect(harness.inserted).toEqual([])
+    expect(harness.rows).toEqual([cancelled, active])
+    expect((await harness.run()).summary).toMatchObject({ updated_count: 1, created_count: 1, skipped_count: 1 })
+    expect(harness.rows.find(row => row.id === cancelled.id)).toEqual(cancelled)
+  })
+
+  it('plans against freshly loaded cancellation state even when valid source content is cached', async () => {
+    const original = existingMatch('active')
+    const harness = createHarness({ existing: [original], calendarIds: ['active'] })
+    expect((await harness.run({ dry_run: true })).summary).toMatchObject({ source_cache: 'miss', planned: { update: 1 } })
+    Object.assign(harness.rows[0]!, cancellation)
+    expect((await harness.run()).summary).toMatchObject({ source_cache: 'hit', updated_count: 0, skipped_count: 1 })
+    expect(harness.fetcher).toHaveBeenCalledOnce()
+    expect(harness.updateAttempts).toEqual([])
+    expect(harness.rows[0]).toEqual({ ...original, ...cancellation })
+  })
+
   it('preserves the production custom-secret gateway mode in release configuration', () => {
     const config = readFileSync(new URL('../../config.toml', import.meta.url), 'utf8')
     expect(config).toMatch(/\[functions\.sync-match-calendar\]\s+verify_jwt = false/)

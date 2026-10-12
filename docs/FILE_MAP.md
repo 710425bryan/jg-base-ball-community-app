@@ -105,7 +105,7 @@
 | `src/services/matchesApi.ts` | 賽事 CRUD、取消／恢復 RPC 與同步取消防覆蓋 | `matches` |
 | `src/services/matchLeaveAbsences.ts` | 歷史與未來賽事假單同步請假預覽 / 詳情讀取 | `preview_match_leave_absences()`、`get_match_leave_absences()` |
 | `src/services/matchReminderNotifications.ts` | 未來賽事手動通知、提醒排程設定與排程健康狀態 RPC | `send-match-reminders` Edge Function、`system_settings.match_reminder_schedule_config`、`get_match_reminder_health_status()` |
-| `src/services/matchCalendarSync.ts` | Google Calendar 手動同步預覽 | `sync-match-calendar` Edge Function、瀏覽器 proxy fallback |
+| `src/services/matchCalendarSync.ts` | Google Calendar 手動同步預覽、來源限流等待提示 | `sync-match-calendar` Edge Function；只在部署不存在或舊版缺預覽欄位時使用 proxy 相容流程，來源／授權失敗不可重試代理 |
 | `src/services/matchAudioApi.ts` | 比賽語音轉紀錄 Edge Function 呼叫 | `transcribe-match-audio` |
 | `src/services/matchFees.ts` | 比賽費付款、單場免繳、開放 / 關閉、取消群組刪除與審核 RPC；月份清單補整場取消狀態，缺新 RPC 回退 | `matches.match_fee_payment_*` / `matches.cancelled_at` / `match_fee_items` / `match_payment_submissions` |
 | `src/services/matchFeePaymentNotifications.ts` | 保留的比賽費通知 service，開放流程不再呼叫 | `send-match-fee-payment-notifications` Edge Function |
@@ -494,6 +494,8 @@
 | `supabase/functions/send-fee-payment-reminders/index.ts` | 收費管理手動催繳通知 |
 | `supabase/functions/send-match-fee-payment-notifications/index.ts` | 保留的比賽費通知端點，開放流程不再呼叫 |
 | `supabase/functions/sync-match-calendar/index.ts` | 賽事日曆同步；UPDATE 原子排除取消列，零列計為略過；同名測試涵蓋完整 handler 與同步競態 |
+| `supabase/functions/sync-match-calendar/calendarSource.ts` | iCal 來源讀取、20 秒逾時／2 MiB 上限／完整封套檢查、每 isolate 60 秒快取與請求合併、429 冷卻；同名測試涵蓋來源失敗與恢復 |
+| `tests/browser/verify-calendar-sync.mjs` | 真實手動同步元件與 service／store／API 搭配隔離 HTTP，驗證預覽、寫入、取消競態及限流不轉代理；不代表正式登入測試 |
 | `supabase/functions/leave-webhook/index.ts` | 請假 webhook |
 | `supabase/functions/record-fee-remittance/index.ts` | 繳費匯款紀錄 |
 | `supabase/functions/parse-lineup/index.ts` | 陣容解析，預設 `gemini-3.1-pro-preview`，保留環境模型覆寫與使用者權限驗證 |

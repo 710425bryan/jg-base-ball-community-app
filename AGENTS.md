@@ -231,6 +231,7 @@
 - 手動／排程行事曆同步略過已取消賽事；寫入當下必須帶 `cancelled_at IS NULL`，手動透過 store/API 的 `requireActive: true` 保證 optional-column fallback 不撤掉保護。規劃後才取消的場次不更新、不恢復、不補建，其他正常項目繼續；缺欄／真正 DB 錯誤仍失敗。發布須先部署取消 migration，再部署 `sync-match-calendar` 及前端。
 - 恢復比賽（DB 已於 2026-10-12 部署；前端發布狀態見規格）由 `MatchRestoreDialog → restore_match()` 限有效 `matches:EDIT`、非特訓、完整版本；取消／恢復保留私有稽核，兩方向都需版本檢查，舊請求不得跨輪切換狀態。恢復保留原 ID 與內容並重新符合行事曆同步／提醒規則，無立即推播。未繳費用重算但仍未開放，付款／免繳／餘額保留；原教練排班若有衝突需另行確認。相依 `20261012033832_match_restoration_audit.sql`；三份取消／恢復／費用標示 migration 的 source 與正式 ledger 對照見 `docs/MIGRATIONS.md`，詳見 `docs/specs/2026-10-12-match-restoration.md`。
 - Google Calendar / iCal parsing 與同步規劃在 `src/utils/googleCalendarParser.ts`，UI 在 `SyncCalendarDialog.vue`。
+- 行事曆來源讀取使用 `sync-match-calendar/calendarSource.ts` 的限時、限量、完整封套檢查、每 isolate 60 秒快取與同來源請求合併；429 遵守 Retry-After（缺值 60 秒），不以 proxy／區域切換規避。每次同步仍讀取最新 DB 狀態及原子排除取消列。手動 service 只對明確部署不存在或舊版缺預覽欄位使用 proxy 相容，來源／權限錯誤不轉代理；正式來源成功需有授權 dry-run 證據，隔離 UI 測試不能取代。
 - 比賽刪除前會由 DB trigger 檢查比賽費：待確認、已付款或仍有目前付款關聯時必須阻擋；無付款歷程的未繳 / 取消費用可直接清除，曾付款但已駁回 / 回滾的明細要解除 `match_id` 並保留取消稽核紀錄。`MatchDetailDialog` 必須顯示 DB 阻擋原因。
 - 比賽紀錄相關元件在 `src/components/match-records/*`，照片使用 `matches-photos` bucket。
 - `/match-records` 的「未來賽事」可由具 `matches:EDIT` 的使用者手動發送單場賽事通知；「提醒排程」同樣只給 `matches:EDIT` 使用者管理，設定存在 `system_settings.match_reminder_schedule_config`，前端走 `src/services/matchReminderNotifications.ts` 呼叫 RPC 或 `send-match-reminders`，通知 URL 仍使用 `/calendar?match_id=...`；排程健康檢查由 `get_match_reminder_health_status()` 與 `send-match-reminders` 自動檢查，異常只通知 active `ADMIN`。

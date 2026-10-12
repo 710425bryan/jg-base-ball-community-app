@@ -7,6 +7,7 @@ import {
   type CalendarSyncRosterMember,
 } from "../../../src/utils/googleCalendarParser.ts";
 import type { MatchRecord, MatchRecordInput } from "../../../src/types/match.ts";
+import { CalendarSourceError, createCalendarSourceFetcher } from "./calendarSource.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -24,9 +25,9 @@ const corsHeaders = {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-const jsonResponse = (body: Record<string, unknown>, status = 200) =>
+const jsonResponse = (body: Record<string, unknown>, status = 200, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), {
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...corsHeaders, "Content-Type": "application/json", ...headers },
     status,
   });
 
@@ -102,19 +103,7 @@ const withOptionalColumnFallback = async <T>(
   throw lastError;
 };
 
-const fetchICalText = async (calendarUrl: string) => {
-  const response = await fetch(calendarUrl, {
-    headers: {
-      "user-agent": "jg-base-ball-community-app-calendar-sync/1.0",
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Google Calendar iCal 讀取失敗：HTTP ${response.status}`);
-  }
-
-  return await response.text();
-};
+const fetchCalendarSource = createCalendarSourceFetcher();
 
 const fetchExistingMatches = async () => {
   const { data, error } = await supabase
@@ -288,13 +277,13 @@ serve(async (req) => {
     const dryRun = payload.dry_run === true;
     const includeItems = dryRun && payload.include_items === true;
 
-    const [calendarText, existingMatches, rosterMembers] = await Promise.all([
-      fetchICalText(calendarUrl),
+    const [calendarSource, existingMatches, rosterMembers] = await Promise.all([
+      fetchCalendarSource(calendarUrl),
       fetchExistingMatches(),
       fetchRosterMembers(),
     ]);
 
-    const parsedMatches = parseICalText(calendarText);
+    const parsedMatches = parseICalText(calendarSource.text);
     const syncItems = planCalendarSync(
       existingMatches,
       parsedMatches,
@@ -342,6 +331,7 @@ serve(async (req) => {
     const summary = {
       success: true,
       dry_run: dryRun,
+      source_cache: calendarSource.cache,
       calendar_url: calendarUrl,
       parsed_count: parsedMatches.length,
       planned,
@@ -354,7 +344,12 @@ serve(async (req) => {
       ...(includeItems ? { sync_items: syncItems } : {}),
     };
 
-    console.log("Match calendar sync summary:", summary);
+    // Do not log calendar URLs or preview items containing participant details.
+    console.log("Match calendar sync summary:", {
+      dry_run: dryRun, source_cache: calendarSource.cache, parsed_count: parsedMatches.length,
+      planned, created_count: createdCount, updated_count: updatedCount,
+      duplicate_count: duplicateCount, skipped_count: summary.skipped_count,
+    });
 
     return new Response(JSON.stringify(summary), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -362,6 +357,19 @@ serve(async (req) => {
     });
   } catch (error: any) {
     if (error instanceof Response) return error;
+
+    if (error instanceof CalendarSourceError) {
+      const detail = {
+        success: false, error: error.message, error_code: error.code,
+        upstream_status: error.upstreamStatus, retry_after_seconds: error.retryAfterSeconds,
+        ...(error.retryAfterProvided !== null ? { retry_after_provided: error.retryAfterProvided } : {}),
+      };
+      console.error("Match calendar source unavailable:", detail);
+      const status = error.code === "CALENDAR_SOURCE_TIMEOUT" ? 504
+        : error.retryAfterSeconds !== null ? 503 : 502;
+      return jsonResponse(detail, status, error.retryAfterSeconds !== null
+        ? { "Retry-After": String(error.retryAfterSeconds) } : {});
+    }
 
     console.error("Match calendar sync failed:", error);
     return new Response(JSON.stringify({ success: false, error: error.message || String(error) }), {
