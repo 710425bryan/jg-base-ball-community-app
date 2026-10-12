@@ -224,6 +224,7 @@
 - 取消比賽（DB 已於 2026-10-12 部署；前端發布狀態見規格）由 `cancel_match()` 限有效 `matches:EDIT`、非特訓，保存理由／操作者／時間與版本檢查；保留照片及名單，不可用一般 update 清除取消。UI 顯示「已取消／無須集合」，不納入成績、出席、Next Up、近期摘要與賽前提醒。未繳費用取消，待審／已付與餘額不變；既有教練排班保留指派並標記取消。相依 migration `20261012024808_match_cancellation.sql` 必須先於 `send-match-reminders`／前端部署；驗證 `pnpm test:matches:sql`，完整說明見 `docs/specs/2026-10-12-match-cards-cancellation.md`。
 
 - 賽事資料表為 `matches`，主要 API 在 `src/services/matchesApi.ts`。
+- 編輯比賽的投手成績由 `MatchPitchingStatsEditor` 顯示；`PitchingStat.ip` 保存 0 以上整數出局數，2 代表 ⅔ 局並顯示 `0.2`，9 顯示 `3.0`，不可填小數局數。`matchPitchingStats` 共用驗證與編輯預覽，小數／空值顯示欄位錯誤、局數與防禦率暫顯示 `—`；`MatchFormDialog` 儲存時阻擋並切到投手頁籤，不自行四捨五入或修正既有資料。
 - 不收隊費（`fee_billing_mode = 'no_fee'`）球員 / 校隊仍可正常參賽並記錄成績；比賽費依獨立開關、生效日期、參賽、請假與單場免繳由 DB `sync_match_fee_items_for_match()` 判斷，參賽資格與收費資格分開。
 - `/calendar` 是登入後賽程入口，`?match_id=` 會開啟 `MatchDetailDialog`；推播與通知連結應導向 `/calendar?match_id=...`。
 - 個人成績頁 `/my-records` 不直接使用後台 `matchesApi` 讀列表，而是透過 `myPlayerRecords` RPC 依球員可見範圍取回比賽紀錄；打擊 / 投球彙總邏輯在 `src/utils/matchRecordStats.ts`。

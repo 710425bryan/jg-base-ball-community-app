@@ -366,6 +366,7 @@ UI 約定：
 - UID 或日期／時間／標題 fallback 比對到已取消賽事時，`planCalendarSync()` 回 `skip` 並保留原 ID 與全部資料，外部賽程或球員異動不更新也不恢復；該項不列為 blocking，其他正常新增／更新繼續同步。手動 Dialog 與自動 `sync-match-calendar` 都排除 skip，前端與 Edge Function 必須同步發布這項 planner 變更。
 - 手動／排程的同步 UPDATE 再以 `cancelled_at IS NULL` 原子檢查，避免規劃後才取消的場次被覆蓋。Dialog 傳 `requireActive: true` 經 store 到 API，舊 schema 快取與欄位 fallback 也不可移除條件；零列且重新讀回已取消才略過。Edge 零列更新增加略過數，不重建，正常項目繼續；權限／查詢／缺欄錯誤仍回報失敗。此保護於 2026-10-12 本機完成，待與取消 migration 一併發布。
 - 比賽紀錄元件處理陣容、照片、出席統計、賽事細節與 live controller。
+- `MatchFormDialog → MatchPitchingStatsEditor` 編輯投手成績，`PitchingStat.ip` 為整數出局數；2 顯示 `0.2`（⅔ 局）、9 顯示 `3.0`，不是十進位局數。`matchPitchingStats` 共用初始化、出局數驗證與編輯中的局數／防禦率預覽；小數或空值保留供更正並顯示錯誤，預覽顯示 `—`，儲存前切回投手頁籤阻擋，不自動四捨五入或轉換歷史數據。載入目前投手與從逐局重算仍由父層處理，保存格式與既有七局制防禦率公式不變。
 - `MatchFormDialog` 的球員候選仍依在隊狀態與球員 / 校隊角色篩選，不依收費模式篩選；不收費球員可加入陣容、照片 / 語音解析候選、即時紀錄與打擊 / 投球成績，重新儲存保留出賽名單。比賽費由 DB `sync_match_fee_items_for_match()` 依獨立的 `match_fee_enabled`、生效日期、請假與單場免繳判斷，無需從 `matches.players` 刪除免收費者。
 - `MatchAttendanceStatsTab` 的賽事出席率只以每場 `matches.players` 入選名單計算應到場次；同一球員同一場只計一次。若該球員同時存在於 `absent_players`，該場計為請假而非出席，公式為 `(應到場次 - 請假場次) / 應到場次`；不在該場入選名單的請假列不納入統計。表格可依球員姓名或背號搜尋，桌機 hover「應出席」數字可查看日期、時間、賽事、對手、級別與出席／請假狀態。
 - `/calendar?match_id=...` 會開啟 `MatchDetailDialog`；推播與通知的比賽詳情 URL 統一導向這條路徑。

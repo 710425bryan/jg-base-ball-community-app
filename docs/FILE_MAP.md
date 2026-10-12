@@ -368,6 +368,8 @@
 | 檔案 | 用途 |
 | --- | --- |
 | `src/components/match-records/MatchFormDialog.vue` | 比賽新增 / 編輯；不收費球員仍可加入參賽名單、陣容、即時 / 語音紀錄及打擊 / 投球成績 |
+| `src/components/match-records/MatchPitchingStatsEditor.vue` | 投手成績表單、出局數填寫說明與欄位錯誤；局數預覽與新增／移除投手 |
+| `src/utils/matchPitchingStats.ts` | 投手成績初始化、非負整數出局數驗證、編輯中的局數與七局制防禦率預覽 |
 | `src/components/match-records/MatchDetailDialog.vue` | 比賽詳情 |
 | `src/components/match-records/SyncCalendarDialog.vue` | Google Calendar / iCal 同步；取消場次略過，透過 API 原子防覆蓋，取消競態不阻斷其他正常項目 |
 | `src/components/match-records/MatchLineupTab.vue` | 陣容 |
