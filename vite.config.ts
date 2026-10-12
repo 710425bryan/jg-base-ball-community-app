@@ -46,6 +46,10 @@ const versionUpdatePlugin = () => {
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  server: {
+    port: 8086,
+    strictPort: true
+  },
   define: {
     __APP_VERSION__: JSON.stringify(appVersion)
   },
