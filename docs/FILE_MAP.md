@@ -469,6 +469,7 @@
 | 排班教練資格 | `supabase/migrations/20261002180340_coach_schedule_scheduling_coach_eligibility.sql`，精確 SCHEDULINGCOACH 共用有效帳號 helper；通知排班 VIEW audience 同步採同一資格，不新增角色權限 |
 | 教練排班表 | `supabase/migrations/20260924054852_coach_schedule_shared_training_slots.sql`、`supabase/migrations/20260924043936_coach_schedule_program_source_integrity.sql`、`supabase_coach_schedules_migration.sql`、`supabase_coach_schedules_schedulable_coaches_hotfix.sql`、`supabase_coach_schedules_training_location_sync_hotfix.sql`、`supabase_zzz_coach_schedule_match_source_integrity_migration.sql` |
 | 賽事同步 | `supabase_matches_google_calendar_sync_migration.sql`、`supabase_match_calendar_daily_sync_schedule.sql`、`supabase_match_leave_absences_migration.sql` |
+| 賽事取消／恢復／費用標示（DB 已部署） | `supabase/migrations/20261012024808_match_cancellation.sql` → `20261012033832_match_restoration_audit.sql` → `20261012053334_match_fee_cancellation_status.sql`；2026-10-12 依序部署，原始檔名與正式 ledger 對照見 [MIGRATIONS](MIGRATIONS.md)，前端驗收狀態見 [發布規格](specs/2026-10-12-match-release.md) |
 | 推播 | `supabase_web_push_subscriptions_migration.sql`、`supabase_push_dispatch_events_migration.sql`、`supabase_zzzzzzzzzzzzzzzzzzzzzzzz_team_member_notification_outbox_migration.sql`、`supabase_match_reminder_notifications_migration.sql`、`supabase_match_reminder_schedule_config_migration.sql`、`supabase_match_reminder_health_migration.sql`、`supabase_fee_payment_reminders_migration.sql` |
 | 節日主題 | `supabase_holiday_theme_migration.sql` |
 

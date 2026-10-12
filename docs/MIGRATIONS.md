@@ -1,10 +1,22 @@
 # Migrations
 
-- `supabase/migrations/20261012053334_match_fee_cancellation_status.sql`：2026-10-12 本機實作，待部署。新增 `list_match_fee_items_by_month_with_match_status(text)` 包裝現有月份比賽費查詢並補整場取消時間／原因；不改舊 RPC 定義、付款、金額或餘額，沿用舊查詢已有同步。有效帳號與 `fees:VIEW/EDIT` 授權；須接在 `20261012024808_match_cancellation.sql` 及現有比賽費免繳 migration 後。隔離回歸 `tests/database/matchFeeCancellationStatus.integration.mjs --newline-matrix` 納入 `test:payments:sql`。
+**2026-10-12 賽事取消／恢復／費用標示 DB 發布紀錄**
 
-- `supabase/migrations/20261012033832_match_restoration_audit.sql`：2026-10-12 本機實作，待部署；CLI 產生，必須接在 `20261012024808_match_cancellation.sql` 後。新增 `restore_match(uuid,timestamptz)` 與 private 取消／恢復歷程，收緊雙方向版本及重送；raw DML 不可清除取消、歷程不可覆寫或刪除。恢復重算未繳但不開放繳費，保留付款／免繳／餘額，教練來源依取消快照及最新資格／請假／衝突安全恢復。`tests/database/matchRestoration.integration.mjs` 納入 `test:matches:sql`；詳見 [恢復規格](specs/2026-10-12-match-restoration.md)。
+三份 migration 已依序套用正式專案 `qwxzwomzoyfkorbwsscv`。MCP 指派的 ledger timestamp 與原始檔名不同，對照如下；保留來源檔名，不因版本不同重跑、改名或 repair history。
 
-- `supabase/migrations/20261012024808_match_cancellation.sql`：2026-10-12 本機完成、尚未遠端部署。新增取消稽核欄位／`cancel_match()`、raw DML 保護、未繳費用取消與後續付款防復活、Next Up／個人成績／公開摘要／提醒 feed／教練排班排除取消；保留待審／已付／照片／名單。採目前 catalog 的唯一錨點擴充最新 function body 並保留 owner／ACL／SECURITY／search_path，必要來源不符則整筆中止。取消、開放繳費、費用同步、單場免繳與建立比賽付款各入口均先取共同 advisory lock，再鎖賽事及費用，避免同步關閉開放時與取消形成反序鎖。先在 staging 套 migration，再部署 `send-match-reminders` 與 `sync-match-calendar`，最後前端。`pnpm test:matches:sql` LF／CRLF 共 136 checks 通過；多連線 PostgreSQL、正式 RLS 與部署仍待驗收。見 [規格](specs/2026-10-12-match-cards-cancellation.md)。
+| 順序 | Source migration | 正式 ledger version |
+| --- | --- | --- |
+| 1 | `20261012024808_match_cancellation.sql` | `20261012055931` |
+| 2 | `20261012033832_match_restoration_audit.sql` | `20261012055958` |
+| 3 | `20261012053334_match_fee_cancellation_status.sql` | `20261012060020` |
+
+部署候選 `da1424c`，合併後 `main` 的 `f668f6f3` 與其 tree 一致。使用者明確同意本次無獨立 staging 的流程例外，以正式 catalog 隔離演練、Preview 與 post-check 替代；部署前確認無 drift，31 支正式函式及 default grants 的 LF／CRLF 演練 616 項、正式 catalog／ACL post-check 304 項通過。既有函式授權、四表政策及金額／付款模型保留；未呼叫正式業務 RPC、建立測試比賽／付款或派送通知。安全 advisor 僅新增預期的 private audit 無 policy 與三支 authenticated definer RPC 提示。多連線業務競態及獨立 Supabase staging 未實測；前端與 Edge 的發布／驗收狀態見 [發布規格](specs/2026-10-12-match-release.md)。本機證據位於 gitignored `output/playwright/match-cancellation/release/`。
+
+- `supabase/migrations/20261012053334_match_fee_cancellation_status.sql`：2026-10-12 已部署正式，ledger 版本 `20261012060020`。新增 `list_match_fee_items_by_month_with_match_status(text)` 包裝現有月份比賽費查詢並補整場取消時間／原因；不改舊 RPC 定義、付款、金額或餘額，沿用舊查詢已有同步。有效帳號與 `fees:VIEW/EDIT` 授權；須接在 `20261012024808_match_cancellation.sql` 及現有比賽費免繳 migration 後。隔離回歸 `tests/database/matchFeeCancellationStatus.integration.mjs --newline-matrix` 納入 `test:payments:sql`。
+
+- `supabase/migrations/20261012033832_match_restoration_audit.sql`：2026-10-12 已部署正式，ledger 版本 `20261012055958`；CLI 產生，必須接在 `20261012024808_match_cancellation.sql` 後。新增 `restore_match(uuid,timestamptz)` 與 private 取消／恢復歷程，收緊雙方向版本及重送；raw DML 不可清除取消、歷程不可覆寫或刪除。恢復重算未繳但不開放繳費，保留付款／免繳／餘額，教練來源依取消快照及最新資格／請假／衝突安全恢復。`tests/database/matchRestoration.integration.mjs` 納入 `test:matches:sql`；詳見 [恢復規格](specs/2026-10-12-match-restoration.md)。
+
+- `supabase/migrations/20261012024808_match_cancellation.sql`：2026-10-12 已部署正式，ledger 版本 `20261012055931`。新增取消稽核欄位／`cancel_match()`、raw DML 保護、未繳費用取消與後續付款防復活、Next Up／個人成績／公開摘要／提醒 feed／教練排班排除取消；保留待審／已付／照片／名單。採目前 catalog 的唯一錨點擴充最新 function body 並保留 owner／ACL／SECURITY／search_path，必要來源不符則整筆中止。取消、開放繳費、費用同步、單場免繳與建立比賽付款各入口均先取共同 advisory lock，再鎖賽事及費用，避免同步關閉開放時與取消形成反序鎖。本次依上述發布紀錄完成三份 DB 更新，相依 Edge／前端狀態見規格。`pnpm test:matches:sql` 取消／恢復 LF／CRLF 共 364 checks 通過；正式 catalog／ACL post-check 已通過，未以多連線或正式業務交易進行測試。見 [規格](specs/2026-10-12-match-cards-cancellation.md)。
 
 - `supabase/migrations/20260924014519_equipment_available_stock.sql`：裝備管理可用庫存操作。新增 `save_equipment_available_stock()`（CREATE／EDIT、row lock、版本檢查、使用／預留換算），`stock_set` 流水帳可用量前後欄位，及交易／請購異動版本 trigger。2026-09-24 已部署至正式專案，檔名已對齊遠端 migration history；不要再次手動執行舊檔 `20260924011641`，否則會出現重複欄位錯誤。新環境需先部署再發布前端；schema migration 本身不改寫既有庫存。隔離驗證：`scripts/verify-equipment-available-stock.mjs`。
 - `scripts/repair-equipment-stock-20260924.sql`：已依管理者確認的各尺寸可用量修正 7 項裝備整體基準，保持尺寸與交易／付款原值，新增 7 筆 `stock_set` 紀錄。先以交易回滾試跑，再正式執行；鎖定裝備並驗證原值及交易推算，資料不同即停止，成功後重跑不會新增紀錄。完整結果見 `docs/EQUIPMENT_STOCK_RECONCILIATION_20260924.md`。

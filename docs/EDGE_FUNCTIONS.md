@@ -1,10 +1,12 @@
 # Edge Functions And Environment
 
-- 誤取消恢復（2026-10-12 本機實作，待部署）：`restore_match()` 清除目前取消狀態後，原 `sync-match-calendar`／`send-match-reminders` 依既有時間、名單與去重條件重新納入同一場次；不新增恢復推播、不清除原派送事件、不補送過期排程。parser、sync handler 與 reminder handler 已新增取消→恢復→再次取消及既有 eventKey 去重回歸；本輪不新增 Edge 實作或 secret。
+- 誤取消恢復（2026-10-12 DB／Edge 已部署正式）：`restore_match()` 清除目前取消狀態後，原 `sync-match-calendar`／`send-match-reminders` 依既有時間、名單與去重條件重新納入同一場次；不新增恢復推播、不清除原派送事件、不補送過期排程。parser、sync handler 與 reminder handler 已新增取消→恢復→再次取消及既有 eventKey 去重回歸；本輪不新增 Edge 實作或 secret。
 
-- 2026-10-12 本機更新 `send-match-reminders`（待部署）：手動取消場次回傳 409；排程與健康檢查先排除取消，建立事件及派送前重新確認，取消／刪除／查詢失敗皆略過。須先部署 `20261012024808_match_cancellation.sql`；沿用既有 bearer／cron secret 驗證，無新增 secret。已交付推播服務的通知不能撤回。隔離 runtime 測試含派送前取消競態，發布說明見 `docs/specs/2026-10-12-match-cards-cancellation.md`。
+- 2026-10-12 正式更新 `send-match-reminders` v24 → v25（ACTIVE、`verify_jwt=true`）：手動取消場次回傳 409；排程與健康檢查先排除取消，建立事件及派送前重新確認，取消／刪除／查詢失敗皆略過。已先部署 `20261012024808_match_cancellation.sql`；沿用既有 bearer／cron secret 驗證，無新增 secret。已交付推播服務的通知不能撤回。隔離 runtime 測試含派送前取消競態，發布說明見 `docs/specs/2026-10-12-match-release.md`。
 - 同次發布須更新 `sync-match-calendar`：它引用共用 `googleCalendarParser.ts`，既有已取消場次由原 UID／fallback 配對後一律略過，外部欄位差異不覆蓋原資料，也不阻擋其他正常匯入。前端手動 fallback 與 Edge 預覽／自動同步使用同一規則。
 - `sync-match-calendar` 實際 UPDATE 與 optional-column 重試均帶 `cancelled_at IS NULL`，規劃後才取消／刪除而回傳零列時增加 `skipped_count`，不計為更新或補建；缺少取消欄位及真正 DB 錯誤仍失敗。`index.test.ts` 以完整 handler／真 parser 驗證 9 個案例，含 header/body secret、競態、欄位重試、bearer 僅預覽與拒絕未授權。須先部署取消 migration，無新增環境變數。
+- 同次正式 `sync-match-calendar` v17 → v18（ACTIVE、`verify_jwt=false`），保留既有 custom-secret／user bearer 驗證並將模式明列於 config。兩支回讀的 9 個 source/runtime 檔與發布候選 `da1424c` 逐字一致。兩支各自 OPTIONS=200、缺少／無效身分=401；提醒 dry-run=200、health checked=true，建立／派送皆為0。只部署這兩支，未更動 secrets、cron 或執行正常提醒／同步。
+- 此次保留的既有問題：部署前 v17 與部署後 v18 的授權 `dry_run` 均回報 Google Calendar 來源讀取失敗（HTTP 500）；本機同一來源可取得有效 102 個 iCal 事件，來源 URL／設定未改。從 2026-10-12 起的 21 場只讀比較顯示，目前 repo 既有 parser 基線會在下次成功同步更新 6 場請假名單；本次取消保護相對該基線沒有額外 action／payload 差異。未執行比較產生的同步計畫，也不能將本機成功視為正式同步成功。上線後結果見 [發布紀錄](specs/2026-10-12-match-release.md)。
 
 本文件整理 `supabase/functions/` 的 Edge Function、外部服務與環境變數。AI 修改 Edge Function、排程、外部 API、Web Push 或 AI 解析流程前，先讀本檔與對應 skill。
 

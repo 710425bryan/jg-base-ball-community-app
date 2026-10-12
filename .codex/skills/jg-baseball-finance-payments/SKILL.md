@@ -43,12 +43,12 @@ description: "Finance, fees, payment submissions, player balances, match fees, m
 - 一般月費／季費付款回報的 `expected_amount` 必須由 DB 估算並保存；使用者只能填 `reported_external_amount`。餘額扣抵只改變正確應付現金，不可改寫正式應收本金。
 - 季費堂數不足補償使用 `quarterly_fee_compensation_items`，只產生待審核單；核准後才寫入 `player_balance_transactions`。
 - 比賽費使用 `match_fee_items`、`match_payment_submissions`、`match_payment_submission_items`。
-- `/fees` 比賽費卡頭依 `list_match_fee_items_by_month_with_match_status()` 的 `match_cancelled_at` 顯示紅色「比賽已取消」、取消原因及停止開放提示，收合時仍可見；取消不提供開放／關閉入口。新 RPC 包裝原月份查詢，只補 `matches` 現況，不以明細取消／免繳／舊原因推測整場取消。`20261012053334_match_fee_cancellation_status.sql` 須在取消 migration 後部署；新 RPC 缺失時回退舊清單並將狀態欄位設 null，不掩蓋權限或其他錯誤。待審／已付金額與審核流程不變。
+- `/fees` 比賽費卡頭依 `list_match_fee_items_by_month_with_match_status()` 的 `match_cancelled_at` 顯示紅色「比賽已取消」、取消原因及停止開放提示，收合時仍可見；取消不提供開放／關閉入口。新 RPC 包裝原月份查詢，只補 `matches` 現況，不以明細取消／免繳／舊原因推測整場取消。`20261012053334_match_fee_cancellation_status.sql` 已於 2026-10-12 接續取消／恢復 migration 部署，正式 ledger 對照見 `docs/MIGRATIONS.md`，前端發布狀態見規格；新 RPC 缺失時回退舊清單並將狀態欄位設 null，不掩蓋權限或其他錯誤。待審／已付金額與審核流程不變。
 - 單場免繳在 `/fees` 比賽費明細由 `MatchFeeMemberList` 的開關設定，只影響該球員該場；`set_match_fee_item_exemption(uuid, boolean, timestamptz)` 需有效帳號及 `fees:EDIT`，先鎖場次再鎖費用、核對版本。待審／已付款或仍有付款關聯不可設定，須先退回；已駁回歷史保留金額快照。`match_fee_items.is_exempt` 保留原金額並搭配 `cancelled` 非應繳狀態，管理端顯示「單場免繳」，家長 `list_my_match_fee_items()` 不回傳該筆；同步不得復活免繳，關閉後依最新參賽／請假／收費資格恢復。修改應收仍沿用既有重新開放規則，含免繳的取消群組不得直接刪除。須先部署 `supabase/migrations/20260927040433_match_fee_single_match_exemptions.sql`。
 - 比賽費先產生供管理端核對，預設不提供家長付款；只有 `fees:EDIT` 可透過 `set_match_fee_payment_open_state()` 開放 / 關閉，`fees:DELETE` 才可透過 `delete_cancelled_match_fee_group()` 刪除安全的全取消群組。
 - 取消比賽 migration `20261012024808_match_cancellation.sql` 統一取消、開放繳費、費用同步、單場免繳與建立比賽付款的鎖定順序：共用教練來源 advisory lock → 賽事 → 費用。`sync_match_fee_items_for_match()` 可能因應收簽章異動而更新賽事，故已先鎖賽事的呼叫者也必須在入口取得 advisory lock，不可只補 sync。保留 owner／ACL／SECURITY／search_path；取消及既有付款 SQL 回歸均須通過。
 - 比賽費開放成功後只刷新清單與顯示成功訊息，不自動通知家長；`send-match-fee-payment-notifications` 保留但不再接入管理端開放流程。
-- 恢復誤取消比賽須走 `restore_match()`（`20261012033832_match_restoration_audit.sql`，待部署）；沿用 advisory→match→fee 鎖定順序，按現有規則同步未繳項目但不自動開放繳費，保留單場免繳／待審／已付款／金額快照／付款歷史與球員餘額。恢復不能視為退款或付款回滾，需跑完整計算與付款 SQL 回歸。
+- 恢復誤取消比賽須走 `restore_match()`（`20261012033832_match_restoration_audit.sql`，DB 已於 2026-10-12 部署）；沿用 advisory→match→fee 鎖定順序，按現有規則同步未繳項目但不自動開放繳費，保留單場免繳／待審／已付款／金額快照／付款歷史與球員餘額。恢復不能視為退款或付款回滾，需跑完整計算與付款 SQL 回歸。
 - 裝備付款使用 `equipment_payment_submissions`，在 `/equipment-purchases` 與 `/my-payments` 整合顯示；舊 `/fees?tab=equipment` 只作相容轉向。
 - `/equipment-purchases` 前端入口使用 `fees:VIEW`，異動與刪除分別使用 `fees:EDIT / DELETE`；既有 DB `fees OR equipment` 權限保持不變。
 - 裝備加購申請只要到 `approved`（已核准）即可回報付款，不需要等到 `ready_for_pickup` 或 `picked_up`；調整裝備付款時要同步前端可勾選條件與 RPC 可付範圍。

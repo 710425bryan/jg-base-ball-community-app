@@ -1,9 +1,13 @@
 # Feature Spec：恢復已取消比賽
 
-- 狀態：`IMPLEMENTED`；Delivery 目標：`IMPLEMENTED`（本機實作與隔離驗證完成，未部署）
+- 狀態：`DEPLOYED`；Delivery 目標：`PRODUCTION`（2026-10-12 隨 1.1.77 上線）
 - 日期：2026-10-12
 - 需求：誤取消比賽後，可關閉取消狀態並恢復原賽事。
 - 沿用 project-workflow、delivery-workflow、match-records-media、auth-permissions、finance-payments、match-calendar-sync 與 Supabase skills。
+
+## 正式發布更新（2026-10-12）
+
+恢復 migration 已接續取消 migration 部署正式，Edge 與前端 1.1.77 同批發布。CI／Preview／正式 catalog 304 項與網站資產／登入入口驗收通過；正式未操作真實賽事或付款作測試。使用者已核准本次獨立 staging 的替代驗證。完整版本、來源對照、已知 Calendar 來源讀取問題與其餘限制見 [發布紀錄](2026-10-12-match-release.md)。以下本機階段的驗證與尚未部署文字保留為歷史紀錄，發布現況以上述紀錄為準。
 
 ## 行為與驗收
 

@@ -1,9 +1,15 @@
 # 比賽卡片與取消比賽
 
 - 日期：2026-10-12（台灣）
-- 交付目標：`IMPLEMENTED`；本機實作與隔離驗證，尚未部署。
+- 交付目標：`PRODUCTION`；狀態 `DEPLOYED`，2026-10-12 隨 1.1.77 上線。
 - 需求：依桌機／手機設計圖重整未來賽事及賽事紀錄卡片，直接顯示上傳圖片與預設封面；集合時間、比賽時間、地點醒目；新增取消比賽。
 - 採用流程：project-workflow、match-records-media、auth-permissions、finance-payments、delivery-workflow，以及 Supabase / imagegen skills。
+
+## 正式發布更新（2026-10-12）
+
+比賽卡片、取消／恢復、費用取消標示已一併部署。三份 DB migration、提醒 v25、同步 v18 及前端 1.1.77 完成；CI、Preview、正式 catalog 與網站資產／登入入口驗收通過。使用者明確核准本次以隔離演練替代缺少的獨立 staging。正式 Calendar dry-run 仍有部署前已存在的來源讀取 HTTP 500；完整版本對照、證據及限制以 [發布紀錄](2026-10-12-match-release.md) 為準。
+
+以下驗證段落保留各次本機開發當時的紀錄；其中「尚未部署」描述的是當時狀態，已由上述正式發布更新取代。
 
 ## 確認的行為
 
