@@ -18,6 +18,8 @@ import MatchLiveController from './MatchLiveController.vue'
 import MatchLineupTab from './MatchLineupTab.vue'
 import MatchAudioRecorder from './MatchAudioRecorder.vue'
 import MatchFieldEditor from './MatchFieldEditor.vue'
+import MatchPitchingStatsEditor from './MatchPitchingStatsEditor.vue'
+import { createEmptyPitchingStat, isValidPitchingOuts } from '@/utils/matchPitchingStats'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import { cloneLineScoreData, createDefaultLineScoreData, finalizeInningScore, getNextInning } from '@/utils/liveMatchScoreboard'
 import { buildMatchAudioRoster } from '@/utils/matchAudioTranscription'
@@ -849,24 +851,6 @@ const createEmptyBattingStat = (name = '', number = ''): BattingStat => ({
   sb: 0
 })
 
-const createEmptyPitchingStat = (name = '', number = ''): PitchingStat => ({
-  name,
-  number,
-  ip: 0,
-  h: 0,
-  h2: 0,
-  h3: 0,
-  hr: 0,
-  r: 0,
-  er: 0,
-  bb: 0,
-  so: 0,
-  np: 0,
-  ab: 0,
-  go: 0,
-  ao: 0
-})
-
 const loadLineupToStats = () => {
   const newStats: BattingStat[] = []
   formData.value.lineup.forEach(l => {
@@ -903,8 +887,6 @@ const loadCurrentLineupToPitchingStats = () => {
 
 const getHits = (stat: BattingStat) => (stat.h1 || 0) + (stat.h2 || 0) + (stat.h3 || 0) + (stat.hr || 0)
 const getAvg = (stat: BattingStat) => stat.ab > 0 ? (getHits(stat) / stat.ab).toFixed(3).replace(/^0/, '') : '.000'
-const formatIP = (outs: number) => `${Math.floor((Number(outs) || 0) / 3)}.${(Number(outs) || 0) % 3}`
-const getEra = (stat: PitchingStat) => stat.ip > 0 ? (((stat.er || 0) * 7) / (stat.ip / 3)).toFixed(2) : '0.00'
 
 const getStatPlayerNumber = (name: string) =>
   activeGameLineup.value.find((player) => player.name === name)?.number ||
@@ -1054,6 +1036,12 @@ const handleSave = async () => {
   if (!formData.value.match_name || !formData.value.opponent) {
     ElMessage.error('請填寫賽事名稱與對手')
     activeTab.value = 'basic'
+    return
+  }
+
+  if (formData.value.pitching_stats?.some((stat) => !isValidPitchingOuts(stat.ip))) {
+    activeTab.value = 'pitching'
+    ElMessage.error('投手出局數請填 0 以上整數；投 ⅔ 局請填 2，不是 0.66')
     return
   }
   
@@ -1755,83 +1743,12 @@ const handlePhotoUpload = async (event: Event) => {
         </div>
 
         <!-- === TAB 5: PITCHING STATS === -->
-        <div v-show="activeTab === 'pitching'" class="space-y-4 animate-fade-in pr-2">
-          <div class="flex items-center justify-between bg-slate-100 p-4 rounded-xl border border-slate-200">
-            <div>
-              <h3 class="font-extrabold text-slate-800 text-sm">投手成績輸入</h3>
-              <p class="text-xs text-slate-500 mt-0.5">局數、被安打、保送、三振、用球數</p>
-            </div>
-            <div class="flex flex-wrap justify-end gap-2">
-              <el-button @click="loadCurrentLineupToPitchingStats" type="primary" plain size="small" class="!font-bold bg-white">
-                載入目前投手
-              </el-button>
-              <el-button @click="recalculatePitchingStatsFromLogs" color="#D99026" size="small" class="!font-bold !text-white">
-                從逐局重算
-              </el-button>
-            </div>
-          </div>
-
-          <div class="overflow-x-auto min-h-[300px] custom-scrollbar border border-gray-200 rounded-xl">
-            <table class="w-full text-[11px] text-center border-collapse whitespace-nowrap">
-              <thead>
-                <tr class="bg-gray-100 text-gray-600 font-black">
-                  <th class="p-2 border-b border-gray-200 text-left pl-3 sticky left-0 z-10 bg-gray-100">投手</th>
-                  <th class="p-2 border-b border-gray-200">局數</th>
-                  <th class="p-2 border-b border-gray-200">出局數</th>
-                  <th class="p-2 border-b border-gray-200">打數</th>
-                  <th class="p-2 border-b border-gray-200">被安</th>
-                  <th class="p-2 border-b border-gray-200">被二安</th>
-                  <th class="p-2 border-b border-gray-200">被三安</th>
-                  <th class="p-2 border-b border-gray-200">被全壘</th>
-                  <th class="p-2 border-b border-gray-200">失分</th>
-                  <th class="p-2 border-b border-gray-200">責失</th>
-                  <th class="p-2 border-b border-gray-200">四壞</th>
-                  <th class="p-2 border-b border-gray-200">三振</th>
-                  <th class="p-2 border-b border-gray-200">球數</th>
-                  <th class="p-2 border-b border-gray-200">滾出</th>
-                  <th class="p-2 border-b border-gray-200">飛出</th>
-                  <th class="p-2 border-b border-gray-200">防禦率</th>
-                  <th class="p-2 border-b border-gray-200">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(s, i) in formData.pitching_stats" :key="`pitch-${i}`" class="border-b border-gray-100/50 hover:bg-gray-50 transition-colors">
-                  <td class="p-1 pl-3 sticky left-0 z-10 bg-white">
-                    <div class="flex items-center gap-1 pr-2">
-                      <el-input v-model="s.name" size="small" class="w-24" placeholder="姓名" />
-                      <el-input v-model="s.number" size="small" class="!w-14" placeholder="#" />
-                    </div>
-                  </td>
-                  <td class="p-1 font-mono font-black text-primary">{{ formatIP(s.ip) }}</td>
-                  <td class="p-1"><el-input-number v-model="s.ip" :controls="false" :min="0" size="small" class="!w-10 !px-0" /></td>
-                  <td class="p-1"><el-input-number v-model="s.ab" :controls="false" :min="0" size="small" class="!w-10 !px-0" /></td>
-                  <td class="p-1"><el-input-number v-model="s.h" :controls="false" :min="0" size="small" class="!w-10 !px-0" /></td>
-                  <td class="p-1"><el-input-number v-model="s.h2" :controls="false" :min="0" size="small" class="!w-10 !px-0" /></td>
-                  <td class="p-1"><el-input-number v-model="s.h3" :controls="false" :min="0" size="small" class="!w-10 !px-0" /></td>
-                  <td class="p-1"><el-input-number v-model="s.hr" :controls="false" :min="0" size="small" class="!w-10 !px-0" /></td>
-                  <td class="p-1"><el-input-number v-model="s.r" :controls="false" :min="0" size="small" class="!w-10 !px-0" /></td>
-                  <td class="p-1"><el-input-number v-model="s.er" :controls="false" :min="0" size="small" class="!w-10 !px-0" /></td>
-                  <td class="p-1"><el-input-number v-model="s.bb" :controls="false" :min="0" size="small" class="!w-10 !px-0" /></td>
-                  <td class="p-1"><el-input-number v-model="s.so" :controls="false" :min="0" size="small" class="!w-10 !px-0" /></td>
-                  <td class="p-1"><el-input-number v-model="s.np" :controls="false" :min="0" size="small" class="!w-12 !px-0" /></td>
-                  <td class="p-1"><el-input-number v-model="s.go" :controls="false" :min="0" size="small" class="!w-10 !px-0" /></td>
-                  <td class="p-1"><el-input-number v-model="s.ao" :controls="false" :min="0" size="small" class="!w-10 !px-0" /></td>
-                  <td class="p-1 font-mono font-black text-primary">{{ getEra(s) }}</td>
-                  <td class="p-1"><el-button type="danger" size="small" text @click="formData.pitching_stats?.splice(i, 1)"><el-icon><Minus /></el-icon></el-button></td>
-                </tr>
-                <tr v-if="!formData.pitching_stats?.length">
-                  <td colspan="17" class="p-8 text-gray-400 font-bold italic">
-                    目前沒有投手成績，請先載入目前投手或手動新增。
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div class="flex justify-end pt-2">
-            <el-button @click="formData.pitching_stats?.push(createEmptyPitchingStat())" size="small" plain><el-icon class="mr-1.5"><Plus /></el-icon>新增投手</el-button>
-          </div>
-        </div>
+        <MatchPitchingStatsEditor
+          v-show="activeTab === 'pitching'"
+          v-model="formData.pitching_stats"
+          @load-current="loadCurrentLineupToPitchingStats"
+          @recalculate="recalculatePitchingStatsFromLogs"
+        />
 
       </div>
     </div>

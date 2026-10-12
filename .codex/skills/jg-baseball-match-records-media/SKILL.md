@@ -49,6 +49,7 @@ description: "Match records, schedule detail, dashboard Next Up, lineup, media, 
 - `/my-records` 透過 `myPlayerRecords` RPC 讀 linked member 可見紀錄，不直接使用後台 `matchesApi` 列表。
 - Dashboard Next Up 走 `get_my_home_next_event(p_member_id, p_today)`；只顯示目前選取 linked member 有列在 `matches.players`、台灣今天至六天後且尚未結束的非特訓比賽。空白名單、RPC 錯誤或沒有符合賽事時隱藏卡片，不得 fallback 到未驗證的全隊賽事。
 - 比賽照片使用 `matches-photos` bucket。
+- 編輯投手成績使用 `MatchPitchingStatsEditor` 與 `matchPitchingStats`；`PitchingStat.ip` 是非負整數出局數，2 顯示 `0.2`（⅔ 局）、9 顯示 `3.0`。小數／空值在表單保留供更正，局數與防禦率預覽顯示 `—`；父層儲存阻擋並切回投手頁籤。不可用 precision／step-strictly 將 `0.66` 靜默四捨五入，也不可猜測並批次轉換既有資料。
 - 歷史、今日與未來賽事的假單同步請假列走 `matchLeaveAbsences` service、`supabase_match_leave_absences_migration.sql` 與歷史同步補強 migration，只管理 `matches.absent_players` 中 `source = 'leave_request'` 的列。
 - 賽事出席率以 `matches.players` 的每人每場入選紀錄為唯一分母；同場 `absent_players` 命中時改計請假，不可再額外增加一次應到場次，也不可統計未入選球員的請假列。
 - `MatchAttendanceStatsTab` 提供姓名／背號搜尋；「應出席」數字的 hover 清單需保留日期、時間、賽事名稱、對手、級別與該場出席／請假狀態。
@@ -86,6 +87,7 @@ description: "Match records, schedule detail, dashboard Next Up, lineup, media, 
 
 - 基本檢查：`pnpm exec vue-tsc --noEmit`
 - 賽事 API：`pnpm exec vitest run src/services/matchesApi.test.ts`
+- 投手出局數：`pnpm exec vitest run src/utils/matchPitchingStats.test.ts src/components/match-records/MatchPitchingStatsEditor.test.ts src/components/match-records/__tests__/MatchFormDialog.test.ts`，驗證實際 Element Plus 輸入 `0.66` 的錯誤、改成 2 顯示 `0.2`、新增／編輯儲存阻擋與更正後送出。
 - 陣容 / 即時 / 語音：`pnpm exec vitest run src/utils/matchFieldEditor.test.ts src/utils/liveMatchScoreboard.test.ts src/utils/matchAudioTranscription.test.ts src/utils/lineupPhotoParser.test.ts supabase/functions/parse-lineup/index.test.ts`
 - 賽事提醒 / 天氣：`pnpm exec vitest run src/utils/matchReminderNotification.test.ts src/services/weatherApi.test.ts supabase/functions/resolve-location/logic.test.ts`
 - UI 或媒體流程風險高時跑：`pnpm build`

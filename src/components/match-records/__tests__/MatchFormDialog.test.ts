@@ -4,6 +4,7 @@ import { nextTick } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import MatchFormDialog from '../MatchFormDialog.vue'
 import { previewMatchLeaveAbsences } from '@/services/matchLeaveAbsences'
+import { createEmptyPitchingStat } from '@/utils/matchPitchingStats'
 
 const matchesStore = vi.hoisted(() => ({
   matches: [],
@@ -266,6 +267,53 @@ describe('MatchFormDialog no-fee match participation', () => {
       pitching_stats: [expect.objectContaining({ name: '免收費校隊', number: '98', so: 3 })]
     })
     if (mode === 'edit') expect(matchesStore.updateMatch.mock.calls[0][0]).toBe('existing-match')
+  })
+})
+
+describe('MatchFormDialog pitching outs validation', () => {
+  it.each(['add', 'edit'] as const)('blocks decimal outs from any tab and saves corrected whole outs in %s mode', async (mode) => {
+    const wrapper = await mountDialog(mode)
+    const vm = wrapper.vm as any
+    await flushPromises()
+    Object.assign(vm.formData, {
+      match_name: '投手出局數測試',
+      opponent: '對手',
+      pitching_stats: [{ ...createEmptyPitchingStat('測試投手', '8'), ip: 0.66, so: 3 }]
+    })
+    vm.activeTab = 'basic'
+    await vm.handleSave()
+    await nextTick()
+    expect(matchesStore.createMatch).not.toHaveBeenCalled()
+    expect(matchesStore.updateMatch).not.toHaveBeenCalled()
+    expect(vm.activeTab).toBe('pitching')
+    expect(vm.formData.pitching_stats[0].ip).toBe(0.66)
+    expect(wrapper.get('[role="alert"]').text()).toContain('投 ⅔ 局請填 2')
+
+    vm.formData.pitching_stats[0].ip = 2
+    await vm.handleSave()
+    await nextTick()
+    const saveMock = mode === 'add' ? matchesStore.createMatch : matchesStore.updateMatch
+    expect(saveMock).toHaveBeenCalledTimes(1)
+    expect(saveMock.mock.calls[0][mode === 'add' ? 0 : 1].pitching_stats).toEqual([
+      expect.objectContaining({ name: '測試投手', number: '8', ip: 2, so: 3 })
+    ])
+    expect(wrapper.get('[data-testid="pitching-innings"]').text()).toBe('0.2')
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it.each([null, undefined, -1, NaN, Infinity])('blocks invalid or empty outs %s before saving', async (ip) => {
+    const wrapper = await mountDialog()
+    const vm = wrapper.vm as any
+    await flushPromises()
+    Object.assign(vm.formData, {
+      match_name: '投手出局數測試', opponent: '對手',
+      pitching_stats: [{ ...createEmptyPitchingStat(), ip }]
+    })
+    await vm.handleSave()
+    expect(matchesStore.createMatch).not.toHaveBeenCalled()
+    expect(vm.activeTab).toBe('pitching')
+    wrapper.unmount()
   })
 })
 
