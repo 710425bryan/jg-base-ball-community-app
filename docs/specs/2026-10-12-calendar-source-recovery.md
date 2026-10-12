@@ -1,8 +1,9 @@
 # 行事曆來源讀取修復與同步驗證
 
 - 日期：2026-10-12（台灣）
-- 目標：`PRODUCTION`；狀態：`BLOCKED`（正式來源持續回429，完整修復與前端正式發布未完成；Edge診斷修正已部署）。
+- 目標：`PRODUCTION`；狀態：`READY_FOR_RELEASE`（使用者已排除來源限流修復／Google API設定；發布已驗證的安全讀取與前端錯誤處理，來源仍有已知429限制）。
 - 使用者要求：修好行事曆來源讀取錯誤，確認手動與排程正常、已取消比賽不被覆蓋，部署正式環境。
+- 2026-10-12 06:45 UTC範圍調整：使用者回覆尚未設定Calendar API後，明確要求「幫我跳過這個部分」。因此不新增Google API／金鑰、不再重試來源、不執行正式同步測試；延續原部署授權完成其餘修正。不能把這個例外寫成Google來源已恢復或手動／排程正式同步已驗證成功。
 - 起點：main `beb442d234b49cdf2b6dee436a74dcce50a43a32`、前端1.1.77、正式 `sync-match-calendar` v18。
 - 採用 project-workflow、delivery-workflow、match-calendar-sync、auth-permissions 與 Supabase skills；延續同一發布工作的替代 staging 授權，不將隔離測試稱為獨立 staging。
 
@@ -20,7 +21,7 @@
 - 手動預覽與排程使用相同來源規則；429不擴大請求，也不顯示完成。
 - 取消場次以UID／既有fallback匹配時skip；規劃後才取消的UPDATE仍以 `cancelled_at IS NULL` 保護，每次schema相容重試保留條件；零列不可重建。
 - 恢復後仍可更新原ID，沒有不必要的費用、通知、角色或資料庫變更。
-- 正式修正後須有來源成功、同步規劃及受控排程執行證據；若上游仍限流，明確列為未完成，不以錯誤處理改善代替修復。
+- 原驗收要求正式來源成功與受控排程同步；依使用者最新範圍排除，兩者列為「未驗證／已知限制」，不再阻擋其餘修正發布，也不以錯誤處理改善代替成功同步。
 
 ## 驗證與安全
 
@@ -36,8 +37,8 @@
 - 前端候選版本1.1.78，版本產物由Vite plugin產生。
 - DB migration：預計無；保留前次已部署取消／恢復／費用標示結構。
 - 只發布 `sync-match-calendar`，保留 `verify_jwt=false` 及既有custom-secret／user bearer權限；不發布提醒或其他函式。
-- 順序：完成review／測試／CI → 精確function部署與受控只讀驗證 → 手動與排程驗證 → 前端發布／正式驗收。
-- 若429持續，保留可診斷證據、停止無效重試，評估上游解除限制或有正式授權的Google API；不得宣稱已正常同步。
+- 順序：review／測試／CI → 精確function部署與受控只讀驗證（已執行，確認上游429）→ 使用者排除來源修復／正式同步成功驗收 → 前端發布／正式靜態及登入入口驗收。
+- 429持續時保留可診斷證據、不宣稱已正常同步；使用者已要求跳過本部分，後續Google API方案不在本次實作／部署範圍。
 - 回復為本次發佈前v18來源／1.1.77前端；必須保留取消skip與原子UPDATE防護。不自動還原已成功同步的業務資料。
 
 ## 結果
@@ -56,4 +57,6 @@
 
 證據（ignored）：`.codex/runtime/releases/2026-10-12-calendar-source-recovery/` 的 pnpm-check、Edge before/after、聚合dry-run JSON；`output/playwright/calendar-source-recovery/manual-sync/` 的4情境及截圖。沒有保存來源事件內容、登入token或secret。
 
-若公開iCal仍持續限流，下一步需上游恢復或現有的Google Calendar API授權設定；已詢問使用者是否具備與設定位置，不要求在對話貼金鑰。官方API的[public events唯讀scope](https://developers.google.com/workspace/calendar/api/auth)及[API key／OAuth授權選擇](https://developers.google.com/workspace/guides/create-credentials)可供最小權限方案評估；本次尚未切換API或新增憑證。
+後續只讀確認Google Cloud已登入，選取專案「JG manager project」，尚未建立Calendar API憑證；06:43:21 UTC額外一次dry-run仍為503／上游429。使用者隨後明確要求跳過公開行事曆部分，已關閉查閱頁面，沒有啟用API、建立金鑰或變更Cloud設定。不因行事曆所有者不同就推斷必然429；本次只確認實際收到的上游回應。
+
+官方API的[public events唯讀scope](https://developers.google.com/workspace/calendar/api/auth)及[API key／OAuth授權選擇](https://developers.google.com/workspace/guides/create-credentials)僅保留作未來參考，未納入本次發布。現有已取消比賽skip／原子UPDATE保護繼續有效，來源失敗不寫入任何比賽。
