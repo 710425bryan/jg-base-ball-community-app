@@ -12,12 +12,18 @@ const normalizeMetaRow = (row: any): PlayerRosterCacheMeta => ({
   latest_changed_at: row?.latest_changed_at ? String(row.latest_changed_at) : null
 })
 
+// Synchronization must see tombstones so deleted members are never inserted again.
+// This full-data RPC remains restricted to players:EDIT by the database.
+export const fetchPlayerRosterSyncRows = async () => {
+  const { data, error } = await supabase.rpc('list_team_members_for_edit')
+  if (error) throw error
+  return data || []
+}
+
 export const fetchPlayerRosterRows = async (sourceScope: PlayerRosterSourceScope) => {
   if (sourceScope === 'full') {
-    const { data, error } = await supabase.rpc('list_team_members_for_edit')
-
-    if (error) throw error
-    return data || []
+    const rows = await fetchPlayerRosterSyncRows()
+    return rows.filter((row: any) => !row?.deleted_at)
   }
 
   const { data, error } = await supabase
@@ -27,7 +33,7 @@ export const fetchPlayerRosterRows = async (sourceScope: PlayerRosterSourceScope
     .order('name')
 
   if (error) throw error
-  return data || []
+  return (data || []).filter((row: any) => !row?.deleted_at)
 }
 
 export const fetchPlayerRosterMeta = async (): Promise<PlayerRosterCacheMeta> => {

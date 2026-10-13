@@ -18,6 +18,8 @@ description: "Player roster sync workflow for jg-base-ball-community-app. Use wh
 
 ## 不可破壞規則
 
+- 軟刪除成員不在畫面名單中，但 Google 同步必須用 `fetchPlayerRosterSyncRows()` 的完整 EDIT RPC snapshot 建立 `buildPlayerSyncMemberMap()`；同名已刪除標記優先，整列略過，不新增新 ID、推播或家長綁定。手足正規化使用完整關聯圖但只對 `getWritablePlayerSyncMembers()` 寫入，半價清理 ID 亦需過濾不可寫成員；不得復活或覆寫已刪主列。原 profile 綁定與不可見手足關聯保留。DB `20261013005735_team_member_soft_deletion.sql` 必須先部署。
+
 - `match_fee_enabled` 與 `match_fee_start_date` 不可由 Google 同步覆蓋；payload 省略這兩欄，新增時由 DB trigger 初始化，既有成員保留人工開關與生效日期。
 
 - Google 同步不得覆蓋既有成員的 `team_members.is_primary_payer`、`team_members.is_half_price` 與 `team_members.fee_billing_mode`。
