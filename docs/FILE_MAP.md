@@ -99,6 +99,7 @@
 | `src/services/schoolTeamMonthlyFeeSettings.ts` | 中港校隊計次費率與國中部單次月費／訓練日期模式設定 RPC | `system_settings.chunggang_monthly_per_session_defaults`、`system_settings.xintai_monthly_per_session_defaults` |
 | `src/services/myPlayerRecords.ts` | 我的成績 RPC | `list_my_player_record_members()`、`get_my_player_match_records()` |
 | `src/services/playerRosterApi.ts` | 球員名單 safe/full 分流與 cache meta RPC | `team_members_safe` / `list_team_members_for_edit()` / `get_team_members_cache_meta()` |
+| `src/services/playerRosterMutations.ts` | 隊職員軟刪除 RPC，核對回傳目標 ID | `soft_delete_team_member()`／`players:DELETE`；保留 DB 紀錄、付款與歷史 |
 | `src/services/playerIdentitiesApi.ts` | 自訂社區身分名稱選項讀取 | `player_identity_labels` SELECT RLS；寫入隨球員儲存的私有 trigger |
 | `src/services/registrationFormsApi.ts` | 賽事報名 CRUD、範本關聯／清單、generation log、私有原檔下載與 Edge binary 呼叫 | `registration_form_events` / `registration_form_event_templates` / `registration_form_templates` / `registration-form-documents` |
 | `src/services/teamGroupsApi.ts` | team group 設定 RPC | `team_group_settings` 相關 RPC |
@@ -131,6 +132,7 @@
 | 檔案 | 用途 |
 | --- | --- |
 | `src/composables/useVersionCheck.ts` | 版本輪詢與更新列 |
+| `src/composables/usePlayerSoftDelete.ts` | 隊職員軟刪除的確認、權限重查、防重送、持續錯誤、清除舊名單及成功刷新 |
 | `src/composables/useNotificationFeed.ts` | 通知中心資料 controller |
 | `src/composables/useNotificationFeedRefresh.ts` | MainLayout 初次／前景／開啟／異動刷新協調；與 controller 去重修正納入 1.1.76、準備發行 |
 | `src/composables/useHolidayTheme.ts` | 節日主題公開設定、v2 config normalize |
@@ -138,6 +140,8 @@
 | `src/composables/useUnsavedChangesGuard.ts` | 頁面草稿的站內離頁／瀏覽器關閉保護、active guard 與登出一次性 bypass |
 
 ## 7. Utils
+
+隊職員軟刪除另參見 `src/utils/playerRosterSiblings.ts`（不可見手足 ID 保留與可見選取分離）、`tests/database/playerSoftDeletion.integration.mjs`（原 FK 重現及完整歷史保留）、`tests/browser/verify-player-soft-delete.mjs`（真實頁面隔離驗證）及 `supabase/migrations/20261013005735_team_member_soft_deletion.sql`。
 
 | 檔案 | 用途 |
 | --- | --- |

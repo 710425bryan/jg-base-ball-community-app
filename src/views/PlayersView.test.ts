@@ -3,6 +3,58 @@ import { describe, expect, it } from 'vitest'
 
 const source = readFileSync(new URL('./PlayersView.vue', import.meta.url), 'utf8')
 
+describe('PlayersView soft deletion integration', () => {
+  it('uses the tested soft-delete workflow and retains the original permission boundaries', () => {
+    expect(source).toContain("from '@/services/playerRosterMutations'")
+    expect(source).toContain("from '@/composables/usePlayerSoftDelete'")
+    expect(source).toContain('v-if="isEditing && canDeletePlayers" @click="confirmSoftDelete"')
+    expect(source).toContain('canDelete: () => canDeletePlayers.value')
+    expect(source).toContain('softDeleteMember: softDeletePlayer')
+    expect(source).not.toMatch(/from\('team_members'\)\.delete\(/)
+    expect(source).toContain('refreshRoster: () => playerRosterStore.refreshRoster(')
+    expect(source).toContain('invalidateRoster: () => playerRosterStore.clearRosterCache()')
+    expect(source).toContain('未儲存的表單修改不會一併儲存')
+    expect(source).toContain('所有名單（含退隊名單）隱藏')
+  })
+
+  it('deduplicates synchronization against deleted members and does not change their history or links', () => {
+    const sync = source.slice(source.indexOf('const syncFromGoogleSheet ='), source.indexOf('const fetchData ='))
+    expect(sync).toContain('const syncSnapshot = await fetchPlayerRosterSyncRows()')
+    expect(sync).toContain('const existingMap = buildPlayerSyncMemberMap<any>(syncSnapshot)')
+    expect(sync).not.toContain('members.value.forEach')
+    expect(sync.indexOf('if (existingMember?.deleted_at) continue')).toBeLessThan(sync.indexOf('syncRows.push('))
+    expect(sync.indexOf('if (existingMember?.deleted_at) continue')).toBeLessThan(sync.indexOf('guardianAccountInputs.push('))
+    expect(source).toContain('getWritablePlayerSyncMembers(normalizedMembers).filter(')
+    expect(source).toContain('getWritablePlayerSyncMembers(memberList)')
+    expect(source).toContain('is_half_price, sibling_ids, deleted_at')
+    expect(source).toContain('const halfPriceCleanupIds = filterWritablePlayerSyncMemberIds(')
+    expect(source).toContain('buildSiblingHalfPriceCleanupIds(savedMember.id, normalizedMembers),')
+  })
+
+  it('preserves hidden sibling relations in display and drafts while keeping hidden IDs out of selectors', () => {
+    expect(source).toContain('buildMembersWithNormalizedSiblings(playerRosterStore.members, { preserveHiddenReferences: true })')
+    expect(source).toContain('const normalizedMembers = buildMembersWithNormalizedSiblings(memberList)')
+    expect(source).toContain('v-model="visibleFormSiblingIds"')
+    expect(source).toContain('getVisiblePlayerSiblingIds(form.sibling_ids, siblingOptionIds.value)')
+    expect(source).toContain('form.sibling_ids = mergeVisiblePlayerSiblingIds(form.sibling_ids, selectedIds, siblingOptionIds.value)')
+    expect(source).not.toContain('v-model="form.sibling_ids"')
+  })
+
+  it('keeps errors visible and clears them when opening another form or closing', () => {
+    expect(source).toContain('<el-alert v-if="removalError"')
+    expect(source).toContain('@closed="clearRemovalError"')
+    const createForm = source.slice(source.indexOf('const openCreateModal ='), source.indexOf('const openEditModal ='))
+    const editForm = source.slice(source.indexOf('const openEditModal ='), source.indexOf('const submitForm ='))
+    expect(createForm).toContain('clearRemovalError()')
+    expect(editForm).toContain('clearRemovalError()')
+    expect(source).toContain('if (!formRef.value || isSubmitting.value || isRemoving.value) return')
+    expect(source).toContain('if (isSubmitting.value || isRemoving.value) return')
+    expect(source.match(/:disabled="isSubmitting \|\| isRemoving"/g)).toHaveLength(3)
+    expect(source).toContain(':close-on-click-modal="!isRemoving"')
+    expect(source).toContain(':close-on-press-escape="!isRemoving"')
+  })
+})
+
 describe('PlayersView guardian account role integration', () => {
   it('resolves new-account permissions from stable keys and retains the reload and fallback paths', () => {
     expect(source).toContain("from '@/utils/guardianAccountRole'")

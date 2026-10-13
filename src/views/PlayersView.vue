@@ -414,9 +414,12 @@
       width="95%"
       style="max-width: 700px; border-radius: 16px;"
       :show-close="false"
+      :close-on-click-modal="!isRemoving"
+      :close-on-press-escape="!isRemoving"
+      @closed="clearRemovalError"
       class="custom-dialog"
     >
-      <el-form :model="form" :rules="rules" ref="formRef" label-position="top" class="players-member-form mt-4 space-y-6 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+      <el-form :model="form" :rules="rules" :disabled="isRemoving" ref="formRef" label-position="top" class="players-member-form mt-4 space-y-6 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
         
         <!-- 大頭貼上傳 -->
         <div class="flex justify-center mb-6">
@@ -538,8 +541,8 @@
               <template #label>
                 <div class="inline-flex items-center gap-1 leading-none mr-3">相關手足 (兄弟姊妹) <el-tooltip content="請選擇有在球隊的兄弟姊妹。系統將依據「主要繳費人」設定自動給予半價優惠" placement="top"><el-icon class="text-gray-400 cursor-help"><InfoFilled /></el-icon></el-tooltip></div>
               </template>
-              <el-select v-model="form.sibling_ids" multiple placeholder="無" clearable filterable class="w-full">
-                <el-option v-for="m in members.filter(x => x.id !== form.id && (x.role === '球員' || x.role === '校隊'))" :key="m.id" :label="m.name" :value="m.id" />
+              <el-select v-model="visibleFormSiblingIds" multiple placeholder="無" clearable filterable class="w-full">
+                <el-option v-for="m in siblingOptions" :key="m.id" :label="m.name" :value="m.id" />
               </el-select>
             </el-form-item>
           </div>
@@ -632,16 +635,17 @@
       </el-form>
 
       <template #footer>
+        <el-alert v-if="removalError" title="刪除未完成" :description="removalError" type="error" show-icon :closable="false" class="mb-3 text-left" />
         <div class="flex justify-between items-center mt-4 pt-4 border-t border-gray-100">
-          <button v-if="isEditing && canDeletePlayers" @click="confirmDelete" class="text-red-500 hover:text-red-600 hover:bg-red-50 font-bold px-4 py-2 rounded-lg transition-colors text-sm flex items-center gap-1">
+          <button v-if="isEditing && canDeletePlayers" @click="confirmSoftDelete" :disabled="isSubmitting || isRemoving" class="text-red-500 enabled:hover:text-red-600 enabled:hover:bg-red-50 disabled:opacity-70 font-bold px-4 py-2 min-h-[44px] rounded-lg transition-colors text-sm flex items-center gap-1">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-            刪除
+            {{ isRemoving ? '處理中' : '刪除' }}
           </button>
           <div v-else></div>
 
           <div class="flex gap-2">
-            <button @click="isModalOpen = false" class="px-5 py-2 text-gray-500 font-bold hover:bg-gray-100 rounded-xl transition-all">取消</button>
-            <button @click="submitForm" :disabled="isSubmitting" class="px-6 py-2 bg-primary hover:bg-primary/90 active:scale-95 disabled:opacity-70 text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center min-w-[100px]">
+            <button @click="isModalOpen = false" :disabled="isSubmitting || isRemoving" class="px-5 py-2 min-h-[44px] text-gray-500 font-bold enabled:hover:bg-gray-100 disabled:opacity-70 rounded-xl transition-all">取消</button>
+            <button @click="submitForm" :disabled="isSubmitting || isRemoving" class="px-6 py-2 min-h-[44px] bg-primary enabled:hover:bg-primary/90 enabled:active:scale-95 disabled:opacity-70 text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center min-w-[100px]">
               <span v-if="isSubmitting" class="flex gap-2 items-center"><el-icon class="is-loading"><Loading /></el-icon> 儲存中</span>
               <span v-else>儲存資料</span>
             </button>
@@ -748,9 +752,15 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { supabase } from '@/services/supabase'
+import { softDeletePlayer } from '@/services/playerRosterMutations'
+import { fetchPlayerRosterSyncRows } from '@/services/playerRosterApi'
+import { usePlayerSoftDelete } from '@/composables/usePlayerSoftDelete'
 import { compressImage } from '@/utils/imageCompressor'
 import {
   buildPlayerSyncCsvHeaderMap,
+  buildPlayerSyncMemberMap,
+  getWritablePlayerSyncMembers,
+  filterWritablePlayerSyncMemberIds,
   buildGuardianAccountSyncRows,
   dedupePlayerSyncRows,
   getPlayerSyncCsvCell,
@@ -760,6 +770,7 @@ import {
 } from '@/utils/playerSync'
 import { GENERAL_MEMBER_ROLE_FALLBACK, resolveGeneralMemberRoleKeyFromRoles } from '@/utils/guardianAccountRole'
 import { normalizeSiblingIds } from '@/utils/siblingGroups'
+import { getVisiblePlayerSiblingIds, mergeVisiblePlayerSiblingIds } from '@/utils/playerRosterSiblings'
 import {
   buildSiblingHalfPriceCleanupIds,
   getActiveSiblingIds,
@@ -876,7 +887,7 @@ const lastRosterWarning = ref('')
 const isSubmitting = ref(false)
 const isTeamGroupSettingsOpen = ref(false)
 const members = computed(() =>
-  buildMembersWithNormalizedSiblings(playerRosterStore.members).map(m => ({
+  buildMembersWithNormalizedSiblings(playerRosterStore.members, { preserveHiddenReferences: true }).map(m => ({
     ...m,
     team_group: isTeamGroupEligibleRole(m.role) ? normalizeTeamGroup(m.team_group) : null,
     joined_date: m.joined_date || DEFAULT_EXISTING_MEMBER_JOINED_DATE,
@@ -967,7 +978,10 @@ const getMemberGroupMeta = (member: any) => {
 
 const getMemberAccentClass = (member: any) => getMemberGroupMeta(member).accentClass
 
-const buildMembersWithNormalizedSiblings = (memberList: any[]) => {
+const buildMembersWithNormalizedSiblings = (
+  memberList: any[],
+  options: { preserveHiddenReferences?: boolean } = {}
+) => {
   const normalizedSiblingMembers = normalizeSiblingIds(
     memberList
       .filter((member) => isSiblingEligibleRole(member.role))
@@ -980,10 +994,13 @@ const buildMembersWithNormalizedSiblings = (memberList: any[]) => {
   const normalizedMap = new Map(
     normalizedSiblingMembers.map((member) => [member.id, member.sibling_ids])
   )
+  const visibleIds = new Set<string>(memberList.map((member) => member.id))
 
   return memberList.map((member) => ({
     ...member,
-    sibling_ids: normalizedMap.get(member.id) ? [...normalizedMap.get(member.id)!] : []
+    sibling_ids: options.preserveHiddenReferences && normalizedMap.has(member.id)
+      ? mergeVisiblePlayerSiblingIds(member.sibling_ids, normalizedMap.get(member.id), visibleIds)
+      : normalizedMap.get(member.id) ? [...normalizedMap.get(member.id)!] : []
   }))
 }
 
@@ -1007,7 +1024,7 @@ const hasSameSiblingIds = (left: unknown, right: unknown) => {
 const fetchMembersForSiblingSync = async () => {
   const { data, error } = await supabase
     .from('team_members')
-    .select('id, name, role, status, is_inactive_or_graduated, is_half_price, sibling_ids')
+    .select('id, name, role, status, is_inactive_or_graduated, is_half_price, sibling_ids, deleted_at')
     .order('name')
 
   if (error) throw error
@@ -1021,7 +1038,7 @@ const fetchMembersForSiblingSync = async () => {
 const persistNormalizedSiblingIds = async (memberList: any[]) => {
   const normalizedMembers = buildMembersWithNormalizedSiblings(memberList)
   const originalMembersById = new Map(memberList.map((member) => [member.id, member]))
-  const changedMembers = normalizedMembers.filter((member) => {
+  const changedMembers = getWritablePlayerSyncMembers(normalizedMembers).filter((member) => {
     const originalMember = originalMembersById.get(member.id)
     return !hasSameSiblingIds(originalMember?.sibling_ids, member.sibling_ids)
   })
@@ -1434,6 +1451,16 @@ const createInitialForm = () => ({
 })
 
 const form = reactive(createInitialForm())
+const siblingOptions = computed(() => members.value.filter((member) =>
+  member.id !== form.id && isSiblingEligibleRole(member.role)
+))
+const siblingOptionIds = computed(() => new Set<string>(siblingOptions.value.map((member) => member.id)))
+const visibleFormSiblingIds = computed({
+  get: () => getVisiblePlayerSiblingIds(form.sibling_ids, siblingOptionIds.value),
+  set: (selectedIds: string[]) => {
+    form.sibling_ids = mergeVisiblePlayerSiblingIds(form.sibling_ids, selectedIds, siblingOptionIds.value)
+  }
+})
 const lastAutoGrade = ref('')
 const isTeamMemberFormRole = computed(() => form.role === '球員' || form.role === '校隊')
 const applyMemberIdentityToForm = (identity: string) => {
@@ -1571,6 +1598,7 @@ type SyncMemberRow = {
   id: string
   name?: string | null
   role?: string | null
+  deleted_at?: string | null
 }
 
 type ProfileForGuardianSync = {
@@ -1727,7 +1755,7 @@ const syncGuardianAccounts = async (
 
   const profilesByEmail = await fetchProfilesByEmail(rows.map((row) => row.email))
   const memberByName = new Map(
-    memberList
+    getWritablePlayerSyncMembers(memberList)
       .map((member) => [member.name?.trim(), member] as const)
       .filter(([name]) => Boolean(name))
   ) as Map<string, SyncMemberRow>
@@ -1842,10 +1870,8 @@ const syncFromGoogleSheet = async () => {
     const readCell = (row: string[], ...headers: string[]) =>
       getPlayerSyncCsvCell(row, headerMap, ...headers)
 
-    const existingMap = new Map();
-    members.value.forEach(m => {
-      existingMap.set(m.name?.trim(), m);
-    });
+    const syncSnapshot = await fetchPlayerRosterSyncRows()
+    const existingMap = buildPlayerSyncMemberMap<any>(syncSnapshot)
 
     const inserts: any[] = [];
     const updates: any[] = [];
@@ -1860,6 +1886,7 @@ const syncFromGoogleSheet = async () => {
       if (!name) continue;
       const rawRole = readCell(row, '身分');
       const existingMember = existingMap.get(name);
+      if (existingMember?.deleted_at) continue;
       const roleMapped = getPlayerRoleForGoogleFormSync(rawRole, readCell(row, '中港校隊') === '是', existingMember);
       
       const siblingNamesRaw = readCell(row, '是否有兄弟姐妹也在熊戰社區');
@@ -1984,13 +2011,11 @@ const syncFromGoogleSheet = async () => {
     }
 
     const refreshedMembers = await fetchMembersForSiblingSync()
-    const memberByName = new Map(
-      refreshedMembers.map((member) => [member.name?.trim(), member])
-    )
+    const memberByName = buildPlayerSyncMemberMap(refreshedMembers)
 
     dedupedSyncRows.forEach((row) => {
       const member = memberByName.get(row.name)
-      if (!member) return
+      if (!member || member.deleted_at) return
 
       member.sibling_ids = isSiblingEligibleRole(row.roleMapped)
         ? row.siblingNames
@@ -2051,6 +2076,7 @@ const fetchData = async (options: { force?: boolean } = {}) => {
 
 // --- Modal 操作 ---
 const openCreateModal = () => {
+  clearRemovalError()
   isEditing.value = false
   Object.assign(form, createInitialForm())
   lastAutoGrade.value = ''
@@ -2063,6 +2089,7 @@ const openCreateModal = () => {
 const openEditModal = (member: any) => {
   // 有 EDIT 權限才可開啟編輯，否則直接 return（只讀情境可於此擴充）
   if (!canEditPlayers.value) return
+  clearRemovalError()
   isEditing.value = true
   Object.assign(form, createInitialForm())
   Object.assign(form, member)
@@ -2110,7 +2137,7 @@ const uploadAvatar = async (file: File): Promise<string> => {
 
 // --- 表單送出 ---
 const submitForm = async () => {
-  if (!formRef.value) return
+  if (!formRef.value || isSubmitting.value || isRemoving.value) return
   
   try {
     const valid = await formRef.value.validate()
@@ -2119,7 +2146,9 @@ const submitForm = async () => {
     // validation failed
     return
   }
-  
+
+  // Validation is async; deletion may have started while it was running.
+  if (isSubmitting.value || isRemoving.value) return
   isSubmitting.value = true
   try {
     // 1. 若有選擇新頭像，先上傳
@@ -2186,7 +2215,10 @@ const submitForm = async () => {
         ? (Array.isArray(payload.sibling_ids) ? [...payload.sibling_ids] : [])
         : []
       const normalizedMembers = await persistNormalizedSiblingIds(siblingSyncMembers)
-      const halfPriceCleanupIds = buildSiblingHalfPriceCleanupIds(savedMember.id, normalizedMembers)
+      const halfPriceCleanupIds = filterWritablePlayerSyncMemberIds(
+        buildSiblingHalfPriceCleanupIds(savedMember.id, normalizedMembers),
+        normalizedMembers
+      )
 
       if (halfPriceCleanupIds.length > 0) {
         const { error } = await supabase
@@ -2209,27 +2241,29 @@ const submitForm = async () => {
   }
 }
 
-// --- 刪除資料 ---
-const confirmDelete = async () => {
-  if (!canDeletePlayers.value) return
-  try {
-    await ElMessageBox.confirm(`確定要刪除「${form.name}」的資料嗎？`, '⚠️ 刪除確認', {
-      confirmButtonText: '確定刪除', cancelButtonText: '取消', type: 'error'
-    })
-    
-    isSubmitting.value = true
-    const { error } = await supabase.from('team_members').delete().eq('id', form.id)
-    if (error) throw error
-    
-    ElMessage.success('刪除成功')
-    isModalOpen.value = false
-    await fetchData({ force: true })
-  } catch (err: any) {
-    if (err !== 'cancel') ElMessage.error('刪除失敗：' + err.message)
-  } finally {
-    isSubmitting.value = false
-  }
-}
+// --- 軟刪除（所有名單隱藏，資料庫保留隊職員及關聯歷史） ---
+const { isRemoving, removalError, clearRemovalError, confirmSoftDelete } = usePlayerSoftDelete({
+  getMember: () => isModalOpen.value && isEditing.value
+    ? { id: form.id, name: members.value.find((member) => member.id === form.id)?.name || form.name }
+    : null,
+  canDelete: () => canDeletePlayers.value,
+  isBusy: () => isSubmitting.value,
+  confirm: (member) => ElMessageBox.confirm(
+    `刪除「${member.name}」後，將從所有名單（含退隊名單）隱藏。資料庫仍保留此隊職員、付款、餘額及歷史紀錄，供日後查找。未儲存的表單修改不會一併儲存。`,
+    '刪除確認',
+    { confirmButtonText: '確定刪除', cancelButtonText: '取消', type: 'warning', distinguishCancelAndClose: true }
+  ),
+  softDeleteMember: softDeletePlayer,
+  invalidateRoster: () => playerRosterStore.clearRosterCache(),
+  onRemoved: () => { isModalOpen.value = false },
+  refreshRoster: () => playerRosterStore.refreshRoster({
+    userId: authStore.user?.id || null,
+    canEditPlayers: canEditPlayers.value
+  }),
+  notifySuccess: (message) => { ElMessage.success(message) },
+  notifyError: (message) => { ElMessage.error(message) },
+  notifyWarning: (message) => { ElMessage.warning(message) }
+})
 
 // --- 介面輔助 ---
 const getRoleClass = (role: string) => {

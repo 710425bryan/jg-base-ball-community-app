@@ -19,6 +19,30 @@ export type GuardianAccountSyncRow = {
 
 export type PlayerSyncCsvHeaderMap = Map<string, number>
 
+type PlayerSyncMember = { name?: string | null; deleted_at?: string | null }
+
+/** Retain tombstones when matching names, even if a duplicate active row follows. */
+export const buildPlayerSyncMemberMap = <T extends PlayerSyncMember>(members: T[]) => {
+  const memberByName = new Map<string, T>()
+  for (const member of members) {
+    const name = member.name?.trim()
+    if (!name || memberByName.get(name)?.deleted_at) continue
+    memberByName.set(name, member)
+  }
+  return memberByName
+}
+
+export const getWritablePlayerSyncMembers = <T extends PlayerSyncMember>(members: T[]) =>
+  members.filter((member) => !member.deleted_at)
+
+export const filterWritablePlayerSyncMemberIds = <T extends PlayerSyncMember & { id: string }>(
+  memberIds: string[],
+  members: T[]
+) => {
+  const writableIds = new Set(getWritablePlayerSyncMembers(members).map((member) => member.id))
+  return memberIds.filter((id) => writableIds.has(id))
+}
+
 const normalizePlayerSyncKey = (value: string | null | undefined) => value?.trim() ?? ''
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const PLAYER_NAME_DELIMITER_PATTERN = /[,、，/／;；\r\n]+/

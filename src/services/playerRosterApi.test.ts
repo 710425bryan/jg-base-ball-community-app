@@ -71,4 +71,26 @@ describe('playerRosterApi', () => {
     await expect(fetchPlayerRosterRows('full')).rejects.toThrow('denied')
     expect(rpcMock).toHaveBeenCalledWith('list_team_members_for_edit')
   })
+
+  it.each(['safe', 'full'] as const)('hides soft-deleted %s rows while retaining legacy rows without the new field', async (scope) => {
+    const rows = [
+      { id: 'legacy-member' },
+      { id: 'active-member', deleted_at: null },
+      { id: 'deleted-member', status: '退隊', deleted_at: '2026-10-13T00:00:00Z' }
+    ]
+    if (scope === 'full') rpcMock.mockResolvedValue({ data: rows, error: null })
+    else orderMock.mockReturnValueOnce(queryBuilder).mockResolvedValueOnce({ data: rows, error: null })
+
+    const { fetchPlayerRosterRows } = await import('./playerRosterApi')
+    await expect(fetchPlayerRosterRows(scope)).resolves.toEqual(rows.slice(0, 2))
+  })
+
+  it('retains deleted records only in the permission-checked synchronization snapshot', async () => {
+    const rows = [{ id: 'active' }, { id: 'deleted', deleted_at: '2026-10-13T00:00:00Z' }]
+    rpcMock.mockResolvedValue({ data: rows, error: null })
+    const { fetchPlayerRosterSyncRows } = await import('./playerRosterApi')
+    await expect(fetchPlayerRosterSyncRows()).resolves.toEqual(rows)
+    expect(rpcMock).toHaveBeenCalledWith('list_team_members_for_edit')
+    expect(fromMock).not.toHaveBeenCalled()
+  })
 })

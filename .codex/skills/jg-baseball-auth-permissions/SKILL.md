@@ -42,6 +42,8 @@ description: "Role-based auth and permission workflow for jg-base-ball-community
 
 ## 權限資料守則
 
+- 隊職員軟刪除 RPC `soft_delete_team_member(uuid)` 要求有效登入與 `players:DELETE`，不以 EDIT 代替 DELETE，也不額外要求 EDIT。固定空 search_path、僅 authenticated 可執行、鎖列且重送保留稽核；raw authenticated 不可硬刪、設定刪除欄位或更新已刪主列。歷史仍受原 SELECT RLS／完整個資 EDIT RPC 保護，safe view 只多 deleted_at，不回傳操作者。migration 尚未發布，驗證 `pnpm test:players:sql`。
+
 - 功能權限以 `app_role_permissions` 為準，UI 變更不要假設資料層會同步更新。
 - 角色清單與排序若有調整，連同 `app_roles` 相關使用一起檢查。
 - `dashboard` 與 `calendar` 目前屬於已登入即可看，除非任務明確要求，不要順手改變這個行為。

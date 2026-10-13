@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildPlayerSyncCsvHeaderMap,
+  buildPlayerSyncMemberMap,
+  getWritablePlayerSyncMembers,
+  filterWritablePlayerSyncMemberIds,
   buildGuardianAccountSyncRows,
   dedupePlayerSyncRows,
   getPlayerSyncCsvCell,
@@ -11,6 +14,41 @@ import {
 } from './playerSync'
 
 describe('playerSync', () => {
+  it('keeps deleted names available for dedupe regardless of duplicate row order', () => {
+    const deleted = { id: 'deleted', name: '小明', status: '退隊', deleted_at: '2026-10-13T00:00:00Z' }
+    const active = { id: 'active', name: ' 小明 ', status: '在隊' }
+    const other = { id: 'other', name: '小華', status: '在隊' }
+    for (const rows of [[deleted, active, other], [active, deleted, other]]) {
+      const snapshot = buildPlayerSyncMemberMap(rows)
+      expect(snapshot.get('小明')).toBe(deleted)
+      expect(snapshot.get('小華')).toBe(other)
+      expect(snapshot.has('新隊員')).toBe(false)
+    }
+  })
+
+  it('excludes deleted members from sibling writes and new guardian links without mutating history', () => {
+    const deleted = { id: 'deleted', name: '小明', sibling_ids: ['active'], deleted_at: '2026-10-13T00:00:00Z' }
+    const active = { id: 'active', name: '小華', sibling_ids: ['deleted'] }
+    const retired = { id: 'retired', name: '小偉', status: '退隊', deleted_at: null }
+    const rows = [deleted, active, retired]
+    expect(getWritablePlayerSyncMembers(rows)).toEqual([active, retired])
+    expect(rows).toEqual([deleted, active, retired])
+    expect(deleted.sibling_ids).toEqual(['active'])
+    expect(active.sibling_ids).toEqual(['deleted'])
+  })
+
+  it('filters bulk fee-cleanup writes while keeping the complete sibling graph intact', () => {
+    const members = [
+      { id: 'deleted', name: '小明', status: '在隊', deleted_at: '2026-10-13T00:00:00Z', sibling_ids: ['active'] },
+      { id: 'active', name: '小華', sibling_ids: ['deleted'] },
+      { id: 'retired', name: '小偉', status: '退隊', deleted_at: null }
+    ]
+    const before = structuredClone(members)
+    expect(filterWritablePlayerSyncMemberIds(['deleted', 'active', 'retired', 'missing'], members))
+      .toEqual(['active', 'retired'])
+    expect(members).toEqual(before)
+  })
+
   it('preserves existing members protected fee flags during Google Form sync', () => {
     expect(getProtectedFeeFlagsPayloadForGoogleFormSync(true)).toEqual({})
   })

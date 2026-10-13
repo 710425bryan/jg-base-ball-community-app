@@ -1,5 +1,11 @@
 # 教練功能手機瀏覽器回歸
 
+## 隊職員軟刪除
+
+`node tests/browser/verify-player-soft-delete.mjs [output-directory]` 啟動 127.0.0.1:5194 的隔離 Vite，掛載真實 PlayersView、Element Plus、名單 store／service；不讀 .env、不啟用正式 PWA／版本寫入，外部請求全部阻擋。fixture 的安全 view 與編輯 RPC 保留已刪列，由正式 service 過濾，不能在 fixture 提前隱藏而造成假陽性。
+
+390／1365px 驗證取消／關閉、失敗保留草稿與當前畫面持續錯誤、保存姓名、防重送、只傳 ID 到軟刪除 RPC、原資料保留、全部／在隊／退隊／搜尋及匯出隱藏、權限限制。禁止任何直接 UPDATE 或實體 DELETE。證據預設 `output/playwright/player-soft-delete/`（本機 Git exclude）；隔離 SQL 與授權另跑 `pnpm test:players:sql`，不代表正式環境／實體手機驗收。
+
 ## 收費管理比賽取消標示
 
 `node tests/browser/verify-match-fee-cancellation.mjs [output-directory]` 自行啟動 `127.0.0.1:5193` 隔離 Vite，掛載真實 `MatchFeeManagementPanel`／球員明細、Element Plus 及全域樣式，只替換權限與 service 資料；不讀正式環境、不寫資料、不發送推播，外部請求皆阻擋。執行前需保留該 port。

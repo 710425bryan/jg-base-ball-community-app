@@ -209,6 +209,7 @@ UI 約定：
 資料流：
 
 - 球員名單寫入 `team_members`；safe scope 查 `team_members_safe`，full scope 呼叫 `list_team_members_for_edit()`，不從前端 raw table 讀完整資料。
+- 隊職員「刪除」為獨立軟刪除，不是移到退隊名單。`usePlayerSoftDelete` 協調確認、防重送、權限重查、持續錯誤及成功刷新；`playerRosterMutations.softDeletePlayer()` 只傳 ID 至 `soft_delete_team_member(uuid)`，有效 `players:DELETE` 即可操作。RPC 鎖定主列、保存 `deleted_at`／`deleted_by`／`deleted_previous_status`，再把內部狀態設退隊供既有有效成員規則排除；重送保留首次稽核。付款、請購、庫存、餘額、成績、profile 綁定及原關閉旗標不變，不保存表單其他草稿、不重算已存帳款。所有名單篩選皆排除 deleted_at 非空者；完整資料仍保存在 DB 供日後授權查找，沒有新增已刪除列表或恢復 UI。共享 safe view 只加非敏感刪除時間、不過濾歷史，避免財務查詢遺失姓名。raw 客戶端硬刪、偽造刪除欄位與修改已刪主列由 trigger 拒絕；Google 同步使用含已刪除資料的編輯 snapshot 辨識並略過，不建立新 ID／通知／綁定。需先部署 `20261013005735_team_member_soft_deletion.sql`，目前待發布。
 - 身分的呈現與輸入由 `PlayerIdentitySelect.vue` / `playerIdentity.ts` 處理；自訂社區球隊名稱（預設含「新太陽社區棒球隊」）另存 `team_members.member_identity_label`，不取代 `role = 球員`、收費模式或熊隊群組。`player_identity_labels` 永久保存曾成功使用的選項，前端由 `playerIdentitiesApi.ts` 讀取；輸入當下不寫 DB，私有 trigger 在原球員 INSERT/UPDATE 交易內去空白、檢查最長 60 字並保存唯一名稱，失敗一起回滾，刪除球員不刪選項。列表、搜尋、CSV 與重新編輯使用此名稱，其他業務仍判斷原角色與收費設定。
 - `player_identity_labels` 僅向 `players:VIEW/CREATE/EDIT` 開放 SELECT，前端不得直接 INSERT；只有原球員 RLS 授權成功的儲存才會建立選項。safe view 只追加非敏感名稱欄位，full RPC 沿用原授權。Google 同步保留自訂社區身分及球員角色；既有校隊 `training_program` 邏輯不變。部署順序為 `20260909133628_player_custom_identity_labels.sql` → 前端。
 - `team_members_safe` 使用 invoker 權限與底層 RLS：linked user 只看綁定球員，`players:VIEW` / `players:EDIT` / ADMIN 看全隊安全欄位；一般使用者擁有 `training`、`matches`、`equipment` 等功能 VIEW 不會放大全隊名單範圍。raw table 對 authenticated 只授予同一組安全欄位。
