@@ -38,6 +38,7 @@ description: "Leave request, attendance event, roll call, dashboard attendance s
 - 月費計次請假扣減以訓練日期為基準，只有 `full_day` / `morning` 會扣一堂；`afternoon` 不扣計次月費。
 - 場地配置與個人首頁本週訓練場地使用場地區塊 / session 時間判斷假單時段；若場地與 session 都沒有時間、或使用預設上午時間 `09:00 - 12:30`，請假判斷收斂為上午區段，所以下午假不標示或排除上午場地。
 - 點名事件使用 `attendance_events`，單場紀錄使用 `attendance_records`。
+- 點名列表 `/attendance` 預設台灣本年本月；`src/services/attendanceEvents.ts` 必須以月初（含）／次月月初（不含）在 DB query 篩選事件及關聯點名狀態，空值／無效月份不可改查全部歷史。卡片與表格共用 `src/types/attendance.ts` 的摘要及原有計數／操作權限；檢視切換不查詢，月份切換隔離過期回應，讀取失敗清空舊資料並可重試。
 - `/attendance/:id` 顯示單場點名 detail。
 - 今日訓練點名狀態走 `get_dashboard_today_attendance_status()`，需支援同一天多筆點名單，只給 `leave_requests:VIEW` 使用者顯示。
 - `leave-webhook` 可接 Google Form / 外部請假來源，並可能建立推播事件。
@@ -66,5 +67,6 @@ description: "Leave request, attendance event, roll call, dashboard attendance s
 
 - 基本檢查：`pnpm exec vue-tsc --noEmit`
 - 請假工具：`pnpm exec vitest run src/utils/leaveRequests.test.ts`
+- 點名月份／檢視：`pnpm exec vitest run src/services/attendanceEvents.test.ts src/views/AttendanceListView.test.ts src/components/ViewModeSwitch.test.ts`；涵蓋台灣跨月、跨年／閏月邊界、無效月份、場地計數、快速切月、錯誤重試、卡片／表格操作與權限。手機表格只在容器內水平捲動。
 - 若改 dashboard 摘要：`pnpm exec vitest run src/utils/dashboardHome.test.ts`
 - 人工 sanity check：一般帳號 linked member 請假、ADMIN 全有效成員切換 / 新增 / 刪除、非 ADMIN 直接呼叫非 linked member RPC 仍被拒絕、後台新增/刪除、點名 detail 無缺席按鈕、今日摘要權限、特訓點名禁報交界。

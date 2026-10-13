@@ -301,6 +301,7 @@ UI 約定：
 - `leave_requests.leave_time_segment` 為結構化請假時段，值為 `full_day`、`morning`、`afternoon`；新增假單預設 `full_day`，半日只套用單日請假，連續多日與固定週期一律視為全日。
 - 後台新增假單的成員選單只列有效成員；退隊、離隊、關閉 / 畢業成員的既有假單可保留查詢，但不可再新增。
 - 點名事件使用 `attendance_events`。
+- `/attendance` 預設台灣本年本月，以 Element Plus 月份選擇器查詢其他年月或回到本月。`src/services/attendanceEvents.ts` 將月初（含）／次月月初（不含）條件送到資料庫，再讀取該月事件及其點名狀態；不先載入全歷史。卡片與可左右捲動表格共用 `AttendanceEventSummary`、既有計數及 CREATE／DELETE 權限；檢視切換不重新查詢，月份變更會清除舊資料並隔離過期回應，失敗可重試目前月份。
 - 單場點名紀錄使用 `attendance_records`。
 - 點名頁會參照球員名單與當日請假資料。
 - 場地配置點名單透過 `attendance_events.training_location_session_id` / `training_location_session_venue_id` 連回場地配置；每個場地區塊各自一張點名單，名單只取該場地最新 assignments。

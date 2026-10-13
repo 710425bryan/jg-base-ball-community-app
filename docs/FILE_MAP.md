@@ -91,6 +91,7 @@
 | `src/services/rolesApi.ts` | 新增角色與可選來源權限快照的原子建立、角色排序數字／中文名稱保存 | `create_app_role()`／`update_app_role_weight()`／`update_app_role_name()`；只允許有效 ADMIN |
 | `src/services/publicLanding.ts` | 公開首頁摘要與保留的匿名入隊申請 service | `get_public_landing_snapshot()`；目前 LINE 聯絡視窗不呼叫申請 service |
 | `src/services/dashboardAttendance.ts` | 後台大廳今日訓練點名狀態，含今日多筆點名單 | `get_dashboard_today_attendance_status()` |
+| `src/services/attendanceEvents.ts` | 點名管理按月份查詢與出席／請假／缺席摘要；拒絕無效月份、保留場地名單範圍 | `attendance_events` / `attendance_records` / `team_members` count；`src/types/attendance.ts` |
 | `src/services/myHome.ts` | 個人化首頁摘要與 linked member 一週內 Next Up 比賽 RPC | `get_my_home_snapshot()` / `get_my_home_next_event()` |
 | `src/services/myLeaveRequests.ts` | 我的假單 RPC；一般帳號 linked-only、ADMIN 可操作所有有效成員 | `list_my_leave_members()` 等 |
 | `src/services/myPayments.ts` | 我的繳費 RPC、應收／實付核對欄位 normalize | `profile_payment_submissions` 相關 RPC |

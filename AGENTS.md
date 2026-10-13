@@ -213,6 +213,7 @@
 - 家長 / 球員自己的請假走 `myLeaveRequests` RPC；一般帳號只限 linked member，只有 `public.current_profile_role() = 'ADMIN'` 的有效 ADMIN 才能在「我的假單」查看、建立與刪除所有有效成員的假單，四支 RPC 必須使用一致的授權判斷。
 - 後台請假管理在 `LeaveRequestsView`，會讀 `team_members` 與 `leave_requests`，需受 `leave_requests` feature RLS 保護。
 - 點名列表與點名頁使用 `attendance_events`、`attendance_records`，並會參照 `team_members`、`leave_requests`。
+- `/attendance` 由 `attendanceEvents.listAttendanceEvents(month)` 依台灣本年本月預設查詢，資料庫以 `date >= 月初 AND date < 次月月初` 篩選後才讀取點名狀態；可查其他年月、回到本月，並以共用 `ViewModeSwitch` 切換卡片／表格。兩種檢視共用資料與既有操作權限；切換月份隔離過期回應，空值／無效月份不可退回全歷史查詢。
 - 場地配置建立的點名單透過 `attendance_events.training_location_session_id` / `training_location_session_venue_id` 串接；每個場地可各自建立一張點名單，`RollCallView` 名單只取該場地最新 `training_location_assignments`，不回退成全隊名單。
 - 場地區塊的已配置名單由 `TrainingLocationVenueMembers` 依角色與完整組名分組：先校隊、再球員，各自 U 層級由大到小，組名含「不參賽」者統一置底；只調整顯示，不改指派或點名資料。
 - 外部請假 webhook 在 `supabase/functions/leave-webhook/index.ts`，改動時要檢查 secret、member match、假單 RPC 與推播 target。
