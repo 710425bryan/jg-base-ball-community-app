@@ -1,10 +1,10 @@
 # 手機 UI/UX 一致性稽核與執行清單
 
-### 2026-10-13 隊職員軟刪除（本機驗證，尚未部署／實機驗收）
+### 2026-10-13 隊職員軟刪除（1.1.80 已發布，實機驗收待完成）
 
 - 編輯視窗「刪除」改為呼叫軟刪除 RPC，確認文案明列在隊／退隊／全部皆隱藏，但資料與付款歷史保留；使用已儲存姓名，不一併儲存草稿。處理中停用表單與按鈕，取消／關閉不寫入；持續錯誤放 footer，捲到底端操作後仍可見。三個 footer 按鈕此次補上至少 44px 高度，未宣稱此大型頁面已完成全頁手機一致性稽核。
 - 真實 PlayersView、Element Plus、名單 service／store 搭配隔離 Supabase fixture，390／1365px 共 24 checks 通過：失敗／取消保留、防重送、保存姓名、當前畫面錯誤可見、全部篩選及搜尋／匯出不含已刪者、權限限制與零實體 DELETE。fixture 刻意仍回傳帶 deleted_at 的原始完整資料，排除確由正式名單 service 完成；已刪除手足不顯示姓名／ID，但原始雙向關聯保留，不誤顯示手動半價。
-- 無 browser error、外部請求或直接 UPDATE／DELETE。證據在 ignored `output/playwright/player-soft-delete/`。未驗證實體 iPhone／Android、正式登入或正式資料操作；DB migration 須先部署，完整狀態見 [規格](specs/2026-10-13-team-member-soft-deletion.md)。
+- 無 browser error、外部請求或直接 UPDATE／DELETE。證據在 ignored `output/playwright/player-soft-delete/`。DB migration 已先部署、既有資料與安全指紋保持；390／1365px Preview 與正式公開首頁／登入視窗驗證通過，正式 1.1.80 的 JS／版本檔與 Preview 指紋一致，未送 OTP 或寫入資料。未驗證實體 iPhone／Android、正式登入或正式資料操作；完整發布證據及正式 smoke 狀態見 [規格](specs/2026-10-13-team-member-soft-deletion.md)。
 
 ### 2026-10-12 收費管理比賽取消標示（本機完成，待部署／實機）
 

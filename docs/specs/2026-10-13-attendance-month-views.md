@@ -1,6 +1,6 @@
 # 點名管理：月份查詢與卡片／表格檢視
 
-- 狀態：`VERIFYING`；Delivery 目標：`PRODUCTION`
+- 狀態：`DEPLOYED`；Delivery 目標：`PRODUCTION`
 - 日期：2026-10-13；版本：1.1.81
 - 需求：預設本年本月，不一次讀取全部歷史；可切換卡片／表格，月份欄與「回到本月」按鈕高度一致。使用者已明確要求「幫我更新部署上去」。
 
@@ -32,8 +32,10 @@
 | 手機規則 | 60 tests 通過；高度補正後重跑 View＋手機規則 68 tests 通過 |
 | Chromium 隔離頁面 | 360／390／767／1365px 無頁面水平溢出；真實 Supabase client 送出 gte／lt 月份條件，檢視切換沒有新增請求；日期欄及回到本月實測皆 44px，桌機頂緣相同。資料回應使用 fixture |
 | 完整本機 gate | 1.1.81 `pnpm check` 通過：型別、297 檔／1,858 tests、observer、players／roles／training／coach／payments／matches SQL 回歸與 production build；`git diff --check` 通過 |
-| GitHub Secret scan／Quality gate | 待執行 |
-| Preview／Production | 待執行；只做唯讀 smoke，資料寫入不屬此次發布驗收 |
+| GitHub Secret scan／Quality gate | PR CI [38337075655](https://github.com/710425bryan/jg-base-ball-community-app/actions/runs/38337075655) 與 main CI [38337877125](https://github.com/710425bryan/jg-base-ball-community-app/actions/runs/38337877125) 兩項皆成功 |
+| Preview | READY；390／1365px 首頁與登入視窗開啟／關閉通過，無 pageerror 或不允許的資料請求；線上 1.1.81 與月份查詢／檢視／44px／重試資產標記驗證通過 |
+| Production | READY；線上版本 1.1.81，入口與點名 JS 雜湊均和 Preview 一致；390／1365px 首頁與登入視窗開啟／關閉通過，無 pageerror 或不允許的資料請求。只做唯讀 smoke，資料寫入不屬此次發布驗收 |
+| Vercel runtime errors | 2026-10-13 10:41（台灣）查詢本次 deployment 最近 10 分鐘 error／fatal 無紀錄；僅代表該 Vercel 查詢窗口，不代表 Supabase 或全部使用者裝置 |
 | Supabase staging | N/A，無 DB／Edge 變更 |
 
 證據：`output/playwright/attendance/`（ignored），包含 `evidence.json`、`height-evidence.json` 與各尺寸截圖；發布證據存於其 `release/`。純型別、文件、版本號無獨立 unit test，分別以 typecheck、diff review、build／線上版本檔驗證。
@@ -42,6 +44,9 @@
 
 - GitHub：`710425bryan/jg-base-ball-community-app`
 - Branch：`codex/attendance-month-views`；基底 main `f31375ac8f3c5be347f8bdce982b7e9d0e04ee92`。
+- [PR #5](https://github.com/710425bryan/jg-base-ball-community-app/pull/5) 已合併；feature commit `b4058015bf23b2358d14dc6df048850dbd402c97`；main merge `c631cf1ec61105c18c36e93926508ff5e6121cdb`。合併樹與 Preview 驗證樹完全一致。
+- Preview：`dpl_7QTjNHCD1mGCvwDgPKmdqakRfph6`；https://jg-base-ball-community-fqyo39x1l-710425bryans-projects.vercel.app。
+- Production：`dpl_2nnnVhSsSTGBA98bPMBYe4D7EGfR`；main merge `c631cf1ec61105c18c36e93926508ff5e6121cdb`；READY，正式 alias 已切換至本次部署。
 - Vercel project：`prj_Ct3Ifa2JcREe4U5ZrOZpXhiJ7wjL`；team：`team_NtAzFlUwIuQX9YmCAMDxzHoX`。
 - 正式分支：`main`；正式網址：https://jg-base-ball-community-app.vercel.app。
 - 發布：完整本機驗證 → feature commit／PR → CI 與唯讀 Preview smoke → 合併主分支 → production CI／deployment／版本與資產驗證。
@@ -51,5 +56,6 @@
 
 ## 最終狀態與限制
 
-- 發布進行中；尚未宣稱正式站已更新。
+- 2026-10-13 10:42（台灣）完成正式發布與唯讀驗證；本機切回 main，既有未提交文件完整保留，未修改 Supabase 資料或部署 DB／Edge。
+- 發布證據：`release/preview/evidence.json`、`release/production/evidence.json`、`release/preview-ci.json`、`release/production-ci.json`、`release/production-deployment.json` 及 `release/production-runtime-errors.txt`（均位於上述 ignored 證據目錄）。
 - 未驗實體 iPhone／Android safe area 或正式登入後真實點名操作；以隔離功能驗證及公開站唯讀 smoke 區分記錄。

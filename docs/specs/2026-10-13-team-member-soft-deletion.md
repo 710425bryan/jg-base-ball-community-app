@@ -1,6 +1,6 @@
 # Feature Spec：隊職員軟刪除與歷史保留
 
-- 狀態：`VERIFYING`（發布準備；正式環境尚未變更）
+- 狀態：`DEPLOYED`（2026-10-13；正式 DB 與前端 1.1.80 已發布，production smoke 通過）
 - Delivery 目標：`PRODUCTION`（使用者於 2026-10-13 明確要求部署）
 - 建立日期：2026-10-13
 - 需求來源：隊職員刪除遭裝備付款外鍵阻擋；使用者要求刪除後不出現在任何名單（包含退隊），資料庫保留供日後查找。
@@ -39,9 +39,12 @@
 | 全量 Vitest | 最終 296 檔／1,838 tests 通過；`pnpm exec vitest run --exclude scripts/supabase-recovery-observer.test.mjs --maxWorkers=4` |
 | `pnpm check` 其餘階段 | 型別、observer、角色 SQL、特訓 SQL、教練 SQL、付款 SQL、比賽 SQL 全部通過；首次預設全量 Vitest 兩個既有大型 import 測試超過 5 秒，個別重跑及限制 4 workers 的全量均通過，未放寬 timeout 或刪改斷言。不宣稱首次單一 `pnpm check` 執行成功 |
 | `pnpm build`／diff review | 最終型別與 production build 通過；`git diff --check` 及獨立程式／DB／手足保留複查通過。既有大型 chunk／Browserslist 更新提醒仍在 |
-| GitHub CI／Secret scan | 未執行；尚未 push／建立 PR，本機未安裝 gitleaks |
-| 正式 Supabase | 唯讀確認外鍵、現有權限與函式；未套用 migration、未操作成員 |
-| Preview／獨立 Supabase staging／正式登入／實體手機 | 未執行，不以隔離 fixture 代替 |
+| GitHub CI／Secret scan | [候選 CI 38332306442](https://github.com/710425bryan/jg-base-ball-community-app/actions/runs/38332306442) 與 [main CI 38332955516](https://github.com/710425bryan/jg-base-ball-community-app/actions/runs/38332955516) 的 Quality gate／Secret scan 全通過；包含預設 `pnpm check`、296 檔／1,838 tests、observer、完整 SQL 與 build，發布 gate 無本機 worker 限制 |
+| 正式結構隔離演練 | 33 checks 通過；擷取正式 metadata、6 個既有 triggers、23 個 FK、安全 view／ACL／helpers，以合成資料在 PGlite 17.5 演練實際 migration，不載入真實球員資料 |
+| 正式 Supabase | 已先套用指定單一 migration；21 項安全／結構 post-check 通過，8 組既有結構／安全指紋不變。116 位成員及 29 組歷史／綁定指紋全部一致，116 位成員的新刪除欄位皆 null；未操作任何正式成員 |
+| Preview | [1.1.80 Preview](https://jg-base-ball-community-o62fh8b0r-710425bryans-projects.vercel.app) 的 390／1365px 公開首頁、登入視窗、版本／資產／軟刪除標記皆通過，無 console／runtime error、OTP 或資料寫入 |
+| 正式 smoke | 固定正式網址回傳 1.1.80，deployment READY、main SHA／正式 alias 正確；390／1365px 公開首頁與登入視窗皆通過，零 console／runtime error、OTP 或資料寫入。三份 JS 與 version.json 路徑／SHA-256 和 Preview 完全相同；HTML 唯一差異為 Preview 的 Vercel feedback toolbar 注入，移除該段後內容一致 |
+| 獨立 Supabase staging／正式登入／實體手機 | 無獨立 staging，使用者明確同意以隔離演練、Preview 與正式前後比對替代；未送 OTP、正式登入或真實刪除，未驗證實體手機 |
 
 測試紀錄放 `output/playwright/player-soft-delete/`（ignored），包含最終 `full-vitest-final.log`、`build-final.log`、瀏覽器證據與截圖。PlayersView 原已超過 600 行，本次將刪除生命週期、寫入與手足關聯分別抽到 composable／service／utils；未擴大重構既有同步與編輯表單，以降低非本次範圍的風險。
 
@@ -53,13 +56,18 @@
 - Branch：`codex/team-member-soft-deletion`；基底 main `9c2f5b243015a9bb06b13324a307b5510efa140a`（1.1.79）。
 - GitHub：`710425bryan/jg-base-ball-community-app`；Vercel project `prj_Ct3Ifa2JcREe4U5ZrOZpXhiJ7wjL`、team `team_NtAzFlUwIuQX9YmCAMDxzHoX`，正式 https://jg-base-ball-community-app.vercel.app。
 - Supabase：`qwxzwomzoyfkorbwsscv`；只套用本次單一 migration，不執行 db push、資料刪除或歷史修復。
-- 使用者已明確授權本次正式部署；CI／Preview、DB pre/post-check 及發布結果於完成後補記。
+- 使用者明確授權正式部署，並另回覆「同意，完成替代驗證後部署」，接受無獨立 staging 的替代驗證；不拿真實球員做刪除測試。
+- [PR #4](https://github.com/710425bryan/jg-base-ball-community-app/pull/4) 已合併；候選 `21a64c9abb5c5bd0cfb40911eaa7ff0a189a2a57`，正式 main merge `f31375ac8f3c5be347f8bdce982b7e9d0e04ee92`，兩者 source tree 一致。
+- 正式 Vercel：`dpl_8uCMZ75ejc9qn7nazCz6QmUkLhu6`，Git integration 發布，target production、READY，正式網域已指向該 deployment。
+- SQL 檔案 SHA-256：`0172e4cab26d222b32486370da2229269982c9a320811284b5862850621a7857`；remote ledger `20261013013528 / team_member_soft_deletion` 對應本機 `20261013005735`，已於 2026-10-13 09:35 台灣時間套用。工具自動產生遠端版本，不可因時間戳不同重跑或使用 db push。
+- 正式 advisors 前後比對只有新增預期的 authenticated definer RPC 提示（RPC 內有 active／access window／DELETE 檢查），沒有新增 ERROR、匿名可執行或 mutable search_path。部署後 01:35:28–01:39:56 UTC 的 Postgres logs 聚合未見 parsed ERROR／FATAL／PANIC；此為限定時窗觀察，不代表正式刪除流程曾實際執行。
+- 發布證據在 ignored `output/playwright/player-soft-delete/release/`：`manifest.json`、`production-ci.json`／log、`live-schema-rehearsal-result.json`、`production-security-postcheck-result.json`、前後資料指紋、advisors 差異及 `preview/`／`production/` 畫面證據。
 - 發布前正式部署 `dpl_D8Y2MrTs4AaJH1mv5DLktQRuUiJU`（1.1.79），作為前端回復候選；DB 保留刪除保護並優先 forward-fix。
 - 使用 project／roster／auth／equipment／finance／player-sync／Supabase 技能，發布依 delivery workflow。
 
 ## 6. 發布、查找與回復
 
-1. 經授權在 staging 套用指定 migration 並驗證，再依正式發布 gate 核准 production。
+1. 本次無獨立 staging，經使用者明確核准，以正式結構隔離演練、候選 CI／Preview、正式前後指紋替代；依 DB → post-check → main 合併 → production smoke 順序發布。
 2. DB post-check：欄位初始 null、舊資料筆數／指紋不變；RPC ACL、空 search_path、trigger、安全 view 與原 RLS／FK 保留。不可在正式環境對真實成員做刪除測試。
 3. 前端發布後唯讀驗證名單與相依 RPC readiness。舊客戶端的實體 DELETE 會被中文錯誤阻擋，需重新整理至新版。
 4. 日後有授權時，維運可按 ID／姓名查 `team_members where deleted_at is not null`，並以原 member_id 追查帳務歷史；不新增公開或低權限查找入口。
@@ -67,5 +75,5 @@
 
 ## 7. 剩餘風險
 
-- 隔離 SQL fixture 載入相關真實 DDL／RLS／RPC，但不是整個正式 schema；多連線競態、正式網路、實體手機與 staging 尚待發布階段驗證。
+- 隔離演練為 PGlite 17.5，正式 PostgreSQL 17.6；相依歷史資料及 auth.users 使用合成欄位／資料，未模擬多連線競態。獨立 staging、正式登入後真實刪除及實體 iPhone／Android 未驗證，未以公開 smoke 宣稱涵蓋。
 - 刪除等同不再是有效隊職員，未來計算沿用既有有效成員排除；歷史帳務與原金額不重算。

@@ -1,7 +1,8 @@
 # Migrations
 
-**2026-10-13 隊職員軟刪除（本機開發，尚未部署）**
+**2026-10-13 隊職員軟刪除（正式 DB 已部署，前端 1.1.80）**
 
+- 本機 `20261013005735` 已於 2026-10-13 09:35 台灣時間依使用者授權套用，工具產生遠端 ledger `20261013013528 / team_member_soft_deletion`；對應 SQL SHA-256 `0172e4cab26d222b32486370da2229269982c9a320811284b5862850621a7857`。不可因版本時間戳不同重跑。無獨立 staging 的替代演練已獲使用者明確同意；隔離正式結構 33 項、安全 post-check 21 項通過，116 位成員與 29 組資料指紋完全一致，未刪除任何真實成員。
 - `supabase/migrations/20261013005735_team_member_soft_deletion.sql`：新增獨立刪除時間／操作者／原在隊狀態；`soft_delete_team_member(uuid)` 限有效 `players:DELETE`，鎖列且重送保留原稽核，不刪任何歷史。內部狀態改退隊以沿用現有有效成員排除，前端以 deleted_at 排除全部篩選（含退隊）。safe view 僅追加 deleted_at，保留 invoker／RLS 與財務歷史關聯；raw 客戶端硬刪、修改刪除標記及覆寫已刪列由 invoker trigger 拒絕。migration 不回填或變更既有成員；先部署 DB 再前端。隔離驗證 `pnpm test:players:sql`，發布與查找方式見 [規格](specs/2026-10-13-team-member-soft-deletion.md)。
 
 **2026-10-12 賽事取消／恢復／費用標示 DB 發布紀錄**
