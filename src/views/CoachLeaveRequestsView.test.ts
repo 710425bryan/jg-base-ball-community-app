@@ -24,6 +24,7 @@ const leave: CoachLeaveRequest = {
 const createWrapper = (manage = false) => shallowMount(CoachLeaveRequestsView, {
   props: { manage }, global: { stubs: {
     AppPageHeader: { template: '<header><slot name="actions" /></header>' },
+    CoachLeaveRequestTable: false, ViewModeSwitch: false,
     'el-button': { props: ['disabled'], template: '<button :disabled="disabled"><slot /></button>' },
     'el-icon': true, 'el-date-picker': true,
     'el-select': { template: '<div><slot /></div>' },
@@ -68,7 +69,7 @@ describe('CoachLeaveRequestsView', () => {
     const wrapper = createWrapper(true)
     await flushPromises()
     expect(mocks.list).toHaveBeenCalledWith(expect.objectContaining({ manage: true }))
-    expect(wrapper.findAll('[data-test="coach-leave-card"]')).toHaveLength(1)
+    expect(wrapper.findAll('[data-test="coach-leave-row"]')).toHaveLength(1)
     expect(wrapper.find('[data-test="create-leave"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="edit-leave"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="cancel-leave"]').exists()).toBe(false)
@@ -80,6 +81,9 @@ describe('CoachLeaveRequestsView', () => {
     const wrapper = createWrapper(true)
     await flushPromises()
     expect(mocks.list).toHaveBeenCalledWith(expect.objectContaining({ month: null, status: 'all' }))
+    expect(wrapper.find('[data-test="coach-leave-row"]').attributes('id')).toBe('coach-leave-leave-a')
+    expect(wrapper.find('[data-test="coach-leave-row"]').classes()).toContain('bg-primary/5')
+    await wrapper.find('[aria-label="檢視模式"] button[aria-pressed="false"]').trigger('click')
     expect(wrapper.find('[data-test="coach-leave-card"]').classes()).toContain('border-primary')
     wrapper.unmount()
   })
@@ -176,5 +180,30 @@ describe('CoachLeaveRequestsView', () => {
     expect(wrapper.text()).toContain('已取消假單保留紀錄')
     expect(wrapper.find('[data-test="cancel-leave"]').exists()).toBe(false)
     wrapper.unmount(); window.removeEventListener('coach-leave-changed', changed)
+  })
+
+  it('defaults the manager page to table view, toggles to cards, and keeps the personal page as cards', async () => {
+    const wrapper = createWrapper(true)
+    await flushPromises()
+    expect(wrapper.find('[data-test="coach-leave-table"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="coach-leave-card"]').exists()).toBe(false)
+    const row = wrapper.find('[data-test="coach-leave-row"]')
+    expect(row.text()).toContain('王教練')
+    expect(row.text()).toContain('私人原因')
+    const buttons = wrapper.findAll('[aria-label="檢視模式"] button')
+    expect(buttons.map((button) => button.text())).toEqual(['卡片', '表格'])
+    expect(buttons[1]!.attributes('aria-pressed')).toBe('true')
+    await buttons[0]!.trigger('click')
+    expect(wrapper.find('[data-test="coach-leave-table"]').exists()).toBe(false)
+    expect(wrapper.findAll('[data-test="coach-leave-card"]')).toHaveLength(1)
+    await wrapper.findAll('[aria-label="檢視模式"] button')[1]!.trigger('click')
+    expect(wrapper.find('[data-test="coach-leave-table"]').exists()).toBe(true)
+    wrapper.unmount()
+    const personal = createWrapper()
+    await flushPromises()
+    expect(personal.find('[aria-label="檢視模式"]').exists()).toBe(false)
+    expect(personal.find('[data-test="coach-leave-table"]').exists()).toBe(false)
+    expect(personal.findAll('[data-test="coach-leave-card"]')).toHaveLength(1)
+    personal.unmount()
   })
 })

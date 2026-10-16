@@ -7,6 +7,8 @@ import AppPageHeader from '@/components/common/AppPageHeader.vue'
 import AppLoadingState from '@/components/common/AppLoadingState.vue'
 import AppMobileFilterSheet from '@/components/common/AppMobileFilterSheet.vue'
 import CoachLeaveRequestDialog from '@/components/coach-leave/CoachLeaveRequestDialog.vue'
+import CoachLeaveRequestTable from '@/components/coach-leave/CoachLeaveRequestTable.vue'
+import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
 import '@/components/coach-schedules/coachFeatureTheme.css'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
@@ -40,6 +42,8 @@ const leaves = ref<CoachLeaveRequest[]>([])
 const isLoading = ref(false)
 const errorMessage = ref('')
 const filtersOpen = ref(false)
+const viewMode = ref<'grid' | 'table'>('table')
+const showTable = computed(() => props.manage && viewMode.value === 'table')
 const dialogOpen = ref(false)
 const editingLeave = ref<CoachLeaveRequest | null>(null)
 const saving = ref(false)
@@ -175,6 +179,7 @@ const cancel = async (leave: CoachLeaveRequest) => {
               </el-select>
             </div>
             <button v-if="manage" type="button" class="app-icon-button md:hidden" aria-label="篩選教練" title="篩選教練" @click="filtersOpen = true"><el-icon><Filter /></el-icon></button>
+            <ViewModeSwitch v-if="manage" v-model="viewMode" grid-label="卡片" table-label="表格" class="md:ml-auto" />
           </div>
           <div class="mt-3 flex flex-wrap gap-2" aria-label="假單狀態">
             <button v-for="status in statuses" :key="status.value" type="button" :aria-pressed="selectedStatus === status.value" class="min-h-11 rounded-xl border px-4 text-sm font-bold" :class="selectedStatus === status.value ? 'border-primary bg-primary/5 text-primary' : 'border-slate-200 text-slate-600'" @click="selectedStatus = status.value">{{ status.label }}</button>
@@ -186,6 +191,7 @@ const cancel = async (leave: CoachLeaveRequest) => {
         <template v-else-if="!errorMessage">
           <p v-if="highlightMissing" class="rounded-xl bg-amber-50 p-4 text-sm text-amber-800">目前篩選找不到指定假單，可能已異動或不在您的可見範圍。</p>
           <p v-if="!leaves.length" class="rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-500">目前沒有符合條件的教練假單。</p>
+          <CoachLeaveRequestTable v-else-if="showTable" :leaves="leaves" :highlight-id="highlightId" :can-edit="canEdit" :can-cancel="canCancel" :cancelling-id="cancellingId" @edit="openEdit" @cancel="cancel" />
           <div v-else class="grid min-w-0 gap-3 md:grid-cols-2">
             <article v-for="leave in leaves" :id="`coach-leave-${leave.id}`" :key="leave.id" data-test="coach-leave-card" class="min-w-0 rounded-2xl border bg-white p-4" :class="leave.id === highlightId ? 'border-primary ring-2 ring-primary/20' : 'border-slate-200'">
               <div class="flex items-start justify-between gap-3">

@@ -156,6 +156,7 @@
 | `src/utils/trainingLocationMemberGroups.ts` | 場地已配置名單按角色／組別分組、U 層級降冪、不參賽置底 |
 | `src/components/training-locations/TrainingLocationVenueMembers.vue` | 場地已配置名單的分組標題、人數、成員卡片與移除操作 |
 | `src/components/coach-leave/CoachLeaveRequestDialog.vue` | 教練假單四模式新增、單筆修改、原因與 batch retry key；本人 / 管理模式共用 |
+| `src/components/coach-leave/CoachLeaveRequestTable.vue` | 教練請假管理的表格檢視（預設），橫向捲動、deep link 高亮列與修改 / 取消操作；卡片檢視仍在 view 內 |
 | `src/components/coach-leave/CoachLeaveDateSelection.vue` | 上課日多選、月份載入與訓練項目切換、單日 / 連續 / 固定週期日期控制 |
 | `src/components/coach-schedules/CoachScheduleEventEditor.vue` | 排班卡片編輯、請假移除提示與來源摘要；指派教練依角色分組排序，保留請假停用 |
 | `src/components/coach-schedules/CoachScheduleManualDialog.vue` | 手動排班表單與保存，指派教練沿用角色分組排序 |

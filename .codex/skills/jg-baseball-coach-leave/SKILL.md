@@ -16,6 +16,7 @@ description: 教練本人與管理請假、排班移除稽核及教練請假 Out
 
 ## 身分與權限
 
+- `/coach-leave-requests` 管理頁以共用 `ViewModeSwitch` 提供卡片／表格切換，預設表格（`CoachLeaveRequestTable.vue`）；本人頁維持卡片、不顯示切換。兩種檢視共用權限判斷、唯讀文案與 `coach-leave-<id>` deep link 錨點。
 - `/my-coach-leave-requests` 使用 `my_coach_leave_requests`，只限有效教練 profile 本人；`/coach-leave-requests` 使用 `coach_leave_requests`，依管理 permission 操作所有教練。
 - 兩 feature 都有 VIEW / CREATE / EDIT / DELETE。本人 CRUD 預設給 COACH / HEAD_COACH，全隊管理 CRUD 預設只給 ADMIN，其他角色須透過角色設定開啟。ADMIN 非教練時不作本人假單 owner。
 - 綁定 `profiles.id`，不使用 `team_members`、教練姓名或 linked member 推導所有權。球員假單仍走原本 `leave_requests`，教練假單不參與球員點名或收費。
@@ -46,6 +47,6 @@ description: 教練本人與管理請假、排班移除稽核及教練請假 Out
 
 ## 驗證
 
-- 最貼近前端測試：`pnpm exec vitest run src/utils/coachLeaveRequests.test.ts src/utils/coachLeaveDateSelection.test.ts src/services/coachLeaveRequestsApi.test.ts src/views/CoachLeaveRequestsView.test.ts src/components/coach-leave/CoachLeaveRequestDialog.test.ts src/components/coach-leave/CoachLeaveDateSelection.test.ts`。
+- 最貼近前端測試：`pnpm exec vitest run src/utils/coachLeaveRequests.test.ts src/utils/coachLeaveDateSelection.test.ts src/services/coachLeaveRequestsApi.test.ts src/views/CoachLeaveRequestsView.test.ts src/components/coach-leave/CoachLeaveRequestDialog.test.ts src/components/coach-leave/CoachLeaveDateSelection.test.ts src/components/coach-leave/CoachLeaveRequestTable.test.ts`。
 - DB：`pnpm test:coach-schedules:sql`，包含來源 / 合班、本人與管理權限、日期與半日重疊、實際移除與取消不還原、過期版本、重試、防 raw DML / reason 洩漏、Outbox / feed / 權限撤回。
 - `pnpm typecheck`；高整合風險依 `AGENTS.md` 跑完整 check。隔離 PGlite 不驗證真正多連線競爭，正式上線前需 staging PostgreSQL 驗證鎖次序和來源變更競爭。
