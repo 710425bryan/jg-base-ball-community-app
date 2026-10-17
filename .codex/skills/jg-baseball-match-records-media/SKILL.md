@@ -45,7 +45,7 @@ description: "Match records, schedule detail, dashboard Next Up, lineup, media, 
 - `/calendar` 顯示賽程並用 `?match_id=` 開啟 `MatchDetailDialog`。
 - `/match-records` 是後台比賽紀錄管理，feature key 為 `matches`。
 - `/match-records` 的「未來賽事」手動通知與「提醒排程」只顯示給 `matches:EDIT` 使用者，前端走 `src/services/matchReminderNotifications.ts` 呼叫 `send-match-reminders`、提醒排程 RPC 或 ADMIN 健康狀態 RPC。
-- 賽事提醒排程是全站共用多組規則，設定存在 `system_settings.match_reminder_schedule_config`，自動排程由 `send-match-reminders` 每分鐘依 Asia/Taipei 判斷到期規則；健康檢查使用 `get_match_reminder_health_status()` 與 `matches:HEALTH_ALERT` targeted event，只通知 active `ADMIN`，不自動補發。
+- 賽事提醒排程是全站共用多組規則，設定存在 `system_settings.match_reminder_schedule_config`，自動排程由 `minute-notification-dispatcher` 只在規則時間第 0／1／3／10／20／30 分鐘呼叫 `send-match-reminders`，Edge 依 Asia/Taipei 判斷到期規則；健康檢查使用 `get_match_reminder_health_status()` 與 `matches:HEALTH_ALERT` targeted event，只通知 active `ADMIN`，不自動補發。
 - `/my-records` 透過 `myPlayerRecords` RPC 讀 linked member 可見紀錄，不直接使用後台 `matchesApi` 列表。
 - Dashboard Next Up 走 `get_my_home_next_event(p_member_id, p_today)`；只顯示目前選取 linked member 有列在 `matches.players`、台灣今天至六天後且尚未結束的非特訓比賽。空白名單、RPC 錯誤或沒有符合賽事時隱藏卡片，不得 fallback 到未驗證的全隊賽事。
 - 比賽照片使用 `matches-photos` bucket。

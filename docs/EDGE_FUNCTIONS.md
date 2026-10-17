@@ -67,7 +67,7 @@
 | `supabase/functions/process-coach-leave-notification-outbox/logic.ts` | 教練請假 worker HTTP handler、派送與重試流程 | `logic.test.ts` 涵蓋拒絕未授權、configuration、失敗重試、取消權限與過期訂閱；SQL 回歸驗證 queue recovery、站內 feed 及 per-user URL |
 | `supabase/functions/notify-holiday-theme/index.ts` | 節日主題通知 | 手動需使用者權限，自動需 secret |
 | `supabase/functions/notify-holiday-theme/logic.ts` | 節日通知純邏輯 | 有 Vitest coverage |
-| `supabase/functions/send-match-reminders/index.ts` | 賽事提醒 | 排程走 `MATCH_REMINDER_SECRET`，每分鐘讀 `match_reminder_schedule_config` 判斷 Asia/Taipei 到期規則；手動單場發送需 bearer user 具 `matches:EDIT`；URL 使用 `/calendar?match_id=...`；自動模式會用 `HEALTH_ALERT` targeted event 通知 active `ADMIN` 排程漏發或派送異常 |
+| `supabase/functions/send-match-reminders/index.ts` | 賽事提醒 | 排程走 `MATCH_REMINDER_SECRET`，讀 `match_reminder_schedule_config` 判斷 Asia/Taipei 到期規則；`minute-notification-dispatcher` 只在規則時間第 0／1／3／10／20／30 分鐘呼叫（`20261017145208` 部署後）；手動單場發送需 bearer user 具 `matches:EDIT`；URL 使用 `/calendar?match_id=...`；自動模式會用 `HEALTH_ALERT` targeted event 通知 active `ADMIN` 排程漏發或派送異常 |
 | `supabase/functions/send-training-registration-notifications/index.ts` | 特訓報名開始 / 截止前提醒 | event key 必須穩定；僅有效 `training:VIEW` 帳號／ADMIN，綁定球員不再自動取得收件資格 |
 | `supabase/functions/send-training-registration-status-notifications/index.ts` | 單筆特訓報名完成 / 錄取通知 | bearer user 必須有效且具 `training:VIEW`；`submitted` 給另具 `training:EDIT` 管理者，`selected` 保留原報名人／綁定球員範圍，收件者同樣需 VIEW |
 | `supabase/functions/send-training-selection-notifications/index.ts` | 特訓錄取名單公布通知 | 手動觸發需有效 `training:VIEW + EDIT`／ADMIN；收件者需有效 `training:VIEW`／ADMIN |
@@ -93,7 +93,7 @@
 - 2026-10-12 三支特訓通知的 VIEW gate 已部署；前端 `useNotificationFeed` 同步過濾舊 RPC 回傳的無權限特訓事件，VIEW 撤銷當下即從顯示結果排除特訓快取／新插入事件，刷新時再淘汰已撤權的快取。前端納入 1.1.76；正式部署與權限驗證見 `docs/specs/2026-10-11-training-view-permission.md`。實機推播須在重新啟用訂閱後另外確認。
 - 2026-10-05 已將 `qwxzwomzoyfkorbwsscv` 的 `GEMINI_LINEUP_MODEL` 更新為 `gemini-3.1-pro-preview`，並比對遠端設定摘要與預期值的 SHA-256。線上 `parse-lineup` 第 18 版沿用既有環境覆寫，不重新部署；repo 預設值同步更新。6 項 handler 測試、36 項賽事 / 媒體回歸與型別檢查通過；尚未以實際照片驗證 Google API 回應。
 - 新球員 Outbox cron 需要 Vault entries：`team_member_outbox_function_url`、`team_member_outbox_authorization`、`team_member_outbox_secret`；最後一項需與 Edge secret `TEAM_MEMBER_OUTBOX_SECRET` 相同。
-- 教練請假 cron `coach-leave-notification-outbox-worker` 每分鐘執行；Vault 需 `coach_leave_outbox_function_url`、`coach_leave_outbox_authorization`、`coach_leave_outbox_secret`（對應 Edge `COACH_LEAVE_OUTBOX_SECRET`）。缺設定時保留 pending，不影響假單交易或站內通知。JWT authorization 必須符合目標環境 gateway，不可複製另一專案的 token。
+- 教練請假 worker 由 `minute-notification-dispatcher` 每分鐘預檢（`20261017145208` 部署前仍為 `coach-leave-notification-outbox-worker`）：只有非終態事件或未完成 delivery 且 Vault 完整才呼叫；Vault 需 `coach_leave_outbox_function_url`、`coach_leave_outbox_authorization`、`coach_leave_outbox_secret`（對應 Edge `COACH_LEAVE_OUTBOX_SECRET`）。缺設定時保留 pending，不影響假單交易或站內通知。JWT authorization 必須符合目標環境 gateway，不可複製另一專案的 token。
 - 教練請假 worker 不引入既有 `_shared/push.ts`，新金鑰不寫 source／SQL。實際發送前仍需完成文件開頭的既有憑證處置與 Secret scan gate；release 順序與測試帳號 smoke 見 `docs/specs/2026-10-02-coach-leave-and-schedule-templates.md`。
 - `supabase/functions/send-training-location-reminders/` 目前是空目錄，沒有 `index.ts`，不要當成已部署 function。
 - `supabase/functions/deno.json` 與 `supabase/functions/import_map.json` 是 Edge Function runtime 設定，改 import 或 Deno test 時要檢查。

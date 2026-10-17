@@ -278,6 +278,7 @@ UI 約定：
 主要檔案：
 
 - `src/views/LeaveRequestsView.vue`
+- `src/composables/useLeaveRequestsRealtime.ts`（只訂閱 `leave_requests`，800ms 合併重新整理）
 - `src/views/AttendanceListView.vue`
 - `src/views/RollCallView.vue`
 - `src/services/myLeaveRequests.ts`
@@ -375,7 +376,7 @@ UI 約定：
 - `MatchFormDialog` 會用 `preview_match_leave_absences(p_match_date, p_player_names, p_match_time)` 預覽出賽名單內、假單日期與時段涵蓋比賽的球員；前端傳入的時間會先取比賽時間欄位，沒有時再取備註中的集合時間，顯示成不可手動改名的 `source = 'leave_request'` 請假列。
 - `MatchDetailDialog` 的「賽事備註」卡會合併已儲存手動請假列與 `get_match_leave_absences(p_match_id)` 的最新假單同步列；歷史、今日與未來賽事中已刪除假單留下的舊自動列都不再顯示。
 - `/match-records` 的「未來賽事」可由具 `matches:EDIT` 的使用者手動發送單場賽事通知；「提醒排程」同樣只給 `matches:EDIT` 使用者管理，設定存在 `system_settings.match_reminder_schedule_config`，透過 `get_match_reminder_schedule_config()` / `save_match_reminder_schedule_config(jsonb)` 讀寫全站共用多組規則，並透過 `get_match_reminder_health_status()` 顯示 ADMIN 可見的排程健康狀態。
-- Edge Function `send-match-reminders` 會驗證手動 bearer user 權限或排程 secret；自動排程每分鐘以 Asia/Taipei 判斷到期規則，寫入 `push_dispatch_events` 並發送 Web Push，通知 URL 統一導向 `/calendar?match_id=...`；自動模式會檢查近 30 分鐘漏發與派送異常，使用 `matches` + `HEALTH_ALERT` targeted event 通知 active `ADMIN`，不自動補發給家長 / 球員。
+- Edge Function `send-match-reminders` 會驗證手動 bearer user 權限或排程 secret；自動排程由 `minute-notification-dispatcher` 只在規則時間第 0／1／3／10／20／30 分鐘呼叫，Edge 以 Asia/Taipei 判斷到期規則，寫入 `push_dispatch_events` 並發送 Web Push，通知 URL 統一導向 `/calendar?match_id=...`；自動模式會檢查近 30 分鐘漏發與派送異常，使用 `matches` + `HEALTH_ALERT` targeted event 通知 active `ADMIN`，不自動補發給家長 / 球員。
 - 陣容照片解析會先在前端壓縮 / 轉 data URL，再呼叫 `parse-lineup`；預設模型為 `gemini-3.1-pro-preview`，使用既有 `generateContent` 圖片輸入與 JSON Schema，AI 結果需要 normalize 與 unresolved flow。`GEMINI_LINEUP_MODEL` 可覆寫模型，既有環境若設定舊模型需同步更新；`parse-lineup/index.test.ts` 驗證預設 / 覆寫模型、圖片與 JSON 請求、結果正規化及未授權拒絕。
 - 比賽語音轉紀錄使用 IndexedDB 保存草稿與音檔 chunks，再呼叫 `transcribe-match-audio` 產生結構化事件。
 - 天氣預報優先透過 `resolve-location` 解析場地座標，外部 API 失敗時回到前端 fallback。
@@ -385,7 +386,7 @@ UI 約定：
 - 保留 `google_calendar_event_id` 欄位缺失時的 fallback。
 - 同步比對先用 `google_calendar_event_id`，再用日期 + 時間 + 標題 fallback。
 - 自動假單同步只新增 / 更新 / 刪除 `matches.absent_players` 中 `source = 'leave_request'` 的列；手動列與 Google Calendar 匯入既有列不得被 trigger 移除。
-- 假單同步作用於所有有日期賽事，且只比對該場 `players` 出賽名單內的球員；補登、刪除或調整歷史假單時段後，自動請假列與既有比賽費 trigger 都需跟著重算，已付款歷史仍依比賽費 guard 保留。
+- 假單同步作用於所有有日期賽事，且只比對該場 `players` 出賽名單內的球員；補登、刪除或調整歷史假單時段後，自動請假列與既有比賽費 trigger 都需跟著重算，已付款歷史仍依比賽費 guard 保留。`20261017150507_match_fee_sync_noop_guard.sql` 起，比賽費 trigger 只在請假的人員／日期／時段或賽事監看欄位真的改變時重算，且只重算涉及該球員的賽事；結果相同的費用列不再被改寫。
 - `parse-lineup` 與 `transcribe-match-audio` 使用 service role 時，必須先驗證 bearer user，再用 user scoped client 檢查 `matches:CREATE` 或 `matches:EDIT`。
 - AI 不可把沒有在照片 / 語音中明確出現的球員硬塞進陣容或紀錄。
 
@@ -876,7 +877,7 @@ UI 約定：
 8. 手動催繳通知走 `send-fee-payment-reminders`，只允許 `fees:EDIT` / `ADMIN` preview / send，`test` 只允許 `ADMIN` 且只通知本人；測試文案使用目前管理員綁定球員的未繳月費 / 季費組成；通知中心 source 為 `fee_payment_reminder`。
 9. 比賽費開放／重新開放不自動發送站內通知與 Web Push；既有 `send-match-fee-payment-notifications` 保留，若直接呼叫仍須 `fees:EDIT` / `ADMIN` 並依未繳明細與 linked member 驗證收件範圍。
 10. 使用者點擊 Web Push 時，`public/push-sw.js` 同步啟動 client 導向，並把 target 寫入 IndexedDB `jg-baseball-push-deeplink/pendingTargets/latest` 與 Cache Storage `jg-baseball-push-deeplink-cache`；前端用 `pushDeepLink.ts` 正規化、短時間重試 consume pending target 後交給 router，推播設定可查看最後一次 click 診斷。
-11. `process-team-member-notification-outbox` 每分鐘領取最多 25 個新球員事件與 100 個到期 delivery，逐 subscription 派送；暫時失敗依 1 / 5 / 15 / 60 / 360 分鐘重試，404 / 410 清除 subscription，處理鎖超過 5 分鐘可重新領取。
+11. `minute-notification-dispatcher` 每分鐘預檢，有非終態事件或未完成 delivery 才呼叫 `process-team-member-notification-outbox`；每次領取最多 25 個新球員事件與 100 個到期 delivery，逐 subscription 派送；暫時失敗依 1 / 5 / 15 / 60 / 360 分鐘重試，404 / 410 清除 subscription，處理鎖超過 5 分鐘可重新領取。
 
 通知讀取修正納入 1.1.76、準備發行：`MainLayout` 透過 `useNotificationFeedRefresh` 協調初次載入、回前景、開啟及 `coach-leave-changed`；初次沿用 60 秒快取，回前景／開啟採 30 秒，資料異動才強制刷新，開啟仍要求費用提醒。`useNotificationFeed` 合併重複請求、處理必要的後續刷新並隔離舊回應；此刷新去重本身不改 Web Push 派送與收件權限。
 

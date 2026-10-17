@@ -556,6 +556,7 @@ import { useRoute } from 'vue-router'
 import PushSettingsDialog from '@/components/PushSettingsDialog.vue'
 import LeaveMemberPicker from '@/components/leave/LeaveMemberPicker.vue'
 import { supabase } from '@/services/supabase'
+import { createLeaveRequestsRealtime } from '@/composables/useLeaveRequestsRealtime'
 import {
   buildGroupedPushEventKey,
   describePushDispatchIssue,
@@ -1317,7 +1318,10 @@ const confirmDelete = async (row: any) => {
 }
 
 // --- Supabase Realtime 訂閱 ---
-let realtimeChannel: any
+const leaveRequestsRealtime = createLeaveRequestsRealtime(() => {
+  fetchData()
+  fetchStatsData()
+})
 
 const updateViewportMode = () => {
   isDesktopViewport.value = typeof window !== 'undefined'
@@ -1338,19 +1342,8 @@ onMounted(() => {
   fetchData()
   fetchStatsData()
 
-  // 監聽 leave_requests 資料表變更
-  realtimeChannel = supabase.channel('leave-requests-stats-changes')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'leave_requests' }, () => {
-      fetchData()
-      fetchStatsData()
-    })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_events' }, () => {
-      fetchStatsData()
-    })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_records' }, () => {
-      fetchStatsData()
-    })
-    .subscribe()
+  // 監聽 leave_requests 資料表變更（連續事件合併為一次重新整理）
+  leaveRequestsRealtime.start()
 })
 
 onUnmounted(() => {
@@ -1358,9 +1351,7 @@ onUnmounted(() => {
     window.removeEventListener('resize', updateViewportMode)
   }
 
-  if (realtimeChannel) {
-    supabase.removeChannel(realtimeChannel)
-  }
+  leaveRequestsRealtime.stop()
 })
 </script>
 

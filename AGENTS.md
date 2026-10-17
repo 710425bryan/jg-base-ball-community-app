@@ -190,7 +190,7 @@
 - 球員身分選單由 `PlayerIdentitySelect` / `playerIdentity` 管理，包含「新太陽社區棒球隊」並可自行輸入最多 60 字的社區球員身分；名稱存 `team_members.member_identity_label`，底層 `role` 固定為 `球員`，收費仍依個別 `fee_billing_mode`。`private.capture_player_identity_label` 隨球員成功儲存同步保存至 `player_identity_labels`，未送出或球員寫入失敗不保存、最後一位球員刪除後選項仍保留。既有校隊／教練／管理群身分維持原規則；Google 同步不得覆蓋手動自訂身分或將其角色改為校隊。此功能須先部署 `20260909133628_player_custom_identity_labels.sql`。
 - 球員名單讀取分流：linked user 只看綁定球員安全欄位、相關 `*:VIEW` 權限可看全隊安全欄位、`players:EDIT` / `ADMIN` 由 `list_team_members_for_edit()` 讀完整資料。
 - 球員名單顯示經由 `src/stores/playerRoster.ts` 做 session 內記憶體快取；進頁先呼叫 `get_team_members_cache_meta()` 比對 `team_members` 的 `row_count` / `latest_changed_at`，有差異才重新抓完整名單。
-- 新增球員後由 `team_members` trigger 寫入 `push_dispatch_events` Outbox，`process-team-member-notification-outbox` 每分鐘逐 subscription 派送與重試；`PlayersView` / `MainLayout` 不可再發送新球員推播或訂閱 raw `team_members` Realtime。
+- 新增球員後由 `team_members` trigger 寫入 `push_dispatch_events` Outbox，`process-team-member-notification-outbox` 逐 subscription 派送與重試（`minute-notification-dispatcher` 每分鐘預檢有待處理工作才呼叫）；`PlayersView` / `MainLayout` 不可再發送新球員推播或訂閱 raw `team_members` Realtime。
 - team group 設定經由 `src/stores/teamGroups.ts`、`src/services/teamGroupsApi.ts` 與 `TeamGroupSettingsDialog.vue` 管理；改名、排序、刪除轉移時要檢查 `PlayersView`、`TrainingView`、`TrainingLocationsView`、`LeaveRequestsView`、`RollCallView` 的分組選項。
 - Google 表單 / Sheet 同步不得覆蓋既有 `team_members.is_primary_payer`、`team_members.is_half_price` 與 `team_members.fee_billing_mode`；新增球員時前兩者預設 `false`，收費模式預設 `role_default`。
 - 使用者管理在 `UsersView`，profile 新增 / 更新 / 刪除優先走 `admin_insert_profile()`、`admin_update_profile()`、`admin_delete_user()`。
@@ -216,7 +216,7 @@
 ### 請假與點名
 
 - 家長 / 球員自己的請假走 `myLeaveRequests` RPC；一般帳號只限 linked member，只有 `public.current_profile_role() = 'ADMIN'` 的有效 ADMIN 才能在「我的假單」查看、建立與刪除所有有效成員的假單，四支 RPC 必須使用一致的授權判斷。
-- 後台請假管理在 `LeaveRequestsView`，會讀 `team_members` 與 `leave_requests`，需受 `leave_requests` feature RLS 保護。
+- 後台請假管理在 `LeaveRequestsView`，會讀 `team_members` 與 `leave_requests`，需受 `leave_requests` feature RLS 保護。Realtime 由 `useLeaveRequestsRealtime` 只訂閱 `leave_requests`，連續事件 800ms 內合併為一次列表與統計重新整理；`attendance_events`／`attendance_records` 不在正式 publication，不訂閱。
 - 點名列表與點名頁使用 `attendance_events`、`attendance_records`，並會參照 `team_members`、`leave_requests`。
 - `/attendance` 由 `attendanceEvents.listAttendanceEvents(month)` 依台灣本年本月預設查詢，資料庫以 `date >= 月初 AND date < 次月月初` 篩選後才讀取點名狀態；可查其他年月、回到本月，並以共用 `ViewModeSwitch` 切換卡片／表格。兩種檢視共用資料與既有操作權限；切換月份隔離過期回應，空值／無效月份不可退回全歷史查詢。
 - 場地配置建立的點名單透過 `attendance_events.training_location_session_id` / `training_location_session_venue_id` 串接；每個場地可各自建立一張點名單，`RollCallView` 名單只取該場地最新 `training_location_assignments`，不回退成全隊名單。
@@ -232,7 +232,7 @@
 
 - 賽事資料表為 `matches`，主要 API 在 `src/services/matchesApi.ts`。
 - 編輯比賽的投手成績由 `MatchPitchingStatsEditor` 顯示；`PitchingStat.ip` 保存 0 以上整數出局數，2 代表 ⅔ 局並顯示 `0.2`，9 顯示 `3.0`，不可填小數局數。`matchPitchingStats` 共用驗證與編輯預覽，小數／空值顯示欄位錯誤、局數與防禦率暫顯示 `—`；`MatchFormDialog` 儲存時阻擋並切到投手頁籤，不自行四捨五入或修正既有資料。
-- 不收隊費（`fee_billing_mode = 'no_fee'`）球員 / 校隊仍可正常參賽並記錄成績；比賽費依獨立開關、生效日期、參賽、請假與單場免繳由 DB `sync_match_fee_items_for_match()` 判斷，參賽資格與收費資格分開。
+- 不收隊費（`fee_billing_mode = 'no_fee'`）球員 / 校隊仍可正常參賽並記錄成績；比賽費依獨立開關、生效日期、參賽、請假與單場免繳由 DB `sync_match_fee_items_for_match()` 判斷，參賽資格與收費資格分開。`20261017150507_match_fee_sync_noop_guard.sql`（本機完成、尚未部署）讓同步只改寫結果真的不同的未繳／取消列，賽事 trigger 在監看欄位值未變時直接返回，請假 trigger 忽略未改人員／日期／時段的更新並只重算涉及該球員的賽事；規則與待審／已付款保護不變，未改寫的列 `updated_at` 維持不變。驗證 `tests/database/matchFeeSyncNoopGuard.integration.mjs`（`pnpm test:payments:sql`）以同一操作序列比對套用前後結果。
 - `/calendar` 是登入後賽程入口，`?match_id=` 會開啟 `MatchDetailDialog`；推播與通知連結應導向 `/calendar?match_id=...`。
 - 個人成績頁 `/my-records` 不直接使用後台 `matchesApi` 讀列表，而是透過 `myPlayerRecords` RPC 依球員可見範圍取回比賽紀錄；打擊 / 投球彙總邏輯在 `src/utils/matchRecordStats.ts`。
 - `matchesApi` 保留 `google_calendar_event_id` 欄位缺失 / schema cache 尚未更新時的 fallback。
@@ -434,6 +434,7 @@
 - 修改 Edge Function 或外部 API 前讀 `docs/EDGE_FUNCTIONS.md`，確認所需 env、auth 模式與對應 skill。
 - Storage bucket policy 要跟功能權限一致；例如 avatars、equipments、matches-photos 各自有不同使用情境。
 - 2026-10-09 正式專案已部署 cron history retention `20261009051707`：已結束紀錄保留 30 天，另保留每個現有排程最新 10 筆；每批最多掃描 500 筆。台灣每日 03:20 維護 `net._http_response`（一般 VACUUM、只 ANALYZE `created`），03:30 執行 retention；詳細限制及初次分批清理進度見維護報告，不可宣稱歷史積欠已清完。
+- 每分鐘通知排程集中於 `minute-notification-dispatcher`（`20261017145208`，本機完成、尚未部署）：cron command 只保留函式呼叫，各目標先在 SQL 預檢有工作才 `net.http_post`。新增每分鐘排程時優先加入此 dispatcher 並寫預檢條件，不要再新增長 DO 區塊或無條件 HTTP 的每分鐘 cron；查 `cron.job_run_details` 一律用最新 runid 視窗，不可依 start_time 全表排序或以 LIKE 掃 `net._http_response`。cron 歷史積欠以 `scripts/activate-cron-history-catchup.sql` 夜間分批追趕（尚未啟用）。
 - `scripts/supabase-recovery-observer.mjs` 每次只做唯讀觀察，執行資料放在須保持 Git ignored 的 `.codex/runtime/`；它不清理資料、不自行發送告警，也不能代替持續在線的外部監控。
 
 ## 10. 驗證矩陣
@@ -473,6 +474,7 @@
 - 新增角色／權限複製：`pnpm exec vitest run src/components/RolePermissionsManager.test.ts src/services/rolesApi.test.ts` 與 `pnpm test:roles:sql`；涵蓋來源選取、完整快照、不複製、來源獨立性、有效 ADMIN／無權限、ADMIN 來源拒絕、RLS 阻擋與整筆回滾；SQL 回歸亦納入 `pnpm check`。
 - 角色數字排序：`pnpm exec vitest run src/components/RoleSortEditor.test.ts src/components/RolePermissionsManager.test.ts src/services/rolesApi.test.ts src/utils/userRoleOrder.test.ts src/views/UsersView.test.ts src/stores/permissions.test.ts` 與 `pnpm test:roles:sql`；涵蓋正整數、系統／自訂角色、相同數字／未知角色排序、保存結果同步／重新查詢失敗、有效 ADMIN／RLS、保存失敗及權限資料保留。
 - 特訓檢視權限：`pnpm test:training:sql` 與 `node tests/browser/verify-training-permission.mjs`（隔離環境啟動方式見 `tests/browser/README.md`）；涵蓋 linked-only／僅管理 action 拒絕、VIEW 與綁定範圍、權限撤銷、ADMIN、RLS／RPC、背景自動化及既有資料保留；SQL 回歸納入 `pnpm check`。
+- cron／每分鐘通知排程／cron 歷史清理：`pnpm test:cron:sql`（retention、夜間 catch-up、dispatcher 預檢、健康檢查／訓練診斷 runid 視窗與回滾腳本），已納入 `pnpm check`。
 - 球員同步：`pnpm exec vitest run src/utils/playerSync.test.ts`
 - 廠商名單：`pnpm exec vitest run src/utils/vendors.test.ts`
 - 推播工具：`pnpm exec vitest run src/utils/pushNotifications.test.ts`

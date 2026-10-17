@@ -15,7 +15,7 @@ description: "Leave request, attendance event, roll call, dashboard attendance s
 2. `docs/PROJECT_LOGIC.md` 的「請假與點名」
 3. `docs/FILE_MAP.md`
 4. `src/views/MyLeaveRequestsView.vue`
-5. `src/views/LeaveRequestsView.vue`
+5. `src/views/LeaveRequestsView.vue`（Realtime 在 `src/composables/useLeaveRequestsRealtime.ts`：只訂閱 `leave_requests`、800ms 合併重新整理，勿改回逐列重抓）
 6. `src/views/AttendanceListView.vue`
 7. `src/views/RollCallView.vue`
 8. `src/services/myLeaveRequests.ts`

@@ -152,3 +152,32 @@ Do not publish response bodies, session tokens, cron command contents, Vault sec
 - Pre/post counts and content fingerprints were unchanged for training settings, registrations and blocks, all 348 point transactions, and all 441 role-permission rows. These checks establish preservation during the migration; they do not imply a new permission grant or a point adjustment.
 - The retention, last-seen and historical coach-notification SQL suites passed 76, 13 and 40 isolated checks respectively. No retention activation, maintenance sweep, historical notification suppression script or notification replay was executed in this follow-up. The 2026-10-09 operations remain separate historical actions.
 - This follow-up does not add a new latency observation window, verify nightly retention throughput, complete 24-hour/seven-day timeout acceptance, or establish device push delivery. Current training Edge Function and release status are tracked separately in `docs/specs/2026-10-11-training-view-permission.md` and `docs/EDGE_FUNCTIONS.md`.
+
+## 2026-10-17 follow-up — every-minute cron and history growth (prepared, not deployed)
+
+Read-only production inventory (Supabase CLI `db query --linked`, SELECT/EXPLAIN only; one aggregate count over `cron.job_run_details` and one joined history lookup were heavier than intended, the latter hit the statement timeout and was abandoned):
+
+- Database 1,429 MB; `cron.job_run_details` 1,378 MB, about 542,000 rows, oldest 2026-04-27, about 346,000 rows older than 30 days. Only a primary key on `runid` exists.
+- Retention state: 135,000 deleted in total (55,000 bootstrap plus 10,000 per night), sweep still descending (`next_before_runid` 307198, not complete). At 10,000/day minus about 6,000 new rows/day the backlog would take months.
+- History rows by job: holiday checker 206,937 (137 MB), match reminder 109,199 (108 MB), team member outbox 94,114 (115 MB), training registration 39,246 (48 MB), coach leave outbox 21,545 (19 MB). Average stored command length 592–1,178 bytes per row.
+- The holiday job never sends: no `app.holiday_theme_function_url` is configured (only `app.settings.jwt_exp` exists in database/role settings). Coach leave Vault entries are absent, so that job only raises a notice. The match reminder job embeds its Edge Function URL and reads two Vault entries. Actual HTTP volume was therefore about 2,880 calls/day (match reminder and team member outbox), all unconditional.
+- `pg_stat_statements` since 2026-06-08 (cumulative, includes the pre-10/09 dead-tuple period): pg_net response cleanup 97,876 s and 126.8 M shared-block reads; Realtime WAL polling 43,000 s over 6.2 M calls; cron bookkeeping about 569,000 inserts plus four updates per run.
+- `get_match_reminder_health_status()` sorted the whole history by `start_time` per job and scanned `net._http_response` content with `LIKE`; `get_training_registration_notification_diagnostics()` sorted all runs of its job by `start_time`. Both run on 1.38 GB without a usable index. Production definitions matched the repository (health md5 identical; diagnostics anchor present with the training:VIEW gate).
+
+Prepared changes (local only, isolated SQL checks: dispatcher 183, catch-up 12, existing retention 76, training gate 394):
+
+| Item | Change | Expected effect |
+| --- | --- | --- |
+| `20261017145208_minute_notification_dispatcher.sql` | One `minute-notification-dispatcher` job with a 52-byte command replaces the four every-minute jobs. Each target is pre-checked in SQL before `net.http_post`; request headers/bodies/Vault names are unchanged; the match reminder URL is captured from the old command. | Cron rows about 6,078 → about 1,758/day (−71%), stored command bytes per minute about 3.5 KB → 52 B. Edge calls about 2,880 → about 6 per enabled reminder rule per day plus outbox work when present. |
+| Same migration | Health RPC reads the newest 5,000 runids and the dispatcher's last request id; training diagnostics CTE rewritten by anchor to the same window. Health also denies users without a profile. | Admin reminder dialog and training diagnostics no longer scan the history table. |
+| `20261017145209_cron_history_catchup.sql` + `scripts/activate-cron-history-catchup.sql` | Temporary off-peak job, 01:00–02:45 and 04:00–04:45 Taipei every 15 minutes, reusing the bounded daily procedure and its lock; unschedules itself. | Up to 120,000 deletions/night; backlog estimated at about 3 nights. |
+| `scripts/rollback-minute-notification-dispatcher.sql` | Restores the four production jobs exactly as inventoried and removes the dispatcher. | Schedule-only rollback. |
+
+Deployment order (each step needs explicit approval; none has been executed):
+
+1. Apply `20261017145208` outside the reminder windows (not 19:55–20:35 Taipei for the default rule). It is one transaction: on an unexpected diagnostics definition it aborts and leaves all schedules unchanged.
+2. Post-check within 5 minutes: `cron.job` shows the dispatcher and no legacy four; the newest dispatcher runs succeed; `private.minute_notification_dispatch_state` has the captured URL; the ADMIN reminder dialog loads. At the next rule time, confirm one dispatch, an HTTP 2xx for that request id and reminder events (or no matches), and no health alerts. Watch `net._http_response` growth fall.
+3. After one quiet night, apply `20261017145209`, then run the activation script. Each morning compare `private.cron_history_retention_state.total_deleted`, catch-up run status/duration and autovacuum on `cron.job_run_details`; stop with `select cron.unschedule('cron-run-history-catchup');` if latency or errors rise.
+4. Space reclamation is a separate decision. Deleting rows only frees space for reuse; the file stays near 1.38 GB until rewritten. After catch-up, live data is roughly 50,000 rows (tens of MB). Options: `pg_repack` (online, needs the extension and client) or `VACUUM FULL cron.job_run_details` in an approved quiet window (ACCESS EXCLUSIVE lock: cron history writes wait for its duration). Do not run either during the day or without approval.
+
+Not addressed here: Realtime WAL polling cost, `match_fee_items` no-op updates, RLS per-row permission calls and the `get_notification_feed` indexes (tracked separately).

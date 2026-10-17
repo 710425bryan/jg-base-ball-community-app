@@ -237,7 +237,7 @@
 | `/my-payments` | `src/views/MyPaymentsView.vue` | 個人繳費與裝備付款 |
 | `/equipment-addons` | `src/views/EquipmentAddonsView.vue` | 登入 + linked member / RLS |
 | `/my-leave-requests` | `src/views/MyLeaveRequestsView.vue` | 一般帳號 linked member 假單；ADMIN 可切換所有有效成員 |
-| `/leave-requests` | `src/views/LeaveRequestsView.vue` | `leave_requests:VIEW` |
+| `/leave-requests` | `src/views/LeaveRequestsView.vue`（Realtime：`src/composables/useLeaveRequestsRealtime.ts`） | `leave_requests:VIEW` |
 | `/players` | `src/views/PlayersView.vue` | `players:VIEW` |
 | `/registration-forms` | `src/views/RegistrationFormsView.vue` | `registration_forms:VIEW`；產檔另需 `registration_forms:CREATE + players:EDIT` |
 | `/users` | `src/views/UsersView.vue` | `users:VIEW` |
@@ -456,6 +456,8 @@
 
 | 類型 | 重要檔案 |
 | --- | --- |
+| 每分鐘通知 dispatcher（本機完成） | `supabase/migrations/20261017145208_minute_notification_dispatcher.sql`；單一 `minute-notification-dispatcher`、各目標 SQL 預檢、dispatch state、賽事提醒健康檢查與訓練診斷改用 runid 視窗；`tests/database/minuteNotificationDispatcher.integration.mjs` |
+| Cron history catch-up（本機完成） | `supabase/migrations/20261017145209_cron_history_catchup.sql`；`tests/database/cronHistoryCatchup.integration.mjs` |
 | Cron history retention（已部署） | `supabase/migrations/20261009051707_cron_run_history_retention.sql`；30 天＋現有 job 最新 10 筆、500 筆批次與持久掃描進度 |
 | Last-seen 節流（history 已補齊） | `supabase/migrations/20261011161534_profile_last_seen_write_throttle.sql`；2026-10-12 部署以補齊既有線上 auth.uid() 本人 5 分鐘節流的 migration history，function body 與 ACL 未變 |
 | 權限 / RLS | `supabase_access_control_rls_migration.sql`、`supabase_access_control_policy_cleanup_migration.sql` |
@@ -525,6 +527,7 @@
 | `scripts/bump_fonts.cjs` | 字型資產處理 |
 | `scripts/google-form-remittance-apps-script.js` | Google Form 匯款 Apps Script |
 | `scripts/activate-pg-net-response-maintenance.sql` | 台灣 03:20 一般 VACUUM／只 ANALYZE net._http_response(created)，已啟用 |
+| `scripts/activate-cron-history-catchup.sql` | 暫時性夜間 cron 歷史追趕（台灣 01:00–02:45、04:00–04:45 每 15 分鐘，最多 120,000 筆／晚，清完自動 unschedule），尚未啟用 |
 | `scripts/activate-cron-history-retention.sql` | 台灣 03:30 retention，daily 最多刪除 10,000／掃描 100,000，20 秒軟預算、目前全域 120 秒硬上限 |
 | `scripts/supabase-recovery-observer.mjs` | 單次唯讀、限量觀察與計數差值；本機輸出放須保持 Git ignored 的 `.codex/runtime/`，不清理／派送通知 |
 | `scripts/suppress-coach-leave-historical-push-20261009.sql` | 2026-10-09 14:48:18 台灣已正式將固定 11 筆歷史教練通知改 recorded、保留站內及內容；一次性維運 DML，不重跑，heartbeat 禁止執行，新推播仍未恢復 |

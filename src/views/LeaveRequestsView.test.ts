@@ -163,6 +163,27 @@ describe('LeaveRequestsView', () => {
     expect(supabase.from).toHaveBeenCalledWith('team_members_safe')
   })
 
+  it('subscribes to leave_requests only and removes the channel on unmount', async () => {
+    const { supabase } = await import('@/services/supabase')
+    const channel = supabase.channel()
+    vi.mocked(supabase.channel).mockClear()
+    vi.mocked(channel.on).mockClear()
+
+    const wrapper = await mountView()
+
+    expect(supabase.channel).toHaveBeenCalledTimes(1)
+    expect(channel.on).toHaveBeenCalledTimes(1)
+    expect(channel.on).toHaveBeenCalledWith(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'leave_requests' },
+      expect.any(Function)
+    )
+
+    wrappers.splice(wrappers.indexOf(wrapper), 1)
+    wrapper.unmount()
+    expect(supabase.removeChannel).toHaveBeenCalledWith(channel)
+  })
+
   it('uses the direct mobile member picker and applies its selection', async () => {
     const wrapper = await mountView()
     wrapper.vm.isDesktopViewport = false

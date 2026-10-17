@@ -30,7 +30,7 @@ description: "Push notification workflow for jg-base-ball-community-app. Use whe
 - 通知 click deep link 不可只靠單一 hash、search、IndexedDB 或 `postMessage`。`public/push-sw.js` 必須同步啟動 client 導向，並把 target 寫入 IndexedDB `jg-baseball-push-deeplink/pendingTargets/latest` 與 Cache Storage `jg-baseball-push-deeplink-cache`；前端統一透過 `src/utils/pushDeepLink.ts` 正規化、短時間重試 consume target，推播設定需保留可供 iPhone 截圖的 click 診斷資訊。
 - 賽事提醒或舊 `/match-records?match_id=...` 連結都要導到 `/calendar?match_id=...`，讓「賽程與行事曆」負責開啟比賽詳情 dialog。
 - `/match-records` 未來賽事的手動通知走 `send-match-reminders`，由 bearer user 的 `matches:EDIT` 權限控制，通知中心事件使用 `matches` + `REMINDER`。
-- 賽事提醒自動排程同樣走 `send-match-reminders`，每分鐘依 `system_settings.match_reminder_schedule_config` 判斷到期規則；event key 要包含 match、rule、scheduled date/time，避免每分鐘重複發送並支援同一場多組提醒。
+- 賽事提醒自動排程同樣走 `send-match-reminders`，由 `minute-notification-dispatcher` 預檢後呼叫，依 `system_settings.match_reminder_schedule_config` 判斷到期規則；event key 要包含 match、rule、scheduled date/time，避免每分鐘重複發送並支援同一場多組提醒。
 - 收費催繳通知走 `send-fee-payment-reminders`，不走自動排程；`preview/send` 由 bearer user 的 `fees:EDIT` 或 `ADMIN` 控制，`test` 只允許 `ADMIN` 且只通知目前登入者，文案使用目前管理員綁定球員的未繳帳款組成。通知中心事件使用 `fees` + `PAYMENT_REMINDER`，source 為 `fee_payment_reminder`，URL 使用 `/my-payments`。
 - 比賽費開放／重新開放不自動產生家長站內通知或 Web Push，`MatchFeeManagementPanel` 不呼叫通知 service。既有 `send-match-fee-payment-notifications` 保留，直接呼叫仍需重驗 `fees:EDIT` / `ADMIN`、場次開放狀態與 linked member 收件範圍；不要在開放流程重新接入自動通知。
 - 通知中心讀取的刷新去重與 Web Push 派送去重是不同流程。`useNotificationFeedRefresh` 協調初次／前景／開啟／資料異動，`useNotificationFeed` 合併請求並隔離舊回應；保留費用提醒、權限撤銷與登出清除。此前端修正納入 1.1.76 Git 發布；正式 pg_net／cron 維護及驗收見 `docs/SUPABASE_TIMEOUT_RECOVERY_20261009.md`。
