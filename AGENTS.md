@@ -434,7 +434,7 @@
 - 修改 Edge Function 或外部 API 前讀 `docs/EDGE_FUNCTIONS.md`，確認所需 env、auth 模式與對應 skill。
 - Storage bucket policy 要跟功能權限一致；例如 avatars、equipments、matches-photos 各自有不同使用情境。
 - 2026-10-09 正式專案已部署 cron history retention `20261009051707`：已結束紀錄保留 30 天，另保留每個現有排程最新 10 筆；每批最多掃描 500 筆。台灣每日 03:20 維護 `net._http_response`（一般 VACUUM、只 ANALYZE `created`），03:30 執行 retention；詳細限制及初次分批清理進度見維護報告，不可宣稱歷史積欠已清完。
-- 每分鐘通知排程集中於 `minute-notification-dispatcher`（`20261017145208`，本機完成、尚未部署）：cron command 只保留函式呼叫，各目標先在 SQL 預檢有工作才 `net.http_post`。新增每分鐘排程時優先加入此 dispatcher 並寫預檢條件，不要再新增長 DO 區塊或無條件 HTTP 的每分鐘 cron；查 `cron.job_run_details` 一律用最新 runid 視窗，不可依 start_time 全表排序或以 LIKE 掃 `net._http_response`。cron 歷史積欠以 `scripts/activate-cron-history-catchup.sql` 夜間分批追趕（尚未啟用）。
+- 每分鐘通知排程集中於 `minute-notification-dispatcher`（`20261017145208`，2026-10-17 已部署正式）：cron command 只保留函式呼叫，各目標先在 SQL 預檢有工作才 `net.http_post`。新增每分鐘排程時優先加入此 dispatcher 並寫預檢條件，不要再新增長 DO 區塊或無條件 HTTP 的每分鐘 cron；查 `cron.job_run_details` 一律用最新 runid 視窗，不可依 start_time 全表排序或以 LIKE 掃 `net._http_response`。cron 歷史積欠以 `scripts/activate-cron-history-catchup.sql` 夜間分批追趕（尚未啟用）。
 - `scripts/supabase-recovery-observer.mjs` 每次只做唯讀觀察，執行資料放在須保持 Git ignored 的 `.codex/runtime/`；它不清理資料、不自行發送告警，也不能代替持續在線的外部監控。
 
 ## 10. 驗證矩陣

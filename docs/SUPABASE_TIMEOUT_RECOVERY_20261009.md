@@ -180,4 +180,16 @@ Deployment order (each step needs explicit approval; none has been executed):
 3. After one quiet night, apply `20261017145209`, then run the activation script. Each morning compare `private.cron_history_retention_state.total_deleted`, catch-up run status/duration and autovacuum on `cron.job_run_details`; stop with `select cron.unschedule('cron-run-history-catchup');` if latency or errors rise.
 4. Space reclamation is a separate decision. Deleting rows only frees space for reuse; the file stays near 1.38 GB until rewritten. After catch-up, live data is roughly 50,000 rows (tens of MB). Options: `pg_repack` (online, needs the extension and client) or `VACUUM FULL cron.job_run_details` in an approved quiet window (ACCESS EXCLUSIVE lock: cron history writes wait for its duration). Do not run either during the day or without approval.
 
+### Deployment ledger — 2026-10-17
+
+| Time (Taipei) | Action | Result |
+| --- | --- | --- |
+| 23:19 | Read-only preflight | Outside reminder windows (production rules 10:00 and 18:00). Four legacy jobs present; match reminder command held a URL literal; diagnostics anchor and training:VIEW gate present; migration not yet recorded. Baseline: 120 `net._http_response` rows in the previous hour (about two per minute). Three pending coach leave outbox events, Vault still incomplete. |
+| about 23:20 | Applied `20261017145208` with `supabase db query --linked -f` (single transaction) | Dispatcher scheduled as jobid 29; the four legacy jobs were removed. |
+| 23:21 | `supabase migration repair --status applied 20261017145208` | History version matches the file name. |
+| 23:21–23:22 | Post-check | Dispatcher runs succeeded in 23–27 ms with a 50-byte stored command. The newest HTTP response was still 23:20:00, so no new response rows were created after deployment. State rows exist with the captured match reminder URL and zero dispatches. New private functions deny anon, authenticated and service_role. Pre-checks returned team outbox idle, coach outbox pending (will report `not_configured` until Vault is complete, same as before), match reminder and holiday not due. |
+| 23:22 | ADMIN read of `get_match_reminder_health_status()` and training diagnostics (read-only transaction, rolled back) | Health returned cron succeeded and "no dispatch yet". Its `unhealthy` status came from three `failed_push` health alerts created at 18:00 that day, before deployment (Web Push delivery failures, a separate open issue). Diagnostics returned the ten most recent runs from the runid window without secret keys. |
+
+Still open: verify the first real dispatch at the next rule time (10:00 Taipei on 2026-10-18), that is one dispatch, a 2xx for that request id and the expected reminder events; then compare 24-hour cron row and HTTP counts against the estimate. The catch-up migration `20261017145209` and match fee guard `20261017150507` are not deployed.
+
 Not addressed here: Realtime WAL polling cost, `match_fee_items` no-op updates, RLS per-row permission calls and the `get_notification_feed` indexes (tracked separately).

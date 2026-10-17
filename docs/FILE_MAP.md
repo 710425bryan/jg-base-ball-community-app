@@ -456,7 +456,7 @@
 
 | 類型 | 重要檔案 |
 | --- | --- |
-| 每分鐘通知 dispatcher（本機完成） | `supabase/migrations/20261017145208_minute_notification_dispatcher.sql`；單一 `minute-notification-dispatcher`、各目標 SQL 預檢、dispatch state、賽事提醒健康檢查與訓練診斷改用 runid 視窗；`tests/database/minuteNotificationDispatcher.integration.mjs` |
+| 每分鐘通知 dispatcher（2026-10-17 已部署） | `supabase/migrations/20261017145208_minute_notification_dispatcher.sql`；單一 `minute-notification-dispatcher`、各目標 SQL 預檢、dispatch state、賽事提醒健康檢查與訓練診斷改用 runid 視窗；`tests/database/minuteNotificationDispatcher.integration.mjs` |
 | Cron history catch-up（本機完成） | `supabase/migrations/20261017145209_cron_history_catchup.sql`；`tests/database/cronHistoryCatchup.integration.mjs` |
 | Cron history retention（已部署） | `supabase/migrations/20261009051707_cron_run_history_retention.sql`；30 天＋現有 job 最新 10 筆、500 筆批次與持久掃描進度 |
 | Last-seen 節流（history 已補齊） | `supabase/migrations/20261011161534_profile_last_seen_write_throttle.sql`；2026-10-12 部署以補齊既有線上 auth.uid() 本人 5 分鐘節流的 migration history，function body 與 ACL 未變 |
