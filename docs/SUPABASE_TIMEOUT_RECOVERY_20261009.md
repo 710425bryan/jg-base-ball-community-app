@@ -190,6 +190,15 @@ Deployment order (each step needs explicit approval; none has been executed):
 | 23:21–23:22 | Post-check | Dispatcher runs succeeded in 23–27 ms with a 50-byte stored command. The newest HTTP response was still 23:20:00, so no new response rows were created after deployment. State rows exist with the captured match reminder URL and zero dispatches. New private functions deny anon, authenticated and service_role. Pre-checks returned team outbox idle, coach outbox pending (will report `not_configured` until Vault is complete, same as before), match reminder and holiday not due. |
 | 23:22 | ADMIN read of `get_match_reminder_health_status()` and training diagnostics (read-only transaction, rolled back) | Health returned cron succeeded and "no dispatch yet". Its `unhealthy` status came from three `failed_push` health alerts created at 18:00 that day, before deployment (Web Push delivery failures, a separate open issue). Diagnostics returned the ten most recent runs from the runid window without secret keys. |
 
-Still open: verify the first real dispatch at the next rule time (10:00 Taipei on 2026-10-18), that is one dispatch, a 2xx for that request id and the expected reminder events; then compare 24-hour cron row and HTTP counts against the estimate. The catch-up migration `20261017145209` and match fee guard `20261017150507` are not deployed.
+Still open: verify the first real dispatch at the next rule time (10:00 Taipei on 2026-10-18), that is one dispatch, a 2xx for that request id and the expected reminder events; then compare 24-hour cron row and HTTP counts against the estimate. Later the same night, at the user's request:
+
+| Time (Taipei) | Action | Result |
+| --- | --- | --- |
+| 23:28 | Preflight | Fee sync and both trigger functions still matched the tested md5 (`ffe9e104…`, `c6dc3ece…`, `bb8d08a9…`); ACL postgres/service_role. Rolled-back probe re-syncing all matches rewrote 70 of 283 fee rows. |
+| about 23:29 | Applied `20261017145209` and repaired history | `private.prune_cron_history_catchup()` exists as an invoker procedure without SET, not executable by API roles. **Not scheduled**: the activation script was not run. |
+| about 23:30 | Applied `20261017150507` and repaired history | Guard marker present; trigger functions replaced; ACL, SECURITY DEFINER and search_path unchanged. |
+| 23:31 | Same rolled-back probe | 0 rows rewritten. Fee business-column digest and payment-open digest identical to the preflight probe. |
+
+Remaining: decide when to run `scripts/activate-cron-history-catchup.sql` (the plan recommended one quiet night after the dispatcher), and the 10:00 reminder dispatch check.
 
 Not addressed here: Realtime WAL polling cost, `match_fee_items` no-op updates, RLS per-row permission calls and the `get_notification_feed` indexes (tracked separately).

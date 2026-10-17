@@ -232,7 +232,7 @@
 
 - 賽事資料表為 `matches`，主要 API 在 `src/services/matchesApi.ts`。
 - 編輯比賽的投手成績由 `MatchPitchingStatsEditor` 顯示；`PitchingStat.ip` 保存 0 以上整數出局數，2 代表 ⅔ 局並顯示 `0.2`，9 顯示 `3.0`，不可填小數局數。`matchPitchingStats` 共用驗證與編輯預覽，小數／空值顯示欄位錯誤、局數與防禦率暫顯示 `—`；`MatchFormDialog` 儲存時阻擋並切到投手頁籤，不自行四捨五入或修正既有資料。
-- 不收隊費（`fee_billing_mode = 'no_fee'`）球員 / 校隊仍可正常參賽並記錄成績；比賽費依獨立開關、生效日期、參賽、請假與單場免繳由 DB `sync_match_fee_items_for_match()` 判斷，參賽資格與收費資格分開。`20261017150507_match_fee_sync_noop_guard.sql`（本機完成、尚未部署）讓同步只改寫結果真的不同的未繳／取消列，賽事 trigger 在監看欄位值未變時直接返回，請假 trigger 忽略未改人員／日期／時段的更新並只重算涉及該球員的賽事；規則與待審／已付款保護不變，未改寫的列 `updated_at` 維持不變。驗證 `tests/database/matchFeeSyncNoopGuard.integration.mjs`（`pnpm test:payments:sql`）以同一操作序列比對套用前後結果。
+- 不收隊費（`fee_billing_mode = 'no_fee'`）球員 / 校隊仍可正常參賽並記錄成績；比賽費依獨立開關、生效日期、參賽、請假與單場免繳由 DB `sync_match_fee_items_for_match()` 判斷，參賽資格與收費資格分開。`20261017150507_match_fee_sync_noop_guard.sql`（2026-10-17 已部署正式）讓同步只改寫結果真的不同的未繳／取消列，賽事 trigger 在監看欄位值未變時直接返回，請假 trigger 忽略未改人員／日期／時段的更新並只重算涉及該球員的賽事；規則與待審／已付款保護不變，未改寫的列 `updated_at` 維持不變。驗證 `tests/database/matchFeeSyncNoopGuard.integration.mjs`（`pnpm test:payments:sql`）以同一操作序列比對套用前後結果。
 - `/calendar` 是登入後賽程入口，`?match_id=` 會開啟 `MatchDetailDialog`；推播與通知連結應導向 `/calendar?match_id=...`。
 - 個人成績頁 `/my-records` 不直接使用後台 `matchesApi` 讀列表，而是透過 `myPlayerRecords` RPC 依球員可見範圍取回比賽紀錄；打擊 / 投球彙總邏輯在 `src/utils/matchRecordStats.ts`。
 - `matchesApi` 保留 `google_calendar_event_id` 欄位缺失 / schema cache 尚未更新時的 fallback。
@@ -434,7 +434,7 @@
 - 修改 Edge Function 或外部 API 前讀 `docs/EDGE_FUNCTIONS.md`，確認所需 env、auth 模式與對應 skill。
 - Storage bucket policy 要跟功能權限一致；例如 avatars、equipments、matches-photos 各自有不同使用情境。
 - 2026-10-09 正式專案已部署 cron history retention `20261009051707`：已結束紀錄保留 30 天，另保留每個現有排程最新 10 筆；每批最多掃描 500 筆。台灣每日 03:20 維護 `net._http_response`（一般 VACUUM、只 ANALYZE `created`），03:30 執行 retention；詳細限制及初次分批清理進度見維護報告，不可宣稱歷史積欠已清完。
-- 每分鐘通知排程集中於 `minute-notification-dispatcher`（`20261017145208`，2026-10-17 已部署正式）：cron command 只保留函式呼叫，各目標先在 SQL 預檢有工作才 `net.http_post`。新增每分鐘排程時優先加入此 dispatcher 並寫預檢條件，不要再新增長 DO 區塊或無條件 HTTP 的每分鐘 cron；查 `cron.job_run_details` 一律用最新 runid 視窗，不可依 start_time 全表排序或以 LIKE 掃 `net._http_response`。cron 歷史積欠以 `scripts/activate-cron-history-catchup.sql` 夜間分批追趕（尚未啟用）。
+- 每分鐘通知排程集中於 `minute-notification-dispatcher`（`20261017145208`，2026-10-17 已部署正式）：cron command 只保留函式呼叫，各目標先在 SQL 預檢有工作才 `net.http_post`。新增每分鐘排程時優先加入此 dispatcher 並寫預檢條件，不要再新增長 DO 區塊或無條件 HTTP 的每分鐘 cron；查 `cron.job_run_details` 一律用最新 runid 視窗，不可依 start_time 全表排序或以 LIKE 掃 `net._http_response`。cron 歷史積欠以 `scripts/activate-cron-history-catchup.sql` 夜間分批追趕（程序已部署，排程尚未啟用）。
 - `scripts/supabase-recovery-observer.mjs` 每次只做唯讀觀察，執行資料放在須保持 Git ignored 的 `.codex/runtime/`；它不清理資料、不自行發送告警，也不能代替持續在線的外部監控。
 
 ## 10. 驗證矩陣
